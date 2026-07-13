@@ -1,0 +1,12 @@
+torch
+torchvision
+diffusers
+transformers
+accelerate
+sentencepiece
+protobuf
+safetensors
+mlx
+coremltools
+mflux
+aneforge>=0.2.0
