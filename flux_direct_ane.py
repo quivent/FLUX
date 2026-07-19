@@ -24,6 +24,9 @@ DEFAULT_ANEFORGE_PROJECTION_BENCHMARK = (
 DEFAULT_ANEFORGE_OPTIMIZED_PROJECTION_PLAN = (
     "/Users/joshkornreich/Models/flux1/ane/direct/aneforge_optimized_projection_plan_1024x1024.json"
 )
+DEFAULT_ANEFORGE_ATTENTION_BENCHMARK = (
+    "/Users/joshkornreich/Models/flux1/ane/direct/aneforge_attention_1024x1024_benchmark.json"
+)
 
 
 def parse_dtype(name):
@@ -1171,6 +1174,56 @@ def aneforge_conv1x1_chunked_samples(af, x_np, w_np, chunks, iterations=10, comp
     return samples, compile_seconds, out_sum
 
 
+def mps_sdpa_samples(q_np, k_np, v_np, iterations=3, warmup=1):
+    q_t = torch.from_numpy(q_np).to("mps")
+    k_t = torch.from_numpy(k_np).to("mps")
+    v_t = torch.from_numpy(v_np).to("mps")
+    for _ in range(warmup):
+        _ = torch.nn.functional.scaled_dot_product_attention(q_t, k_t, v_t)
+    sync()
+    samples = []
+    for _ in range(iterations):
+        started = time.perf_counter()
+        _ = torch.nn.functional.scaled_dot_product_attention(q_t, k_t, v_t)
+        sync()
+        samples.append(time.perf_counter() - started)
+    return samples
+
+
+def aneforge_tiled_sdpa_samples(af, q_np, k_np, v_np, tiles, iterations=5, compress="int8"):
+    from aneforge import graph as g
+
+    _, heads, seq_q, head_dim = q_np.shape
+    _, _, seq_kv, _ = k_np.shape
+    qh = g.input((heads, seq_q, head_dim))
+    kh = g.input((heads, seq_kv, head_dim))
+    vh = g.input((heads, seq_kv, head_dim))
+    kt = kh.transpose([0, 2, 1])
+    scale = 1.0 / (head_dim**0.5)
+    tile_size = -(-seq_q // int(tiles))
+    parts = []
+    for start in range(0, seq_q, tile_size):
+        tile = min(tile_size, seq_q - start)
+        qt = qh.slice_by_size([0, start, 0], [heads, tile, head_dim])
+        parts.append(((qt @ kt) * scale).softmax(-1) @ vh)
+    y = g.concat(parts, axis=1) if len(parts) > 1 else parts[0]
+    started = time.perf_counter()
+    net = af.compile(y, validate=False, compress=compress)
+    compile_seconds = time.perf_counter() - started
+    q_arg = np.ascontiguousarray(q_np[0])
+    k_arg = np.ascontiguousarray(k_np[0])
+    v_arg = np.ascontiguousarray(v_np[0])
+    net(q_arg, k_arg, v_arg)
+    samples = []
+    out = None
+    for _ in range(iterations):
+        started = time.perf_counter()
+        out = net(q_arg, k_arg, v_arg)
+        samples.append(time.perf_counter() - started)
+    out_sum = float(np.asarray(out).astype("float32").sum()) if out is not None else 0.0
+    return samples, compile_seconds, out_sum
+
+
 def aneforge_projection_benchmark(args):
     if not torch.backends.mps.is_available():
         raise RuntimeError("MPS is not available; benchmark needs the GPU baseline")
@@ -1368,6 +1421,100 @@ def aneforge_optimized_projection_plan(args):
     )
 
 
+def aneforge_attention_benchmark(args):
+    if not torch.backends.mps.is_available():
+        raise RuntimeError("MPS is not available; benchmark needs the GPU baseline")
+    af = require_aneforge()
+    out_dir = pathlib.Path(args.out_dir).expanduser()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cases = [
+        ("sdpa_tile_512", 512, 512, 24, 128, 1, 0),
+        ("sdpa_tile_1024_tiled4", 1024, 1024, 24, 128, 4, 0),
+        ("flux_joint_attention_core_4608_tiled8", 4608, 4608, 24, 128, 8, 57),
+    ]
+    results = []
+    for index, (name, seq_q, seq_kv, heads, head_dim, tiles, invocations_per_step) in enumerate(cases):
+        rng = torch.Generator(device="cpu").manual_seed(args.seed + index)
+        shape_q = (1, heads, seq_q, head_dim)
+        shape_kv = (1, heads, seq_kv, head_dim)
+        q_np = torch.randn(shape_q, generator=rng, dtype=torch.float32).mul(0.1).to(torch.float16).numpy()
+        k_np = torch.randn(shape_kv, generator=rng, dtype=torch.float32).mul(0.1).to(torch.float16).numpy()
+        v_np = torch.randn(shape_kv, generator=rng, dtype=torch.float32).mul(0.1).to(torch.float16).numpy()
+        flops = 4 * heads * seq_q * seq_kv * head_dim
+        mps = mps_sdpa_samples(q_np, k_np, v_np, args.mps_iterations, args.warmup)
+        mps_median = median_seconds(mps)
+        item = {
+            "name": name,
+            "shape_bhsd": [1, heads, seq_q, head_dim],
+            "kv_tokens": seq_kv,
+            "tiles": tiles,
+            "invocations_per_step": invocations_per_step,
+            "gflops_qk_plus_av": flops / 1e9,
+            "mps_median_ms": mps_median * 1000,
+            "mps_samples_ms": [round(sample * 1000, 3) for sample in mps],
+            "mps_tflops": flops / mps_median / 1e12,
+        }
+        try:
+            ane, compile_seconds, out_sum = aneforge_tiled_sdpa_samples(
+                af, q_np, k_np, v_np, tiles, args.ane_iterations, args.compress
+            )
+            ane_median = median_seconds(ane)
+            item.update(
+                {
+                    "ane_tiled_median_ms": ane_median * 1000,
+                    "ane_samples_ms": [round(sample * 1000, 3) for sample in ane],
+                    "ane_tflops": flops / ane_median / 1e12,
+                    "speedup_ane_vs_mps": mps_median / ane_median,
+                    "compile_s": compile_seconds,
+                    "out_sum": out_sum,
+                    "saved_ms_per_invocation": (mps_median - ane_median) * 1000,
+                    "saved_seconds_28_steps": (
+                        (mps_median - ane_median) * invocations_per_step * args.steps
+                    ),
+                }
+            )
+        except Exception as exc:
+            item["error"] = repr(exc)
+        results.append(item)
+
+    full_case = next((item for item in results if item["name"].startswith("flux_joint_attention_core")), None)
+    data = {
+        "version": 1,
+        "created": time.time(),
+        "shape": "1024x1024 batch1 max_text512",
+        "runtime": "ANEForge direct e5rt tiled SDPA graph; no CoreML; QK softmax AV attention core only",
+        "compress": args.compress,
+        "steps": args.steps,
+        "results": results,
+        "full_flux_attention_saved_seconds_28_steps": (
+            full_case.get("saved_seconds_28_steps") if full_case else None
+        ),
+        "notes": [
+            "This is measured direct-ANE execution through ANEForge/e5rt, not CoreML.",
+            "The full FLUX 4608-token case uses the tiled graph fallback, not the native small-sequence SDPA path.",
+            "The benchmark measures the attention core only: QK scores, softmax, and AV apply. It excludes QKV/out projections, rotary, reshapes, and residuals.",
+        ],
+    }
+    out = pathlib.Path(args.out).expanduser() if args.out else out_dir / "aneforge_attention_1024x1024_benchmark.json"
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    tmp.replace(out)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "aneforge_attention_benchmark": str(out),
+                "full_flux_attention_saved_seconds_28_steps": data["full_flux_attention_saved_seconds_28_steps"],
+                "full_flux_attention_speedup": (
+                    full_case.get("speedup_ane_vs_mps") if full_case else None
+                ),
+            },
+            sort_keys=True,
+        )
+    )
+
+
 def read_json(path):
     return json.loads(pathlib.Path(path).expanduser().read_text())
 
@@ -1396,6 +1543,7 @@ def runtime_contract(args):
     component_benchmark_path = pathlib.Path(args.component_benchmark).expanduser()
     aneforge_projection_path = pathlib.Path(args.aneforge_projection_benchmark).expanduser()
     aneforge_optimized_projection_path = pathlib.Path(args.aneforge_optimized_projection_plan).expanduser()
+    aneforge_attention_path = pathlib.Path(args.aneforge_attention_benchmark).expanduser()
     dense = read_json(dense_summary_path)
     block_bench = read_json(block_benchmark_path) if block_benchmark_path.exists() else None
     latent_bench = read_json(latent_pipeline_path) if latent_pipeline_path.exists() else None
@@ -1404,6 +1552,7 @@ def runtime_contract(args):
     aneforge_optimized_projection_plan = (
         read_json(aneforge_optimized_projection_path) if aneforge_optimized_projection_path.exists() else None
     )
+    aneforge_attention_bench = read_json(aneforge_attention_path) if aneforge_attention_path.exists() else None
     dual_manifest = read_json(out_dir / "dual_block_0_1024x1024.json")
     single_manifest = read_json(out_dir / "single_block_0_1024x1024.json")
 
@@ -1461,6 +1610,7 @@ def runtime_contract(args):
             "aneforge_optimized_projection_plan": (
                 str(aneforge_optimized_projection_path) if aneforge_optimized_projection_plan else ""
             ),
+            "aneforge_attention_benchmark": str(aneforge_attention_path) if aneforge_attention_bench else "",
             "dual_manifest": str(out_dir / "dual_block_0_1024x1024.json"),
             "single_manifest": str(out_dir / "single_block_0_1024x1024.json"),
             "dual_projection_fit": str(out_dir / "dual_block_0_1024x1024.projectionplan.anefit.json"),
@@ -1493,6 +1643,7 @@ def runtime_contract(args):
         "measured_components": None,
         "measured_direct_ane_projection_evidence": None,
         "measured_direct_ane_optimized_projection_plan": None,
+        "measured_direct_ane_attention_evidence": None,
         "schedule": {
             "steps": steps,
             "dual_blocks_per_step": dual_blocks,
@@ -1612,6 +1763,15 @@ def runtime_contract(args):
             ],
             "results": aneforge_optimized_projection_plan["results"],
         }
+    if aneforge_attention_bench:
+        contract["measured_direct_ane_attention_evidence"] = {
+            "source": str(aneforge_attention_path),
+            "runtime": aneforge_attention_bench["runtime"],
+            "full_flux_attention_saved_seconds_28_steps": aneforge_attention_bench[
+                "full_flux_attention_saved_seconds_28_steps"
+            ],
+            "results": aneforge_attention_bench["results"],
+        }
 
     out = pathlib.Path(args.out).expanduser() if args.out else out_dir / "direct_runtime_contract_1024x1024.json"
     tmp = out.with_suffix(".tmp")
@@ -1645,6 +1805,9 @@ def runtime_contract(args):
                 "direct_ane_optimized_saved_seconds_28_steps": (
                     contract["measured_direct_ane_optimized_projection_plan"] or {}
                 ).get("total_saved_seconds_28_vs_mps_separate"),
+                "direct_ane_full_attention_saved_seconds_28_steps": (
+                    contract["measured_direct_ane_attention_evidence"] or {}
+                ).get("full_flux_attention_saved_seconds_28_steps"),
             },
             sort_keys=True,
         )
@@ -1763,6 +1926,23 @@ def runtime_report(args):
                 f"{item['speedup_vs_mps_separate']:.2f}x vs separate, "
                 f"{seconds(item['saved_seconds_28_vs_mps_separate'])} over 28 steps"
             )
+    if contract.get("measured_direct_ane_attention_evidence"):
+        evidence = contract["measured_direct_ane_attention_evidence"]
+        print()
+        print("Measured Direct ANE Attention Evidence:")
+        print(f"- runtime: {evidence['runtime']}")
+        print(f"- full FLUX attention-core impact: {seconds(evidence['full_flux_attention_saved_seconds_28_steps'])}")
+        for item in evidence["results"]:
+            if "speedup_ane_vs_mps" not in item:
+                print(f"- {item['name']}: {item.get('error', 'no result')}")
+                continue
+            impact = item["saved_seconds_28_steps"]
+            impact_text = "diagnostic tile" if item["invocations_per_step"] == 0 else f"{seconds(impact)} over 28 steps"
+            print(
+                f"- {item['name']}: MPS {item['mps_median_ms']:.2f}ms, "
+                f"ANE {item['ane_tiled_median_ms']:.2f}ms, "
+                f"{item['speedup_ane_vs_mps']:.2f}x, {impact_text}"
+            )
     print()
     print("Boundary pressure:")
     print(f"- image hidden tensor: {boundary['image_hidden_mib']:.1f} MiB")
@@ -1827,6 +2007,7 @@ def main():
     contract.add_argument("--component-benchmark", default=DEFAULT_COMPONENT_BENCHMARK)
     contract.add_argument("--aneforge-projection-benchmark", default=DEFAULT_ANEFORGE_PROJECTION_BENCHMARK)
     contract.add_argument("--aneforge-optimized-projection-plan", default=DEFAULT_ANEFORGE_OPTIMIZED_PROJECTION_PLAN)
+    contract.add_argument("--aneforge-attention-benchmark", default=DEFAULT_ANEFORGE_ATTENTION_BENCHMARK)
     contract.add_argument("--out", default="")
     contract.add_argument("--steps", type=int, default=28)
     contract.add_argument("--dual-blocks", type=int, default=19)
@@ -1913,6 +2094,19 @@ def main():
     optimized_aneforge.add_argument("--ane-iterations", type=int, default=10)
     optimized_aneforge.add_argument("--compress", default="int8")
 
+    aneforge_attention = sub.add_parser(
+        "aneforge-attention-benchmark",
+        help="measure direct-ANE ANEForge tiled SDPA attention core",
+    )
+    aneforge_attention.add_argument("--out-dir", default=os.environ.get("FLUX_DIRECT_ANE_DIR", DEFAULT_OUT_DIR))
+    aneforge_attention.add_argument("--out", default="")
+    aneforge_attention.add_argument("--seed", type=int, default=8000)
+    aneforge_attention.add_argument("--steps", type=int, default=28)
+    aneforge_attention.add_argument("--warmup", type=int, default=1)
+    aneforge_attention.add_argument("--mps-iterations", type=int, default=3)
+    aneforge_attention.add_argument("--ane-iterations", type=int, default=5)
+    aneforge_attention.add_argument("--compress", default="int8")
+
     args = parser.parse_args()
     if args.cmd == "capture-block":
         capture(args)
@@ -1938,6 +2132,8 @@ def main():
         aneforge_projection_benchmark(args)
     elif args.cmd == "aneforge-optimized-projection-plan":
         aneforge_optimized_projection_plan(args)
+    elif args.cmd == "aneforge-attention-benchmark":
+        aneforge_attention_benchmark(args)
 
 
 if __name__ == "__main__":
