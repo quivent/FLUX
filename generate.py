@@ -56,7 +56,7 @@ def main() -> int:
     print(f"device={device} dtype={args.dtype}")
 
     pipe = FluxPipeline.from_pretrained(
-        model_dir,
+        str(model_dir),
         torch_dtype=dtype,
         local_files_only=True,
     )

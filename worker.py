@@ -276,7 +276,7 @@ class Worker:
             return
         print(f"loading_img2img_model={self.model_dir} backend={self.default_backend} device={device}", flush=True)
         pipe = FluxImg2ImgPipeline.from_pretrained(
-            self.model_dir,
+            str(self.model_dir),
             torch_dtype=torch.bfloat16,
             local_files_only=True,
         )
@@ -352,7 +352,7 @@ class Worker:
             return
         print(f"loading model={self.model_dir} backend={self.default_backend} device={device}", flush=True)
         pipe = FluxPipeline.from_pretrained(
-            self.model_dir,
+            str(self.model_dir),
             torch_dtype=torch.bfloat16,
             local_files_only=True,
         )
