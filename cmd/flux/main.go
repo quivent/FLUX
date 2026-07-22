@@ -1484,24 +1484,41 @@ func bench(cfg config.Config, args []string) error {
 func download(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("download", flag.ExitOnError)
 	plain := fs.Bool("plain", false, "print copy-safe shell command only")
+	run := fs.Bool("run", false, "run the Hugging Face snapshot download now")
 	workers := fs.Int("workers", 8, "hf download workers")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	patterns := fluxDownloadPatterns()
 	lines := []string{
 		"hf download black-forest-labs/FLUX.1-dev \\",
 		fmt.Sprintf("  --local-dir %s \\", cfg.ModelDir),
-		"  --include model_index.json \\",
-		"  --include 'scheduler/*' \\",
-		"  --include 'text_encoder/*' \\",
-		"  --include 'text_encoder_2/*' \\",
-		"  --include 'tokenizer/*' \\",
-		"  --include 'tokenizer_2/*' \\",
-		"  --include 'transformer/*' \\",
-		"  --include 'vae/*' \\",
-		"  --include README.md \\",
-		"  --include LICENSE.md \\",
-		fmt.Sprintf("  --max-workers %d", *workers),
+	}
+	for _, pattern := range patterns {
+		lines = append(lines, fmt.Sprintf("  --include %s \\", shellQuote(pattern)))
+	}
+	lines = append(lines, fmt.Sprintf("  --max-workers %d", *workers))
+	if *run {
+		ui.Header("download", "running FLUX.1-dev BF16 Diffusers fetch")
+		ui.KV("target", cfg.ModelDir)
+		ui.KV("python", cfg.Python)
+		patternsJSON, err := json.Marshal(patterns)
+		if err != nil {
+			return err
+		}
+		modelDirJSON, err := json.Marshal(cfg.ModelDir)
+		if err != nil {
+			return err
+		}
+		script := fmt.Sprintf(`from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id="black-forest-labs/FLUX.1-dev",
+    local_dir=%s,
+    allow_patterns=%s,
+    max_workers=%d,
+)
+`, string(modelDirJSON), string(patternsJSON), *workers)
+		return runner.StreamNoResult(context.Background(), nil, cfg.Python, "-c", script)
 	}
 	if *plain {
 		fmt.Println(strings.Join(lines, "\n"))
@@ -1516,6 +1533,31 @@ func download(cfg config.Config, args []string) error {
 	fmt.Println()
 	fmt.Println(ui.Soft("Requires: hf auth login, accepted FLUX.1-dev license, and about 32 GB free."))
 	return nil
+}
+
+func fluxDownloadPatterns() []string {
+	return []string{
+		"model_index.json",
+		"scheduler/*",
+		"text_encoder/*",
+		"text_encoder_2/*",
+		"tokenizer/*",
+		"tokenizer_2/*",
+		"transformer/*",
+		"vae/*",
+		"README.md",
+		"LICENSE.md",
+	}
+}
+
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	if strings.ContainsAny(value, " \t\n'\"\\$`!*?[]{}()<>;&|") {
+		return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	}
+	return value
 }
 
 func gpu(cfg config.Config, args []string) error {
@@ -2220,6 +2262,26 @@ func readStateJobs(path string) []map[string]any {
 		}
 	}
 	return jobs
+}
+
+func fluxModelReady(modelDir string) bool {
+	required := []string{
+		"model_index.json",
+		"scheduler/scheduler_config.json",
+		"text_encoder/model.safetensors",
+		"text_encoder_2/model-00001-of-00002.safetensors",
+		"text_encoder_2/model-00002-of-00002.safetensors",
+		"transformer/diffusion_pytorch_model-00001-of-00003.safetensors",
+		"transformer/diffusion_pytorch_model-00002-of-00003.safetensors",
+		"transformer/diffusion_pytorch_model-00003-of-00003.safetensors",
+		"vae/diffusion_pytorch_model.safetensors",
+	}
+	for _, rel := range required {
+		if _, err := os.Stat(filepath.Join(modelDir, rel)); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func cancelJob(cfg config.Config, args []string) error {
