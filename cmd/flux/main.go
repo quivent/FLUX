@@ -2144,6 +2144,7 @@ func jobs(cfg config.Config, args []string) error {
 		}
 	}
 	fs := flag.NewFlagSet("jobs", flag.ExitOnError)
+	allJobsFlag := fs.Bool("all", false, "show history instead of active jobs only")
 	activeOnly := fs.Bool("active", false, "show queued/running jobs only")
 	doneOnly := fs.Bool("done", false, "show completed jobs only")
 	errorsOnly := fs.Bool("errors", false, "show failed/cancelled jobs only")
@@ -2162,6 +2163,9 @@ func jobs(cfg config.Config, args []string) error {
 		allJobs = readStateJobs(statePath)
 	} else {
 		allJobs = resp.Jobs
+	}
+	if !*allJobsFlag && !*activeOnly && !*doneOnly && !*errorsOnly && !*openLatest {
+		*activeOnly = true
 	}
 	jobs := filterJobs(allJobs, *activeOnly, *doneOnly, *errorsOnly)
 	reverseJobs(jobs)
@@ -2186,7 +2190,11 @@ func jobs(cfg config.Config, args []string) error {
 	}
 	printQueueSummary(allJobs)
 	if len(jobs) == 0 {
-		fmt.Println(ui.Soft("no jobs yet"))
+		if *activeOnly {
+			fmt.Println(ui.Soft("no active jobs; use flux jobs --all for recent history"))
+		} else {
+			fmt.Println(ui.Soft("no jobs yet"))
+		}
 		return nil
 	}
 	for _, job := range jobs {
@@ -2395,6 +2403,9 @@ func render(cfg config.Config, args []string) error {
 	}
 	if *echo || *dryRun {
 		ui.KV("prompt", shaped)
+	}
+	if !*dryRun && !fluxModelReady(cfg.ModelDir) {
+		return fmt.Errorf("missing FLUX.1-dev Diffusers snapshot at %s; run `hf auth login` with accepted black-forest-labs/FLUX.1-dev access, then `flux download --run` or the printed `flux download` command", cfg.ModelDir)
 	}
 
 	baseArgs := []string{
