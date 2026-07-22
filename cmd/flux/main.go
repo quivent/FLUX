@@ -68,6 +68,8 @@ func main() {
 		err = warm(cfg, os.Args[2:])
 	case "serve", "http":
 		err = serve(cfg, os.Args[2:])
+	case "gallery", "view":
+		err = gallery(cfg, os.Args[2:])
 	case "remote":
 		err = remote(os.Args[2:])
 	case "stop":
@@ -1682,6 +1684,40 @@ func serve(cfg config.Config, args []string) error {
 	ui.KV("client", fmt.Sprintf("flux remote status --url http://%s", *addr))
 	if *open {
 		server.OpenBrowser("http://" + *addr)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken})
+}
+
+func gallery(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("gallery", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, mps, mlx, coreml, ane, cpu")
+	token := fs.String("token", "", "HTTP bearer token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
+	open := fs.Bool("open", false, "open the gallery in the default browser")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	cfg.Backend = strings.ToLower(*backend)
+	resolvedToken := resolveToken(*token, *tokenEnv)
+	if publicBindAddr(*addr) && resolvedToken == "" && !*unsafeNoAuth {
+		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
+	}
+	url := "http://" + *addr + "/gallery"
+	ui.Header("gallery", "Atelier live archive over the FLUX socket")
+	ui.KV("url", url)
+	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
+	ui.KV("backend", cfg.Backend)
+	ui.KV("stream", "/api/jobs/events /api/img2img/events /api/gallery/events")
+	ui.KV("outputs", cfg.OutputDir)
+	if *open {
+		server.OpenBrowser(url)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

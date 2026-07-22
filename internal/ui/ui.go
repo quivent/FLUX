@@ -252,6 +252,8 @@ func Usage() {
 		{"serve", "local HTTP API and dashboard backed by the worker socket"},
 		{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires a bearer token"},
 		{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
+		{"gallery", "start the Atelier gallery server at /gallery"},
+		{"gallery --open", "open the live gallery in the default browser"},
 		{"remote", "call an exposed FLUX HTTP endpoint"},
 		{"stop", "stop the resident worker"},
 		{"jobs", "summarize queued/running/done worker jobs"},

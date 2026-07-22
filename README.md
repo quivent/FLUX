@@ -34,6 +34,7 @@ Use it:
 ./flux download
 ./flux warm
 ./flux serve
+./flux gallery --open
 ./flux render "glass cabin in snow" --preset hero --async
 ./flux jobs
 ./flux stop
@@ -74,6 +75,7 @@ Second-pass features:
 - `burst`: multiple seed variants with one command.
 - `warm`: persistent worker that loads FLUX into memory.
 - `serve`: local HTTP API and dashboard backed by the Unix socket worker.
+- `gallery`: Atelier-style live gallery backed by the same server and event streams.
 - `render --async`: queue jobs on the worker.
 - `jobs`: inspect queued, running, finished, or failed jobs.
 - `install`: symlink `flux` into `~/.local/bin/flux`.
@@ -148,6 +150,15 @@ into memory.
 Completed jobs include a public `output_url` when the output image is in the
 configured output directory. The dashboard renders that image inline, and the
 remote CLI prints the same URL from `remote jobs` or `remote render --wait`.
+
+Start directly in the live gallery:
+
+```zsh
+flux gallery --addr 127.0.0.1:7861 --open
+```
+
+The gallery page uses the same server and streams `/api/jobs/events`,
+`/api/img2img/events`, and `/api/gallery/events`.
 
 ## Backend Benchmarking
 
