@@ -1,6 +1,8 @@
 .venv/
+.venv
 __pycache__/
 *.pyc
+*.egg-info/
 outputs/
 /flux
 /history.jsonl
