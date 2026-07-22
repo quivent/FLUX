@@ -1,0 +1,4197 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"local/flux/internal/config"
+	"local/flux/internal/daemon"
+	"local/flux/internal/history"
+	"local/flux/internal/prompt"
+	"local/flux/internal/runner"
+	"local/flux/internal/server"
+	"local/flux/internal/ui"
+)
+
+func main() {
+	cfg := config.Load()
+	if len(os.Args) < 2 {
+		ui.Usage()
+		return
+	}
+
+	var err error
+	switch os.Args[1] {
+	case "help", "-h", "--help":
+		ui.Usage()
+	case "install":
+		err = install(cfg)
+	case "setup":
+		err = setup(cfg)
+	case "doctor", "check":
+		err = doctor(cfg)
+	case "accel", "hardware", "backends":
+		err = accel(cfg)
+	case "architecture", "arch":
+		err = architecture(cfg)
+	case "atelier":
+		err = atelier(cfg, os.Args[2:])
+	case "atlas":
+		err = atlas(cfg, os.Args[2:])
+	case "anime":
+		err = anime(cfg, os.Args[2:])
+	case "ane":
+		err = ane(cfg, os.Args[2:])
+	case "bench", "benchmark":
+		err = bench(cfg, os.Args[2:])
+	case "studio", "status":
+		err = studio(cfg)
+	case "tree":
+		tree()
+	case "colors", "theme":
+		ui.Palette()
+	case "download":
+		err = download(cfg, os.Args[2:])
+	case "warm", "launch":
+		err = warm(cfg, os.Args[2:])
+	case "serve", "http":
+		err = serve(cfg, os.Args[2:])
+	case "remote":
+		err = remote(os.Args[2:])
+	case "stop":
+		err = stopWorker(cfg)
+	case "jobs", "queue":
+		err = jobs(cfg, os.Args[2:])
+	case "render", "imagine", "forge":
+		err = render(cfg, os.Args[2:])
+	case "img2img", "i2i", "enhance", "refine":
+		err = img2img(cfg, os.Args[2:])
+	case "muse", "riff", "board":
+		err = muse(os.Args[2:])
+	case "matrix":
+		err = matrix(os.Args[2:])
+	case "pipeline", "pipe", "workflow":
+		err = pipeline(cfg, os.Args[2:])
+	case "evolve", "mutate", "prompt-evolve":
+		err = evolve(cfg, os.Args[2:])
+	case "plan":
+		err = render(cfg, append(os.Args[2:], "--dry-run", "--echo"))
+	case "shape":
+		err = shape(os.Args[2:])
+	case "spark":
+		err = spark(os.Args[2:])
+	case "recipes", "presets":
+		recipes()
+	case "history":
+		err = showHistory(cfg, os.Args[2:])
+	default:
+		err = fmt.Errorf("unknown command %q", os.Args[1])
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, ui.Bad("error:"), err)
+		os.Exit(1)
+	}
+}
+
+func install(cfg config.Config) error {
+	ui.Header("install", "linking flux into ~/.local/bin")
+	binDir := "/Users/joshkornreich/.local/bin"
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return err
+	}
+	source := filepath.Join(cfg.Root, "flux")
+	target := filepath.Join(binDir, "flux")
+	if _, err := os.Stat(source); err != nil {
+		return fmt.Errorf("missing %s; run make flux first", source)
+	}
+	_ = os.Remove(target)
+	if err := os.Symlink(source, target); err != nil {
+		return err
+	}
+	ui.KV("installed", target)
+	ui.KV("target", source)
+	return nil
+}
+
+func setup(cfg config.Config) error {
+	ui.Header("setup", "creating Python environment for local FLUX generation")
+	if _, err := exec.LookPath("uv"); err != nil {
+		return fmt.Errorf("uv is not installed or not on PATH")
+	}
+	steps := [][]string{
+		{"uv", "venv", ".venv", "--python", "python3.13"},
+		{"uv", "pip", "install", "--python", filepath.Join(".venv", "bin", "python"), "-r", "requirements.txt"},
+	}
+	for _, step := range steps {
+		ui.Step(strings.Join(step, " "))
+		if _, err := runner.Stream(context.Background(), nil, step[0], step[1:]...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func doctor(cfg config.Config) error {
+	ui.Header("doctor", "model, package, and BF16 sanity checks")
+	ui.KV("root", cfg.Root)
+	ui.KV("model", cfg.ModelDir)
+	ui.KV("python", cfg.Python)
+	_, err := runner.Stream(context.Background(), map[string]string{
+		"MODEL_DIR": cfg.ModelDir,
+	}, cfg.Python, cfg.CheckPy)
+	return err
+}
+
+func accel(cfg config.Config) error {
+	ui.Header("accel", "Apple Silicon backend posture")
+	ui.KV("default active", "PyTorch Diffusers -> MPS/Metal")
+	ui.KV("selected", cfg.Backend)
+	ui.KV("checkpoint", "BF16 Diffusers")
+	ui.KV("socket", "resident worker with per-job backend")
+	ui.KV("profile", daemon.New(cfg).ProfilePath())
+	ui.KV("amx", "CPU fallback / auxiliary work only")
+	ui.KV("ane", "requires validated full-pipeline package")
+	ui.KV("architecture", filepath.Join(cfg.Root, "ACCELERATION.md"))
+	fmt.Println()
+	ui.Suite("backend policy", ui.Teal, []ui.PairRow{
+		{"mps", "current default, highest compatibility"},
+		{"mlx", "next native Apple Silicon backend to benchmark"},
+		{"coreml", "fixed-shape compiled backend candidate"},
+		{"ane", "strict backend gated by registry and validation"},
+		{"cpu/amx", "fallback and auxiliary work, not primary FLUX generation"},
+	})
+	fmt.Println()
+	script := `
+import json, platform
+out = {"python": platform.python_version(), "machine": platform.machine()}
+try:
+    import torch
+    out["torch"] = torch.__version__
+    out["mps_available"] = bool(torch.backends.mps.is_available())
+except Exception as exc:
+    out["torch_error"] = repr(exc)
+try:
+    import mlx.core as mx
+    out["mlx"] = getattr(mx, "__version__", "installed")
+except Exception as exc:
+    out["mlx_error"] = type(exc).__name__ + ": " + str(exc)
+try:
+    import coremltools as ct
+    out["coremltools"] = ct.__version__
+except Exception as exc:
+    out["coremltools_error"] = type(exc).__name__ + ": " + str(exc)
+try:
+    import os, pathlib, shutil
+    root = pathlib.Path(os.environ.get("FLUX_ROOT", ""))
+    local = root / ".venv/bin/mflux-generate"
+    out["mflux_generate"] = shutil.which("mflux-generate") or (str(local) if local.exists() else "")
+except Exception as exc:
+    out["mflux_error"] = type(exc).__name__ + ": " + str(exc)
+try:
+    import os, pathlib
+    coreml_env = os.environ.get("FLUX_COREML_MODEL", "")
+    coreml_path = pathlib.Path(coreml_env) if coreml_env else pathlib.Path(os.environ.get("MODEL_DIR", "")) / "coreml"
+    out["coreml_model"] = str(coreml_path)
+    out["coreml_compiled"] = coreml_path.exists()
+except Exception as exc:
+    out["coreml_model_error"] = type(exc).__name__ + ": " + str(exc)
+try:
+    import flux_ane
+    out.update(flux_ane.capabilities(os.environ.get("MODEL_DIR", "")))
+except Exception as exc:
+    out["ane_error"] = type(exc).__name__ + ": " + str(exc)
+print(json.dumps(out, sort_keys=True))
+`
+	cmd := exec.Command(cfg.Python, "-c", script)
+	cmd.Env = append(os.Environ(), "FLUX_ROOT="+cfg.Root, "MODEL_DIR="+cfg.ModelDir)
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("capability probe failed: %w", err)
+	}
+	var probe map[string]any
+	if err := json.Unmarshal(out, &probe); err != nil {
+		return err
+	}
+	ui.Header("probe", "local Python backend availability")
+	for _, key := range []string{"python", "machine", "torch", "mps_available", "mlx", "mflux_generate", "coremltools", "coreml_model", "coreml_compiled", "ane_registry", "ane_registry_exists", "ane_packages", "ane_components", "ane_validated", "ane_renderable", "ane_error", "mlx_error", "mflux_error", "coremltools_error", "coreml_model_error", "torch_error"} {
+		if value, ok := probe[key]; ok {
+			ui.KV(key, value)
+		}
+	}
+	return nil
+}
+
+func architecture(cfg config.Config) error {
+	ui.Header("architecture", "resident FLUX control plane")
+	ui.KV("cli", "flux -> Go command router")
+	ui.KV("worker", "worker.py over Unix socket")
+	ui.KV("socket", filepath.Join(cfg.Root, ".fluxd", "flux.sock"))
+	ui.KV("state", filepath.Join(cfg.Root, ".fluxd", "jobs.jsonl"))
+	ui.KV("profile", filepath.Join(cfg.Root, ".fluxd", "profile.json"))
+	ui.KV("http", "flux serve -> /api/health /api/jobs /api/render /outputs")
+	ui.KV("public", "cloudflared -> flux.sakure.network and anime.sakure.network/api")
+	ui.KV("outputs", cfg.OutputDir)
+	fmt.Println()
+	ui.Suite("request flow", ui.Teal, []ui.PairRow{
+		{"local render", "flux render -> socket submit -> worker queue -> output png"},
+		{"remote render", "HTTP /api/render -> same socket submit -> worker queue"},
+		{"anime page", "anime.sakure.network/flux -> same-origin /api/jobs and /outputs"},
+		{"queue reader", "flux jobs and HTTP /api/jobs read .fluxd/jobs.jsonl through worker"},
+	})
+	fmt.Println()
+	ui.Suite("acceleration", ui.Gold, []ui.PairRow{
+		{"mps", "active PyTorch Diffusers backend on Apple GPU"},
+		{"mlx", "candidate backend, selected by benchmark profile when available"},
+		{"coreml", "compiled fixed-shape candidate"},
+		{"ane", "strict validated-package path; not active until renderable package exists"},
+		{"amx/cpu", "fallback and auxiliary CPU execution"},
+	})
+	fmt.Println()
+	ui.KV("doc", filepath.Join(cfg.Root, "ACCELERATION.md"))
+	return nil
+}
+
+type atelierStudy struct {
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Kind     string   `json:"kind"`
+	Status   string   `json:"status"`
+	Source   string   `json:"source"`
+	Evidence string   `json:"evidence"`
+	Takeaway string   `json:"takeaway"`
+	CLI      string   `json:"cli"`
+	Commands []string `json:"commands,omitempty"`
+}
+
+type atelierStudyJSON struct {
+	atelierStudy
+	SourceExists bool `json:"source_exists"`
+}
+
+func atelier(cfg config.Config, args []string) error {
+	if len(args) == 0 {
+		ui.Header("atelier", "imported Atelier research surfaces")
+		ui.Suite("subcommands", ui.Teal, []ui.PairRow{
+			{"studies", "FLUX.1-related Atelier studies indexed for this CLI"},
+			{"studies <id>", "show one study with source and command implications"},
+			{"studies --open <id>", "open the source document in ~/Atelier"},
+			{"studies --json", "machine-readable study registry"},
+		})
+		return nil
+	}
+	switch args[0] {
+	case "studies", "study":
+		return atelierStudies(cfg, args[1:])
+	default:
+		return fmt.Errorf("unknown atelier command %q; use studies", args[0])
+	}
+}
+
+func atelierStudies(cfg config.Config, args []string) error {
+	if len(args) >= 2 && args[0] == "open" {
+		args = append([]string{"--open", args[1]}, args[2:]...)
+	}
+	ordered, err := reorderAtelierStudiesArgs(args)
+	if err != nil {
+		return err
+	}
+	fs := flag.NewFlagSet("atelier studies", flag.ExitOnError)
+	jsonOut := fs.Bool("json", false, "print machine-readable study registry")
+	commandsOnly := fs.Bool("commands", false, "print related CLI commands only")
+	pathsOnly := fs.Bool("paths", false, "print source paths only")
+	kind := fs.String("kind", "", "filter by kind")
+	openID := fs.String("open", "", "open a study source by id")
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	studies := filterAtelierStudies(atelierStudyRegistry(atelierRoot()), *kind)
+	target := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if *openID != "" {
+		study := findAtelierStudy(studies, *openID)
+		if study == nil {
+			return fmt.Errorf("unknown Atelier study %q", *openID)
+		}
+		if err := exec.Command("open", study.Source).Run(); err != nil {
+			return err
+		}
+		if !*jsonOut && !*commandsOnly && !*pathsOnly {
+			ui.Header("atelier studies", "opened source")
+			ui.KV("id", study.ID)
+			ui.KV("source", study.Source)
+		}
+		return nil
+	}
+	if target != "" {
+		study := findAtelierStudy(studies, target)
+		if study == nil {
+			return fmt.Errorf("unknown Atelier study %q", target)
+		}
+		if *jsonOut {
+			return json.NewEncoder(os.Stdout).Encode(atelierStudyForJSON(*study))
+		}
+		if *commandsOnly {
+			printStudyCommands(*study)
+			return nil
+		}
+		if *pathsOnly {
+			fmt.Println(study.Source)
+			return nil
+		}
+		printAtelierStudy(*study)
+		return nil
+	}
+	if *jsonOut {
+		out := make([]atelierStudyJSON, 0, len(studies))
+		for _, study := range studies {
+			out = append(out, atelierStudyForJSON(study))
+		}
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"root": atelierRoot(), "studies": out})
+	}
+	if *commandsOnly {
+		for _, study := range studies {
+			printStudyCommands(study)
+		}
+		return nil
+	}
+	if *pathsOnly {
+		for _, study := range studies {
+			fmt.Println(study.Source)
+		}
+		return nil
+	}
+	ui.Header("atelier studies", "FLUX.1 research imported from ~/Atelier")
+	ui.KV("atelier", atelierRoot())
+	ui.KV("studies", len(studies))
+	ui.KV("worker", ui.State("not touched"))
+	fmt.Println()
+	for i, study := range studies {
+		meta := fmt.Sprintf("%s · %s", study.Kind, filepath.Base(study.Source))
+		ui.Capsule(study.ID, meta, study.Takeaway, "flux atelier studies "+study.ID, []ui.Color{ui.Teal, ui.Gold, ui.Lilac, ui.Indigo}[i%4])
+		if i != len(studies)-1 {
+			fmt.Println()
+		}
+	}
+	return nil
+}
+
+func atelierRoot() string {
+	if home := os.Getenv("HOME"); home != "" {
+		return filepath.Join(home, "Atelier")
+	}
+	return "/Users/joshkornreich/Atelier"
+}
+
+func atelierStudyRegistry(root string) []atelierStudy {
+	src := func(parts ...string) string {
+		all := append([]string{root}, parts...)
+		return filepath.Join(all...)
+	}
+	return []atelierStudy{
+		{
+			ID:       "flux1-transport",
+			Title:    "FLUX.1 as deterministic transport",
+			Kind:     "method",
+			Status:   "research note",
+			Source:   src("docs", "research", "FLUX.md"),
+			Evidence: "The Atelier note frames FLUX as deterministic transport where seed and latent path are authorable inputs.",
+			Takeaway: "Treat seed as a controllable creative handle, not incidental randomness.",
+			CLI:      "Keep seed, job id, output path, and prompt shape visible on render and queue surfaces.",
+			Commands: []string{
+				"flux render \"glass cabin\" --preset hero --seed 617538272 --dry-run",
+				"flux jobs --active",
+				"flux history --n 8",
+			},
+		},
+		{
+			ID:       "flux1-architecture",
+			Title:    "FLUX.1 text and latent architecture",
+			Kind:     "architecture",
+			Status:   "research note",
+			Source:   src("docs", "research", "FLUX_ARCHITECTURE.md"),
+			Evidence: "FLUX.1 combines CLIP-L pooled conditioning with T5-XXL token conditioning, then denoises a 16-channel latent through MMDiT.",
+			Takeaway: "Separate global style intent from local subject/material detail when shaping prompts.",
+			CLI:      "The creative lens flags map cleanly onto global and local prompt roles.",
+			Commands: []string{
+				"flux recipes",
+				"flux shape \"forest shrine\" --style anime --camera wide --light golden --texture ink",
+				"flux evolve \"forest shrine\" --mode anime",
+			},
+		},
+		{
+			ID:       "flux1-vs-flux2",
+			Title:    "FLUX.1 vs FLUX.2 seed authorability",
+			Kind:     "comparison",
+			Status:   "intra-family study",
+			Source:   src("docs", "research", "seed-authorability", "FLUX-INTRA-FAMILY-ORDERING.md"),
+			Evidence: "The study reports FLUX.1-dev at 2.82% coarse spread and FLUX.2-dev at 3.72% under its intra-family protocol.",
+			Takeaway: "Prefer FLUX.1 for authored latent motion; treat FLUX.2 as a stronger director model with more text-side authority.",
+			CLI:      "Keep this CLI's active renderer FLUX.1-centered and expose FLUX.2 as a separate future lane.",
+			Commands: []string{
+				"flux architecture",
+				"flux atelier studies seed-layout-protocol",
+			},
+		},
+		{
+			ID:       "seed-layout-protocol",
+			Title:    "Seed-layout metric and protocol",
+			Kind:     "measurement",
+			Status:   "protocol",
+			Source:   src("docs", "research", "seed-authorability", "SEED-LAYOUT-METRIC-AND-PROTOCOL.md"),
+			Evidence: "The protocol pools images to 8x8x3, measures cross-seed spread, and locks 512x512, 24 steps, guidance 3.5, and a fixed seed block.",
+			Takeaway: "Any authorability claim needs a locked prompt, seed block, and N policy.",
+			CLI:      "Use deterministic seeds in matrix/pipeline plans and avoid mixing benchmark claims across prompt protocols.",
+			Commands: []string{
+				"flux matrix \"abstract bioglass morphing texture, seamless\" --styles material --moods clinical --cameras wide --n 1",
+				"flux render \"abstract bioglass morphing texture, seamless\" --width 512 --height 512 --steps 24 --guidance 3.5 --seed 617538272 --dry-run",
+			},
+		},
+		{
+			ID:       "flat-prompt-protocol",
+			Title:    "Flat-prompt ablation protocol",
+			Kind:     "measurement",
+			Status:   "defined matrix",
+			Source:   src("docs", "research", "seed-authorability", "FLAT-PROMPT-PROTOCOL.md"),
+			Evidence: "The crux prompt is exactly: uniform gray field, seamless, no structure.",
+			Takeaway: "Use a flat field to separate seed-layout coupling from prompt-induced composition.",
+			CLI:      "Add null-composition benchmark presets before making cross-model authorability claims.",
+			Commands: []string{
+				"flux render \"uniform gray field, seamless, no structure\" --width 512 --height 512 --steps 24 --guidance 3.5 --seed 617538272 --dry-run",
+				"flux atelier studies spectrum-battery",
+			},
+		},
+		{
+			ID:       "spectrum-battery",
+			Title:    "Seed authorability spectrum battery",
+			Kind:     "measurement",
+			Status:   "partial run",
+			Source:   src("docs", "research", "seed-authorability", "SPECTRUM-BATTERY-EXPERIMENT.md"),
+			Evidence: "The GH200 bioglass battery reports FLUX.1-dev stable near 12.4-12.8% across N=64, 128, and 256; the prompt collapses historical separation.",
+			Takeaway: "Bioglass is useful but not a neutral control; cite flat-prompt legs for model ordering.",
+			CLI:      "Surface protocol caveats next to study-derived numbers instead of burying them in docs.",
+			Commands: []string{
+				"flux atelier studies flat-prompt-protocol",
+				"flux pipeline \"uniform gray field, seamless, no structure\" --mode explore --n 1",
+			},
+		},
+		{
+			ID:       "moment-operator",
+			Title:    "Fixed-seed moment operator findings",
+			Kind:     "motion",
+			Status:   "live-system findings",
+			Source:   src("docs", "research", "MOMENT-OPERATOR-FINDINGS.md"),
+			Evidence: "The study drives a fixed-seed FLUX latent through elliptic, oscillatory, weave, and screw paths; the living band is roughly arc 0.10-0.18.",
+			Takeaway: "Motion control belongs to a latent-path workflow, not seed rerolling.",
+			CLI:      "Keep current still-generation commands separate from a future moment/motion command family.",
+			Commands: []string{
+				"flux atelier studies flux1-transport",
+				"flux architecture",
+			},
+		},
+		{
+			ID:       "flux1-runtime",
+			Title:    "FLUX.1 runtime residency",
+			Kind:     "runtime",
+			Status:   "canonical rule",
+			Source:   src("docs", "FLUX-RUNTIME-ARCHITECTURE.md"),
+			Evidence: "Atelier treats FLUX.1 as a local runtime owned by flux1_loader.py, flux_still.py, and the resident motion worker queue.",
+			Takeaway: "Do not reintroduce a model-manager owner or spin another FLUX when the socket lane is live.",
+			CLI:      "Local render, remote render, HTTP dashboard, and jobs all route through the same resident worker policy.",
+			Commands: []string{
+				"flux architecture",
+				"flux jobs --active",
+				"flux render \"glass cabin\" --async",
+			},
+		},
+		{
+			ID:       "flux1-model-shelf",
+			Title:    "FLUX.1 model shelf and loader shape",
+			Kind:     "runtime",
+			Status:   "current shape",
+			Source:   src("ui", "inference", "FLUX1_MODELS.md"),
+			Evidence: "The Atelier model shelf expects ComfyUI-style single files under ~/models/flux1 or COMFY_MODELS and renders through flux1_loader.py.",
+			Takeaway: "Keep model residency state visible while leaving generation ownership with the socket worker.",
+			CLI:      "download, warm, studio, architecture, and jobs form the operational loop.",
+			Commands: []string{
+				"flux download",
+				"flux studio",
+				"flux warm --preload=false",
+			},
+		},
+		{
+			ID:       "render-flux-language",
+			Title:    "render.flux language specification",
+			Kind:     "spec",
+			Status:   "contract",
+			Source:   src("specification", "render.flux.language"),
+			Evidence: "The spec records FLUX.1-dev as the resident moment-operator model and defines offline, latent injection, and render contract rules.",
+			Takeaway: "The CLI should describe architecture and study posture in the same terms as Atelier's render contract.",
+			CLI:      "Use architecture/studies as readable contract surfaces, not hidden implementation trivia.",
+			Commands: []string{
+				"flux tree",
+				"flux atelier studies flux1-runtime",
+			},
+		},
+		{
+			ID:       "cpu-support-lane",
+			Title:    "GH200 CPU support lane",
+			Kind:     "performance",
+			Status:   "implementation note",
+			Source:   src("ui", "inference", "cpu_pipeline.py"),
+			Evidence: "PromptCache encodes fixed prompts once and overlap() scores prior outputs on CPU while the GPU renders the next item.",
+			Takeaway: "Beyond the GPU, use CPU for prompt caching, scoring, bootstrap, and queue analysis rather than denoising.",
+			CLI:      "This complements the ANE prompt-model idea: support lanes can evolve prompts or score results while FLUX denoises elsewhere.",
+			Commands: []string{
+				"flux evolve \"forest shrine\" --engine heuristic",
+				"flux jobs --active",
+			},
+		},
+	}
+}
+
+func filterAtelierStudies(studies []atelierStudy, kind string) []atelierStudy {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "" {
+		return studies
+	}
+	out := make([]atelierStudy, 0, len(studies))
+	for _, study := range studies {
+		if strings.EqualFold(study.Kind, kind) {
+			out = append(out, study)
+		}
+	}
+	return out
+}
+
+func findAtelierStudy(studies []atelierStudy, id string) *atelierStudy {
+	id = strings.ToLower(strings.TrimSpace(id))
+	for i := range studies {
+		if strings.ToLower(studies[i].ID) == id {
+			return &studies[i]
+		}
+	}
+	return nil
+}
+
+func atelierStudyForJSON(study atelierStudy) atelierStudyJSON {
+	_, err := os.Stat(study.Source)
+	return atelierStudyJSON{atelierStudy: study, SourceExists: err == nil}
+}
+
+func printAtelierStudy(study atelierStudy) {
+	ui.Header("atelier study", study.Title)
+	ui.KV("id", study.ID)
+	ui.KV("kind", study.Kind)
+	ui.KV("status", study.Status)
+	ui.KV("source", study.Source)
+	ui.KV("source exists", ui.State(strconv.FormatBool(atelierStudyForJSON(study).SourceExists)))
+	fmt.Println()
+	ui.Suite("read", ui.Teal, []ui.PairRow{
+		{"evidence", study.Evidence},
+		{"takeaway", study.Takeaway},
+		{"cli", study.CLI},
+	})
+	if len(study.Commands) > 0 {
+		fmt.Println()
+		ui.Suite("related commands", ui.Gold, studyCommandRows(study))
+	}
+}
+
+func printStudyCommands(study atelierStudy) {
+	for _, command := range study.Commands {
+		fmt.Println(command)
+	}
+}
+
+func studyCommandRows(study atelierStudy) []ui.PairRow {
+	rows := make([]ui.PairRow, 0, len(study.Commands))
+	for _, command := range study.Commands {
+		rows = append(rows, ui.PairRow{Left: command, Right: "related action"})
+	}
+	return rows
+}
+
+func reorderAtelierStudiesArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{"kind": true, "open": true}
+	boolFlags := map[string]bool{"json": true, "commands": true, "paths": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+func anime(cfg config.Config, args []string) error {
+	if len(args) == 0 {
+		ui.Header("anime", "anime.productions project bridge")
+		ui.Suite("subcommands", ui.Teal, []ui.PairRow{
+			{"productions", "show anime.sakure.network studio wiring"},
+			{"productions --open", "open the public FLUX studio page"},
+			{"productions --gallery", "open the public render gallery"},
+			{"productions --project", "open the local Vite project"},
+			{"productions --build", "build the anime.productions bundle"},
+		})
+		return nil
+	}
+	switch args[0] {
+	case "productions", "production", "studio":
+		return animeProductions(cfg, args[1:])
+	default:
+		return fmt.Errorf("unknown anime command %q; use productions", args[0])
+	}
+}
+
+func animeProductions(_ config.Config, args []string) error {
+	fs := flag.NewFlagSet("anime productions", flag.ExitOnError)
+	openPublic := fs.Bool("open", false, "open the public anime.sakure.network FLUX page")
+	openGallery := fs.Bool("gallery", false, "open the public render gallery")
+	openProject := fs.Bool("project", false, "open the local anime.productions project")
+	build := fs.Bool("build", false, "build the Vite bundle")
+	url := fs.String("url", "https://anime.sakure.network/flux/", "public studio URL")
+	project := fs.String("path", filepath.Join(atelierHome(), "anime.productions", "sakura"), "local anime.productions project path")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *openPublic {
+		return exec.Command("open", *url).Run()
+	}
+	if *openGallery {
+		return exec.Command("open", strings.TrimRight(*url, "/")+"/#gallery").Run()
+	}
+	if *openProject {
+		return exec.Command("open", *project).Run()
+	}
+	if *build {
+		ui.Header("anime productions", "building anime.sakure.network studio")
+		ui.KV("project", *project)
+		ui.KV("worker", ui.State("not touched"))
+		cmd := exec.Command("npm", "run", "build")
+		cmd.Dir = *project
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+	ui.Header("anime productions", "anime.sakure.network studio bridge")
+	ui.KV("public", *url)
+	ui.KV("project", *project)
+	ui.KV("entry", filepath.Join(*project, "src", "flux", "main.tsx"))
+	ui.KV("style", filepath.Join(*project, "src", "flux", "FluxSakura.css"))
+	ui.KV("preview", "launchd com.anime.productions -> 127.0.0.1:9733")
+	ui.KV("tunnel", "cloudflared anime.sakure.network -> 127.0.0.1:9733; /api and /outputs -> FLUX HTTP")
+	ui.KV("worker", ui.State("not touched"))
+	fmt.Println()
+	ui.Suite("actions", ui.Gold, []ui.PairRow{
+		{"flux anime productions --open", "open the public studio page"},
+		{"flux anime productions --gallery", "open the public render gallery"},
+		{"flux anime productions --project", "open the local project"},
+		{"flux anime productions --build", "rebuild the Vite bundle without restarting FLUX"},
+		{"flux atelier studies", "same study registry exposed in the CLI"},
+	})
+	return nil
+}
+
+func atelierHome() string {
+	if home := os.Getenv("HOME"); home != "" {
+		return home
+	}
+	return "/Users/joshkornreich"
+}
+
+func atlas(cfg config.Config, args []string) error {
+	if len(args) == 0 {
+		return atlasSphere(cfg, nil)
+	}
+	switch args[0] {
+	case "sphere", "spheremap":
+		return atlasSphere(cfg, args[1:])
+	default:
+		return fmt.Errorf("atlas needs a command: sphere")
+	}
+}
+
+func atlasSphere(cfg config.Config, args []string) error {
+	defaultDraft := filepath.Join(atelierHome(), "Atelier", "data", "motion", "job_drafts", "parameter_grid_atlas", "spheremap_atlas_atlas_echo_study_1782180450145_0.json")
+	fs := flag.NewFlagSet("atlas sphere", flag.ExitOnError)
+	draftPath := fs.String("draft", defaultDraft, "Atelier latent_sphere_map draft JSON")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, cpu")
+	limit := fs.Int("limit", 0, "cap cells; 0 runs the full draft")
+	sampleCount := fs.Int("sample-count", 0, "render first N cells from traversal order without shrinking the index window")
+	indexStart := fs.Int("index-start", 0, "first atlas cell index")
+	indexEnd := fs.Int("index-end", 0, "exclusive atlas cell index; 0 uses draft end")
+	fullGrid := fs.Bool("full-grid", false, "run n_rows*n_cols cells even when draft n_latent is smaller")
+	steps := fs.Int("steps", 0, "override draft steps")
+	size := fs.Int("size", 0, "override draft square size")
+	guidance := fs.Float64("guidance", 0, "override guidance")
+	traversalOrder := fs.String("order", "column_serpentine", "render order: column_serpentine, row_serpentine, or raster")
+	adapter := fs.String("adapter", "none", "atlas adapter: none, first-block-cache, or atlas-xframe-cache")
+	cacheThreshold := fs.Float64("cache-threshold", 0.12, "first-block-cache residual diff threshold")
+	cacheDownsample := fs.Int("cache-downsample", 1, "first-block-cache residual downsample factor")
+	cacheWarmup := fs.Int("cache-warmup", 0, "first-block-cache warmup steps before cache reuse")
+	id := fs.String("id", "", "override atlas job id")
+	dryRun := fs.Bool("dry-run", false, "show the socket plan without submitting")
+	openPage := fs.Bool("open", false, "open local atlas viewer after submit")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(*draftPath)
+	if err != nil {
+		return err
+	}
+	var draft map[string]any
+	if err := json.Unmarshal(raw, &draft); err != nil {
+		return err
+	}
+	if *id != "" {
+		draft["id"] = *id
+	}
+	gridTotal := intValue(draft["n_rows"]) * intValue(draft["n_cols"])
+	total := intValue(draft["n_latent"])
+	if *fullGrid || total <= 0 {
+		total = gridTotal
+		draft["n_latent"] = total
+	}
+	end := *indexEnd
+	if end <= 0 {
+		end = total
+	}
+	if *limit > 0 && (*indexStart+*limit) < end {
+		end = *indexStart + *limit
+	}
+	runCells := end - *indexStart
+	displayCells := runCells
+	if *sampleCount > 0 && *sampleCount < displayCells {
+		displayCells = *sampleCount
+	}
+	ui.Header("atlas", "socket-backed latent sphere")
+	ui.KV("draft", *draftPath)
+	ui.KV("job", stringValue(draft["id"]))
+	ui.KV("prompt", stringValue(draft["prompt"]))
+	ui.KV("mode", valueOr(stringValue(draft["mode"]), "omega"))
+	ui.KV("grid", fmt.Sprintf("%d", gridTotal))
+	ui.KV("cells", fmt.Sprintf("%d/%d [%d,%d)", displayCells, total, *indexStart, end))
+	ui.KV("order", *traversalOrder)
+	ui.KV("adapter", *adapter)
+	if *adapter != "none" && *adapter != "" {
+		adapterKey := strings.ReplaceAll(strings.ToLower(*adapter), "_", "-")
+		if adapterKey == "first-block-cache" || adapterKey == "teacache" || adapterKey == "para-attn" || adapterKey == "atlas-xframe-cache" || adapterKey == "xframe-cache" {
+			ui.KV("adapter params", fmt.Sprintf("cache_threshold=%.4f cache_downsample=%d cache_warmup=%d", *cacheThreshold, *cacheDownsample, *cacheWarmup))
+		}
+	}
+	ui.KV("backend", strings.ToLower(*backend))
+	ui.KV("route", ui.State("resident")+" "+ui.Soft("unix socket, no second FLUX process"))
+	if *dryRun {
+		ui.KV("state", ui.State("planned")+" "+ui.Soft("no job submitted"))
+		ui.KV("viewer", "http://127.0.0.1:7861/atlas/"+stringValue(draft["id"]))
+		return nil
+	}
+	client := daemon.New(cfg)
+	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
+		if err := client.Start(false); err != nil {
+			return err
+		}
+	}
+	payload := map[string]any{
+		"op":               "atlas_sphere",
+		"draft":            draft,
+		"backend":          strings.ToLower(*backend),
+		"limit":            *limit,
+		"render_count":     *sampleCount,
+		"index_start":      *indexStart,
+		"traversal_order":  *traversalOrder,
+		"n_latent":         total,
+		"adapter":          *adapter,
+		"cache_threshold":  *cacheThreshold,
+		"cache_downsample": *cacheDownsample,
+		"cache_warmup":     *cacheWarmup,
+	}
+	if *indexEnd > 0 {
+		payload["index_end"] = *indexEnd
+	}
+	if *steps > 0 {
+		payload["steps"] = *steps
+	}
+	if *size > 0 {
+		payload["size"] = *size
+	}
+	if *guidance > 0 {
+		payload["guidance"] = *guidance
+	}
+	resp, err := client.Request(payload)
+	if err != nil {
+		return err
+	}
+	job := resp.Job
+	jobID := stringValue(job["id"])
+	viewer := "http://127.0.0.1:7861/atlas/" + jobID
+	ui.KV("status", stringValue(job["status"]))
+	ui.KV("output", stringValue(job["output"]))
+	ui.KV("viewer", viewer)
+	if *openPage {
+		_ = openOutput(viewer)
+	}
+	return nil
+}
+
+func ane(cfg config.Config, args []string) error {
+	if len(args) == 0 {
+		ui.Header("ane", "strict Apple Neural Engine adapter workflow")
+		ui.Suite("commands", ui.Teal, []ui.PairRow{
+			{"ane probe", "show package registry and validation state"},
+			{"ane init", "create model/ane/registry.json"},
+			{"ane convert-vae", "convert fixed-shape VAE decoder component to Core ML"},
+			{"ane validate", "record external Instruments validation metadata"},
+			{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
+			{"ane direct-pack", "create direct-ANE block weight packing plan"},
+			{"ane direct-projections", "create direct-ANE dense projection plan"},
+			{"ane direct-attention", "create direct-ANE attention QK/AV plan"},
+			{"ane direct-benchmark", "measure synthetic MPS dense matmuls from captured plans"},
+			{"ane direct-block-benchmark", "measure real MPS transformer block forwards"},
+			{"ane direct-latent-benchmark", "measure real FluxPipeline latent step slope"},
+			{"ane direct-component-benchmark", "measure real MPS block submodule components"},
+			{"ane direct-aneforge-projections", "measure direct-ANE ANEForge projection kernels"},
+			{"ane direct-aneforge-optimized", "measure optimized direct-ANE ANEForge projection plan"},
+			{"ane direct-aneforge-attention", "measure direct-ANE ANEForge tiled SDPA attention core"},
+			{"ane direct-contract", "create direct-ANE runtime contract and break-even budget"},
+			{"ane direct-report", "print direct-ANE dense offload report"},
+		})
+		return nil
+	}
+	switch args[0] {
+	case "probe", "status":
+		ui.Header("ane", "package registry probe")
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, filepath.Join(cfg.Root, "flux_ane.py"), "probe", "--model-dir", cfg.ModelDir)
+	case "init":
+		ui.Header("ane", "initialize package registry")
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, filepath.Join(cfg.Root, "flux_ane.py"), "init", "--model-dir", cfg.ModelDir)
+	case "convert-vae":
+		fs := flag.NewFlagSet("ane convert-vae", flag.ExitOnError)
+		width := fs.Int("width", 1024, "target image width")
+		height := fs.Int("height", 1024, "target image height")
+		precision := fs.String("precision", "fp32", "precision: fp16 or fp32")
+		computeUnits := fs.String("compute-units", "cpu_and_ne", "Core ML compute units")
+		name := fs.String("name", "", "package name")
+		outDir := fs.String("out-dir", "", "output directory")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane", "convert FLUX VAE decoder component")
+		ui.KV("size", fmt.Sprintf("%dx%d", *width, *height))
+		ui.KV("precision", *precision)
+		ui.KV("compute units", *computeUnits)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_ane.py"),
+			"convert-vae-decoder",
+			"--model-dir", cfg.ModelDir,
+			"--width", strconv.Itoa(*width),
+			"--height", strconv.Itoa(*height),
+			"--precision", *precision,
+			"--compute-units", *computeUnits,
+		}
+		if *name != "" {
+			cmdArgs = append(cmdArgs, "--name", *name)
+		}
+		if *outDir != "" {
+			cmdArgs = append(cmdArgs, "--out-dir", *outDir)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "validate":
+		fs := flag.NewFlagSet("ane validate", flag.ExitOnError)
+		name := fs.String("name", "", "package name")
+		notes := fs.String("notes", "", "validation notes")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*name) == "" {
+			return fmt.Errorf("ane validate needs --name")
+		}
+		ui.Header("ane", "record Instruments validation")
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_ane.py"),
+			"mark-validated",
+			"--model-dir", cfg.ModelDir,
+			"--name", *name,
+			"--ane-validated",
+		}
+		if *notes != "" {
+			cmdArgs = append(cmdArgs, "--notes", *notes)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-capture":
+		fs := flag.NewFlagSet("ane direct-capture", flag.ExitOnError)
+		width := fs.Int("width", 1024, "target image width")
+		height := fs.Int("height", 1024, "target image height")
+		steps := fs.Int("steps", 1, "pipeline steps; one is enough for block capture")
+		blockType := fs.String("block-type", "dual", "block type: dual or single")
+		blockIndex := fs.Int("block-index", 0, "block index")
+		name := fs.String("name", "", "manifest filename")
+		promptText := fs.String("prompt", "a clean product photo of a translucent glass cube on a matte table", "capture prompt")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "capture denoiser block manifest")
+		ui.KV("target", fmt.Sprintf("%s[%d]", *blockType, *blockIndex))
+		ui.KV("size", fmt.Sprintf("%dx%d", *width, *height))
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"capture-block",
+			"--model-dir", cfg.ModelDir,
+			"--width", strconv.Itoa(*width),
+			"--height", strconv.Itoa(*height),
+			"--steps", strconv.Itoa(*steps),
+			"--block-type", *blockType,
+			"--block-index", strconv.Itoa(*blockIndex),
+			"--prompt", *promptText,
+		}
+		if *name != "" {
+			cmdArgs = append(cmdArgs, "--name", *name)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-pack":
+		fs := flag.NewFlagSet("ane direct-pack", flag.ExitOnError)
+		manifest := fs.String("manifest", "", "source direct-capture manifest")
+		out := fs.String("out", "", "output pack plan")
+		tileM := fs.Int("tile-m", 128, "matrix tile rows")
+		tileN := fs.Int("tile-n", 128, "matrix tile columns")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*manifest) == "" {
+			return fmt.Errorf("ane direct-pack needs --manifest")
+		}
+		ui.Header("ane/direct", "create denoiser block pack plan")
+		ui.KV("manifest", *manifest)
+		ui.KV("tile", fmt.Sprintf("%dx%d", *tileM, *tileN))
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"pack-plan",
+			"--manifest", *manifest,
+			"--tile-m", strconv.Itoa(*tileM),
+			"--tile-n", strconv.Itoa(*tileN),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-projections":
+		fs := flag.NewFlagSet("ane direct-projections", flag.ExitOnError)
+		manifest := fs.String("manifest", "", "source direct-capture manifest")
+		packPlan := fs.String("pack-plan", "", "source direct-pack plan")
+		out := fs.String("out", "", "output projection plan")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*manifest) == "" {
+			return fmt.Errorf("ane direct-projections needs --manifest")
+		}
+		if strings.TrimSpace(*packPlan) == "" {
+			return fmt.Errorf("ane direct-projections needs --pack-plan")
+		}
+		ui.Header("ane/direct", "create dense projection plan")
+		ui.KV("manifest", *manifest)
+		ui.KV("pack plan", *packPlan)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"projection-plan",
+			"--manifest", *manifest,
+			"--pack-plan", *packPlan,
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-attention":
+		fs := flag.NewFlagSet("ane direct-attention", flag.ExitOnError)
+		manifest := fs.String("manifest", "", "source direct-capture manifest")
+		out := fs.String("out", "", "output attention plan")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*manifest) == "" {
+			return fmt.Errorf("ane direct-attention needs --manifest")
+		}
+		ui.Header("ane/direct", "create attention QK/AV plan")
+		ui.KV("manifest", *manifest)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"attention-plan",
+			"--manifest", *manifest,
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-contract":
+		fs := flag.NewFlagSet("ane direct-contract", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		denseSummary := fs.String("dense-summary", filepath.Join(cfg.ModelDir, "ane", "direct", "dense_slice_1024x1024_summary.json"), "dense slice summary")
+		blockBenchmark := fs.String("block-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "block_stack_1024x1024_benchmark.json"), "block stack benchmark")
+		latentPipelineBenchmark := fs.String("latent-pipeline-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "latent_pipeline_1024x1024_benchmark.json"), "latent pipeline benchmark")
+		componentBenchmark := fs.String("component-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "component_1024x1024_benchmark.json"), "component benchmark")
+		aneforgeProjectionBenchmark := fs.String("aneforge-projection-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "aneforge_projection_1024x1024_benchmark.json"), "ANEForge projection benchmark")
+		aneforgeOptimizedProjectionPlan := fs.String("aneforge-optimized-projection-plan", filepath.Join(cfg.ModelDir, "ane", "direct", "aneforge_optimized_projection_plan_1024x1024.json"), "optimized ANEForge projection plan")
+		aneforgeAttentionBenchmark := fs.String("aneforge-attention-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "aneforge_attention_1024x1024_benchmark.json"), "ANEForge attention benchmark")
+		out := fs.String("out", "", "output runtime contract")
+		steps := fs.Int("steps", 28, "denoise steps")
+		dualBlocks := fs.Int("dual-blocks", 19, "dual block count per step")
+		singleBlocks := fs.Int("single-blocks", 38, "single block count per step")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "create runtime contract")
+		ui.KV("artifacts", *outDir)
+		ui.KV("dense summary", *denseSummary)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"runtime-contract",
+			"--out-dir", *outDir,
+			"--dense-summary", *denseSummary,
+			"--block-benchmark", *blockBenchmark,
+			"--latent-pipeline-benchmark", *latentPipelineBenchmark,
+			"--component-benchmark", *componentBenchmark,
+			"--aneforge-projection-benchmark", *aneforgeProjectionBenchmark,
+			"--aneforge-optimized-projection-plan", *aneforgeOptimizedProjectionPlan,
+			"--aneforge-attention-benchmark", *aneforgeAttentionBenchmark,
+			"--steps", strconv.Itoa(*steps),
+			"--dual-blocks", strconv.Itoa(*dualBlocks),
+			"--single-blocks", strconv.Itoa(*singleBlocks),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-component-benchmark":
+		fs := flag.NewFlagSet("ane direct-component-benchmark", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		denseSummary := fs.String("dense-summary", filepath.Join(cfg.ModelDir, "ane", "direct", "dense_slice_1024x1024_summary.json"), "dense slice summary")
+		blockBenchmark := fs.String("block-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "block_stack_1024x1024_benchmark.json"), "block stack benchmark")
+		out := fs.String("out", "", "output benchmark JSON")
+		dtype := fs.String("dtype", "bf16", "benchmark dtype: bf16, fp16, or fp32")
+		warmup := fs.Int("warmup", 2, "warmup iterations")
+		iterations := fs.Int("iterations", 7, "measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		dualBlocks := fs.Int("dual-blocks", 19, "dual block count per step")
+		singleBlocks := fs.Int("single-blocks", 38, "single block count per step")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark MPS block components")
+		ui.KV("artifacts", *outDir)
+		ui.KV("dtype", *dtype)
+		ui.KV("iterations", *iterations)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"component-benchmark",
+			"--model-dir", cfg.ModelDir,
+			"--out-dir", *outDir,
+			"--dense-summary", *denseSummary,
+			"--block-benchmark", *blockBenchmark,
+			"--dtype", *dtype,
+			"--warmup", strconv.Itoa(*warmup),
+			"--iterations", strconv.Itoa(*iterations),
+			"--steps", strconv.Itoa(*steps),
+			"--dual-blocks", strconv.Itoa(*dualBlocks),
+			"--single-blocks", strconv.Itoa(*singleBlocks),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-aneforge-projections":
+		fs := flag.NewFlagSet("ane direct-aneforge-projections", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		out := fs.String("out", "", "output benchmark JSON")
+		compress := fs.String("compress", "int8", "ANEForge compression mode")
+		warmup := fs.Int("warmup", 2, "MPS warmup iterations")
+		mpsIterations := fs.Int("mps-iterations", 5, "MPS measured iterations")
+		aneIterations := fs.Int("ane-iterations", 10, "ANE measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		seed := fs.Int("seed", 6000, "random seed")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark ANEForge projection kernels")
+		ui.KV("artifacts", *outDir)
+		ui.KV("compress", *compress)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"aneforge-projection-benchmark",
+			"--out-dir", *outDir,
+			"--compress", *compress,
+			"--warmup", strconv.Itoa(*warmup),
+			"--mps-iterations", strconv.Itoa(*mpsIterations),
+			"--ane-iterations", strconv.Itoa(*aneIterations),
+			"--steps", strconv.Itoa(*steps),
+			"--seed", strconv.Itoa(*seed),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-aneforge-optimized":
+		fs := flag.NewFlagSet("ane direct-aneforge-optimized", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		out := fs.String("out", "", "output benchmark JSON")
+		compress := fs.String("compress", "int8", "ANEForge compression mode")
+		warmup := fs.Int("warmup", 2, "MPS warmup iterations")
+		mpsIterations := fs.Int("mps-iterations", 5, "MPS measured iterations")
+		aneIterations := fs.Int("ane-iterations", 10, "ANE measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		seed := fs.Int("seed", 7000, "random seed")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark optimized ANEForge projection plan")
+		ui.KV("artifacts", *outDir)
+		ui.KV("compress", *compress)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"aneforge-optimized-projection-plan",
+			"--out-dir", *outDir,
+			"--compress", *compress,
+			"--warmup", strconv.Itoa(*warmup),
+			"--mps-iterations", strconv.Itoa(*mpsIterations),
+			"--ane-iterations", strconv.Itoa(*aneIterations),
+			"--steps", strconv.Itoa(*steps),
+			"--seed", strconv.Itoa(*seed),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-aneforge-attention":
+		fs := flag.NewFlagSet("ane direct-aneforge-attention", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		out := fs.String("out", "", "output benchmark JSON")
+		compress := fs.String("compress", "int8", "ANEForge compression mode")
+		warmup := fs.Int("warmup", 1, "MPS warmup iterations")
+		mpsIterations := fs.Int("mps-iterations", 3, "MPS measured iterations")
+		aneIterations := fs.Int("ane-iterations", 5, "ANE measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		seed := fs.Int("seed", 8000, "random seed")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark ANEForge attention core")
+		ui.KV("artifacts", *outDir)
+		ui.KV("compress", *compress)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"aneforge-attention-benchmark",
+			"--out-dir", *outDir,
+			"--compress", *compress,
+			"--warmup", strconv.Itoa(*warmup),
+			"--mps-iterations", strconv.Itoa(*mpsIterations),
+			"--ane-iterations", strconv.Itoa(*aneIterations),
+			"--steps", strconv.Itoa(*steps),
+			"--seed", strconv.Itoa(*seed),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-latent-benchmark":
+		fs := flag.NewFlagSet("ane direct-latent-benchmark", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		blockBenchmark := fs.String("block-benchmark", filepath.Join(cfg.ModelDir, "ane", "direct", "block_stack_1024x1024_benchmark.json"), "block stack benchmark")
+		out := fs.String("out", "", "output benchmark JSON")
+		promptText := fs.String("prompt", "a clean product photo of a translucent glass cube on a matte table", "benchmark prompt")
+		width := fs.Int("width", 1024, "target image width")
+		height := fs.Int("height", 1024, "target image height")
+		guidance := fs.Float64("guidance", 3.5, "guidance scale")
+		seed := fs.Int("seed", 12345, "base seed")
+		dtype := fs.String("dtype", "bf16", "benchmark dtype: bf16, fp16, or fp32")
+		stepsList := fs.String("steps-list", "1,2,4", "comma-separated step counts")
+		iterations := fs.Int("iterations", 1, "iterations per step count")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark latent pipeline step slope")
+		ui.KV("size", fmt.Sprintf("%dx%d", *width, *height))
+		ui.KV("steps", *stepsList)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"latent-pipeline-benchmark",
+			"--model-dir", cfg.ModelDir,
+			"--out-dir", *outDir,
+			"--block-benchmark", *blockBenchmark,
+			"--prompt", *promptText,
+			"--width", strconv.Itoa(*width),
+			"--height", strconv.Itoa(*height),
+			"--guidance", fmt.Sprintf("%f", *guidance),
+			"--seed", strconv.Itoa(*seed),
+			"--dtype", *dtype,
+			"--steps-list", *stepsList,
+			"--iterations", strconv.Itoa(*iterations),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-block-benchmark":
+		fs := flag.NewFlagSet("ane direct-block-benchmark", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		denseSummary := fs.String("dense-summary", filepath.Join(cfg.ModelDir, "ane", "direct", "dense_slice_1024x1024_summary.json"), "dense slice summary")
+		out := fs.String("out", "", "output benchmark JSON")
+		dtype := fs.String("dtype", "bf16", "benchmark dtype: bf16, fp16, or fp32")
+		warmup := fs.Int("warmup", 2, "warmup iterations")
+		iterations := fs.Int("iterations", 7, "measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		dualBlocks := fs.Int("dual-blocks", 19, "dual block count per step")
+		singleBlocks := fs.Int("single-blocks", 38, "single block count per step")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark MPS transformer block stack")
+		ui.KV("artifacts", *outDir)
+		ui.KV("dtype", *dtype)
+		ui.KV("iterations", *iterations)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"block-benchmark",
+			"--model-dir", cfg.ModelDir,
+			"--out-dir", *outDir,
+			"--dense-summary", *denseSummary,
+			"--dtype", *dtype,
+			"--warmup", strconv.Itoa(*warmup),
+			"--iterations", strconv.Itoa(*iterations),
+			"--steps", strconv.Itoa(*steps),
+			"--dual-blocks", strconv.Itoa(*dualBlocks),
+			"--single-blocks", strconv.Itoa(*singleBlocks),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-benchmark":
+		fs := flag.NewFlagSet("ane direct-benchmark", flag.ExitOnError)
+		outDir := fs.String("out-dir", filepath.Join(cfg.ModelDir, "ane", "direct"), "direct-ANE artifact directory")
+		out := fs.String("out", "", "output benchmark JSON")
+		dtype := fs.String("dtype", "bf16", "benchmark dtype: bf16, fp16, or fp32")
+		warmup := fs.Int("warmup", 2, "warmup iterations")
+		iterations := fs.Int("iterations", 7, "measured iterations")
+		steps := fs.Int("steps", 28, "denoise steps")
+		dualBlocks := fs.Int("dual-blocks", 19, "dual block count per step")
+		singleBlocks := fs.Int("single-blocks", 38, "single block count per step")
+		gpuRenderSeconds := fs.Float64("gpu-render-seconds", 180.0, "GPU-only render reference seconds")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "benchmark MPS dense matmul slice")
+		ui.KV("artifacts", *outDir)
+		ui.KV("dtype", *dtype)
+		ui.KV("iterations", *iterations)
+		cmdArgs := []string{
+			filepath.Join(cfg.Root, "flux_direct_ane.py"),
+			"dense-benchmark",
+			"--out-dir", *outDir,
+			"--dtype", *dtype,
+			"--warmup", strconv.Itoa(*warmup),
+			"--iterations", strconv.Itoa(*iterations),
+			"--steps", strconv.Itoa(*steps),
+			"--dual-blocks", strconv.Itoa(*dualBlocks),
+			"--single-blocks", strconv.Itoa(*singleBlocks),
+			"--gpu-render-seconds", fmt.Sprintf("%f", *gpuRenderSeconds),
+		}
+		if *out != "" {
+			cmdArgs = append(cmdArgs, "--out", *out)
+		}
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, cmdArgs...)
+	case "direct-report":
+		fs := flag.NewFlagSet("ane direct-report", flag.ExitOnError)
+		contract := fs.String("contract", filepath.Join(cfg.ModelDir, "ane", "direct", "direct_runtime_contract_1024x1024.json"), "runtime contract JSON")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		ui.Header("ane/direct", "dense offload report")
+		return runner.StreamNoResult(context.Background(), map[string]string{"MODEL_DIR": cfg.ModelDir}, cfg.Python, filepath.Join(cfg.Root, "flux_direct_ane.py"), "runtime-report", "--contract", *contract)
+	default:
+		return fmt.Errorf("unknown ane command %q; use probe, init, convert-vae, validate, direct-capture, direct-pack, direct-projections, direct-attention, direct-benchmark, direct-block-benchmark, direct-latent-benchmark, direct-component-benchmark, direct-aneforge-projections, direct-aneforge-optimized, direct-aneforge-attention, direct-contract, or direct-report", args[0])
+	}
+}
+
+func bench(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("bench", flag.ExitOnError)
+	backendList := fs.String("backends", "mps,mlx", "comma-separated backends: mps, mlx, coreml, ane, cpu")
+	promptFlag := fs.String("prompt", "", "benchmark prompt")
+	width := fs.Int("width", 768, "benchmark width")
+	height := fs.Int("height", 768, "benchmark height")
+	steps := fs.Int("steps", 8, "benchmark steps")
+	guidance := fs.Float64("guidance", 3.5, "guidance scale")
+	seed := fs.String("seed", "12345", "shared seed")
+	name := fs.String("name", "", "output filename prefix")
+	dryRun := fs.Bool("dry-run", false, "show benchmark plan without starting worker or submitting jobs")
+	ordered, err := reorderBenchArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	benchPrompt := strings.TrimSpace(*promptFlag)
+	if benchPrompt == "" {
+		benchPrompt = strings.TrimSpace(strings.Join(fs.Args(), " "))
+	}
+	if benchPrompt == "" {
+		benchPrompt = "a clean product photo of a translucent glass cube on a matte table"
+	}
+	backends, err := parseBackendList(*backendList)
+	if err != nil {
+		return err
+	}
+	if *width <= 0 || *height <= 0 || *steps <= 0 {
+		return fmt.Errorf("--width, --height, and --steps must be positive")
+	}
+
+	ui.Header("bench", "socket benchmark for backend auto-selection")
+	ui.KV("prompt", benchPrompt)
+	ui.KV("size", fmt.Sprintf("%dx%d", *width, *height))
+	ui.KV("steps", *steps)
+	ui.KV("seed", *seed)
+	ui.KV("route", ui.State("resident")+" "+ui.Soft("unix socket"))
+	ui.KV("socket policy", "reuse live socket; otherwise start non-preload queue worker")
+	ui.KV("generation", "benchmark jobs load the selected backend")
+	if *dryRun {
+		ui.KV("state", ui.State("planned")+" "+ui.Soft("no worker started, no jobs submitted"))
+		ui.Suite("backends", ui.Teal, plannedBackendRows(backends))
+		return nil
+	}
+
+	client := daemon.New(cfg)
+	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
+		if err := client.Start(false); err != nil {
+			return err
+		}
+	}
+	profileReady := true
+	profileResp, err := client.Request(map[string]any{"op": "profile"})
+	if err != nil {
+		profileReady = false
+		profileResp, _ = client.Request(map[string]any{"op": "ping"})
+	}
+	caps := profileResp.Backends
+	if caps == nil {
+		caps = map[string]any{}
+	}
+
+	var results []benchResult
+	stamp := time.Now().Format("20060102-150405")
+	for i, backend := range backends {
+		if !backendCapable(backend, caps) {
+			ui.KV("skip "+backend, capabilityReason(backend))
+			continue
+		}
+		filename := *name
+		if filename == "" {
+			filename = fmt.Sprintf("bench-%s-%s.png", backend, stamp)
+		} else if len(backends) > 1 {
+			filename = suffixFilename(*name, i+1)
+		}
+		ui.Step(fmt.Sprintf("backend=%s", backend))
+		resp, err := client.Request(map[string]any{
+			"op":       "submit",
+			"backend":  backend,
+			"prompt":   benchPrompt,
+			"width":    *width,
+			"height":   *height,
+			"steps":    *steps,
+			"guidance": *guidance,
+			"seed":     *seed,
+			"filename": filename,
+		})
+		if err != nil {
+			results = append(results, benchResult{Backend: backend, Status: "error", Error: err.Error()})
+			continue
+		}
+		jobID := stringValue(resp.Job["id"])
+		job, err := waitSocketJob(client, jobID)
+		if err != nil {
+			results = append(results, benchResult{Backend: backend, Status: "error", Error: err.Error()})
+			continue
+		}
+		results = append(results, benchResult{
+			Backend: backend,
+			Status:  stringValue(job["status"]),
+			Seconds: floatValue(job["seconds"]),
+			Output:  stringValue(job["output"]),
+			Error:   stringValue(job["error"]),
+		})
+	}
+
+	fmt.Println()
+	ui.Suite("results", ui.Teal, benchRows(results))
+	if profileReady {
+		ui.KV("profile", daemon.New(cfg).ProfilePath())
+		key := fmt.Sprintf("%dx%d:%d", *width, *height, *steps)
+		ui.KV("profile key", key)
+	} else {
+		ui.KV("profile", ui.Warn("worker does not expose profile API; run flux stop when ready to restart it with the updated worker"))
+	}
+	return nil
+}
+
+func download(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("download", flag.ExitOnError)
+	plain := fs.Bool("plain", false, "print copy-safe shell command only")
+	workers := fs.Int("workers", 8, "hf download workers")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	lines := []string{
+		"hf download black-forest-labs/FLUX.1-dev \\",
+		fmt.Sprintf("  --local-dir %s \\", cfg.ModelDir),
+		"  --include model_index.json \\",
+		"  --include 'scheduler/*' \\",
+		"  --include 'text_encoder/*' \\",
+		"  --include 'text_encoder_2/*' \\",
+		"  --include 'tokenizer/*' \\",
+		"  --include 'tokenizer_2/*' \\",
+		"  --include 'transformer/*' \\",
+		"  --include 'vae/*' \\",
+		"  --include README.md \\",
+		"  --include LICENSE.md \\",
+		fmt.Sprintf("  --max-workers %d", *workers),
+	}
+	if *plain {
+		fmt.Println(strings.Join(lines, "\n"))
+		return nil
+	}
+	ui.Header("download", "lean FLUX.1-dev BF16 Diffusers fetch")
+	ui.KV("target", cfg.ModelDir)
+	fmt.Println()
+	for _, line := range lines {
+		fmt.Println(ui.Code(line))
+	}
+	fmt.Println()
+	fmt.Println(ui.Soft("Requires: hf auth login, accepted FLUX.1-dev license, and about 32 GB free."))
+	return nil
+}
+
+func tree() {
+	ui.Tree("tree", "command topology", []ui.TreeGroup{
+		{
+			Name:   "kernel",
+			Detail: "install, setup, verification, command help",
+			Color:  ui.Violet,
+			Children: []ui.PairRow{
+				{"install", "global symlink into ~/.local/bin"},
+				{"setup", "uv venv + Python dependencies"},
+				{"doctor", "MPS, package, model, BF16 header checks"},
+				{"accel", "current and target acceleration stack"},
+				{"architecture", "CLI, socket, HTTP, tunnel, and backend flow"},
+				{"atelier studies", "FLUX.1 studies imported from ~/Atelier"},
+				{"anime productions", "anime.sakure.network project bridge"},
+				{"bench", "socket benchmark for backend auto-selection"},
+				{"bench --dry-run", "show benchmark plan without starting worker"},
+				{"studio", "paths, worker files, preset lanes"},
+				{"download", "print the lean Hugging Face download command"},
+			},
+		},
+		{
+			Name:   "runtime",
+			Detail: "resident worker and queue",
+			Color:  ui.Indigo,
+			Children: []ui.PairRow{
+				{"warm", "launch worker and preload model"},
+				{"warm --preload=false", "launch queue without loading model"},
+				{"serve", "HTTP API and local dashboard over the worker socket"},
+				{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires token auth"},
+				{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
+				{"remote", "client for an exposed FLUX HTTP endpoint"},
+				{"jobs", "inspect queued/running/done/error jobs"},
+				{"jobs cancel <id>", "cancel queued or request running cancellation"},
+				{"jobs open latest", "open newest completed output"},
+				{"jobs prune --keep 20", "remove old terminal records"},
+				{"stop", "shutdown resident worker"},
+			},
+		},
+		{
+			Name:   "forge",
+			Detail: "image generation",
+			Color:  ui.Teal,
+			Children: []ui.PairRow{
+				{"render", "start/use resident socket and wait for the job"},
+				{"render --direct", "force one-shot generation"},
+				{"render --async", "submit to resident worker, starting queue if needed"},
+				{"render --burst N", "seed fanout"},
+				{"img2img", "image-to-image refinement over .fluxd/img2img.sock"},
+				{"img2img --warm", "start the second socket without preloading"},
+				{"img2img --jobs", "inspect the image-to-image queue"},
+				{"muse", "shot board with renderable local/remote commands"},
+				{"matrix", "style/mood/camera exploration board"},
+				{"pipeline", "safe dry-run multi-generation workflows"},
+				{"plan", "print exact engine commands"},
+				{"history", "JSONL render ledger"},
+			},
+		},
+		{
+			Name:   "prompt",
+			Detail: "composition surfaces",
+			Color:  ui.Gold,
+			Children: []ui.PairRow{
+				{"recipes", "styles, moods, ratios, presets"},
+				{"shape", "compose final prompt with creative lenses"},
+				{"spark", "six prompt mutations"},
+				{"muse --commands", "copy-safe render command board"},
+			},
+		},
+	})
+}
+
+func studio(cfg config.Config) error {
+	ui.Header("studio", "local BF16 console overview")
+	ui.KV("root", cfg.Root)
+	ui.KV("model", cfg.ModelDir)
+	ui.KV("outputs", cfg.OutputDir)
+	ui.KV("backend", cfg.Backend)
+	ui.KV("python", cfg.Python)
+	ui.KV("engine", cfg.GeneratePy)
+	if st, err := os.Stat(cfg.ModelDir); err == nil && st.IsDir() {
+		ui.KV("model state", ui.State("present"))
+	} else {
+		ui.KV("model state", ui.State("missing"))
+	}
+	if _, err := os.Stat(cfg.Python); err == nil {
+		ui.KV("venv", ui.State("ready"))
+	} else {
+		ui.KV("venv", ui.State("missing")+" "+ui.Soft("run flux setup"))
+	}
+	socket, state, log, pid := daemon.New(cfg).Paths()
+	client := daemon.New(cfg)
+	profile := client.ProfilePath()
+	if resp, err := client.Request(map[string]any{"op": "ping"}); err == nil {
+		loaded := "cold"
+		if resp.Loaded {
+			loaded = "loaded"
+		}
+		ui.KV("worker", ui.State("online")+" "+ui.Soft(loaded+" backend="+valueOr(resp.Backend, "?")+" device="+valueOr(resp.Device, "?")))
+	} else {
+		ui.KV("worker", ui.State("down")+" "+ui.Soft("no live socket; render/bench/warm can start queue"))
+	}
+	ui.KV("socket", socket)
+	ui.KV("jobs", state)
+	ui.KV("profile", profile)
+	ui.KV("worker log", log)
+	ui.KV("pid file", pid)
+	fmt.Println()
+	fmt.Println(ui.Strong(ui.Accent("Preset lanes")))
+	for _, p := range prompt.OrderedPresets {
+		ui.Pair(p.Name, fmt.Sprintf("%s/%s %s steps=%d guidance=%.1f", p.Style, p.Mood, p.Ratio, p.Steps, p.Guidance))
+	}
+	return nil
+}
+
+func warm(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("warm", flag.ExitOnError)
+	preload := fs.Bool("preload", true, "load model immediately")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	cfg.Backend = strings.ToLower(*backend)
+	ui.Header("warm", "starting persistent FLUX worker")
+	ui.KV("backend", cfg.Backend)
+	client := daemon.New(cfg)
+	if err := client.Start(*preload); err != nil {
+		return err
+	}
+	socket, _, log, pid := client.Paths()
+	ui.KV("socket", socket)
+	ui.KV("log", log)
+	ui.KV("pid", pid)
+	if *preload {
+		ui.KV("state", ui.State("starting")+" "+ui.Soft("watch .fluxd/worker.log for model_ready=true"))
+	} else {
+		ui.KV("state", ui.State("ready")+" "+ui.Soft("model loads on first async job"))
+	}
+	return nil
+}
+
+func serve(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, mps, mlx, coreml, ane, cpu")
+	token := fs.String("token", "", "HTTP bearer token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
+	open := fs.Bool("open", false, "open the dashboard in the default browser")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	cfg.Backend = strings.ToLower(*backend)
+	resolvedToken := resolveToken(*token, *tokenEnv)
+	if publicBindAddr(*addr) && resolvedToken == "" && !*unsafeNoAuth {
+		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
+	}
+	ui.Header("serve", "local HTTP API over the Unix socket worker")
+	ui.KV("addr", "http://"+*addr)
+	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
+	ui.KV("backend", cfg.Backend)
+	ui.KV("api", "/api/health /api/jobs /api/render /api/warm /api/stop")
+	ui.KV("worker", "starts on first render or POST /api/warm")
+	ui.KV("model", cfg.ModelDir)
+	ui.KV("client", fmt.Sprintf("flux remote status --url http://%s", *addr))
+	if *open {
+		server.OpenBrowser("http://" + *addr)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken})
+}
+
+func publicBindAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" {
+		return true
+	}
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return true
+	}
+	return !ip.IsLoopback()
+}
+
+func resolveToken(flagValue, envName string) string {
+	if strings.TrimSpace(flagValue) != "" {
+		return strings.TrimSpace(flagValue)
+	}
+	if strings.TrimSpace(envName) == "" {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(envName))
+}
+
+func authState(token string, public bool, unsafeNoAuth bool) string {
+	if strings.TrimSpace(token) == "" {
+		if public && unsafeNoAuth {
+			return ui.Warn("public-no-auth") + " " + ui.Soft("explicitly exposed")
+		}
+		return ui.State("local") + " " + ui.Soft("no token")
+	}
+	return ui.State("ready") + " " + ui.Soft("bearer/basic token")
+}
+
+func remote(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("remote needs a command: status, jobs, warm, stop, render")
+	}
+	switch args[0] {
+	case "status", "health":
+		return remoteStatus(args[1:])
+	case "jobs", "queue":
+		return remoteJobs(args[1:])
+	case "warm", "load":
+		return remoteWarm(args[1:])
+	case "stop":
+		return remoteStop(args[1:])
+	case "render", "imagine", "forge":
+		return remoteRender(args[1:])
+	default:
+		return fmt.Errorf("unknown remote command %q", args[0])
+	}
+}
+
+func remoteStatus(args []string) error {
+	fs := flag.NewFlagSet("remote status", flag.ExitOnError)
+	baseURL, token, tokenEnv := remoteFlags(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	resp, err := remoteRequest(http.MethodGet, *baseURL, "/api/health", resolveToken(*token, *tokenEnv), nil)
+	if err != nil {
+		return err
+	}
+	ui.Header("remote", "HTTP FLUX endpoint status")
+	ui.KV("url", *baseURL)
+	ui.KV("worker", ui.State(fmt.Sprintf("%v", resp["worker_running"])))
+	ui.KV("backend", stringValue(resp["backend"]))
+	ui.KV("loaded", fmt.Sprintf("%v", resp["loaded"]))
+	ui.KV("device", stringValue(resp["device"]))
+	if errMsg := stringValue(resp["worker_error"]); errMsg != "" {
+		ui.KV("worker error", errMsg)
+	}
+	return nil
+}
+
+func remoteJobs(args []string) error {
+	fs := flag.NewFlagSet("remote jobs", flag.ExitOnError)
+	baseURL, token, tokenEnv := remoteFlags(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	resp, err := remoteRequest(http.MethodGet, *baseURL, "/api/jobs", resolveToken(*token, *tokenEnv), nil)
+	if err != nil {
+		return err
+	}
+	ui.Header("remote jobs", "HTTP worker queue")
+	jobs := mapSlice(resp["jobs"])
+	if len(jobs) == 0 {
+		fmt.Println(ui.Soft("no jobs yet"))
+		return nil
+	}
+	for _, job := range jobs {
+		output := valueOr(stringValue(job["output_url"]), stringValue(job["output"]))
+		fmt.Printf("%s %-18s %-8s %s\n", ui.Accent(stringValue(job["id"])), ui.State(stringValue(job["status"])), ui.Accent(valueOr(stringValue(job["backend"]), "?")), output)
+		fmt.Println("  " + stringValue(job["prompt"]))
+		if errMsg := stringValue(job["error"]); errMsg != "" {
+			fmt.Println("  " + ui.Bad(errMsg))
+		}
+	}
+	return nil
+}
+
+func remoteWarm(args []string) error {
+	fs := flag.NewFlagSet("remote warm", flag.ExitOnError)
+	baseURL, token, tokenEnv := remoteFlags(fs)
+	preload := fs.Bool("preload", false, "load model immediately")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	path := "/api/warm"
+	if *preload {
+		path += "?preload=1"
+	}
+	_, err := remoteRequest(http.MethodPost, *baseURL, path, resolveToken(*token, *tokenEnv), map[string]any{})
+	if err != nil {
+		return err
+	}
+	ui.Header("remote warm", "worker launch requested")
+	ui.KV("url", *baseURL)
+	ui.KV("preload", *preload)
+	return nil
+}
+
+func remoteStop(args []string) error {
+	fs := flag.NewFlagSet("remote stop", flag.ExitOnError)
+	baseURL, token, tokenEnv := remoteFlags(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	_, err := remoteRequest(http.MethodPost, *baseURL, "/api/stop", resolveToken(*token, *tokenEnv), map[string]any{})
+	if err != nil {
+		return err
+	}
+	ui.Header("remote stop", "worker stop requested")
+	ui.KV("url", *baseURL)
+	ui.KV("state", ui.State("down"))
+	return nil
+}
+
+func remoteRender(args []string) error {
+	fs := flag.NewFlagSet("remote render", flag.ExitOnError)
+	baseURL, token, tokenEnv := remoteFlags(fs)
+	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
+	backend := fs.String("backend", "auto", "backend: auto, mps, mlx, coreml, ane, cpu")
+	style := fs.String("style", "", "prompt style")
+	mood := fs.String("mood", "", "prompt mood")
+	camera := fs.String("camera", "", "camera lens")
+	light := fs.String("light", "", "lighting")
+	palette := fs.String("palette", "", "palette")
+	texture := fs.String("texture", "", "texture")
+	detail := fs.String("detail", "", "detail density")
+	chaos := fs.String("chaos", "", "variation")
+	director := fs.String("director", "", "influence")
+	ratioName := fs.String("ratio", "square", "ratio")
+	steps := fs.Int("steps", 28, "inference steps")
+	guidance := fs.Float64("guidance", 3.5, "guidance scale")
+	width := fs.Int("width", 0, "override width")
+	height := fs.Int("height", 0, "override height")
+	seed := fs.String("seed", "", "seed")
+	name := fs.String("name", "", "output filename")
+	draft := fs.Bool("draft", false, "768x768, 18 steps")
+	dryRun := fs.Bool("dry-run", false, "plan without generating")
+	wait := fs.Bool("wait", false, "poll until the job completes")
+	ordered, err := reorderRemoteRenderArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	*backend = strings.ToLower(*backend)
+	base := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if base == "" {
+		return fmt.Errorf("remote render needs a prompt")
+	}
+	body := map[string]any{
+		"prompt":   base,
+		"backend":  *backend,
+		"preset":   *presetName,
+		"style":    *style,
+		"mood":     *mood,
+		"camera":   *camera,
+		"light":    *light,
+		"palette":  *palette,
+		"texture":  *texture,
+		"detail":   *detail,
+		"chaos":    *chaos,
+		"director": *director,
+		"ratio":    *ratioName,
+		"width":    *width,
+		"height":   *height,
+		"steps":    *steps,
+		"guidance": *guidance,
+		"seed":     *seed,
+		"filename": *name,
+		"draft":    *draft,
+		"dry_run":  *dryRun,
+	}
+	resolvedToken := resolveToken(*token, *tokenEnv)
+	resp, err := remoteRequest(http.MethodPost, *baseURL, "/api/render", resolvedToken, body)
+	if err != nil {
+		return err
+	}
+	ui.Header("remote render", "HTTP submit to FLUX socket host")
+	ui.KV("url", *baseURL)
+	if plan, ok := resp["plan"].(map[string]any); ok {
+		ui.KV("backend", stringValue(plan["backend"]))
+		ui.KV("size", fmt.Sprintf("%vx%v", plan["width"], plan["height"]))
+		ui.KV("steps", fmt.Sprintf("%v", plan["steps"]))
+		ui.KV("prompt", stringValue(plan["prompt"]))
+	}
+	if *dryRun {
+		ui.KV("state", ui.State("planned"))
+		return nil
+	}
+	job := mapValue(resp["job"])
+	jobID := stringValue(job["id"])
+	ui.KV("job", jobID)
+	ui.KV("backend", stringValue(job["backend"]))
+	ui.KV("status", stringValue(job["status"]))
+	if *wait {
+		return watchRemoteJob(*baseURL, resolvedToken, jobID)
+	}
+	return nil
+}
+
+func remoteFlags(fs *flag.FlagSet) (*string, *string, *string) {
+	baseURL := fs.String("url", "http://127.0.0.1:7861", "remote FLUX HTTP URL")
+	token := fs.String("token", "", "HTTP bearer token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	return baseURL, token, tokenEnv
+}
+
+func remoteRequest(method, baseURL, path, token string, body any) (map[string]any, error) {
+	var reader io.Reader
+	if body != nil {
+		var buf bytes.Buffer
+		if err := json.NewEncoder(&buf).Encode(body); err != nil {
+			return nil, err
+		}
+		reader = &buf
+	}
+	req, err := http.NewRequest(method, strings.TrimRight(baseURL, "/")+path, reader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	httpResp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+	data, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if httpResp.StatusCode >= 400 {
+		return nil, fmt.Errorf("%s: %s", httpResp.Status, strings.TrimSpace(string(data)))
+	}
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return map[string]any{}, nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func watchRemoteJob(baseURL, token, jobID string) error {
+	if jobID == "" {
+		return nil
+	}
+	for {
+		resp, err := remoteRequest(http.MethodGet, baseURL, "/api/jobs", token, nil)
+		if err != nil {
+			ui.ProgressDone()
+			return err
+		}
+		job := findJob(mapSlice(resp["jobs"]), jobID)
+		if job == nil {
+			ui.Progress("remote", "unknown", 0, 1, jobID)
+			time.Sleep(750 * time.Millisecond)
+			continue
+		}
+		status := stringValue(job["status"])
+		phase := valueOr(stringValue(job["phase"]), status)
+		step := intValue(job["step"])
+		total := intValue(job["total_steps"])
+		if total <= 0 {
+			total = intValue(job["steps"])
+		}
+		if total <= 0 {
+			total = 1
+		}
+		if status == "queued" || phase == "loading_model" {
+			step = 0
+		}
+		if phase == "saving" || status == "done" {
+			step = total
+		}
+		ui.Progress("remote", phase, step, total, phase)
+		switch status {
+		case "done":
+			ui.ProgressDone()
+			ui.KV("output", stringValue(job["output"]))
+			if outputURL := stringValue(job["output_url"]); outputURL != "" {
+				ui.KV("image", outputURL)
+			}
+			return nil
+		case "error":
+			ui.ProgressDone()
+			return fmt.Errorf("%s", stringValue(job["error"]))
+		default:
+			time.Sleep(750 * time.Millisecond)
+		}
+	}
+}
+
+func stopWorker(cfg config.Config) error {
+	ui.Header("stop", "stopping persistent worker")
+	if err := daemon.New(cfg).Stop(); err != nil {
+		return err
+	}
+	ui.KV("state", ui.State("down"))
+	return nil
+}
+
+func jobs(cfg config.Config, args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "cancel":
+			return cancelJob(cfg, args[1:])
+		case "prune", "clear":
+			return pruneJobs(cfg, args[1:])
+		case "open":
+			return openJob(cfg, args[1:])
+		}
+	}
+	fs := flag.NewFlagSet("jobs", flag.ExitOnError)
+	activeOnly := fs.Bool("active", false, "show queued/running jobs only")
+	doneOnly := fs.Bool("done", false, "show completed jobs only")
+	errorsOnly := fs.Bool("errors", false, "show failed/cancelled jobs only")
+	limit := fs.Int("n", 0, "limit rows, newest first")
+	jsonOut := fs.Bool("json", false, "print raw jobs JSON")
+	openLatest := fs.Bool("open-latest", false, "open newest completed output")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	resp, err := daemon.New(cfg).Request(map[string]any{"op": "jobs"})
+	if err != nil {
+		return fmt.Errorf("worker is not running; use flux warm --preload=false or flux warm")
+	}
+	jobs := filterJobs(resp.Jobs, *activeOnly, *doneOnly, *errorsOnly)
+	reverseJobs(jobs)
+	if *limit > 0 && len(jobs) > *limit {
+		jobs = jobs[:*limit]
+	}
+	if *jsonOut {
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"ok": true, "jobs": jobs})
+	}
+	ui.Header("jobs", "persistent worker queue")
+	if *openLatest {
+		job := newestOutputJob(resp.Jobs)
+		if job == nil {
+			return fmt.Errorf("no completed output to open")
+		}
+		return openOutput(jobDisplayOutput(job))
+	}
+	printQueueSummary(resp.Jobs)
+	if len(jobs) == 0 {
+		fmt.Println(ui.Soft("no jobs yet"))
+		return nil
+	}
+	for _, job := range jobs {
+		printJobRow(job)
+	}
+	return nil
+}
+
+func cancelJob(cfg config.Config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: flux jobs cancel <job-id>")
+	}
+	ui.Header("jobs", "cancel queued/running worker job")
+	resp, err := daemon.New(cfg).Request(map[string]any{"op": "cancel", "id": args[0]})
+	if err != nil {
+		return fmt.Errorf("%w; if the worker is already running, restart it once to enable cancel support", err)
+	}
+	job := resp.Job
+	ui.KV("job", args[0])
+	ui.KV("status", stringValue(job["status"]))
+	ui.KV("phase", stringValue(job["phase"]))
+	return nil
+}
+
+func pruneJobs(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("jobs prune", flag.ExitOnError)
+	keep := fs.Int("keep", 20, "keep this many terminal jobs")
+	all := fs.Bool("all", false, "prune all terminal jobs")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *all {
+		*keep = 0
+	}
+	ui.Header("jobs", "prune terminal worker job records")
+	resp, err := daemon.New(cfg).Request(map[string]any{"op": "prune", "keep": *keep, "statuses": []string{"done", "error", "cancelled"}})
+	if err != nil {
+		return fmt.Errorf("%w; if the worker is already running, restart it once to enable prune support", err)
+	}
+	removed := mapSlice(resp.Raw["removed"])
+	if raw, ok := resp.Raw["removed"].([]any); ok {
+		ui.KV("removed", len(raw))
+	} else {
+		ui.KV("removed", len(removed))
+	}
+	ui.KV("keep", *keep)
+	return nil
+}
+
+func openJob(cfg config.Config, args []string) error {
+	target := "latest"
+	if len(args) > 0 {
+		target = args[0]
+	}
+	resp, err := daemon.New(cfg).Request(map[string]any{"op": "jobs"})
+	if err != nil {
+		return err
+	}
+	var job map[string]any
+	if target == "latest" {
+		job = newestOutputJob(resp.Jobs)
+	} else {
+		job = findJob(resp.Jobs, target)
+	}
+	if job == nil {
+		return fmt.Errorf("no output job found for %q", target)
+	}
+	return openOutput(jobDisplayOutput(job))
+}
+
+func render(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("render", flag.ExitOnError)
+	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	style := fs.String("style", "", "prompt style: cinema, product, editorial, architect, document, speculative, anime, noir")
+	mood := fs.String("mood", "", "prompt mood: quiet, electric, clinical, warm, ominous, optimistic, melancholy, fever")
+	camera := fs.String("camera", "", "camera lens: wide, close, macro, low, overhead, tracking, portrait")
+	light := fs.String("light", "", "lighting: golden, neon, overcast, rim, lantern, storm, studio")
+	palette := fs.String("palette", "", "palette: sakura, verdant, cobalt, ember, mono, pastel, acid")
+	texture := fs.String("texture", "", "texture: film, ink, cel, paper, metal, glass, weathered")
+	detail := fs.String("detail", "", "detail density: minimal, balanced, dense, ornate, diagram")
+	chaos := fs.String("chaos", "", "variation: calm, alive, wild, surreal, maximal")
+	director := fs.String("director", "", "influence: miyazaki, kon, oshii, watanabe, anno, shinkai, vogue, brutalist")
+	ratioName := fs.String("ratio", "square", "ratio: square, wide, portrait, fourthree, draft")
+	steps := fs.Int("steps", 28, "inference steps")
+	guidance := fs.Float64("guidance", 3.5, "guidance scale")
+	width := fs.Int("width", 0, "override width")
+	height := fs.Int("height", 0, "override height")
+	seed := fs.String("seed", "", "seed")
+	name := fs.String("name", "", "output filename")
+	draft := fs.Bool("draft", false, "768x768, 18 steps")
+	dryRun := fs.Bool("dry-run", false, "print command without generating")
+	echo := fs.Bool("echo", false, "print shaped prompt before running")
+	async := fs.Bool("async", false, "queue on persistent worker; starts it if needed")
+	direct := fs.Bool("direct", false, "force one-shot Python render even when a worker socket is live")
+	burst := fs.Int("burst", 1, "render N seed variants")
+	startSeed := fs.Int("start-seed", 0, "first seed for burst when --seed is omitted")
+	ordered, err := reorderRenderArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	*backend = strings.ToLower(*backend)
+	base := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if base == "" {
+		return fmt.Errorf("render needs a prompt")
+	}
+	preset, err := prompt.PresetByName(*presetName)
+	if err != nil {
+		return err
+	}
+	if preset.Name != "" {
+		if *style == "" {
+			*style = preset.Style
+		}
+		if *mood == "" {
+			*mood = preset.Mood
+		}
+		if *ratioName == "square" {
+			*ratioName = preset.Ratio
+		}
+		if *steps == 28 {
+			*steps = preset.Steps
+		}
+		if *guidance == 3.5 {
+			*guidance = preset.Guidance
+		}
+	}
+	if *draft {
+		*ratioName = "draft"
+		*steps = 18
+	}
+	ratio, err := prompt.RatioByName(*ratioName)
+	if err != nil {
+		return err
+	}
+	if *width == 0 {
+		*width = ratio.Width
+	}
+	if *height == 0 {
+		*height = ratio.Height
+	}
+	shaped, err := prompt.Compose(base, prompt.Shape{
+		Style: *style, Mood: *mood, Camera: *camera, Light: *light, Palette: *palette,
+		Texture: *texture, Detail: *detail, Chaos: *chaos, Director: *director, Preset: *presetName,
+	})
+	if err != nil {
+		return err
+	}
+	if *burst < 1 {
+		return fmt.Errorf("--burst must be at least 1")
+	}
+
+	renderSubtitle := "local BF16 FLUX generation"
+	if *dryRun {
+		renderSubtitle = "local BF16 FLUX render plan"
+	}
+	ui.Header("render", renderSubtitle)
+	ui.KV("preset", valueOr(*presetName, "none"))
+	ui.KV("backend", *backend)
+	ui.KV("style", valueOr(*style, "none"))
+	ui.KV("mood", valueOr(*mood, "none"))
+	printLensKV("camera", *camera)
+	printLensKV("light", *light)
+	printLensKV("palette", *palette)
+	printLensKV("texture", *texture)
+	printLensKV("detail", *detail)
+	printLensKV("chaos", *chaos)
+	printLensKV("director", *director)
+	ui.KV("size", fmt.Sprintf("%dx%d", *width, *height))
+	ui.KV("steps", *steps)
+	ui.KV("guidance", *guidance)
+	ui.KV("seed", valueOr(*seed, "random"))
+	ui.KV("burst", *burst)
+	if *dryRun {
+		ui.KV("state", ui.State("planned")+" "+ui.Soft("no job submitted"))
+		if *direct {
+			ui.KV("route", ui.State("direct")+" "+ui.Soft("one-shot Python plan"))
+		} else {
+			ui.KV("route", ui.State("resident")+" "+ui.Soft("unix socket plan"))
+		}
+	}
+	if *echo || *dryRun {
+		ui.KV("prompt", shaped)
+	}
+
+	baseArgs := []string{
+		cfg.GeneratePy,
+		"--prompt", shaped,
+		"--width", strconv.Itoa(*width),
+		"--height", strconv.Itoa(*height),
+		"--steps", strconv.Itoa(*steps),
+		"--guidance", fmt.Sprintf("%.3f", *guidance),
+	}
+	for i := 0; i < *burst; i++ {
+		runSeed := *seed
+		if *burst > 1 && runSeed == "" {
+			if *startSeed == 0 {
+				*startSeed = int(time.Now().Unix() % 1000000)
+			}
+			runSeed = strconv.Itoa(*startSeed + i)
+		}
+		cmdArgs := append([]string{}, baseArgs...)
+		if runSeed != "" {
+			cmdArgs = append(cmdArgs, "--seed", runSeed)
+		}
+		if *name != "" {
+			filename := *name
+			if *burst > 1 {
+				filename = suffixFilename(*name, i+1)
+			}
+			cmdArgs = append(cmdArgs, "--filename", filename)
+		}
+		if *dryRun {
+			if *direct {
+				if !directBackendSupported(*backend) {
+					return fmt.Errorf("--direct only supports auto, mps, or cpu backends")
+				}
+				if *backend == "cpu" {
+					cmdArgs = append(cmdArgs, "--device", "cpu")
+				}
+				ui.KV(fmt.Sprintf("command[%d]", i+1), cfg.Python+" "+shellish(cmdArgs))
+			} else {
+				ui.KV(fmt.Sprintf("socket-plan[%d]", i+1), fmt.Sprintf("backend=%s %dx%d steps=%d guidance=%.3f", *backend, *width, *height, *steps, *guidance))
+			}
+			continue
+		}
+		client := daemon.New(cfg)
+		if !*direct {
+			socketLive := false
+			if _, err := client.Request(map[string]any{"op": "ping"}); err == nil {
+				socketLive = true
+			}
+			if !socketLive {
+				if err := client.Start(false); err != nil {
+					return err
+				}
+			}
+			resp, err := client.Request(map[string]any{
+				"op":       "submit",
+				"backend":  *backend,
+				"prompt":   shaped,
+				"width":    *width,
+				"height":   *height,
+				"steps":    *steps,
+				"guidance": *guidance,
+				"seed":     runSeed,
+				"filename": filenameFromArgs(cmdArgs),
+			})
+			if err != nil {
+				return err
+			}
+			ui.KV("route", ui.State("resident")+" "+ui.Soft("unix socket"))
+			if resp.Job != nil {
+				jobID := stringValue(resp.Job["id"])
+				ui.KV("job", jobID)
+				ui.KV("backend", stringValue(resp.Job["backend"]))
+				ui.KV("status", stringValue(resp.Job["status"]))
+				if !*async {
+					if err := watchSocketJob(client, jobID, cfg, history.Entry{
+						Time:     time.Now(),
+						Prompt:   shaped,
+						Style:    *style,
+						Mood:     *mood,
+						Width:    *width,
+						Height:   *height,
+						Steps:    *steps,
+						Guidance: *guidance,
+						Seed:     runSeed,
+					}); err != nil {
+						return err
+					}
+				}
+			}
+			continue
+		}
+		ui.KV("route", ui.State("direct")+" "+ui.Soft("one-shot Python"))
+		if !directBackendSupported(*backend) {
+			return fmt.Errorf("--direct only supports auto, mps, or cpu backends")
+		}
+		if *backend == "cpu" {
+			cmdArgs = append(cmdArgs, "--device", "cpu")
+		}
+		if *burst > 1 {
+			ui.Step(fmt.Sprintf("variant %d/%d seed=%s", i+1, *burst, valueOr(runSeed, "random")))
+		}
+		res, err := runner.Stream(context.Background(), map[string]string{
+			"MODEL_DIR": cfg.ModelDir,
+			"OUT_DIR":   cfg.OutputDir,
+		}, cfg.Python, cmdArgs...)
+		if err != nil {
+			return err
+		}
+		_ = history.Append(cfg.History, history.Entry{
+			Time:     time.Now(),
+			Prompt:   shaped,
+			Style:    *style,
+			Mood:     *mood,
+			Width:    *width,
+			Height:   *height,
+			Steps:    *steps,
+			Guidance: *guidance,
+			Seed:     runSeed,
+			Output:   res.OutputPath,
+			Seconds:  res.Seconds,
+		})
+	}
+	return nil
+}
+
+func img2img(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("img2img", flag.ExitOnError)
+	imagePath := fs.String("image", "", "input image path")
+	image2Path := fs.String("image2", "", "second reference image path; builds a composite reference")
+	ref2Path := fs.String("ref2", "", "alias for --image2")
+	backend := fs.String("backend", "auto", "backend: auto, mps, cpu")
+	strength := fs.Float64("strength", 0.55, "image denoise strength; 0.25 preserves, 0.55 balances, 0.70 transforms")
+	steps := fs.Int("steps", 28, "inference steps")
+	guidance := fs.Float64("guidance", 5.0, "guidance scale")
+	width := fs.Int("width", 0, "output width; defaults to input image width")
+	height := fs.Int("height", 0, "output height; defaults to input image height")
+	seed := fs.String("seed", "", "seed")
+	name := fs.String("name", "", "output filename")
+	style := fs.String("style", "", "prompt style")
+	mood := fs.String("mood", "", "prompt mood")
+	camera := fs.String("camera", "", "camera lens")
+	light := fs.String("light", "", "lighting")
+	palette := fs.String("palette", "", "palette")
+	texture := fs.String("texture", "", "texture")
+	detail := fs.String("detail", "", "detail density")
+	chaos := fs.String("chaos", "", "variation")
+	director := fs.String("director", "", "influence")
+	dryRun := fs.Bool("dry-run", false, "show socket plan without submitting")
+	async := fs.Bool("async", false, "queue and return immediately")
+	preload := fs.Bool("preload", false, "load img2img model immediately when starting socket")
+	warmOnly := fs.Bool("warm", false, "start img2img socket without submitting")
+	stopOnly := fs.Bool("stop", false, "stop img2img socket")
+	jobsOnly := fs.Bool("jobs", false, "show img2img socket jobs")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	client := daemon.NewNamed(cfg, "img2img")
+	if *stopOnly {
+		ui.Header("img2img", "stopping FLUX image-to-image socket")
+		if err := client.Stop(); err != nil {
+			return err
+		}
+		ui.KV("state", ui.State("down"))
+		return nil
+	}
+	if *warmOnly {
+		ui.Header("img2img", "starting FLUX image-to-image socket")
+		if err := client.Start(*preload); err != nil {
+			return err
+		}
+		socket, state, log, pid := client.Paths()
+		ui.KV("socket", socket)
+		ui.KV("state", state)
+		ui.KV("log", log)
+		ui.KV("pid", pid)
+		ui.KV("preload", *preload)
+		return nil
+	}
+	if *jobsOnly {
+		ui.Header("img2img jobs", "image-to-image socket queue")
+		resp, err := client.Request(map[string]any{"op": "jobs"})
+		if err != nil {
+			return err
+		}
+		printQueueSummary(resp.Jobs)
+		jobs := append([]map[string]any{}, resp.Jobs...)
+		reverseJobs(jobs)
+		if len(jobs) == 0 {
+			fmt.Println(ui.Soft("no jobs yet"))
+			return nil
+		}
+		for _, job := range jobs {
+			printJobRow(job)
+		}
+		return nil
+	}
+	if strings.TrimSpace(*imagePath) == "" {
+		return fmt.Errorf("img2img needs --image <path>")
+	}
+	if strings.TrimSpace(*image2Path) == "" {
+		*image2Path = strings.TrimSpace(*ref2Path)
+	}
+	switch strings.ToLower(strings.TrimSpace(*backend)) {
+	case "", "auto", "mps", "cpu":
+		*backend = strings.ToLower(valueOr(*backend, "auto"))
+	default:
+		return fmt.Errorf("img2img backend must be auto, mps, or cpu")
+	}
+	if *strength <= 0 || *strength >= 1 {
+		return fmt.Errorf("--strength must be between 0 and 1")
+	}
+	base := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if base == "" {
+		base = "stylized cinematic 3D animated character still, sculpted facial planes, expressive eyes, hand-painted texture over 3D form, graphic cel-shadow shapes, dramatic rim lighting, teal and amber color grade"
+	}
+	shaped, err := prompt.Compose(base, prompt.Shape{
+		Style: *style, Mood: *mood, Camera: *camera, Light: *light, Palette: *palette,
+		Texture: *texture, Detail: *detail, Chaos: *chaos, Director: *director,
+	})
+	if err != nil {
+		return err
+	}
+	absImage, err := filepath.Abs(expandHome(*imagePath))
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(absImage); err != nil {
+		return fmt.Errorf("input image unavailable: %w", err)
+	}
+	absImage2 := ""
+	compositeImage := ""
+	if strings.TrimSpace(*image2Path) != "" {
+		absImage2, err = filepath.Abs(expandHome(*image2Path))
+		if err != nil {
+			return err
+		}
+		if _, err := os.Stat(absImage2); err != nil {
+			return fmt.Errorf("second input image unavailable: %w", err)
+		}
+		ref, err := stitchReferenceImages(cfg, absImage, absImage2)
+		if err != nil {
+			return err
+		}
+		compositeImage = ref.Path
+		absImage = ref.Path
+		if *width <= 0 && *height <= 0 {
+			*width = ref.OutputWidth
+			*height = ref.OutputHeight
+		}
+		shaped = "Use the composite reference as two visual references: left image is the primary subject/composition reference, right image is the secondary style/detail reference. Synthesize one cohesive image; do not create a diptych, split-screen, contact sheet, or side-by-side layout. " + shaped
+	}
+
+	ui.Header("img2img", "FLUX image-to-image socket")
+	ui.KV("socket", filepath.Join(cfg.Root, ".fluxd", "img2img.sock"))
+	ui.KV("image", absImage)
+	if absImage2 != "" {
+		ui.KV("image2", absImage2)
+		ui.KV("composite", compositeImage)
+		ui.KV("conditioning", "composite reference; not true dual-stream conditioning")
+	}
+	ui.KV("backend", *backend)
+	ui.KV("strength", fmt.Sprintf("%.2f", *strength))
+	ui.KV("size", sizeLabel(*width, *height, "input"))
+	ui.KV("steps", *steps)
+	ui.KV("guidance", *guidance)
+	ui.KV("seed", valueOr(*seed, "random"))
+	ui.KV("prompt", shaped)
+
+	if *dryRun {
+		ui.KV("state", ui.State("planned")+" "+ui.Soft("img2img socket job not submitted"))
+		return nil
+	}
+
+	if err := client.Start(*preload); err != nil {
+		return err
+	}
+	resp, err := client.Request(map[string]any{
+		"op":       "submit_img2img",
+		"backend":  *backend,
+		"prompt":   shaped,
+		"image":    absImage,
+		"width":    *width,
+		"height":   *height,
+		"steps":    *steps,
+		"guidance": *guidance,
+		"strength": *strength,
+		"seed":     *seed,
+		"filename": *name,
+	})
+	if err != nil {
+		return err
+	}
+	jobID := stringValue(resp.Job["id"])
+	ui.KV("route", ui.State("resident")+" "+ui.Soft("img2img unix socket"))
+	ui.KV("job", jobID)
+	ui.KV("status", stringValue(resp.Job["status"]))
+	if *async {
+		return nil
+	}
+	return watchSocketJob(client, jobID, cfg, history.Entry{
+		Time:     time.Now(),
+		Prompt:   shaped,
+		Style:    *style,
+		Mood:     *mood,
+		Width:    intValue(resp.Job["width"]),
+		Height:   intValue(resp.Job["height"]),
+		Steps:    *steps,
+		Guidance: *guidance,
+		Seed:     *seed,
+	})
+}
+
+type stitchedReference struct {
+	Path         string `json:"path"`
+	OutputWidth  int    `json:"output_width"`
+	OutputHeight int    `json:"output_height"`
+}
+
+func stitchReferenceImages(cfg config.Config, imageA, imageB string) (stitchedReference, error) {
+	outDir := filepath.Join(cfg.Root, ".fluxd", "references")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return stitchedReference{}, err
+	}
+	outPath := filepath.Join(outDir, "ref2-"+time.Now().Format("20060102-150405")+"-"+strconv.FormatInt(time.Now().UnixNano()%1000000, 10)+".png")
+	script := `
+import json, sys
+from PIL import Image, ImageOps
+
+a_path, b_path, out_path = sys.argv[1:4]
+a = ImageOps.exif_transpose(Image.open(a_path).convert("RGB"))
+b = ImageOps.exif_transpose(Image.open(b_path).convert("RGB"))
+target_h = max(a.height, b.height)
+
+def fit_height(img, h):
+    if img.height == h:
+        return img
+    w = max(1, round(img.width * (h / img.height)))
+    return img.resize((w, h), Image.Resampling.LANCZOS)
+
+a2 = fit_height(a, target_h)
+b2 = fit_height(b, target_h)
+pad = max(16, target_h // 24)
+board = Image.new("RGB", (a2.width + b2.width + pad, target_h), (8, 9, 14))
+board.paste(a2, (0, 0))
+board.paste(b2, (a2.width + pad, 0))
+board.save(out_path)
+print(json.dumps({"path": out_path, "output_width": a.width, "output_height": a.height}))
+`
+	cmd := exec.Command(cfg.Python, "-c", script, imageA, imageB, outPath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return stitchedReference{}, fmt.Errorf("reference composite failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	var ref stitchedReference
+	if err := json.Unmarshal(bytes.TrimSpace(out), &ref); err != nil {
+		return stitchedReference{}, err
+	}
+	if ref.Path == "" {
+		ref.Path = outPath
+	}
+	return ref, nil
+}
+
+func watchSocketJob(client daemon.Client, jobID string, cfg config.Config, entry history.Entry) error {
+	if jobID == "" {
+		return nil
+	}
+	started := time.Now()
+	lastStatus := ""
+	for {
+		resp, err := client.Request(map[string]any{"op": "jobs"})
+		if err != nil {
+			ui.ProgressDone()
+			return err
+		}
+		job := findJob(resp.Jobs, jobID)
+		if job == nil {
+			ui.Progress("missing", "unknown", 0, 1, jobID)
+			time.Sleep(750 * time.Millisecond)
+			continue
+		}
+		status := stringValue(job["status"])
+		phase := valueOr(stringValue(job["phase"]), status)
+		step := intValue(job["step"])
+		total := intValue(job["total_steps"])
+		if total <= 0 {
+			total = intValue(job["steps"])
+		}
+		if total <= 0 {
+			total = 1
+		}
+		if status == "queued" || phase == "loading_model" {
+			step = 0
+		}
+		if phase == "saving" || status == "done" {
+			step = total
+		}
+		detail := phase
+		if phase == "loading_model" {
+			detail = "loading BF16 pipeline"
+		} else if status == "running" || status == "queued" {
+			detail = jobTiming(job)
+		}
+		if status != lastStatus && lastStatus == "" {
+			fmt.Println()
+		}
+		lastStatus = status
+		ui.Progress("render", phase, step, total, detail)
+		switch status {
+		case "done":
+			ui.ProgressDone()
+			output := stringValue(job["output"])
+			ui.KV("output", output)
+			entry.Output = output
+			entry.Seconds = fmt.Sprintf("%.1fs", time.Since(started).Seconds())
+			_ = history.Append(cfg.History, entry)
+			return nil
+		case "error":
+			ui.ProgressDone()
+			return fmt.Errorf("%s", stringValue(job["error"]))
+		default:
+			time.Sleep(750 * time.Millisecond)
+		}
+	}
+}
+
+func waitSocketJob(client daemon.Client, jobID string) (map[string]any, error) {
+	if jobID == "" {
+		return nil, fmt.Errorf("missing job id")
+	}
+	for {
+		resp, err := client.Request(map[string]any{"op": "jobs"})
+		if err != nil {
+			ui.ProgressDone()
+			return nil, err
+		}
+		job := findJob(resp.Jobs, jobID)
+		if job == nil {
+			ui.Progress("bench", "unknown", 0, 1, jobID)
+			time.Sleep(750 * time.Millisecond)
+			continue
+		}
+		status := stringValue(job["status"])
+		phase := valueOr(stringValue(job["phase"]), status)
+		step := intValue(job["step"])
+		total := intValue(job["total_steps"])
+		if total <= 0 {
+			total = intValue(job["steps"])
+		}
+		if total <= 0 {
+			total = 1
+		}
+		if status == "queued" || phase == "loading_model" {
+			step = 0
+		}
+		if phase == "saving" || status == "done" {
+			step = total
+		}
+		detail := jobID
+		if status == "running" || status == "queued" {
+			detail = jobTiming(job)
+		}
+		ui.Progress("bench", phase, step, total, detail)
+		switch status {
+		case "done":
+			ui.ProgressDone()
+			return job, nil
+		case "error":
+			ui.ProgressDone()
+			return job, fmt.Errorf("%s", stringValue(job["error"]))
+		default:
+			time.Sleep(750 * time.Millisecond)
+		}
+	}
+}
+
+func findJob(jobs []map[string]any, id string) map[string]any {
+	for _, job := range jobs {
+		if stringValue(job["id"]) == id {
+			return job
+		}
+	}
+	return nil
+}
+
+func parseBackendList(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]bool{}
+	for _, part := range parts {
+		backend := strings.ToLower(strings.TrimSpace(part))
+		if backend == "" {
+			continue
+		}
+		if err := validateBackend(backend); err != nil {
+			return nil, err
+		}
+		if backend == "auto" {
+			return nil, fmt.Errorf("bench needs concrete backends, not auto")
+		}
+		if seen[backend] {
+			continue
+		}
+		seen[backend] = true
+		out = append(out, backend)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("bench needs at least one backend")
+	}
+	return out, nil
+}
+
+func backendCapable(backend string, caps map[string]any) bool {
+	switch backend {
+	case "mps", "mlx", "cpu":
+		return boolValue(caps[backend])
+	case "coreml":
+		return boolValue(caps["coreml_compiled"])
+	case "ane":
+		return boolValue(caps["ane_renderable"])
+	default:
+		return false
+	}
+}
+
+func capabilityReason(backend string) string {
+	switch backend {
+	case "coreml":
+		return "requires FLUX_COREML_MODEL or model/coreml compiled package"
+	case "ane":
+		return "requires validated full-pipeline package in model/ane/registry.json"
+	case "mlx":
+		return "requires mlx and mflux-generate"
+	case "mps":
+		return "requires PyTorch MPS"
+	default:
+		return "backend unavailable"
+	}
+}
+
+type benchResult struct {
+	Backend string
+	Status  string
+	Seconds float64
+	Output  string
+	Error   string
+}
+
+func benchRows(results []benchResult) []ui.PairRow {
+	if len(results) == 0 {
+		return []ui.PairRow{{Left: "none", Right: "no capable backends selected"}}
+	}
+	rows := make([]ui.PairRow, 0, len(results))
+	for _, result := range results {
+		right := result.Status
+		if result.Seconds > 0 {
+			right = fmt.Sprintf("%.1fs %s", result.Seconds, result.Output)
+		}
+		if result.Error != "" {
+			right = result.Error
+		}
+		rows = append(rows, ui.PairRow{Left: result.Backend, Right: right})
+	}
+	return rows
+}
+
+func plannedBackendRows(backends []string) []ui.PairRow {
+	rows := make([]ui.PairRow, 0, len(backends))
+	for _, backend := range backends {
+		rows = append(rows, ui.PairRow{
+			Left:  backend,
+			Right: "planned socket job with shared prompt, size, steps, guidance, and seed",
+		})
+	}
+	return rows
+}
+
+func mapSlice(v any) []map[string]any {
+	switch t := v.(type) {
+	case []map[string]any:
+		return t
+	case []any:
+		out := make([]map[string]any, 0, len(t))
+		for _, item := range t {
+			if m := mapValue(item); m != nil {
+				out = append(out, m)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func mapValue(v any) map[string]any {
+	switch t := v.(type) {
+	case map[string]any:
+		return t
+	default:
+		return nil
+	}
+}
+
+func reorderRenderArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{
+		"preset": true, "backend": true, "style": true, "mood": true, "ratio": true, "steps": true,
+		"guidance": true, "width": true, "height": true, "seed": true,
+		"camera": true, "light": true, "palette": true, "texture": true, "detail": true, "chaos": true, "director": true,
+		"name": true, "burst": true, "start-seed": true,
+	}
+	boolFlags := map[string]bool{"draft": true, "dry-run": true, "echo": true, "async": true, "direct": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+func reorderBenchArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{
+		"backends": true, "prompt": true, "width": true, "height": true, "steps": true,
+		"guidance": true, "seed": true, "name": true,
+	}
+	boolFlags := map[string]bool{"dry-run": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		if boolFlags[name] {
+			flags = append(flags, arg)
+			continue
+		}
+		if valueFlags[name] {
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+			continue
+		}
+		flags = append(flags, arg)
+	}
+	return append(flags, positional...), nil
+}
+
+func reorderRemoteRenderArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{
+		"url": true, "token": true, "token-env": true,
+		"preset": true, "backend": true, "style": true, "mood": true, "ratio": true, "steps": true,
+		"guidance": true, "width": true, "height": true, "seed": true, "name": true,
+		"camera": true, "light": true, "palette": true, "texture": true, "detail": true, "chaos": true, "director": true,
+	}
+	boolFlags := map[string]bool{"draft": true, "dry-run": true, "wait": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+type museLane struct {
+	Name   string
+	Preset string
+	Twist  string
+}
+
+var museLanes = []museLane{
+	{"opening-signal", "hero", "as an establishing image with one unmistakable focal gesture"},
+	{"character-weather", "anime", "with emotional weather, clear silhouette, production-still framing"},
+	{"object-truth", "object", "as a tactile object study with exact material behavior"},
+	{"quiet-map", "space", "as an inhabited place with believable spatial logic"},
+	{"field-note", "sketch", "as a fast visual note, useful composition over polish"},
+	{"cover-pressure", "cover", "as a vertical key visual with graphic hierarchy"},
+	{"future-proof", "future", "as a plausible near-future scene with restrained invention"},
+	{"night-cut", "noir", "with hard shadow shapes and a decisive foreground layer"},
+}
+
+func muse(args []string) error {
+	fs := flag.NewFlagSet("muse", flag.ExitOnError)
+	count := fs.Int("n", 6, "number of lanes")
+	startSeed := fs.Int("start-seed", 4100, "first deterministic seed")
+	commandsOnly := fs.Bool("commands", false, "print commands only")
+	remoteURL := fs.String("remote-url", "", "emit remote render commands for this URL")
+	wait := fs.Bool("wait", true, "include --wait on remote commands")
+	anime := fs.Bool("anime", false, "bias every lane toward anime production language")
+	ordered, err := reorderMuseArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	subject := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if subject == "" {
+		return fmt.Errorf("muse needs a subject")
+	}
+	if *count < 1 {
+		return fmt.Errorf("--n must be at least 1")
+	}
+	if !*commandsOnly {
+		ui.Header("muse", "shot board with renderable lanes")
+		ui.KV("subject", subject)
+		ui.KV("lanes", *count)
+		if *remoteURL != "" {
+			ui.KV("remote", *remoteURL)
+		}
+		fmt.Println()
+	}
+	for i := 0; i < *count; i++ {
+		lane := museLanes[i%len(museLanes)]
+		preset, err := prompt.PresetByName(lane.Preset)
+		if err != nil {
+			return err
+		}
+		base := subject + ", " + lane.Twist
+		if *anime && lane.Preset != "anime" {
+			base = "anime production still, " + base
+		}
+		shaped, err := prompt.Compose(base, prompt.Shape{Style: preset.Style, Mood: preset.Mood, Preset: preset.Name})
+		if err != nil {
+			return err
+		}
+		seed := *startSeed + i
+		command := museCommand(base, preset.Name, seed, *remoteURL, *wait)
+		if *commandsOnly {
+			fmt.Println(command)
+			continue
+		}
+		ratio, _ := prompt.RatioByName(preset.Ratio)
+		meta := fmt.Sprintf("preset=%s %dx%d steps=%d guidance=%.1f seed=%d", preset.Name, ratio.Width, ratio.Height, preset.Steps, preset.Guidance, seed)
+		ui.Capsule(lane.Name, meta, shaped, command, []ui.Color{ui.Teal, ui.Gold, ui.Lilac, ui.Indigo}[i%4])
+		if i != *count-1 {
+			fmt.Println()
+		}
+	}
+	return nil
+}
+
+func museCommand(promptText, preset string, seed int, remoteURL string, wait bool) string {
+	if strings.TrimSpace(remoteURL) != "" {
+		parts := []string{"flux", "remote", "render", "--url", remoteURL, promptText, "--preset", preset, "--seed", strconv.Itoa(seed)}
+		if wait {
+			parts = append(parts, "--wait")
+		}
+		return shellish(parts)
+	}
+	return shellish([]string{"flux", "render", promptText, "--preset", preset, "--seed", strconv.Itoa(seed)})
+}
+
+func matrix(args []string) error {
+	fs := flag.NewFlagSet("matrix", flag.ExitOnError)
+	styles := fs.String("styles", "cinema,anime,noir", "comma-separated styles")
+	moods := fs.String("moods", "quiet,electric,melancholy", "comma-separated moods")
+	cameras := fs.String("cameras", "wide,close", "comma-separated cameras")
+	limit := fs.Int("n", 8, "maximum combinations")
+	commands := fs.Bool("commands", false, "print render commands")
+	remoteURL := fs.String("remote-url", "", "emit remote render commands for this URL")
+	ordered, err := reorderMatrixArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	subject := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if subject == "" {
+		return fmt.Errorf("matrix needs a subject")
+	}
+	styleList := splitCSV(*styles)
+	moodList := splitCSV(*moods)
+	cameraList := splitCSV(*cameras)
+	if len(styleList) == 0 || len(moodList) == 0 || len(cameraList) == 0 {
+		return fmt.Errorf("matrix needs at least one style, mood, and camera")
+	}
+	if !*commands {
+		ui.Header("matrix", "creative control board")
+		ui.KV("subject", subject)
+		ui.KV("styles", strings.Join(styleList, ", "))
+		ui.KV("moods", strings.Join(moodList, ", "))
+		ui.KV("cameras", strings.Join(cameraList, ", "))
+		fmt.Println()
+	}
+	count := 0
+	for _, style := range styleList {
+		for _, mood := range moodList {
+			for _, camera := range cameraList {
+				if *limit > 0 && count >= *limit {
+					return nil
+				}
+				shaped, err := prompt.Compose(subject, prompt.Shape{Style: style, Mood: mood, Camera: camera})
+				if err != nil {
+					return err
+				}
+				if *commands {
+					if *remoteURL != "" {
+						fmt.Println(shellish([]string{"flux", "remote", "render", "--url", *remoteURL, subject, "--style", style, "--mood", mood, "--camera", camera}))
+					} else {
+						fmt.Println(shellish([]string{"flux", "render", subject, "--style", style, "--mood", mood, "--camera", camera, "--dry-run"}))
+					}
+				} else {
+					meta := fmt.Sprintf("style=%s mood=%s camera=%s", style, mood, camera)
+					ui.Capsule(fmt.Sprintf("lane-%02d", count+1), meta, shaped, "", []ui.Color{ui.Teal, ui.Gold, ui.Lilac, ui.Indigo}[count%4])
+					fmt.Println()
+				}
+				count++
+			}
+		}
+	}
+	return nil
+}
+
+func reorderMatrixArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{"styles": true, "moods": true, "cameras": true, "n": true, "remote-url": true}
+	boolFlags := map[string]bool{"commands": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+type evolveLane struct {
+	Name     string
+	Twist    string
+	Style    string
+	Mood     string
+	Camera   string
+	Light    string
+	Palette  string
+	Texture  string
+	Detail   string
+	Chaos    string
+	Director string
+}
+
+func evolve(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("evolve", flag.ExitOnError)
+	mode := fs.String("mode", "balanced", "mode: balanced, anime, cinematic, product, strange")
+	count := fs.Int("n", 8, "number of evolved prompts")
+	engine := fs.String("engine", "heuristic", "engine: heuristic or ane")
+	commands := fs.Bool("commands", false, "print render commands for each prompt")
+	remoteURL := fs.String("remote-url", "", "emit remote render commands for this URL")
+	presetName := fs.String("preset", "", "render preset for commands")
+	ordered, err := reorderEvolveArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	subject := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if subject == "" {
+		return fmt.Errorf("evolve needs a subject")
+	}
+	if *count < 1 {
+		return fmt.Errorf("--n must be at least 1")
+	}
+	if strings.EqualFold(*engine, "ane") {
+		if err := requirePromptANE(cfg); err != nil {
+			ui.Header("evolve", "ANE prompt model slot")
+			ui.KV("engine", ui.State("planned"))
+			ui.KV("state", ui.Warn("missing"))
+			ui.KV("reason", err)
+			ui.KV("fallback", "heuristic")
+			fmt.Println()
+			*engine = "heuristic"
+		}
+	} else if !strings.EqualFold(*engine, "heuristic") {
+		return fmt.Errorf("unknown evolve engine %q; use heuristic or ane", *engine)
+	}
+	lanes, err := evolveLanes(*mode)
+	if err != nil {
+		return err
+	}
+	if !*commands {
+		ui.Header("evolve", "prompt-side creative engine")
+		ui.KV("subject", subject)
+		ui.KV("mode", *mode)
+		ui.KV("engine", *engine)
+		ui.KV("guidance", "20-80 words is the normal sweet spot; use 80-140 for highly directed scenes")
+		fmt.Println()
+	}
+	for i := 0; i < *count; i++ {
+		lane := lanes[i%len(lanes)]
+		text, err := prompt.Compose(subject+", "+lane.Twist, prompt.Shape{
+			Style: lane.Style, Mood: lane.Mood, Camera: lane.Camera, Light: lane.Light, Palette: lane.Palette,
+			Texture: lane.Texture, Detail: lane.Detail, Chaos: lane.Chaos, Director: lane.Director,
+		})
+		if err != nil {
+			return err
+		}
+		if *commands {
+			promptText := subject + ", " + lane.Twist
+			parts := []string{"flux"}
+			if *remoteURL != "" {
+				parts = append(parts, "remote", "render", "--url", *remoteURL)
+			} else {
+				parts = append(parts, "render")
+			}
+			parts = append(parts, promptText)
+			for _, pair := range []struct {
+				name  string
+				value string
+			}{
+				{"style", lane.Style},
+				{"mood", lane.Mood},
+				{"camera", lane.Camera},
+				{"light", lane.Light},
+				{"palette", lane.Palette},
+				{"texture", lane.Texture},
+				{"detail", lane.Detail},
+				{"chaos", lane.Chaos},
+				{"director", lane.Director},
+			} {
+				if strings.TrimSpace(pair.value) != "" {
+					parts = append(parts, "--"+pair.name, pair.value)
+				}
+			}
+			if *presetName != "" {
+				parts = append(parts, "--preset", *presetName)
+			}
+			fmt.Println(shellish(parts))
+			continue
+		}
+		meta := fmt.Sprintf("words=%d style=%s mood=%s camera=%s", wordCount(text), valueOr(lane.Style, "none"), valueOr(lane.Mood, "none"), valueOr(lane.Camera, "none"))
+		ui.Capsule(lane.Name, meta, text, "", []ui.Color{ui.Gold, ui.Teal, ui.Lilac, ui.Indigo}[i%4])
+		if i != *count-1 {
+			fmt.Println()
+		}
+	}
+	return nil
+}
+
+func requirePromptANE(cfg config.Config) error {
+	registry := filepath.Join(cfg.ModelDir, "prompt", "ane", "registry.json")
+	if _, err := os.Stat(registry); err != nil {
+		return fmt.Errorf("no prompt-side ANE registry at %s", registry)
+	}
+	return nil
+}
+
+func evolveLanes(mode string) ([]evolveLane, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "balanced":
+		return []evolveLane{
+			{Name: "clarify", Twist: "make the subject visually specific with one focal object and readable environment", Style: "cinema", Mood: "quiet", Camera: "wide", Light: "overcast", Detail: "balanced", Chaos: "calm"},
+			{Name: "materialize", Twist: "emphasize surface behavior, physical materials, scale, and tactile detail", Style: "material", Mood: "clinical", Camera: "macro", Light: "studio", Texture: "glass", Detail: "diagram"},
+			{Name: "dramatize", Twist: "increase dramatic silhouette, atmospheric depth, and foreground pressure", Style: "cinema", Mood: "electric", Camera: "low", Light: "rim", Palette: "ember", Chaos: "alive"},
+			{Name: "humanize", Twist: "add lived-in traces, human scale, and small narrative evidence", Style: "document", Mood: "warm", Camera: "close", Light: "lantern", Texture: "weathered", Detail: "dense"},
+		}, nil
+	case "anime":
+		return []evolveLane{
+			{Name: "key-visual", Twist: "anime key visual with emotional weather and clean compositing", Style: "anime", Mood: "melancholy", Camera: "wide", Light: "golden", Palette: "sakura", Texture: "cel", Detail: "dense", Director: "shinkai"},
+			{Name: "story-still", Twist: "quiet anime production still with hand-crafted world detail", Style: "anime", Mood: "warm", Camera: "close", Light: "lantern", Palette: "verdant", Texture: "ink", Director: "miyazaki"},
+			{Name: "night-city", Twist: "lived-in futuristic anime city frame with rhythmic motion", Style: "anime", Mood: "nocturne", Camera: "tracking", Light: "neon", Palette: "cobalt", Detail: "dense", Director: "watanabe"},
+		}, nil
+	case "cinematic":
+		return []evolveLane{
+			{Name: "establish", Twist: "wide establishing cinematic frame with clear spatial hierarchy", Style: "cinema", Mood: "quiet", Camera: "wide", Light: "golden", Detail: "balanced"},
+			{Name: "pressure", Twist: "dramatic close frame with strong silhouette and emotional compression", Style: "cinema", Mood: "ominous", Camera: "close", Light: "rim", Palette: "mono", Chaos: "alive"},
+			{Name: "storm", Twist: "charged cinematic weather and high atmospheric contrast", Style: "cinema", Mood: "fever", Camera: "low", Light: "storm", Palette: "ember", Chaos: "wild"},
+		}, nil
+	case "product":
+		return []evolveLane{
+			{Name: "clean", Twist: "premium product image with exact material response", Style: "product", Mood: "clinical", Camera: "close", Light: "studio", Texture: "metal", Detail: "balanced"},
+			{Name: "macro", Twist: "macro product material study with edge detail and micro texture", Style: "material", Mood: "clinical", Camera: "macro", Light: "rim", Texture: "glass", Detail: "diagram"},
+			{Name: "editorial", Twist: "editorial product staging with confident negative space", Style: "editorial", Mood: "quiet", Camera: "portrait", Light: "golden", Palette: "mono", Director: "vogue"},
+		}, nil
+	case "strange":
+		return []evolveLane{
+			{Name: "surreal", Twist: "surreal but coherent transformation with impossible spatial cues", Style: "speculative", Mood: "fever", Camera: "wide", Light: "neon", Palette: "acid", Chaos: "surreal"},
+			{Name: "maximal", Twist: "controlled overload with layered symbols and dense secondary stories", Style: "editorial", Mood: "electric", Camera: "overhead", Light: "storm", Detail: "ornate", Chaos: "maximal"},
+			{Name: "quiet-weird", Twist: "subtle impossible detail inside an otherwise realistic scene", Style: "document", Mood: "ominous", Camera: "close", Light: "overcast", Texture: "film", Chaos: "surreal"},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown evolve mode %q; use balanced, anime, cinematic, product, or strange", mode)
+	}
+}
+
+func reorderEvolveArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{"mode": true, "n": true, "engine": true, "remote-url": true, "preset": true}
+	boolFlags := map[string]bool{"commands": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+func wordCount(value string) int {
+	return len(strings.Fields(value))
+}
+
+type pipelineLane struct {
+	Name     string
+	Preset   string
+	Style    string
+	Mood     string
+	Camera   string
+	Light    string
+	Palette  string
+	Texture  string
+	Detail   string
+	Chaos    string
+	Director string
+	Ratio    string
+	Steps    int
+	Guidance float64
+	Twist    string
+}
+
+func pipeline(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("pipeline", flag.ExitOnError)
+	mode := fs.String("mode", "explore", "workflow mode: explore, anime, product, architecture, fashion")
+	count := fs.Int("n", 0, "number of lanes; default uses the whole workflow")
+	startSeed := fs.Int("start-seed", 6200, "first deterministic seed")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	remoteURL := fs.String("remote-url", "", "queue through an exposed FLUX HTTP endpoint")
+	run := fs.Bool("run", false, "queue the workflow; default is plan only")
+	commandsOnly := fs.Bool("commands", false, "print copy-safe commands only")
+	wait := fs.Bool("wait", false, "include --wait in generated remote commands")
+	ordered, err := reorderPipelineArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	subject := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if subject == "" {
+		return fmt.Errorf("pipeline needs a subject")
+	}
+	lanes, err := pipelineLanes(*mode)
+	if err != nil {
+		return err
+	}
+	if *count > 0 && *count < len(lanes) {
+		lanes = lanes[:*count]
+	}
+	if *commandsOnly {
+		for i, lane := range lanes {
+			fmt.Println(pipelineCommand(subject, lane, *startSeed+i, *backend, *remoteURL, *wait))
+		}
+		return nil
+	}
+	ui.Header("pipeline", "multi-generation workflow")
+	ui.KV("subject", subject)
+	ui.KV("mode", *mode)
+	ui.KV("lanes", len(lanes))
+	ui.KV("route", pipelineRoute(*remoteURL, *run))
+	ui.KV("state", pipelineState(*run))
+	fmt.Println()
+
+	var client daemon.Client
+	if *run && *remoteURL == "" {
+		cfg.Backend = strings.ToLower(*backend)
+		client = daemon.New(cfg)
+		if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
+			if err := client.Start(false); err != nil {
+				return err
+			}
+		}
+	}
+	for i, lane := range lanes {
+		seed := strconv.Itoa(*startSeed + i)
+		shaped, plan, err := pipelinePlan(subject, lane, seed, *backend)
+		if err != nil {
+			return err
+		}
+		meta := fmt.Sprintf("preset=%s %dx%d steps=%d guidance=%.1f seed=%s", valueOr(lane.Preset, "none"), plan["width"], plan["height"], plan["steps"], plan["guidance"], seed)
+		command := pipelineCommand(subject, lane, *startSeed+i, *backend, *remoteURL, *wait)
+		ui.Capsule(lane.Name, meta, shaped, command, []ui.Color{ui.Teal, ui.Gold, ui.Lilac, ui.Indigo}[i%4])
+		if *run {
+			if *remoteURL != "" {
+				resp, err := remoteRequest(http.MethodPost, *remoteURL, "/api/render", "", plan)
+				if err != nil {
+					return err
+				}
+				ui.KV("job", stringValue(mapValue(resp["job"])["id"]))
+			} else {
+				resp, err := client.Request(map[string]any{
+					"op":       "submit",
+					"backend":  plan["backend"],
+					"prompt":   shaped,
+					"width":    plan["width"],
+					"height":   plan["height"],
+					"steps":    plan["steps"],
+					"guidance": plan["guidance"],
+					"seed":     seed,
+				})
+				if err != nil {
+					return err
+				}
+				ui.KV("job", stringValue(resp.Job["id"]))
+			}
+		}
+		if i != len(lanes)-1 {
+			fmt.Println()
+		}
+	}
+	if !*run {
+		fmt.Println()
+		fmt.Println(ui.Soft("plan only; add --run to queue these lanes"))
+	}
+	return nil
+}
+
+func pipelineRoute(remoteURL string, run bool) string {
+	if strings.TrimSpace(remoteURL) != "" {
+		if run {
+			return ui.State("remote") + " " + ui.Soft(remoteURL)
+		}
+		return ui.State("planned") + " " + ui.Soft("remote commands")
+	}
+	if run {
+		return ui.State("resident") + " " + ui.Soft("local socket queue")
+	}
+	return ui.State("planned") + " " + ui.Soft("local socket commands")
+}
+
+func pipelineState(run bool) string {
+	if run {
+		return ui.State("queued")
+	}
+	return ui.State("planned")
+}
+
+func pipelinePlan(subject string, lane pipelineLane, seed, backend string) (string, map[string]any, error) {
+	preset, err := prompt.PresetByName(lane.Preset)
+	if err != nil {
+		return "", nil, err
+	}
+	if lane.Style == "" {
+		lane.Style = preset.Style
+	}
+	if lane.Mood == "" {
+		lane.Mood = preset.Mood
+	}
+	if lane.Ratio == "" {
+		lane.Ratio = valueOr(preset.Ratio, "square")
+	}
+	if lane.Steps == 0 {
+		lane.Steps = preset.Steps
+	}
+	if lane.Steps == 0 {
+		lane.Steps = 28
+	}
+	if lane.Guidance == 0 {
+		lane.Guidance = preset.Guidance
+	}
+	if lane.Guidance == 0 {
+		lane.Guidance = 3.5
+	}
+	base := subject
+	if lane.Twist != "" {
+		base += ", " + lane.Twist
+	}
+	shaped, err := prompt.Compose(base, prompt.Shape{
+		Style: lane.Style, Mood: lane.Mood, Camera: lane.Camera, Light: lane.Light, Palette: lane.Palette,
+		Texture: lane.Texture, Detail: lane.Detail, Chaos: lane.Chaos, Director: lane.Director, Preset: lane.Preset,
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	ratio, err := prompt.RatioByName(lane.Ratio)
+	if err != nil {
+		return "", nil, err
+	}
+	plan := map[string]any{
+		"prompt":   base,
+		"backend":  strings.ToLower(backend),
+		"preset":   lane.Preset,
+		"style":    lane.Style,
+		"mood":     lane.Mood,
+		"camera":   lane.Camera,
+		"light":    lane.Light,
+		"palette":  lane.Palette,
+		"texture":  lane.Texture,
+		"detail":   lane.Detail,
+		"chaos":    lane.Chaos,
+		"director": lane.Director,
+		"ratio":    lane.Ratio,
+		"width":    ratio.Width,
+		"height":   ratio.Height,
+		"steps":    lane.Steps,
+		"guidance": lane.Guidance,
+		"seed":     seed,
+	}
+	return shaped, plan, nil
+}
+
+func pipelineCommand(subject string, lane pipelineLane, seed int, backend, remoteURL string, wait bool) string {
+	parts := []string{"flux"}
+	if strings.TrimSpace(remoteURL) != "" {
+		parts = append(parts, "remote", "render", "--url", remoteURL)
+	} else {
+		parts = append(parts, "render")
+	}
+	promptText := subject
+	if lane.Twist != "" {
+		promptText += ", " + lane.Twist
+	}
+	parts = append(parts, promptText)
+	flagPairs := []struct {
+		name  string
+		value string
+	}{
+		{"preset", lane.Preset},
+		{"style", lane.Style},
+		{"mood", lane.Mood},
+		{"camera", lane.Camera},
+		{"light", lane.Light},
+		{"palette", lane.Palette},
+		{"texture", lane.Texture},
+		{"detail", lane.Detail},
+		{"chaos", lane.Chaos},
+		{"director", lane.Director},
+		{"ratio", lane.Ratio},
+		{"backend", backend},
+	}
+	for _, pair := range flagPairs {
+		if strings.TrimSpace(pair.value) != "" {
+			parts = append(parts, "--"+pair.name, pair.value)
+		}
+	}
+	if lane.Steps > 0 {
+		parts = append(parts, "--steps", strconv.Itoa(lane.Steps))
+	}
+	if lane.Guidance > 0 {
+		parts = append(parts, "--guidance", fmt.Sprintf("%.1f", lane.Guidance))
+	}
+	parts = append(parts, "--seed", strconv.Itoa(seed))
+	if strings.TrimSpace(remoteURL) != "" && wait {
+		parts = append(parts, "--wait")
+	}
+	return shellish(parts)
+}
+
+func pipelineLanes(mode string) ([]pipelineLane, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "explore":
+		return []pipelineLane{
+			{Name: "composition", Preset: "sketch", Camera: "wide", Light: "overcast", Detail: "balanced", Chaos: "calm", Twist: "fast composition pass, readable shapes first"},
+			{Name: "hero", Preset: "hero", Camera: "low", Light: "rim", Palette: "ember", Detail: "dense", Chaos: "alive", Twist: "one unmistakable focal gesture"},
+			{Name: "material", Preset: "object", Camera: "macro", Light: "studio", Texture: "glass", Detail: "diagram", Chaos: "calm", Twist: "material and surface behavior study"},
+			{Name: "world", Preset: "space", Camera: "wide", Light: "golden", Palette: "verdant", Texture: "weathered", Detail: "dense", Twist: "inhabited spatial logic and scale cues"},
+			{Name: "surreal", Preset: "future", Camera: "tracking", Light: "neon", Palette: "acid", Detail: "ornate", Chaos: "surreal", Twist: "unexpected but coherent transformation"},
+			{Name: "cover", Preset: "cover", Camera: "portrait", Light: "storm", Palette: "mono", Texture: "film", Chaos: "wild", Twist: "graphic hierarchy for a cover image"},
+		}, nil
+	case "anime":
+		return []pipelineLane{
+			{Name: "key-visual", Preset: "anime", Camera: "wide", Light: "golden", Palette: "sakura", Texture: "cel", Detail: "dense", Director: "shinkai", Twist: "anime key visual, emotional weather"},
+			{Name: "story-still", Preset: "anime", Camera: "close", Light: "lantern", Palette: "verdant", Texture: "ink", Detail: "balanced", Director: "miyazaki", Twist: "quiet story moment with hand-crafted world detail"},
+			{Name: "psych-cut", Preset: "noir", Camera: "overhead", Light: "rim", Palette: "mono", Texture: "film", Chaos: "surreal", Director: "kon", Twist: "psychological transition frame"},
+			{Name: "city-night", Preset: "future", Camera: "tracking", Light: "neon", Palette: "cobalt", Texture: "weathered", Detail: "dense", Director: "watanabe", Twist: "lived-in night city production still"},
+		}, nil
+	case "product":
+		return []pipelineLane{
+			{Name: "catalog", Preset: "object", Camera: "close", Light: "studio", Palette: "mono", Texture: "metal", Detail: "balanced", Chaos: "calm", Twist: "inspection-friendly product render"},
+			{Name: "macro", Preset: "object", Camera: "macro", Light: "rim", Texture: "glass", Detail: "diagram", Chaos: "calm", Twist: "macro material proof with edge highlights"},
+			{Name: "editorial", Preset: "cover", Camera: "portrait", Light: "golden", Palette: "ember", Texture: "film", Detail: "minimal", Director: "vogue", Twist: "premium editorial product staging"},
+		}, nil
+	case "architecture", "arch":
+		return []pipelineLane{
+			{Name: "massing", Preset: "space", Camera: "wide", Light: "overcast", Palette: "mono", Texture: "weathered", Detail: "balanced", Director: "brutalist", Twist: "clear massing and spatial hierarchy"},
+			{Name: "interior", Preset: "space", Camera: "wide", Light: "lantern", Palette: "verdant", Texture: "paper", Detail: "dense", Chaos: "alive", Twist: "inhabited interior with human scale"},
+			{Name: "diagram", Preset: "sketch", Camera: "overhead", Light: "studio", Detail: "diagram", Chaos: "calm", Twist: "diagrammatic architectural read"},
+		}, nil
+	case "fashion":
+		return []pipelineLane{
+			{Name: "cover", Preset: "cover", Camera: "portrait", Light: "studio", Palette: "mono", Texture: "film", Detail: "ornate", Director: "vogue", Twist: "high-fashion cover image with confident pose language"},
+			{Name: "runway", Preset: "hero", Camera: "low", Light: "neon", Palette: "acid", Texture: "glass", Detail: "dense", Chaos: "wild", Director: "watanabe", Twist: "runway energy and crowd atmosphere"},
+			{Name: "atelier", Preset: "editorial", Style: "editorial", Mood: "warm", Camera: "close", Light: "lantern", Palette: "sakura", Texture: "paper", Detail: "balanced", Twist: "behind-the-scenes atelier intimacy"},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown pipeline mode %q; use explore, anime, product, architecture, or fashion", mode)
+	}
+}
+
+func reorderPipelineArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{"mode": true, "n": true, "start-seed": true, "backend": true, "remote-url": true}
+	boolFlags := map[string]bool{"run": true, "commands": true, "wait": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+func reorderMuseArgs(args []string) ([]string, error) {
+	valueFlags := map[string]bool{"n": true, "start-seed": true, "remote-url": true}
+	boolFlags := map[string]bool{"commands": true, "anime": true, "wait": true}
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if before, _, ok := strings.Cut(name, "="); ok {
+			name = before
+		}
+		switch {
+		case boolFlags[name]:
+			flags = append(flags, arg)
+		case valueFlags[name]:
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return nil, fmt.Errorf("flag %s needs a value", arg)
+				}
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			flags = append(flags, arg)
+		}
+	}
+	return append(flags, positional...), nil
+}
+
+func recipes() {
+	ui.Header("recipes", "prompt shapers built into the Go CLI")
+	styleRows := make([]ui.PairRow, 0, len(prompt.OrderedStyles))
+	for _, d := range prompt.OrderedStyles {
+		styleRows = append(styleRows, ui.PairRow{Left: d.Name, Right: d.Text})
+	}
+	ui.Suite("styles", ui.Violet, styleRows)
+
+	moodRows := make([]ui.PairRow, 0, len(prompt.OrderedMoods))
+	for _, d := range prompt.OrderedMoods {
+		moodRows = append(moodRows, ui.PairRow{Left: d.Name, Right: d.Text})
+	}
+	ui.Suite("moods", ui.Indigo, moodRows)
+
+	cameraRows := definitionRows(prompt.OrderedCameras)
+	ui.Suite("camera", ui.Teal, cameraRows)
+
+	lightRows := definitionRows(prompt.OrderedLights)
+	ui.Suite("light", ui.Gold, lightRows)
+
+	paletteRows := definitionRows(prompt.OrderedPalettes)
+	ui.Suite("palette", ui.Lilac, paletteRows)
+
+	textureRows := definitionRows(prompt.OrderedTextures)
+	ui.Suite("texture", ui.Indigo, textureRows)
+
+	detailRows := definitionRows(prompt.OrderedDetails)
+	ui.Suite("detail", ui.Teal, detailRows)
+
+	chaosRows := definitionRows(prompt.OrderedChaos)
+	ui.Suite("chaos", ui.Amber, chaosRows)
+
+	directorRows := definitionRows(prompt.OrderedDirectors)
+	ui.Suite("director", ui.Violet, directorRows)
+
+	ratioRows := make([]ui.PairRow, 0, len(prompt.OrderedRatios))
+	for _, r := range prompt.OrderedRatios {
+		ratioRows = append(ratioRows, ui.PairRow{Left: r.Name, Right: fmt.Sprintf("%dx%d", r.Width, r.Height)})
+	}
+	ui.Suite("ratios", ui.Teal, ratioRows)
+
+	presetRows := make([]ui.PairRow, 0, len(prompt.OrderedPresets))
+	for _, p := range prompt.OrderedPresets {
+		presetRows = append(presetRows, ui.PairRow{
+			Left:  p.Name,
+			Right: fmt.Sprintf("%s/%s %s steps=%d guidance=%.1f - %s", p.Style, p.Mood, p.Ratio, p.Steps, p.Guidance, p.Note),
+		})
+	}
+	ui.Suite("presets", ui.Gold, presetRows)
+}
+
+func shape(args []string) error {
+	fs := flag.NewFlagSet("shape", flag.ExitOnError)
+	presetName := fs.String("preset", "", "preset")
+	style := fs.String("style", "", "style")
+	mood := fs.String("mood", "", "mood")
+	camera := fs.String("camera", "", "camera")
+	light := fs.String("light", "", "light")
+	palette := fs.String("palette", "", "palette")
+	texture := fs.String("texture", "", "texture")
+	detail := fs.String("detail", "", "detail")
+	chaos := fs.String("chaos", "", "chaos")
+	director := fs.String("director", "", "director")
+	ordered, err := reorderRenderArgs(args)
+	if err != nil {
+		return err
+	}
+	if err := fs.Parse(ordered); err != nil {
+		return err
+	}
+	base := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if base == "" {
+		return fmt.Errorf("shape needs a prompt")
+	}
+	preset, err := prompt.PresetByName(*presetName)
+	if err != nil {
+		return err
+	}
+	if preset.Name != "" {
+		if *style == "" {
+			*style = preset.Style
+		}
+		if *mood == "" {
+			*mood = preset.Mood
+		}
+	}
+	shaped, err := prompt.Compose(base, prompt.Shape{
+		Style: *style, Mood: *mood, Camera: *camera, Light: *light, Palette: *palette,
+		Texture: *texture, Detail: *detail, Chaos: *chaos, Director: *director, Preset: *presetName,
+	})
+	if err != nil {
+		return err
+	}
+	ui.Header("shape", "final prompt")
+	fmt.Println(shaped)
+	return nil
+}
+
+func spark(args []string) error {
+	base := strings.TrimSpace(strings.Join(args, " "))
+	if base == "" {
+		return fmt.Errorf("spark needs a subject")
+	}
+	ui.Header("spark", "six prompt mutations")
+	for i, s := range prompt.Sparks(base) {
+		fmt.Printf("%s %s\n", ui.Badge(strconv.Itoa(i+1)), s)
+	}
+	return nil
+}
+
+func showHistory(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("history", flag.ExitOnError)
+	n := fs.Int("n", 10, "entries")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	entries, err := history.Last(cfg.History, *n)
+	if err != nil {
+		return err
+	}
+	ui.Header("history", fmt.Sprintf("last %d render records", *n))
+	if len(entries) == 0 {
+		fmt.Println(ui.Soft("no history yet"))
+		return nil
+	}
+	for _, e := range entries {
+		fmt.Println(ui.Accent(e.Time.Format("2006-01-02 15:04:05")), e.Output)
+		fmt.Println("  " + e.Prompt)
+		fmt.Printf("  %dx%d steps=%d guidance=%.2f seed=%s seconds=%s\n",
+			e.Width, e.Height, e.Steps, e.Guidance, valueOr(e.Seed, "random"), valueOr(e.Seconds, "?"))
+	}
+	return nil
+}
+
+func definitionRows(defs []prompt.Definition) []ui.PairRow {
+	rows := make([]ui.PairRow, 0, len(defs))
+	for _, d := range defs {
+		rows = append(rows, ui.PairRow{Left: d.Name, Right: d.Text})
+	}
+	return rows
+}
+
+func printLensKV(key, value string) {
+	if strings.TrimSpace(value) != "" {
+		ui.KV(key, value)
+	}
+}
+
+func filterJobs(jobs []map[string]any, activeOnly, doneOnly, errorsOnly bool) []map[string]any {
+	out := make([]map[string]any, 0, len(jobs))
+	for _, job := range jobs {
+		status := strings.ToLower(stringValue(job["status"]))
+		active := status == "queued" || status == "running"
+		done := status == "done"
+		failed := status == "error" || status == "cancelled"
+		if activeOnly && !active {
+			continue
+		}
+		if doneOnly && !done {
+			continue
+		}
+		if errorsOnly && !failed {
+			continue
+		}
+		out = append(out, job)
+	}
+	return out
+}
+
+func reverseJobs(jobs []map[string]any) {
+	for i, j := 0, len(jobs)-1; i < j; i, j = i+1, j-1 {
+		jobs[i], jobs[j] = jobs[j], jobs[i]
+	}
+}
+
+func printQueueSummary(jobs []map[string]any) {
+	counts := map[string]int{}
+	for _, job := range jobs {
+		counts[strings.ToLower(valueOr(stringValue(job["status"]), "unknown"))]++
+	}
+	ui.KV("summary", fmt.Sprintf("queued=%d running=%d done=%d error=%d cancelled=%d", counts["queued"], counts["running"], counts["done"], counts["error"], counts["cancelled"]))
+	if active := activeJob(jobs); active != nil {
+		ui.KV("active", fmt.Sprintf("%s %s", stringValue(active["id"]), jobTiming(active)))
+	}
+	if latest := newestOutputJob(jobs); latest != nil {
+		ui.KV("latest", jobDisplayOutput(latest))
+	}
+	fmt.Println()
+}
+
+func printJobRow(job map[string]any) {
+	output := jobDisplayOutput(job)
+	fmt.Printf("%s %-18s %-8s %s\n", ui.Accent(stringValue(job["id"])), ui.State(stringValue(job["status"])), ui.Accent(valueOr(stringValue(job["backend"]), "?")), output)
+	detail := jobTiming(job)
+	if kind := stringValue(job["kind"]); kind != "" {
+		detail = kind + " · " + detail
+	}
+	fmt.Println("  " + ui.Soft(detail) + "  " + stringValue(job["prompt"]))
+	if image := stringValue(job["image"]); image != "" {
+		fmt.Println("  " + ui.Soft("image: "+image))
+	}
+	if errMsg := stringValue(job["error"]); errMsg != "" {
+		fmt.Println("  " + ui.Bad(errMsg))
+	}
+}
+
+func activeJob(jobs []map[string]any) map[string]any {
+	for i := len(jobs) - 1; i >= 0; i-- {
+		status := strings.ToLower(stringValue(jobs[i]["status"]))
+		if status == "running" {
+			return jobs[i]
+		}
+	}
+	for i := len(jobs) - 1; i >= 0; i-- {
+		if strings.ToLower(stringValue(jobs[i]["status"])) == "queued" {
+			return jobs[i]
+		}
+	}
+	return nil
+}
+
+func newestOutputJob(jobs []map[string]any) map[string]any {
+	for i := len(jobs) - 1; i >= 0; i-- {
+		if jobDisplayOutput(jobs[i]) != "" {
+			return jobs[i]
+		}
+	}
+	return nil
+}
+
+func jobDisplayOutput(job map[string]any) string {
+	if strings.EqualFold(stringValue(job["kind"]), "atlas_sphere") {
+		if viewer := stringValue(job["viewer_url"]); viewer != "" {
+			return viewer
+		}
+		if gallery := stringValue(job["gallery_url"]); gallery != "" {
+			return gallery
+		}
+		if id := stringValue(job["id"]); id != "" {
+			return "http://127.0.0.1:7861/atlas/" + id
+		}
+	}
+	return valueOr(stringValue(job["output_url"]), stringValue(job["output"]))
+}
+
+func jobTiming(job map[string]any) string {
+	status := strings.ToLower(stringValue(job["status"]))
+	started := floatValue(job["started"])
+	finished := floatValue(job["finished"])
+	seconds := floatValue(job["seconds"])
+	step := intValue(job["step"])
+	total := intValue(job["total_steps"])
+	if total <= 0 {
+		total = intValue(job["steps"])
+	}
+	switch {
+	case seconds > 0:
+		return "finished in " + formatDuration(seconds)
+	case started > 0 && finished > started:
+		return "finished in " + formatDuration(finished-started)
+	case status == "running" && started > 0 && step > 0 && total > step:
+		elapsed := time.Now().Sub(time.Unix(int64(started), 0)).Seconds()
+		perStep := elapsed / float64(step)
+		remaining := perStep*float64(total-step) + 8
+		return fmt.Sprintf("%s remaining · %s elapsed", formatDuration(remaining), formatDuration(elapsed))
+	case status == "running" && started > 0:
+		elapsed := time.Now().Sub(time.Unix(int64(started), 0)).Seconds()
+		return fmt.Sprintf("finalizing · %s elapsed", formatDuration(elapsed))
+	case status == "queued":
+		return "queued · estimate " + estimateJobDuration(job)
+	default:
+		return strings.ToLower(valueOr(stringValue(job["phase"]), status))
+	}
+}
+
+func estimateJobDuration(job map[string]any) string {
+	steps := intValue(job["steps"])
+	if steps <= 0 {
+		steps = intValue(job["total_steps"])
+	}
+	if steps <= 0 {
+		steps = 28
+	}
+	width := intValue(job["width"])
+	height := intValue(job["height"])
+	if width <= 0 || height <= 0 {
+		width, height = 1024, 1024
+	}
+	mp := float64(width*height) / float64(1024*1024)
+	return formatDuration(18 + float64(steps)*6.7*mp)
+}
+
+func formatDuration(seconds float64) string {
+	if seconds <= 0 {
+		return "unknown"
+	}
+	rounded := int(seconds + 0.5)
+	if rounded < 1 {
+		rounded = 1
+	}
+	minutes := rounded / 60
+	rest := rounded % 60
+	if minutes == 0 {
+		return fmt.Sprintf("%ds", rest)
+	}
+	if rest == 0 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+	return fmt.Sprintf("%dm %ds", minutes, rest)
+}
+
+func openOutput(target string) error {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return fmt.Errorf("empty output target")
+	}
+	ui.Header("open", "open generated output")
+	ui.KV("target", target)
+	return exec.Command("open", target).Start()
+}
+
+func splitCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func valueOr(v, fallback string) string {
+	if strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	return v
+}
+
+func expandHome(pathValue string) string {
+	pathValue = strings.TrimSpace(pathValue)
+	if pathValue == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	}
+	if strings.HasPrefix(pathValue, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(pathValue, "~/"))
+		}
+	}
+	return pathValue
+}
+
+func sizeLabel(width, height int, fallback string) string {
+	if width > 0 && height > 0 {
+		return fmt.Sprintf("%dx%d", width, height)
+	}
+	if width > 0 {
+		return fmt.Sprintf("%dxauto", width)
+	}
+	if height > 0 {
+		return fmt.Sprintf("autox%d", height)
+	}
+	return fallback
+}
+
+func validateBackend(value string) error {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "auto", "mps", "mlx", "coreml", "ane", "cpu":
+		return nil
+	default:
+		return fmt.Errorf("unknown backend %q; use auto, mps, mlx, coreml, ane, or cpu", value)
+	}
+}
+
+func directBackendSupported(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "auto", "mps", "cpu":
+		return true
+	default:
+		return false
+	}
+}
+
+func suffixFilename(name string, n int) string {
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	if ext == "" {
+		ext = ".png"
+	}
+	return fmt.Sprintf("%s-%02d%s", stem, n, ext)
+}
+
+func shellish(args []string) string {
+	out := make([]string, len(args))
+	for i, arg := range args {
+		if strings.ContainsAny(arg, " ,") {
+			out[i] = strconv.Quote(arg)
+		} else {
+			out[i] = arg
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+func stringValue(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case fmt.Stringer:
+		return t.String()
+	case nil:
+		return ""
+	default:
+		return fmt.Sprintf("%v", t)
+	}
+}
+
+func boolValue(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "1", "true", "yes", "on":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func floatValue(v any) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case json.Number:
+		f, _ := t.Float64()
+		return f
+	case string:
+		f, _ := strconv.ParseFloat(strings.TrimSpace(t), 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+func intValue(v any) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case float32:
+		return int(t)
+	case json.Number:
+		n, _ := t.Int64()
+		return int(n)
+	case string:
+		n, _ := strconv.Atoi(t)
+		return n
+	default:
+		return 0
+	}
+}
+
+func filenameFromArgs(args []string) string {
+	for i, arg := range args {
+		if arg == "--filename" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}

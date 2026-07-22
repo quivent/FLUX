@@ -57,6 +57,74 @@ Every backend must respond with the same job fields:
 
 ## Backend Roles
 
+## Atlas Cross-Frame Cache
+
+The latent sphere atlas is not a normal independent image batch. Neighboring
+cells are deliberately small rotations in the same latent basis with a fixed
+prompt and fixed seed family. That means frame `n+1` at denoise step `k` is a
+strong reuse candidate for frame `n` at denoise step `k`.
+
+The atlas runner now has two denoiser-cache modes:
+
+- `first-block-cache`: generic ParaAttention/TEACache-style reuse inside one
+  pipeline call. This resets on every atlas cell.
+- `atlas-xframe-cache`: atlas-specific persistent residual reuse across cells.
+  It keeps residual buffers keyed by denoise step, resets the step counter at
+  each new cell, and compares the first-block residual for cell `n+1, step k`
+  against the cached residual from cell `n, step k`.
+
+Why this matters:
+
+- Generic per-image caching saw useful but limited savings on the atlas scout:
+  threshold `0.12`, 36 steps, 512px, latest cell `25.9s`, cache hit rate
+  `22/36 = 61.1%`.
+- Cross-frame caching is using the atlas geometry directly. On
+  `xfc-arcane-scout-64-0p30`, threshold `0.30`, 36 steps, 512px, the live run
+  reached `576/612 = 94.1%` cache hits by cell 17, with latest cell time
+  `1.50s`.
+- The previous same-prompt full-cell atlas baseline was about `63.5s/cell` at
+  512px/36 steps. The live cross-frame latest-cell speedup was therefore about
+  `63.5 / 1.50 = 42x`; amortized through the first 17 cells, including the
+  miss-heavy first cell, it was `63.5 / (88.7 / 17) = 12.2x`.
+
+Run command:
+
+```bash
+./flux atlas sphere \
+  --draft atlas_drafts/arcane_italian_princess_65k.json \
+  --full-grid \
+  --sample-count 64 \
+  --order column_serpentine \
+  --adapter atlas-xframe-cache \
+  --cache-threshold 0.30 \
+  --cache-downsample 1 \
+  --cache-warmup 0 \
+  --id xfc-arcane-scout-64-0p30 \
+  --open
+```
+
+The stream is visible at:
+
+```text
+http://127.0.0.1:7861/atlas/xfc-arcane-scout-64-0p30
+```
+
+Implementation notes:
+
+- `worker.py` patches ParaAttention's FLUX transformer wrapper for the local
+  Diffusers `FluxSingleTransformerBlock.forward(hidden_states,
+  encoder_hidden_states, ...)` signature.
+- `atlas-xframe-cache` applies the cache to the transformer only; it does not
+  use ParaAttention's pipeline-call wrapper because that wrapper creates a new
+  cache context per image.
+- The persistent cache context marks selected residual buffers as step-keyed:
+  `first_hidden_states_residual`, `hidden_states_residual`, and
+  `encoder_hidden_states_residual`.
+- Each cell resets `executed_steps=0` while preserving the per-step buffers, so
+  cell `n+1, step k` compares to cell `n, step k`, not to a different timestep.
+- Progress JSON records `cache_checks`, `cache_hits`, `cache_misses`,
+  `cache_hit_rate`, `last_cell_cache_hits`, and `last_cell_cache_hit_rate`.
+
 ### PyTorch MPS
 
 Role: compatibility baseline and default production path.
@@ -178,6 +246,8 @@ Current implementation:
 - `flux ane direct-aneforge-optimized` measures the optimized direct-ANE
   projection plan: fused same-input projections plus chunked high-K output
   projections.
+- `flux ane direct-aneforge-attention` measures direct-ANE tiled SDPA attention
+  core execution through ANEForge/e5rt.
 - `flux ane direct-contract` creates a dense runtime contract and break-even
   budget from the direct-ANE fit artifacts.
 - `flux ane direct-report` prints the dense offload report in human-readable
@@ -827,6 +897,60 @@ existence of high-K output projections; it is blocked by the quality of the ANE
 lowering. Chunking gets those paths to parity. The remaining work is to make
 the projection programs resident and then attack attention QK/AV, which is a
 larger measured bucket than the projection groups currently proven on ANE.
+
+Measured direct-ANE attention evidence:
+
+The attention timing artifact is:
+
+```text
+/Users/joshkornreich/Models/flux1/ane/direct/aneforge_attention_1024x1024_benchmark.json
+```
+
+Run it with:
+
+```zsh
+flux ane direct-aneforge-attention
+flux ane direct-contract
+flux ane direct-report
+```
+
+If the Go CLI is temporarily unavailable, the Python command is equivalent:
+
+```zsh
+.venv/bin/python flux_direct_ane.py aneforge-attention-benchmark
+```
+
+This benchmark measures only the attention core:
+
+```text
+QK scores -> softmax -> AV apply
+```
+
+It excludes QKV/out projections, rotary, reshapes, residuals, and block
+bookkeeping. The full FLUX-shaped case has `24` heads, `128` head dimension,
+and `4608` query/key/value tokens. ANEForge's native fused SDPA path is only
+reliable for smaller sequence regimes, so the full FLUX case uses the tiled
+graph fallback.
+
+Current measured results:
+
+| Attention core case | MPS | Direct ANE | Speedup | Render impact |
+| --- | ---: | ---: | ---: | ---: |
+| SDPA 512 tokens | 1.02 ms | 1.98 ms | 0.52x | diagnostic tile |
+| SDPA 1024 tokens, tiled4 | 2.24 ms | 6.77 ms | 0.33x | diagnostic tile |
+| FLUX joint SDPA 4608 tokens, tiled8 | 19.90 ms | 242.98 ms | 0.08x | -356.0s / 28 steps |
+
+Conclusion:
+
+- Attention remains the largest measured bucket, but the current ANEForge
+  tiled SDPA graph is not a viable offload path.
+- This does not disprove ANE attention as a target; it proves this lowering is
+  wrong for FLUX's long sequence.
+- The next attention push needs a different decomposition: smaller resident
+  query tiles, a native-SDPA-compatible tiling strategy, or a custom e5rt
+  attention program that avoids materializing the slow tiled graph path.
+- Until that exists, the measured direct-ANE win is the optimized projection
+  plan, not attention.
 
 Boundary pressure:
 

@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_volga_neon_old_city_path_32_20260714",
+  "index_end": 40992,
+  "index_start": 40960,
+  "instance_id": "spheremap_atlas_volga_neon_old_city_path_32_20260714",
+  "kind": "latent_sphere_map",
+  "label": "volga neon old city path 32 20260714",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Cinematic path through a surreal Volga old city at night in Samara: rain-slick wooden houses, glowing greenhouse courtyards, electric tram lines, Soviet blocks and ornate noble buildings shifting in parallax, amber interiors against blue fog, dense natural detail, flowers and trees pushing through stone, moving camera glide, high contrast animated 3D film still, no people, no cloth, no fabric",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 32,
+  "run_type": "path",
+  "sample_mode": "contiguous",
+  "seed_a": "696018000",
+  "seed_b": 486018211,
+  "seed_c": 569431651,
+  "seed_d": 91233040,
+  "seed_lock": 0.2,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.1,
+  "size": 512,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Cinematic path through a surreal Volga old city at night in Samara: rain-slick wooden houses, glowing greenhouse courtyards, electric tram lines, Soviet blocks and ornate noble buildings shifting in parallax, amber interiors against blue fog, dense natural detail, flowers and trees pushing through stone, moving camera glide, high contrast animated 3D film still, no people, no cloth, no fabric"
+  ]
+}

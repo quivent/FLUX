@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.35,
+  "id": "spheremap_atlas_samara_glass_garden_wide_diff_scout_256_20260715",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_glass_garden_wide_diff_scout_256_20260715",
+  "kind": "latent_sphere_map",
+  "label": "samara glass garden wide diff scout 256 20260715",
+  "mode": "omega",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Wide-differential Samara glass garden atlas scout: radically varied surreal architectural views of Samara, Russia, from close carved wooden house details to sweeping Volga city vistas, botanical glass conservatories, flooded flower courtyards, Soviet blocks, noble stone facades, distant glass towers, impossible bridges, river fog, rain reflections, sunrise and nocturne light mixed across views, cinematic 3D animated film atmosphere, high contrast, varied camera distances and compositions, architectural landscape only, no people, no cloth, no fabric, no character portrait",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 256,
+  "run_type": "fill",
+  "sample_mode": "nested_sparse",
+  "seed_a": "812528000",
+  "seed_b": 402528211,
+  "seed_c": 657504509,
+  "seed_d": 138656887,
+  "seed_lock": 0.03,
+  "shell_coupling": 1.85,
+  "shell_scale": 1.72,
+  "size": 384,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Wide-differential Samara glass garden atlas scout: radically varied surreal architectural views of Samara, Russia, from close carved wooden house details to sweeping Volga city vistas, botanical glass conservatories, flooded flower courtyards, Soviet blocks, noble stone facades, distant glass towers, impossible bridges, river fog, rain reflections, sunrise and nocturne light mixed across views, cinematic 3D animated film atmosphere, high contrast, varied camera distances and compositions, architectural landscape only, no people, no cloth, no fabric, no character portrait"
+  ]
+}

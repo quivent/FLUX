@@ -1,0 +1,51 @@
+{
+  "amp": 0.32,
+  "arc": 0.26,
+  "base": 0.34,
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_ui_smoke_20260714_0454",
+  "instance_id": "spheremap_atlas_ui_smoke_20260714_0454",
+  "kind": "latent_sphere_map",
+  "label": "ui smoke 20260714 0454",
+  "mode": "elliptic",
+  "n_cols": 4,
+  "n_latent": 16,
+  "n_rows": 4,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.035,
+    -0.024,
+    0.018,
+    -0.013,
+    0.009,
+    -0.006
+  ],
+  "orbit": 0.48,
+  "prompt": "Surreal cinematic Samara, Russia architectural atlas, old carved wooden houses, Soviet blocks, noble stone buildings, private homes and distant glass towers, wet streets, dimensional 3D animated film depth, no people, no cloth, no fabric",
+  "rates": [
+    0.075,
+    0.033,
+    -0.026,
+    0.019,
+    -0.014,
+    0.01
+  ],
+  "render_count": 16,
+  "seed_a": "466162000",
+  "seed_b": 56162211,
+  "seed_c": 8023651,
+  "seed_d": 435090271,
+  "seed_lock": 0.66,
+  "shell_coupling": 0.52,
+  "shell_scale": 0.18,
+  "size": 384,
+  "spin": 0.85,
+  "steps": 18,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Surreal cinematic Samara, Russia architectural atlas, old carved wooden houses, Soviet blocks, noble stone buildings, private homes and distant glass towers, wet streets, dimensional 3D animated film depth, no people, no cloth, no fabric"
+  ]
+}

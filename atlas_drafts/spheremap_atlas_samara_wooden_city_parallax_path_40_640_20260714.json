@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_samara_wooden_city_parallax_path_40_640_20260714",
+  "index_end": 49192,
+  "index_start": 49152,
+  "instance_id": "spheremap_atlas_samara_wooden_city_parallax_path_40_640_20260714",
+  "kind": "latent_sphere_map",
+  "label": "samara wooden city parallax path 40 640 20260714",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Slow cinematic parallax path through surreal Samara historic center: rain-black wooden houses, carved balconies, flowered courtyards, flickering warm windows, noble mansions and Soviet blocks sliding behind them, Volga fog, glossy cobblestone reflections, impossible layered depth, camera gliding at street level, dimensional animated film still, natural detail, dramatic contrast, no people, no cloth, no fabric, no character portrait",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 40,
+  "run_type": "path",
+  "sample_mode": "contiguous",
+  "seed_a": "681801000",
+  "seed_b": 571801211,
+  "seed_c": 81686366,
+  "seed_d": 636293271,
+  "seed_lock": 0.18,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.08,
+  "size": 640,
+  "steps": 30,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Slow cinematic parallax path through surreal Samara historic center: rain-black wooden houses, carved balconies, flowered courtyards, flickering warm windows, noble mansions and Soviet blocks sliding behind them, Volga fog, glossy cobblestone reflections, impossible layered depth, camera gliding at street level, dimensional animated film still, natural detail, dramatic contrast, no people, no cloth, no fabric, no character portrait"
+  ]
+}

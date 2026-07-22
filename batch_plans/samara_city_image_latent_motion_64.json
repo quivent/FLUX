@@ -1,0 +1,38 @@
+{
+  "id": "samara-city-image-latent-motion-64-20260714",
+  "label": "Samara City Image-Latent Motion 64",
+  "output_dir": "batches/samara-city-image-latent-motion-64-20260714",
+  "source_image": "/Users/joshkornreich/Models/flux-output/batches/samara-surreal-wooden-city-16-20260714/01-wooden-city-surreal/p01/p01-s01-seed-121482732.png",
+  "backend": "auto",
+  "width": 384,
+  "height": 384,
+  "steps": 18,
+  "guidance": 5.8,
+  "strength": 0.56,
+  "seed_base": 384192775,
+  "groups": [
+    {
+      "id": "image-latent-city-motion",
+      "label": "Image-anchored Samara city motion, 16 prompts with 4 seeds each",
+      "seeds_per_prompt": 4,
+      "prompts": [
+        "Keep the same surreal Samara city architecture from the source image, cinematic lateral camera movement, wet street reflections sliding across the frame, old wooden houses, Soviet blocks and noble buildings, ember light, deep contrast, no people",
+        "Image-latent anchored Samara city motion frame, same wooden houses and architectural layout, subtle parallax as if the camera is dollying forward, ash drifting upward, Dubai-like glass towers in the distance, high contrast animated film still",
+        "Preserve the source city's structure, transform it into a dusk tracking shot through Samara, wooden facades glowing, Soviet and noble buildings layered behind, reflections and smoke creating visible motion, dimensional urban depth, no people",
+        "Same Samara street from the source image, cinematic push-in, old wooden houses bending slightly with surreal perspective, wet asphalt, warm firelight against cold blue shadows, noble stone and Soviet concrete in the background",
+        "Use the source image as the latent anchor, Samara city center with wooden houses and Soviet blocks, camera orbit feeling, drifting ash flowers, glass towers shimmering like mirages, deep focus, rich contrast, no people",
+        "Anchored architectural motion study, preserve the source composition but shift viewpoint slightly left, wooden houses passing foreground, noble balconies and Soviet walls in parallax, glossy puddles, cinematic 3D depth",
+        "Samara preservation dream from the same source city image, old wooden houses sliding through an impossible street, ember windows, drifting smoke, noble and Soviet facades compressed together, dramatic motion cues, no people",
+        "Same latent city scene, low street-level glide after rain, reflections stretch like ribbons, carved wooden houses, American-style private homes faintly at the edge, Soviet blocks and Dubai-like towers behind, surreal motion",
+        "Source-anchored Samara city frame, aerial-tilt feeling while keeping the same architecture, streets folding gently, dwindling wooden houses surrounded by Soviet and noble buildings, strong contrast and dimensionality",
+        "Preserve the source image's city identity, shift into a noir night pass, warm windows on wooden houses, cyan tower reflections, dark Soviet geometry, noble stone ornaments, smoke trails suggesting motion, no people",
+        "Image-to-image latent movement, same Samara old wooden houses, camera sweeping past a courtyard, foreground blur cues, ash turning into flowers, high contrast cinematic urban fantasy, no people",
+        "Keep the same city, add stronger surreal dimensionality, wooden houses as fragile lanterns, wet road acting like a river, Soviet and noble buildings sliding in layered depth, cinematic motion frame",
+        "Source image Samara architecture, subtle forward motion, burning-lantern wooden houses and cold concrete slabs, glass towers refracted in the sky, rich shadow contrast, painterly 3D animated film still",
+        "Same anchored city scene, turn the viewpoint into a dramatic corner perspective, old wooden houses on one side, noble facades and Soviet blocks on the other, reflections moving diagonally, no people",
+        "Image-latent Samara motion frame, preserve layout and wooden houses, intensify dimensional depth, embers and ash sweeping across the street, private homes and futuristic towers folded into the background",
+        "Same Samara city source image, cinematic final-frame feeling, architecture held recognizable, stronger light-dark contrast, motion in smoke, reflections and perspective, surreal urban depth, no people"
+      ]
+    }
+  ]
+}

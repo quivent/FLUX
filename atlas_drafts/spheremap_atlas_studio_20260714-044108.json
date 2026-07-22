@@ -1,0 +1,51 @@
+{
+  "amp": 0.32,
+  "arc": 0.26,
+  "base": 0.34,
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_studio_20260714-044108",
+  "instance_id": "spheremap_atlas_studio_20260714-044108",
+  "kind": "latent_sphere_map",
+  "label": "studio 20260714-044108",
+  "mode": "elliptic",
+  "n_cols": 8,
+  "n_latent": 64,
+  "n_rows": 8,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.035,
+    -0.024,
+    0.018,
+    -0.013,
+    0.009,
+    -0.006
+  ],
+  "orbit": 0.48,
+  "prompt": "Surreal cinematic architectural city scene in Samara, Russia, old carved wooden houses in the historic center, Soviet apartment blocks, noble stone buildings, private homes and Dubai-like glass towers, wet streets, ember light, dimensional urban depth, high contrast animated film still, visible camera motion and parallax, buildings and streets only, no people, no cloth, no fabric",
+  "rates": [
+    0.075,
+    0.033,
+    -0.026,
+    0.019,
+    -0.014,
+    0.01
+  ],
+  "render_count": 64,
+  "seed_a": "209200000",
+  "seed_b": 499200211,
+  "seed_c": 571314794,
+  "seed_d": 415323963,
+  "seed_lock": 0.66,
+  "shell_coupling": 0.52,
+  "shell_scale": 0.18,
+  "size": 384,
+  "spin": 0.85,
+  "steps": 18,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Surreal cinematic architectural city scene in Samara, Russia, old carved wooden houses in the historic center, Soviet apartment blocks, noble stone buildings, private homes and Dubai-like glass towers, wet streets, ember light, dimensional urban depth, high contrast animated film still, visible camera motion and parallax, buildings and streets only, no people, no cloth, no fabric"
+  ]
+}

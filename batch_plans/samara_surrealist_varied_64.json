@@ -1,0 +1,52 @@
+{
+  "id": "samara-surrealist-varied-64-20260714",
+  "label": "Samara Surrealist Varied 64",
+  "output_dir": "batches/samara-surrealist-varied-64-20260714",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.5,
+  "seed_base": 842619337,
+  "groups": [
+    {
+      "id": "surrealist-variance",
+      "label": "Varied surrealist nature scenes around Samara and the Volga, 32 prompts with 2 seeds each",
+      "seeds_per_prompt": 2,
+      "prompts": [
+        "Surrealist nature scene near Samara, Russia, the Volga River floating above its own reflection, birch trees growing downward from clouds, wildflower banks, luminous teal water, poetic magical realism, polished painterly 3D depth, no people",
+        "Samara, Russia dream landscape, Samarskaya Luka hills opening like green velvet curtains around the Volga, oversized flowers watching from the banks, bright cinematic clouds, whimsical surreal natural detail, no people",
+        "Surreal Volga floodplain near Samara, river channels arranged like impossible calligraphy, flower meadows in saturated colors, rounded trees, liquid mirror sky, elegant dreamlike 3D storybook landscape, no people",
+        "Samara nature fantasy, a birch forest where the trunks bend into musical notation, pink wildflowers underfoot, blue river glimpsed through the trees, soft sunlight, refined surrealist illustration, no people",
+        "Surrealist river valley in Samara, Russia, emerald hills shaped like sleeping animals without literal animal features, turquoise streams, floating stones, blooming meadows, bright dimensional animated-film lighting, no people",
+        "Volga shoreline near Samara as a surreal garden, enormous water lilies, white daisies glowing like stars, reeds curving into archways, warm sky, polished 3D painterly terrain, peaceful otherworldly nature, no people",
+        "Samara, Russia spring meadow dream, flowers drifting upward like balloons, soft green hills, blue river ribbon, round stylized trees, luminous clouds, magical naturalism with sculpted 3D depth, no people",
+        "Surrealist Samara steppe after rain, black earth paths becoming rivers of glass, yellow wildflowers, hovering cloud shadows, distant Volga light, cinematic painterly landscape, no people",
+        "Samara Volga nature scene, cliffs and hills reflected as impossible vertical gardens, blooming shrubs on every ledge, teal water, bright sun, elegant surreal 3D storybook composition, no people",
+        "Dreamlike Russian riverbank near Samara, birch leaves turning into tiny golden fish above the water, flower beds, smooth boulders, clean blue stream, playful surreal nature in polished animation style, no people",
+        "Surrealist nature panorama in Samara, Russia, the Volga bending into a spiral lake, meadow flowers arranged like constellations, lush green islands, puffy white clouds, refined dimensional landscape, no people",
+        "Samara forest garden, willow branches weaving into floating doorways, wild roses and water lilies, turquoise stream, soft mossy ground, bright magical realism, high-detail 3D painterly nature, no people",
+        "Surreal Volga valley at dawn near Samara, translucent flower petals forming clouds, rounded green hills, glassy river, delicate reeds, warm light, graceful dreamlike composition, no people",
+        "Samara, Russia nature dream, river stones levitating above a flower-filled bank, vivid grass, blue water, stylized trees with soft rounded crowns, polished 3D fairytale atmosphere, no people",
+        "Surrealist Samara landscape, a meadow folded like origami beside the Volga, wildflowers spilling from every fold, distant hills, bright clouds, cinematic storybook render, no people",
+        "Volga summer nature near Samara, dense floral banks and floating meadow islands, tiny streams branching like veins, luminous green hills, serene impossible geography, refined 3D animated landscape, no people",
+        "Samara surreal nature scene, blue river flowing through a garden of oversized peonies and daisies, rounded tree silhouettes, smooth stones, sunlit mist, vivid painterly 3D depth, no people",
+        "Dreamlike Samara river bend, clouds mirrored as physical white stone islands in the water, flower meadows, bright green terrain, soft stylized forest, surreal but calm natural fantasy, no people",
+        "Surrealist nature scene around Samara, Russia, flowering steppe rising into gentle waves, turquoise river channels between them, tiny glowing blossoms, high-saturation 3D storybook light, no people",
+        "Samara Volga fairyland, riverside flowers forming a luminous path to distant green hills, giant soft clouds, clear blue water, rounded willows, magical realism landscape, no people",
+        "Surreal forest near Samara, Russia, pine and birch trees growing from flower-covered river islands, water reflecting an impossible second sky, refined animated film landscape, no people",
+        "Samara dream garden on the Volga, wildflowers growing from smooth boulders, floating moss terraces, river blue as glass, elegant clouds, polished 3D painterly natural world, no people",
+        "Surrealist Samara floodplain, blue channels and green flower islands arranged like a maze, pink blossoms, yellow reeds, rounded trees, crisp daylight and soft atmospheric depth, no people",
+        "Samara, Russia nature scene with a surreal floral horizon, distant hills made of layered petals, winding turquoise stream, bright meadow foreground, whimsical 3D storybook composition, no people",
+        "Volga nature dream near Samara, enormous soft trees leaning over a river of sky-blue water, lilies and daisies, levitating dew drops, cinematic magical naturalism, no people",
+        "Surrealist Russian meadow by Samara, flower fields under a vast cloudscape, river reflections rising as transparent ribbons, emerald hills, polished animated landscape, no people",
+        "Samara Volga valley in a bright surreal style, looping river paths, flower-covered mounds, rounded rocks, lush foliage, glowing water, soft clouds, refined 3D storybook nature, no people",
+        "Dreamlike nature scene near Samara, Russia, morning light on wildflower islands in a turquoise river, birches and willows arranged like a theater set, surreal depth, no people",
+        "Surrealist Samara landscape with green hills folding around the Volga, blossoms scattered like confetti, smooth stones, soft tree canopies, luminous clouds, vibrant natural fantasy, no people",
+        "Samara river garden, impossibly clear blue water winding between floral terraces, pink lilies, mossy stones, rounded painterly trees, high-detail 3D animated fairyland, no people",
+        "Surreal Volga nature near Samara, flowers blooming from reflections instead of soil, floating reeds, bright hills, clean sculpted riverbanks, poetic 3D storybook realism, no people",
+        "Samara, Russia surrealist nature vista, a bright floral world around the Volga where hills, clouds, flowers and river paths gently trade shapes, lush cinematic 3D landscape, no people"
+      ]
+    }
+  ]
+}

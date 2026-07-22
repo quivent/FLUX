@@ -1,0 +1,52 @@
+{
+  "id": "dark-black-sheep-princess-425-20260713",
+  "label": "Dark Black Sheep Princess 425",
+  "output_dir": "batches/dark-black-sheep-princess-425-20260713",
+  "backend": "mps",
+  "width": 512,
+  "height": 512,
+  "steps": 28,
+  "guidance": 4.1,
+  "seed_base": 732910,
+  "groups": [
+    {
+      "id": "style-scout",
+      "label": "10 varied dark-princess styles, 20 seeds each",
+      "seeds_per_prompt": 20,
+      "prompts": [
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, Arcane-inspired hybrid animation still, sculpted 3D form with hand-painted 2D brushwork, black wool mantle, smooth obsidian crown, haunted luminous eyes, graphic shadows, jewel-toned rim light, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, gothic anime key visual, sharp elegant linework, smoky black roses, moonlit palace ruins, high-detail black costume, dramatic silver highlights, severe beauty, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, dark fairytale oil painting, luminous pale skin, black velvet gown, smooth obsidian crown, candlelit royal chamber, old master lighting, refined brush texture, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, high fashion fantasy editorial portrait, avant-garde black wool couture, silver embroidery, harsh flash photography, black marble set, icy royal stare, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, expressive ink wash animation frame, bold black brush strokes, minimal moonlit background, pale face emerging from shadow, elegant melancholy, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, ornate baroque dark fantasy, black lace veil, smooth obsidian crown, cathedral shadows, gold and silver filigree, theatrical portrait lighting, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, graphic novel cover, bold black shapes, red accent flowers, angular face, hard rim light, crisp silhouette, dramatic contrast, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, noir fantasy film still, black crown silhouette, rain on palace glass, single eye catchlight, deep shadows, cinematic close-up, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, mystical tarot card illustration, black rose emblem, smooth obsidian crown, roses, moon, silver border ornaments, solemn powerful beauty, no horns, no animal ears, no animal features",
+        "A dark black-clad outcast princess, fully human stunning adult outcast royal woman with ordinary human ears, dark cel animation close-up, crisp painted shadows, limited palette, expressive eyes, black cloak, moonlit wind, dangerous elegance, no horns, no animal ears, no animal features"
+      ]
+    },
+    {
+      "id": "animated-character-form",
+      "label": "15 animated-character variants of similar form, 15 seeds each",
+      "seeds_per_prompt": 15,
+      "prompts": [
+        "A fully human stunning adult animated princess character, dark outcast royal energy, elegant angular face, black wool mantle, smooth obsidian crown, expressive haunted eyes, polished 3D character form with hand-painted 2D effects, cinematic portrait, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated royal exile, similar elegant form, black velvet gown, silver embroidery, crown of dark glass, pale moonlit skin, painterly animation still, emotionally charged close-up, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated villainess princess, beautiful but dangerous, black cloak, sharp regal silhouette, luminous eyes, refined face, hand-painted graphic shadows over sculpted 3D form, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated gothic princess, black wool mantle, delicate silver tiara, delicate face, controlled posture, painterly character-design portrait, moody palace background, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated fantasy queen, same graceful form, smooth obsidian crown, black roses, charcoal dress, expressive eyes, clean animation shape language, dramatic rim light, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated dark heroine princess, elegant long neck and angular cheekbones, black lace collar, silver accents, moonlit balcony, polished cinematic series frame, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated royal character, black rose emblem, velvet mantle, pale face, wary eyes, refined dark fantasy costume, 3D model lighting with painterly 2D overdraw, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated princess of exile, high-fashion dark royal costume, black wool shoulder piece, obsidian tiara, severe beauty, editorial animation portrait, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated shadow princess, similar graceful body language, black cloak in the wind, luminous eyes, silver crown, graphic cel shadows, moonlit ruined palace, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated aristocratic sorceress, dark royal styling, black velvet and silver thread, elegant face, painterly hybrid animation still, cinematic close portrait, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated tragic princess, black flowers in her hair, smooth obsidian crown, haunted gaze, refined costume silhouette, soft silver light, hand-painted animation texture, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated underworld princess, black wool mantle, volcanic glass crown, luminous pale skin, elegant dangerous expression, high-end fantasy character portrait, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated couture princess, black sculptural mantle, silver embroidery, precise face, icy stare, runway lighting translated into cinematic animation style, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated dark fairytale royal, similar face and posture, black veil, black jeweled tiara, moonlit palace, graphic painted shadows, polished series keyframe, no horns, no animal ears, no animal features",
+        "A fully human stunning adult animated black-clad outcast princess, refined gothic beauty, smooth obsidian crown, black wool and velvet, expressive haunted eyes, painterly 2D effects over clean 3D character modeling, no horns, no animal ears, no animal features"
+      ]
+    }
+  ]
+}

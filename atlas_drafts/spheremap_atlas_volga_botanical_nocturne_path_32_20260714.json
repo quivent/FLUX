@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_volga_botanical_nocturne_path_32_20260714",
+  "index_end": 32800,
+  "index_start": 32768,
+  "instance_id": "spheremap_atlas_volga_botanical_nocturne_path_32_20260714",
+  "kind": "latent_sphere_map",
+  "label": "volga botanical nocturne path 32 20260714",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "A surreal cinematic Volga botanical nocturne in Samara, Russia: rain-dark old wooden houses breathing warm window light, overgrown courtyards bursting with flowers and glass greenhouse structures, Soviet concrete and noble stone facades folding into impossible depth, tram wires glowing like constellations, wet streets reflecting amber and blue, dimensional animated film still, elegant 3D depth with painterly atmosphere, camera gliding through architecture, strong parallax, rich contrast, living city energy without visible people, no cloth, no fabric, no character portrait",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 32,
+  "run_type": "path",
+  "sample_mode": "contiguous",
+  "seed_a": "401889000",
+  "seed_b": 691889211,
+  "seed_c": 598841794,
+  "seed_d": 160915425,
+  "seed_lock": 0.24,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.12,
+  "size": 512,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "A surreal cinematic Volga botanical nocturne in Samara, Russia: rain-dark old wooden houses breathing warm window light, overgrown courtyards bursting with flowers and glass greenhouse structures, Soviet concrete and noble stone facades folding into impossible depth, tram wires glowing like constellations, wet streets reflecting amber and blue, dimensional animated film still, elegant 3D depth with painterly atmosphere, camera gliding through architecture, strong parallax, rich contrast, living city energy without visible people, no cloth, no fabric, no character portrait"
+  ]
+}

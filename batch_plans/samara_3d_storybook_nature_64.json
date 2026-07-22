@@ -1,0 +1,28 @@
+{
+  "id": "samara-3d-storybook-nature-64-20260714",
+  "label": "Samara 3D Storybook Nature 64",
+  "output_dir": "batches/samara-3d-storybook-nature-64-20260714",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.5,
+  "seed_base": 927140271,
+  "groups": [
+    {
+      "id": "volga-3d-nature",
+      "label": "Polished 3D storybook Samara nature scenes, 8 prompts with 8 seeds each",
+      "seeds_per_prompt": 8,
+      "prompts": [
+        "Surrealist nature scene in Samara, Russia, polished 3D storybook landscape, Volga River winding through lush sculpted green hills, rounded painterly trees, turquoise water, blooming wildflowers, soft cinematic clouds, bright dimensional lighting, whimsical but believable natural terrain, no people",
+        "Samara, Russia nature fantasy with a vivid 3D animated film feel, Samarskaya Luka hills above the Volga, plush mossy islands, stylized rounded pines and birches, clean sculpted rocks, saturated greens and teal river reflections, dreamy surreal composition, no people",
+        "Surrealist 3D storybook Samara river valley, bright Volga tributary curling through flower-covered banks, toy-like but refined terrain, elegant stylized trees with thick canopies, distant Zhiguli mountains, warm sunlight, crisp atmospheric depth, no people",
+        "Samara, Russia magical nature scene, cinematic 3D garden landscape between Volga cliffs and forested hills, lotus-like flowers on blue water, rounded boulders, lush layered greenery, soft fluffy clouds, polished animated feature style, gentle surreal geometry, no people",
+        "Bright surrealist nature scene near Samara, Russia, the Volga floodplain as a sculpted miniature world, emerald grass terraces, winding river paths, stylized willows and birches, pastel flowers, dimensional storybook lighting, clean high-detail 3D painterly render, no people",
+        "Samara, Russia dreamlike 3D nature panorama, rolling green steppe flowing into a turquoise river bend, rounded storybook trees, pink and white wildflowers, distant blue mountains, dramatic puffy clouds, luminous polished animation look, no buildings, no people",
+        "Surreal Volga nature scene in Samara, Russia, 3D animated fairytale landscape, sculpted river islands, glossy blue water, bright meadow flowers, soft rounded forest, elegant stone paths made by nature, impossible but serene terrain curves, cinematic daylight, no people",
+        "Samara, Russia surreal nature vista, stylized 3D painterly landscape with deep green forested slopes, luminous river channel, oversized soft trees framing the scene, colorful wildflowers and smooth boulders, bright sky, refined whimsical naturalism, no people"
+      ]
+    }
+  ]
+}

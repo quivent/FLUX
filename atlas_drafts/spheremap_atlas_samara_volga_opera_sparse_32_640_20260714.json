@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.5,
+  "id": "spheremap_atlas_samara_volga_opera_sparse_32_640_20260714",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_volga_opera_sparse_32_640_20260714",
+  "kind": "latent_sphere_map",
+  "label": "samara volga opera sparse 32 640 20260714",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Grand surreal Samara Volga opera atlas: monumental river mist, old carved wooden houses with glowing lacework windows, noble stone facades, Soviet geometry, private American-like homes and distant Dubai-like glass towers woven into one impossible city, flowers and trees spilling through tramlines, wet reflective streets, cinematic 3D animated film depth, painterly atmospheric light, elegant high contrast, varied architecture only, no people, no cloth, no fabric",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 32,
+  "run_type": "spot",
+  "sample_mode": "nested_sparse",
+  "seed_a": "661851000",
+  "seed_b": 551851211,
+  "seed_c": 78836366,
+  "seed_d": 634758656,
+  "seed_lock": 0.2,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.14,
+  "size": 640,
+  "steps": 30,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Grand surreal Samara Volga opera atlas: monumental river mist, old carved wooden houses with glowing lacework windows, noble stone facades, Soviet geometry, private American-like homes and distant Dubai-like glass towers woven into one impossible city, flowers and trees spilling through tramlines, wet reflective streets, cinematic 3D animated film depth, painterly atmospheric light, elegant high contrast, varied architecture only, no people, no cloth, no fabric"
+  ]
+}

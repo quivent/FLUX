@@ -1,0 +1,28 @@
+{
+  "id": "samara-surreal-wooden-city-16-20260714",
+  "label": "Samara Surreal Wooden City 16",
+  "output_dir": "batches/samara-surreal-wooden-city-16-20260714",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.8,
+  "seed_base": 192746551,
+  "groups": [
+    {
+      "id": "wooden-city-surreal",
+      "label": "Samara city center wooden houses, Soviet and noble architecture, 8 prompts with 2 seeds each",
+      "seeds_per_prompt": 2,
+      "prompts": [
+        "Surreal city center in Samara, Russia, old carved wooden houses standing between Soviet blocks and noble stone buildings, some facades glowing like embers to symbolize yearly fires and disappearance, Dubai-like vertical glass towers reflected in puddles, cinematic 3D depth, high contrast, no people",
+        "Samara architectural dreamscape, dwindling old wooden houses in the historic center arranged like fragile theater scenery, futuristic Dubai-style towers rising behind them, American-style private homes visible on a distant street, Soviet concrete and noble mansions pressing in from both sides, surreal dimensional city view",
+        "Wide-angle surreal Samara street, charred outlines of vanished wooden houses floating above their remaining foundations, ornate noble buildings, Soviet apartment slabs, sleek desert-modern towers like Dubai transplanted into Russia, warm firelight and cold morning blue shadows, polished painterly 3D urban scene",
+        "Bird's-eye view of Samara, Russia, the city center as a layered architectural map: shrinking wooden houses, Soviet courtyards, noble facades, private suburban homes like America, and impossible Dubai-like glass forms, streets bending like ribbons, surreal but recognizable urban fabric, high contrast",
+        "Samara surreal urban corridor at dusk, old wooden houses with carved windows turning transparent like memories, yearly burn scars on empty lots, noble stone buildings glowing amber, Soviet geometry in the background, glossy futuristic towers looming above, dramatic dimensional lighting, no people",
+        "Dreamlike Samara city block, fragile wooden houses clustered beside a noble mansion and a Soviet wall, behind them private homes like an American neighborhood and tall Dubai-inspired buildings, the whole city folding into one impossible street, cinematic contrast, refined 3D storybook realism",
+        "Surreal Samara preservation scene, wooden houses in the center reduced to glowing miniature relics under enormous Soviet shadows, elegant noble balconies, glass towers shaped like mirages, American-style private homes beyond a fence, ash drifting upward into bright clouds, dimensional urban fantasy",
+        "Low street-level Samara view after rain, old wooden houses reflected as burning silhouettes in wet asphalt, noble facades and Soviet blocks behind them, Dubai-like towers refracted in the river-like street, private homes at the edge of the frame, surreal architectural contrast, rich depth and texture"
+      ]
+    }
+  ]
+}

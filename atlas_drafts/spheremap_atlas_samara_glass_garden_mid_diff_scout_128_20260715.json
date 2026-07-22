@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_samara_glass_garden_mid_diff_scout_128_20260715",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_glass_garden_mid_diff_scout_128_20260715",
+  "kind": "latent_sphere_map",
+  "label": "samara glass garden mid diff scout 128 20260715",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Varied Samara glass garden atlas scout: distinct surreal architectural views across Samara, Russia, old carved wooden houses, glowing greenhouse courtyards, flowers and trees overtaking tram wires, Volga fog, wet reflective streets, Soviet blocks and noble stone facades in layered depth, distant glass towers, alternating close street-level details and wide city vistas, cinematic 3D animated film atmosphere, painterly lighting, rich natural detail, architecture only, no people, no cloth, no fabric, no character portrait",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 128,
+  "run_type": "fill",
+  "sample_mode": "nested_sparse",
+  "seed_a": "811358000",
+  "seed_b": 601358211,
+  "seed_c": 485908794,
+  "seed_d": 530874579,
+  "seed_lock": 0.12,
+  "shell_coupling": 1.12,
+  "shell_scale": 1.3,
+  "size": 384,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Varied Samara glass garden atlas scout: distinct surreal architectural views across Samara, Russia, old carved wooden houses, glowing greenhouse courtyards, flowers and trees overtaking tram wires, Volga fog, wet reflective streets, Soviet blocks and noble stone facades in layered depth, distant glass towers, alternating close street-level details and wide city vistas, cinematic 3D animated film atmosphere, painterly lighting, rich natural detail, architecture only, no people, no cloth, no fabric, no character portrait"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.5,
+  "id": "spheremap_atlas_samara_dream_river_scout_20_768_20260714",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_dream_river_scout_20_768_20260714",
+  "kind": "latent_sphere_map",
+  "label": "samara dream river scout 20 768 20260714",
+  "mode": "omega",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "High resolution surreal Samara dream river scout: Volga shoreline merging with the old city, wooden houses reflected in black water, botanical overgrowth, luminous flowers, noble facades and Soviet silhouettes, distant glass towers softened by river mist, impossible depth, rich cinematic lighting, highly detailed 3D animated film atmosphere, architectural landscape only, no people, no cloth, no fabric",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 20,
+  "run_type": "spot",
+  "sample_mode": "nested_sparse",
+  "seed_a": "712266000",
+  "seed_b": 602266211,
+  "seed_c": 86038509,
+  "seed_d": 638636733,
+  "seed_lock": 0.22,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.12,
+  "size": 768,
+  "steps": 30,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "High resolution surreal Samara dream river scout: Volga shoreline merging with the old city, wooden houses reflected in black water, botanical overgrowth, luminous flowers, noble facades and Soviet silhouettes, distant glass towers softened by river mist, impossible depth, rich cinematic lighting, highly detailed 3D animated film atmosphere, architectural landscape only, no people, no cloth, no fabric"
+  ]
+}

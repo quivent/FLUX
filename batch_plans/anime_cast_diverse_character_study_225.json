@@ -1,0 +1,35 @@
+{
+  "id": "anime-cast-diverse-character-study-225-20260713",
+  "label": "Anime Cast Diverse Character Study 225",
+  "output_dir": "batches/anime-cast-diverse-character-study-225-20260713",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.5,
+  "seed_base": 918427,
+  "groups": [
+    {
+      "id": "anime-cast",
+      "label": "Diverse animated human cast, 15 prompts with 15 seeds each",
+      "seeds_per_prompt": 15,
+      "prompts": [
+        "A fully human adult anime courier sprinting through a rainlit neon street, cropped red jacket, messenger satchel, athletic posture, expressive tired eyes, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, polished 3D character form with hand-painted 2D effects",
+        "A fully human adult anime mechanic pilot in a bright hangar, oil-stained cropped work jacket, utility belt, confident grin, short natural hair, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, cinematic animation character portrait",
+        "A fully human adult anime jazz singer backstage after midnight, black satin dress, vintage microphone, warm amber rim light, poised smoky expression, natural hairline, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, painterly series still",
+        "A fully human adult anime city detective under subway fluorescents, long charcoal coat, case folder, focused wary stare, urban noir palette, natural hair framing the face, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, graphic cel shadows",
+        "A fully human adult anime botanical researcher in a glass greenhouse, emerald lab coat, rare glowing flowers, gentle intelligent expression, soft daylight, natural hairline, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, elegant character-design frame",
+        "A fully human adult anime android medic with translucent diagnostic panels, white tactical clinic uniform, calm precise gaze, soft blue hospital light, smooth human face, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, clean futuristic animation still",
+        "A fully human adult anime academy swordswoman in a training courtyard, simple dark uniform, practice blade lowered, determined eyes, wind-tossed natural hair, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, crisp painterly action portrait",
+        "A fully human adult anime street fashion idol on a tiny livehouse stage, layered chrome jacket, handheld microphone, saturated magenta lights, playful direct gaze, natural hairline, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, glossy animated key visual",
+        "A fully human adult anime cafe owner closing shop at dawn, rolled sleeves, apron, steam and window light, serene grounded expression, natural shoulder-length hair, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, warm slice-of-life animation still",
+        "A fully human adult anime desert motorcycle racer at sunset, weathered leather jacket, dust-streaked face, relaxed confident posture, windswept natural hair, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, cinematic racing character portrait",
+        "A fully human adult anime spaceport navigator in a glass control tower, star maps reflected in the windows, navy flight coat, analytical eyes, natural hairline, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, luminous sci-fi animation frame",
+        "A fully human adult anime archival mage in an old library, ink-stained fingers, floating paper diagrams, scholarly intensity, deep green cardigan, natural hair tucked back, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, painterly fantasy-study portrait",
+        "A fully human adult anime masked thief on a rooftop, sleek black coat, small domino mask, city lights below, mischievous smile, natural hairline, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, elegant heist animation still",
+        "A fully human adult anime mural artist in an alley studio, paint-splattered denim, aerosol color mist, huge unfinished wall piece, thoughtful gaze, natural messy hair, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, expressive urban character art",
+        "A fully human adult anime fire dancer at a night festival, flowing crimson sleeves, controlled flame ribbons around the hands, intense graceful movement, natural hair pulled back, bare smooth forehead, visible ordinary human ears, headwear-free silhouette, dynamic hybrid animation still"
+      ]
+    }
+  ]
+}

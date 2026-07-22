@@ -1,0 +1,86 @@
+{
+  "id": "anime-cast-life-orchestra-20260716",
+  "label": "Anime Cast Life Orchestra",
+  "intent": "Turn the 225 FLUX anime cast portraits into living animation-adjacent keyframes by preserving identity first, then adding gesture, environment, and cinematic motion.",
+  "source_root": "~/Models/flux-output/batches/anime-cast-diverse-character-study-225-20260713",
+  "source_glob": "01-anime-cast/p*/p*-s*-seed-*.png",
+  "output_dir": "batches/anime-cast-life-orchestra-20260716",
+  "width": 384,
+  "height": 384,
+  "backend": "auto",
+  "seed_base": 726160,
+  "selection": {
+    "mode": "all",
+    "scout_limit": 30,
+    "notes": "Use --limit 30 for a fast scout, omit it for all 225 source images."
+  },
+  "personas": {
+    "p01": "rainlit courier with tired expressive eyes and athletic urgency",
+    "p02": "mechanic pilot with confident hangar energy",
+    "p03": "midnight jazz singer with poised backstage melancholy",
+    "p04": "city detective under subway fluorescents",
+    "p05": "botanical researcher in a glowing greenhouse",
+    "p06": "android medic with calm diagnostic precision",
+    "p07": "academy swordswoman in a windy training courtyard",
+    "p08": "street fashion idol on a tiny livehouse stage",
+    "p09": "cafe owner closing shop at dawn",
+    "p10": "desert motorcycle racer at sunset",
+    "p11": "spaceport navigator in a glass control tower",
+    "p12": "archival mage in an old library",
+    "p13": "masked rooftop thief above city lights",
+    "p14": "mural artist in an alley studio",
+    "p15": "fire dancer at a night festival"
+  },
+  "beats": [
+    "breathing pause before action",
+    "turning toward an unheard sound",
+    "wind crossing the face and clothes",
+    "eyes catching a moving reflection",
+    "one decisive step into the scene"
+  ],
+  "worlds": [
+    "rain, neon signage, wet asphalt, distant train light",
+    "warm amber interior light with blue exterior shadows",
+    "botanical glass, drifting pollen, luminous window reflections",
+    "high rooftop wind, city bokeh, sodium and cyan rim light",
+    "festival smoke, paper lanterns, sparks, moving silhouettes"
+  ],
+  "passes": [
+    {
+      "id": "01_identity_breath",
+      "label": "Identity Breath",
+      "source": "original",
+      "strength": 0.26,
+      "steps": 24,
+      "guidance": 3.6,
+      "prompt": "Preserve the exact character identity from the source portrait: {persona}. Make it feel alive with a subtle {beat}, tiny expression shift, natural eye focus, soft secondary motion in hair and clothing, cinematic hybrid anime still, clean face structure, no new headwear, no animal features, no extra limbs."
+    },
+    {
+      "id": "02_gesture_keyframe",
+      "label": "Gesture Keyframe",
+      "source": "previous",
+      "strength": 0.42,
+      "steps": 28,
+      "guidance": 4.8,
+      "prompt": "Use the previous image as the identity anchor. Same character: {persona}. Turn the portrait into a mid-action animation keyframe: {beat}, shoulders and hands implying motion, stronger silhouette, hand-painted motion accents, readable body language, polished 3D form with 2D paint, no animal features, no duplicate face."
+    },
+    {
+      "id": "03_world_insert",
+      "label": "World Insert",
+      "source": "previous",
+      "strength": 0.58,
+      "steps": 32,
+      "guidance": 5.8,
+      "prompt": "Keep the same character identity and gesture, but place them into a living cinematic environment: {world}. Add depth layers, practical lights, foreground occlusion, atmospheric particles, moving reflections, scene continuity, high-end animated series frame, no text, no split screen."
+    },
+    {
+      "id": "04_alive_poster",
+      "label": "Alive Poster",
+      "source": "previous",
+      "strength": 0.70,
+      "steps": 36,
+      "guidance": 6.4,
+      "prompt": "Transform the living scene into a final hero key visual while preserving the core character: {persona}. Dynamic composition, cinematic lens compression, expressive eye line, strong rim light, environmental motion trails, vivid but controlled palette, production-quality anime film still, no logo, no lettering, no animal features."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "anime-cast-alive-motion-20260716",
+  "label": "Anime Cast Alive Motion",
+  "intent": "Post-process FLUX anime stills into short living loops with deterministic image warps, subtle camera drift, and optional adjacent-image blending.",
+  "source_glob": "~/Models/flux-output/batches/anime-cast-life-orchestra-20260716/**/*.png",
+  "fallback_source_glob": "~/Models/flux-output/batches/anime-cast-diverse-character-study-225-20260713/01-anime-cast/p*/p*-s*-seed-*.png",
+  "output_dir": "~/Models/flux-output/batches/anime-cast-alive-motion-20260716",
+  "fps": 12,
+  "frames": 36,
+  "width": 512,
+  "height": 512,
+  "modes": [
+    {
+      "id": "breath_parallax",
+      "description": "A gentle loop made from sinusoidal affine drift plus local displacement. Best for portraits."
+    },
+    {
+      "id": "blend_shift",
+      "description": "Cross-blends neighboring stills while applying a small opposing drift. Best for variant sets."
+    },
+    {
+      "id": "hybrid_alive",
+      "description": "Combines local displacement, camera drift, and low-strength neighbor blending."
+    }
+  ],
+  "defaults": {
+    "mode": "hybrid_alive",
+    "shift_pixels": 9.0,
+    "warp_pixels": 4.5,
+    "zoom": 0.026,
+    "blend_strength": 0.28,
+    "mp4": true,
+    "keep_frames": false
+  },
+  "run_examples": [
+    "python3 scripts/make_alive_loops.py creative_manifests/anime_cast_alive_motion_20260716.json --limit 12",
+    "python3 scripts/make_alive_loops.py creative_manifests/anime_cast_alive_motion_20260716.json --source-glob '~/Models/flux-output/batches/anime-cast-diverse-character-study-225-20260713/01-anime-cast/p*/p*-s*-seed-*.png' --limit 24 --mode blend_shift"
+  ]
+}

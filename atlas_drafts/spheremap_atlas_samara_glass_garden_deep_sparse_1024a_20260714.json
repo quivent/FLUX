@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.4,
+  "id": "spheremap_atlas_samara_glass_garden_deep_sparse_1024a_20260714",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_glass_garden_deep_sparse_1024a_20260714",
+  "kind": "latent_sphere_map",
+  "label": "samara glass garden deep sparse 1024a 20260714",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Surreal cinematic Samara glass garden atlas, deep overnight fill: old carved wooden houses with glowing lacework windows, botanical conservatories grown through courtyards, flowers climbing tram wires, Volga mist, wet reflective streets, noble stone facades and Soviet geometry layered into impossible depth, distant glass towers softened by rain, elegant 3D animated film atmosphere, painterly light, high contrast, varied architectural viewpoints, architectural landscape only, no people, no cloth, no fabric, no character portrait",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 1024,
+  "run_type": "fill",
+  "sample_mode": "nested_sparse",
+  "seed_a": "817962000",
+  "seed_b": 607962211,
+  "seed_c": 686852223,
+  "seed_d": 531382579,
+  "seed_lock": 0.22,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.12,
+  "size": 384,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Surreal cinematic Samara glass garden atlas, deep overnight fill: old carved wooden houses with glowing lacework windows, botanical conservatories grown through courtyards, flowers climbing tram wires, Volga mist, wet reflective streets, noble stone facades and Soviet geometry layered into impossible depth, distant glass towers softened by rain, elegant 3D animated film atmosphere, painterly light, high contrast, varied architectural viewpoints, architectural landscape only, no people, no cloth, no fabric, no character portrait"
+  ]
+}

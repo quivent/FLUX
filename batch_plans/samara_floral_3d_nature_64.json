@@ -1,0 +1,28 @@
+{
+  "id": "samara-floral-3d-nature-64-20260714",
+  "label": "Samara Floral 3D Nature 64",
+  "output_dir": "batches/samara-floral-3d-nature-64-20260714",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.5,
+  "seed_base": 581927413,
+  "groups": [
+    {
+      "id": "floral-volga-nature",
+      "label": "Lush floral 3D nature scenes around Samara and the Volga, 8 prompts with 8 seeds each",
+      "seeds_per_prompt": 8,
+      "prompts": [
+        "Lush floral 3D storybook nature scene near Samara, Russia, bright Volga river valley with turquoise water, rolling emerald hills, dense wildflower banks, pink lotus-like blossoms, rounded painterly trees, soft puffy clouds, polished animated feature lighting, serene natural fantasy, no people",
+        "Bright 3D animated nature garden along the Volga near Samara, Russia, winding blue river, flower-covered islands, plush grass terraces, sculpted mossy stones, blooming meadow flowers in pink white yellow and violet, rounded trees, magical sunlight, refined storybook landscape, no people",
+        "Surreal floral nature scene in Samara, Russia, a glowing river bend surrounded by oversized wildflowers, lush green banks, delicate reeds, smooth boulders, rounded birch and willow trees, cinematic 3D painterly depth, bright sky and soft clouds, no buildings, no people",
+        "Samara Volga floral valley, polished 3D fairytale landscape, flower meadows cascading down soft green hills, clear turquoise channels, lily pads and bright blossoms on the water, warm daylight, sculpted terrain, whimsical natural detail, no people",
+        "Dreamlike Russian nature garden near Samara, dense wildflowers and flowering shrubs framing a clean blue stream, rounded forest hills, mossy rocks, soft stylized trees, vivid colors, dimensional 3D storybook render, gentle surreal beauty, no people",
+        "Floral floodplain by the Volga in Samara, Russia, bright spring nature scene, saturated green grasses, pink and white blossoms, water reflecting huge soft clouds, rounded tree canopies, polished 3D animated landscape, natural abundance, no people",
+        "Lush surreal 3D nature vista with Samara's Volga as a subtle setting, flower-filled riverbanks, layered emerald hills, tiny natural stone paths, lotus blossoms drifting on clear blue water, sunny cinematic atmosphere, high-detail storybook foliage, no people",
+        "Fairytale floral nature scene near Samara, Russia, rounded green hills and a winding turquoise river, huge flower beds, wild roses, daisies, water lilies, soft birch trees, bright dimensional animated-film look, peaceful magical realism, no people"
+      ]
+    }
+  ]
+}

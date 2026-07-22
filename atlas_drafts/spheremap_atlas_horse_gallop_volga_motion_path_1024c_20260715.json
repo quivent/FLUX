@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.2,
+  "id": "spheremap_atlas_horse_gallop_volga_motion_path_1024c_20260715",
+  "index_end": 25600,
+  "index_start": 24576,
+  "instance_id": "spheremap_atlas_horse_gallop_volga_motion_path_1024c_20260715",
+  "kind": "latent_sphere_map",
+  "label": "horse gallop volga motion path 1024c 20260715",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "A powerful cinematic horse galloping through surreal Samara near the Volga, real sequential motion study: elegant dark horse in mid-stride, mane and tail whipping, hooves splashing through rain-slick street reflections, old wooden houses, flowered courtyards, tram wires, noble stone facades and Soviet blocks sliding in deep parallax, animated 3D film still, dynamic camera tracking beside the horse, consistent horse anatomy, no rider, no saddle, no cloth, no fabric, strong motion continuity",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 1024,
+  "run_type": "path",
+  "sample_mode": "contiguous",
+  "seed_a": "849604000",
+  "seed_b": 239604211,
+  "seed_c": 534229651,
+  "seed_d": 18431963,
+  "seed_lock": 0.34,
+  "shell_coupling": 0.92,
+  "shell_scale": 1.04,
+  "size": 384,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "A powerful cinematic horse galloping through surreal Samara near the Volga, real sequential motion study: elegant dark horse in mid-stride, mane and tail whipping, hooves splashing through rain-slick street reflections, old wooden houses, flowered courtyards, tram wires, noble stone facades and Soviet blocks sliding in deep parallax, animated 3D film still, dynamic camera tracking beside the horse, consistent horse anatomy, no rider, no saddle, no cloth, no fabric, strong motion continuity"
+  ]
+}

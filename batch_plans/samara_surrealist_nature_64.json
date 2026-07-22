@@ -1,0 +1,36 @@
+{
+  "id": "samara-surrealist-nature-64-20260714",
+  "label": "Samara Surrealist Nature 64",
+  "output_dir": "batches/samara-surrealist-nature-64-20260714",
+  "backend": "mps",
+  "width": 384,
+  "height": 384,
+  "steps": 28,
+  "guidance": 3.5,
+  "seed_base": 7142026,
+  "groups": [
+    {
+      "id": "surreal-nature",
+      "label": "Surrealist nature scenes in Samara, Russia, 16 prompts with 4 seeds each",
+      "seeds_per_prompt": 4,
+      "prompts": [
+        "Surrealist nature scene in Samara, Russia, the Volga River bending under a violet dawn, floating birch islands, impossible mirror clouds, painterly cinematic landscape, quiet dream atmosphere",
+        "Surrealist nature scene in Samara, Russia, Samarskaya Luka hills shaped like sleeping giants, silver grass steppe, distant river light, delicate mist, magical realism landscape painting",
+        "Surrealist nature scene in Samara, Russia, winter Volga shoreline with translucent ice arches, bare trees suspended upside down in the sky, blue-white moonlight, elegant dreamlike composition",
+        "Surrealist nature scene in Samara, Russia, pine forest outside the city where tree trunks become cathedral columns, golden moss, tiny river stars on the ground, refined atmospheric fantasy",
+        "Surrealist nature scene in Samara, Russia, wide steppe after rain, red wildflowers orbiting like planets above wet grass, low storm clouds split by warm sunlight, poetic cinematic frame",
+        "Surrealist nature scene in Samara, Russia, autumn ravine near the Volga, leaves turning into amber birds, black soil paths, soft fog, high-detail painterly landscape with quiet mystery",
+        "Surrealist nature scene in Samara, Russia, Zhiguli mountain silhouettes across the river, enormous glass moon reflected in rippled water, reeds glowing like lanterns, serene otherworldly vista",
+        "Surrealist nature scene in Samara, Russia, summer riverbank with willow trees bending into spiral doorways, white clouds flowing through the branches, lucid dream naturalism, fine texture",
+        "Surrealist nature scene in Samara, Russia, frozen steppe at twilight, a road of blue ice leading to levitating stones, distant birch grove, cinematic cold light, contemplative mood",
+        "Surrealist nature scene in Samara, Russia, Volga cliffs covered in luminous green lichen, fish-shaped clouds swimming overhead, tiny boats like fireflies, refined magical landscape",
+        "Surrealist nature scene in Samara, Russia, midnight meadow with silver grasses and oversized dew drops holding miniature city lights, quiet wind, dark teal sky, elegant dream realism",
+        "Surrealist nature scene in Samara, Russia, spring floodplain where reflections rise vertically from the river like glass towers, flowering trees, pale pink sunrise, painterly soft atmosphere",
+        "Surrealist nature scene in Samara, Russia, forest path after snowfall, fox-red sunset shining through blue shadows, trees folded like paper fans, minimal human presence, high-end concept art",
+        "Surrealist nature scene in Samara, Russia, broad Volga horizon under a green aurora, sandbars arranged like ancient symbols, reeds and stones glowing subtly, majestic calm composition",
+        "Surrealist nature scene in Samara, Russia, rolling steppe with black earth, floating roots, birch leaves sparkling like gold coins, warm wind, lyrical landscape illustration",
+        "Surrealist nature scene in Samara, Russia, dawn above a quiet river bend, clouds shaped like white horses dissolving into mist, pine silhouettes, luminous cinematic natural fantasy"
+      ]
+    }
+  ]
+}

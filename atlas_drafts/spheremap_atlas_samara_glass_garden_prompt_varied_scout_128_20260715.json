@@ -1,0 +1,50 @@
+{
+  "experiment_id": "flux:studio-atlas",
+  "guidance": 4.45,
+  "id": "spheremap_atlas_samara_glass_garden_prompt_varied_scout_128_20260715",
+  "index_end": 65536,
+  "index_start": 0,
+  "instance_id": "spheremap_atlas_samara_glass_garden_prompt_varied_scout_128_20260715",
+  "kind": "latent_sphere_map",
+  "label": "samara glass garden prompt varied scout 128 20260715",
+  "mode": "elliptic",
+  "n_cols": 64,
+  "n_latent": 65536,
+  "n_rows": 1024,
+  "notes": "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
+  "offsets": [
+    0.18,
+    -0.12,
+    0.1,
+    -0.08,
+    0.06,
+    -0.04
+  ],
+  "prompt": "Samara glass garden atlas with strong compositional variety: panoramic Volga river views, narrow wooden-house alleys, flower-filled courtyards, rain-slick tram crossings, noble stone mansions, Soviet apartment silhouettes, private homes, distant glass towers, botanical conservatories, morning fog, nocturne reflections, impossible stairways and bridges, cinematic 3D animated film depth, lush detail, varied camera angles, architecture only, no people, no cloth, no fabric",
+  "rates": [
+    0.32,
+    0.11,
+    -0.09,
+    0.08,
+    -0.06,
+    0.04
+  ],
+  "render_count": 128,
+  "run_type": "fill",
+  "sample_mode": "nested_sparse",
+  "seed_a": "830001000",
+  "seed_b": 620001211,
+  "seed_c": 488572080,
+  "seed_d": 532308656,
+  "seed_lock": 0.1,
+  "shell_coupling": 0.98,
+  "shell_scale": 1.18,
+  "size": 384,
+  "steps": 28,
+  "subject": "studio latent atlas",
+  "traversal": "spherical_outward",
+  "traversal_order": "row_serpentine",
+  "view_prompts": [
+    "Samara glass garden atlas with strong compositional variety: panoramic Volga river views, narrow wooden-house alleys, flower-filled courtyards, rain-slick tram crossings, noble stone mansions, Soviet apartment silhouettes, private homes, distant glass towers, botanical conservatories, morning fog, nocturne reflections, impossible stairways and bridges, cinematic 3D animated film depth, lush detail, varied camera angles, architecture only, no people, no cloth, no fabric"
+  ]
+}
