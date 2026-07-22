@@ -64,6 +64,8 @@ func main() {
 		ui.Palette()
 	case "download":
 		err = download(cfg, os.Args[2:])
+	case "gpu", "gpus", "nvidia":
+		err = gpu(cfg, os.Args[2:])
 	case "warm", "launch":
 		err = warm(cfg, os.Args[2:])
 	case "serve", "http":
@@ -164,8 +166,8 @@ func doctor(cfg config.Config) error {
 }
 
 func accel(cfg config.Config) error {
-	ui.Header("accel", "Apple Silicon backend posture")
-	ui.KV("default active", "PyTorch Diffusers -> MPS/Metal")
+	ui.Header("accel", "FLUX backend posture")
+	ui.KV("default active", "PyTorch Diffusers -> CUDA/MPS/CPU")
 	ui.KV("selected", cfg.Backend)
 	ui.KV("checkpoint", "BF16 Diffusers")
 	ui.KV("socket", "resident worker with per-job backend")
@@ -175,7 +177,8 @@ func accel(cfg config.Config) error {
 	ui.KV("architecture", filepath.Join(cfg.Root, "ACCELERATION.md"))
 	fmt.Println()
 	ui.Suite("backend policy", ui.Teal, []ui.PairRow{
-		{"mps", "current default, highest compatibility"},
+		{"cuda", "NVIDIA GPU backend on enterprise hosts"},
+		{"mps", "Apple GPU backend on local Apple Silicon"},
 		{"mlx", "next native Apple Silicon backend to benchmark"},
 		{"coreml", "fixed-shape compiled backend candidate"},
 		{"ane", "strict backend gated by registry and validation"},
@@ -188,6 +191,9 @@ out = {"python": platform.python_version(), "machine": platform.machine()}
 try:
     import torch
     out["torch"] = torch.__version__
+    out["cuda_available"] = bool(torch.cuda.is_available())
+    out["cuda_device_count"] = int(torch.cuda.device_count()) if torch.cuda.is_available() else 0
+    out["cuda_device"] = torch.cuda.get_device_name(0) if torch.cuda.is_available() and torch.cuda.device_count() else ""
     out["mps_available"] = bool(torch.backends.mps.is_available())
 except Exception as exc:
     out["torch_error"] = repr(exc)
@@ -234,7 +240,7 @@ print(json.dumps(out, sort_keys=True))
 		return err
 	}
 	ui.Header("probe", "local Python backend availability")
-	for _, key := range []string{"python", "machine", "torch", "mps_available", "mlx", "mflux_generate", "coremltools", "coreml_model", "coreml_compiled", "ane_registry", "ane_registry_exists", "ane_packages", "ane_components", "ane_validated", "ane_renderable", "ane_error", "mlx_error", "mflux_error", "coremltools_error", "coreml_model_error", "torch_error"} {
+	for _, key := range []string{"python", "machine", "torch", "cuda_available", "cuda_device_count", "cuda_device", "mps_available", "mlx", "mflux_generate", "coremltools", "coreml_model", "coreml_compiled", "ane_registry", "ane_registry_exists", "ane_packages", "ane_components", "ane_validated", "ane_renderable", "ane_error", "mlx_error", "mflux_error", "coremltools_error", "coreml_model_error", "torch_error"} {
 		if value, ok := probe[key]; ok {
 			ui.KV(key, value)
 		}
@@ -1357,7 +1363,7 @@ func ane(cfg config.Config, args []string) error {
 
 func bench(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("bench", flag.ExitOnError)
-	backendList := fs.String("backends", "mps,mlx", "comma-separated backends: mps, mlx, coreml, ane, cpu")
+	backendList := fs.String("backends", "cuda,mps,mlx", "comma-separated backends: cuda, mps, mlx, coreml, ane, cpu")
 	promptFlag := fs.String("prompt", "", "benchmark prompt")
 	width := fs.Int("width", 768, "benchmark width")
 	height := fs.Int("height", 768, "benchmark height")
@@ -1512,6 +1518,64 @@ func download(cfg config.Config, args []string) error {
 	return nil
 }
 
+func gpu(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("gpu", flag.ExitOnError)
+	jsonOut := fs.Bool("json", false, "print raw JSON probe")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	script := `
+import json, shutil, subprocess
+out = {}
+try:
+    import torch
+    out["torch"] = torch.__version__
+    out["cuda_available"] = bool(torch.cuda.is_available())
+    out["cuda_device_count"] = int(torch.cuda.device_count()) if torch.cuda.is_available() else 0
+    out["cuda_devices"] = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] if torch.cuda.is_available() else []
+except Exception as exc:
+    out["torch_error"] = type(exc).__name__ + ": " + str(exc)
+if shutil.which("nvidia-smi"):
+    q = ["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw", "--format=csv,noheader,nounits"]
+    p = subprocess.run(q, capture_output=True, text=True, check=False)
+    out["nvidia_smi"] = p.stdout.strip().splitlines()
+    pmon = subprocess.run(["nvidia-smi", "pmon", "-c", "1"], capture_output=True, text=True, check=False)
+    out["nvidia_pmon"] = pmon.stdout.strip().splitlines()
+else:
+    out["nvidia_smi"] = []
+print(json.dumps(out, sort_keys=True))
+`
+	out, err := exec.Command(cfg.Python, "-c", script).Output()
+	if err != nil {
+		return fmt.Errorf("gpu probe failed: %w", err)
+	}
+	if *jsonOut {
+		fmt.Print(string(out))
+		return nil
+	}
+	var probe map[string]any
+	if err := json.Unmarshal(out, &probe); err != nil {
+		return err
+	}
+	ui.Header("gpu", "FLUX runtime GPU view")
+	ui.KV("python", cfg.Python)
+	ui.KV("torch", valueOr(stringValue(probe["torch"]), "unknown"))
+	ui.KV("cuda", ui.State(strconv.FormatBool(boolValue(probe["cuda_available"]))))
+	ui.KV("device count", intValue(probe["cuda_device_count"]))
+	for i, name := range stringSlice(probe["cuda_devices"]) {
+		ui.KV(fmt.Sprintf("gpu %d", i), name)
+	}
+	if rows := stringSlice(probe["nvidia_smi"]); len(rows) > 0 {
+		fmt.Println()
+		ui.Suite("nvidia-smi", ui.Teal, gpuRows(rows))
+	}
+	if rows := stringSlice(probe["nvidia_pmon"]); len(rows) > 0 {
+		fmt.Println()
+		ui.Suite("processes", ui.Gold, gpuRows(rows))
+	}
+	return nil
+}
+
 func tree() {
 	ui.Tree("tree", "command topology", []ui.TreeGroup{
 		{
@@ -1629,7 +1693,7 @@ func studio(cfg config.Config) error {
 func warm(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("warm", flag.ExitOnError)
 	preload := fs.Bool("preload", true, "load model immediately")
-	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1658,7 +1722,7 @@ func warm(cfg config.Config, args []string) error {
 func serve(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
-	backend := fs.String("backend", cfg.Backend, "default backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	token := fs.String("token", "", "HTTP bearer token")
 	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
@@ -1693,7 +1757,7 @@ func serve(cfg config.Config, args []string) error {
 func gallery(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("gallery", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
-	backend := fs.String("backend", cfg.Backend, "default backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	token := fs.String("token", "", "HTTP bearer token")
 	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
@@ -1873,7 +1937,7 @@ func remoteRender(args []string) error {
 	fs := flag.NewFlagSet("remote render", flag.ExitOnError)
 	baseURL, token, tokenEnv := remoteFlags(fs)
 	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
-	backend := fs.String("backend", "auto", "backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", "auto", "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	style := fs.String("style", "", "prompt style")
 	mood := fs.String("mood", "", "prompt mood")
 	camera := fs.String("camera", "", "camera lens")
@@ -2185,7 +2249,7 @@ func openJob(cfg config.Config, args []string) error {
 func render(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("render", flag.ExitOnError)
 	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
-	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	style := fs.String("style", "", "prompt style: cinema, product, editorial, architect, document, speculative, anime, noir")
 	mood := fs.String("mood", "", "prompt mood: quiet, electric, clinical, warm, ominous, optimistic, melancholy, fever")
 	camera := fs.String("camera", "", "camera lens: wide, close, macro, low, overhead, tracking, portrait")
@@ -2333,10 +2397,10 @@ func render(cfg config.Config, args []string) error {
 		if *dryRun {
 			if *direct {
 				if !directBackendSupported(*backend) {
-					return fmt.Errorf("--direct only supports auto, mps, or cpu backends")
+					return fmt.Errorf("--direct only supports auto, cuda, mps, or cpu backends")
 				}
-				if *backend == "cpu" {
-					cmdArgs = append(cmdArgs, "--device", "cpu")
+				if *backend == "cpu" || *backend == "cuda" {
+					cmdArgs = append(cmdArgs, "--device", *backend)
 				}
 				ui.KV(fmt.Sprintf("command[%d]", i+1), cfg.Python+" "+shellish(cmdArgs))
 			} else {
@@ -2395,10 +2459,10 @@ func render(cfg config.Config, args []string) error {
 		}
 		ui.KV("route", ui.State("direct")+" "+ui.Soft("one-shot Python"))
 		if !directBackendSupported(*backend) {
-			return fmt.Errorf("--direct only supports auto, mps, or cpu backends")
+			return fmt.Errorf("--direct only supports auto, cuda, mps, or cpu backends")
 		}
-		if *backend == "cpu" {
-			cmdArgs = append(cmdArgs, "--device", "cpu")
+		if *backend == "cpu" || *backend == "cuda" {
+			cmdArgs = append(cmdArgs, "--device", *backend)
 		}
 		if *burst > 1 {
 			ui.Step(fmt.Sprintf("variant %d/%d seed=%s", i+1, *burst, valueOr(runSeed, "random")))
@@ -2816,7 +2880,7 @@ func parseBackendList(value string) ([]string, error) {
 
 func backendCapable(backend string, caps map[string]any) bool {
 	switch backend {
-	case "mps", "mlx", "cpu":
+	case "cuda", "mps", "mlx", "cpu":
 		return boolValue(caps[backend])
 	case "coreml":
 		return boolValue(caps["coreml_compiled"])
@@ -2894,6 +2958,35 @@ func mapSlice(v any) []map[string]any {
 	default:
 		return nil
 	}
+}
+
+func stringSlice(v any) []string {
+	raw, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		out = append(out, stringValue(item))
+	}
+	return out
+}
+
+func gpuRows(rows []string) []ui.PairRow {
+	out := make([]ui.PairRow, 0, len(rows))
+	for _, row := range rows {
+		row = strings.TrimSpace(row)
+		if row == "" {
+			continue
+		}
+		left, right := row, ""
+		if len(row) > 30 {
+			left = strings.TrimSpace(row[:30])
+			right = strings.TrimSpace(row[30:])
+		}
+		out = append(out, ui.PairRow{Left: left, Right: right})
+	}
+	return out
 }
 
 func mapValue(v any) map[string]any {
@@ -3420,7 +3513,7 @@ func pipeline(cfg config.Config, args []string) error {
 	mode := fs.String("mode", "explore", "workflow mode: explore, anime, product, architecture, fashion")
 	count := fs.Int("n", 0, "number of lanes; default uses the whole workflow")
 	startSeed := fs.Int("start-seed", 6200, "first deterministic seed")
-	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, mlx, coreml, ane, cpu")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	remoteURL := fs.String("remote-url", "", "queue through an exposed FLUX HTTP endpoint")
 	run := fs.Bool("run", false, "queue the workflow; default is plan only")
 	commandsOnly := fs.Bool("commands", false, "print copy-safe commands only")
@@ -4122,16 +4215,16 @@ func sizeLabel(width, height int, fallback string) string {
 
 func validateBackend(value string) error {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "auto", "mps", "mlx", "coreml", "ane", "cpu":
+	case "auto", "cuda", "mps", "mlx", "coreml", "ane", "cpu":
 		return nil
 	default:
-		return fmt.Errorf("unknown backend %q; use auto, mps, mlx, coreml, ane, or cpu", value)
+		return fmt.Errorf("unknown backend %q; use auto, cuda, mps, mlx, coreml, ane, or cpu", value)
 	}
 }
 
 func directBackendSupported(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "auto", "mps", "cpu":
+	case "auto", "cuda", "mps", "cpu":
 		return true
 	default:
 		return false

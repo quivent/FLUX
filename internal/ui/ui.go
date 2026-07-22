@@ -242,6 +242,7 @@ func Usage() {
 		{"bench", "benchmark socket backends and update auto-selection profile"},
 		{"bench --dry-run", "show benchmark plan without starting worker"},
 		{"studio", "runtime posture, model paths, preset lanes"},
+		{"gpu", "show NVIDIA/Torch GPU state and active compute processes"},
 		{"download", "print the lean HF CLI BF16 download command"},
 		{"tree", "full command topology"},
 		{"colors", "palette and state sample"},
@@ -257,6 +258,7 @@ func Usage() {
 		{"remote", "call an exposed FLUX HTTP endpoint"},
 		{"stop", "stop the resident worker"},
 		{"jobs", "summarize queued/running/done worker jobs"},
+		{"gpu", "show GPU memory, utilization, and FLUX-visible CUDA state"},
 		{"jobs cancel <id>", "cancel a queued job or request running-job cancellation"},
 		{"jobs open latest", "open newest completed output"},
 		{"jobs prune --keep 20", "remove old done/error/cancelled records"},
@@ -297,6 +299,7 @@ func Usage() {
 	Pair("flux evolve \"forest shrine\" --mode anime", "prompt candidates with word counts")
 	Pair("flux render \"shrine\" --camera wide --light lantern --palette sakura", "controlled creativity")
 	Pair("flux jobs --active", "active queue with estimates")
+	Pair("flux gpu", "NVIDIA and Torch CUDA state")
 	Pair("flux remote render --url http://host:7861 \"glass cabin\" --wait", "generate through exposed HTTP")
 	Pair("flux render \"keyboard\" --preset object --direct", "force one-shot process")
 	Pair("flux spark \"orange keyboard\"", "prompt exploration")

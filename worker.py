@@ -646,6 +646,8 @@ class Worker:
             return requested
         caps = backend_capabilities(self.model_dir)
         candidates = []
+        if caps.get("cuda"):
+            candidates.append("cuda")
         if caps.get("mps"):
             candidates.append("mps")
         if caps.get("mlx"):
@@ -672,6 +674,8 @@ class Worker:
                 best_seconds = seconds
         if best_backend:
             return best_backend
+        if caps.get("cuda"):
+            return "cuda"
         if caps.get("mps"):
             return "mps"
         return candidates[0]
@@ -753,7 +757,7 @@ class Worker:
         if job.get("kind") == "img2img":
             return self._render_img2img(job)
         backend = job.get("backend", "mps")
-        if backend in ("mps", "cpu"):
+        if backend in ("cuda", "mps", "cpu"):
             return self._render_torch(job, backend)
         if backend == "mlx":
             return self._render_mlx(job)
@@ -1089,6 +1093,8 @@ class Worker:
     def _render_torch(self, job, backend):
         if backend == "cpu":
             self.device = "cpu"
+        elif backend == "cuda":
+            self.device = "cuda"
         else:
             self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         self._load_pipe(self.device)
@@ -1244,7 +1250,7 @@ class Worker:
 
 def normalize_backend(value):
     value = (value or "auto").strip().lower()
-    if value not in {"auto", "mps", "mlx", "coreml", "ane", "cpu"}:
+    if value not in {"auto", "cuda", "mps", "mlx", "coreml", "ane", "cpu"}:
         raise ValueError(f"unknown backend {value!r}")
     return value
 
@@ -1252,6 +1258,10 @@ def normalize_backend(value):
 def choose_torch_device(backend):
     if backend == "cpu":
         return "cpu"
+    if backend == "cuda":
+        return "cuda"
+    if backend == "auto" and torch.cuda.is_available():
+        return "cuda"
     return "mps" if torch.backends.mps.is_available() else "cpu"
 
 
@@ -1267,6 +1277,9 @@ def backend_capabilities(model_dir=None):
     coreml_compiled = coreml_available and coreml_dir.exists()
     ane_caps = flux_ane.capabilities(root)
     return {
+        "cuda": torch.cuda.is_available(),
+        "cuda_device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        "cuda_device": torch.cuda.get_device_name(0) if torch.cuda.is_available() and torch.cuda.device_count() else "",
         "mps": torch.backends.mps.is_available(),
         "cpu": True,
         "amx": platform.machine() == "arm64",
@@ -1343,7 +1356,7 @@ def main():
     parser.add_argument("--profile", default=None)
     parser.add_argument("--model-dir", default=os.environ.get("MODEL_DIR", DEFAULT_MODEL_DIR))
     parser.add_argument("--out-dir", default=os.environ.get("OUT_DIR", DEFAULT_OUT_DIR))
-    parser.add_argument("--backend", choices=["auto", "mps", "mlx", "coreml", "ane", "cpu"], default=os.environ.get("FLUX_BACKEND", "auto"))
+    parser.add_argument("--backend", choices=["auto", "cuda", "mps", "mlx", "coreml", "ane", "cpu"], default=os.environ.get("FLUX_BACKEND", "auto"))
     parser.add_argument("--kind", choices=["flux", "img2img"], default="flux")
     parser.add_argument("--preload", action="store_true")
     serve(parser.parse_args())

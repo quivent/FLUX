@@ -31,6 +31,7 @@ Use it:
 ./flux studio
 ./flux tree
 ./flux colors
+./flux gpu
 ./flux download
 ./flux warm
 ./flux serve
@@ -57,6 +58,7 @@ does not download model files or contact Hugging Face during generation.
 Second-pass features:
 
 - `studio`: runtime posture and preset lanes.
+- `gpu`: NVIDIA/Torch GPU state and active compute process view.
 - `accel`: current acceleration stack and candidate backend availability.
 - `ane`: strict ANE package registry, validation state, and first component
   conversion command.
@@ -107,6 +109,7 @@ For a lightweight worker test that does not preload the 32 GB model:
 ```zsh
 flux warm --preload=false
 flux jobs
+flux gpu
 flux stop
 ```
 
