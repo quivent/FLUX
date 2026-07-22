@@ -35,13 +35,14 @@ func Load() Config {
 			}
 		}
 	}
-	modelDir := getenv("MODEL_DIR", "/Users/joshkornreich/Models/flux1")
-	outputDir := getenv("OUT_DIR", "/Users/joshkornreich/Models/flux-output")
+	home := getenv("HOME", ".")
+	modelDir := getenv("MODEL_DIR", filepath.Join(home, "Models", "flux1"))
+	outputDir := getenv("OUT_DIR", filepath.Join(home, "Models", "flux-output"))
 	backend := getenv("FLUX_BACKEND", "auto")
 	venvPython := filepath.Join(root, ".venv", "bin", "python")
 	python := getenv("FLUX_PYTHON", venvPython)
 	if _, err := os.Stat(python); err != nil {
-		python = getenv("PYTHON", "python3.13")
+		python = getenv("PYTHON", "python3")
 	}
 	return Config{
 		Root:       root,
