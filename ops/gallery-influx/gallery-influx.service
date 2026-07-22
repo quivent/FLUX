@@ -1,0 +1,21 @@
+[Unit]
+Description=Unified FLUX/WAN public gallery
+After=network-online.target wan-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/gallery-influx
+Environment=GALLERY_ADDR=127.0.0.1:7870
+Environment=FLUX_OUTPUT_DIR=/runs/flux-output
+Environment=FLUX_STATE=/opt/FLUX/.fluxd/jobs.jsonl
+Environment=WAN_OUTPUT_DIR=/runs/wan/outputs
+Environment=WAN_STATE_DIR=/runs/wan/.wand
+ExecStart=/usr/bin/python3 /opt/gallery-influx/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
