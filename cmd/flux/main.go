@@ -107,7 +107,14 @@ func main() {
 
 func install(cfg config.Config) error {
 	ui.Header("install", "linking flux into ~/.local/bin")
-	binDir := "/Users/joshkornreich/.local/bin"
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		home = os.Getenv("HOME")
+	}
+	if strings.TrimSpace(home) == "" {
+		return fmt.Errorf("could not determine home directory")
+	}
+	binDir := filepath.Join(home, ".local", "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return err
 	}
