@@ -2147,33 +2147,44 @@ func jobs(cfg config.Config, args []string) error {
 	activeOnly := fs.Bool("active", false, "show queued/running jobs only")
 	doneOnly := fs.Bool("done", false, "show completed jobs only")
 	errorsOnly := fs.Bool("errors", false, "show failed/cancelled jobs only")
-	limit := fs.Int("n", 0, "limit rows, newest first")
+	limit := fs.Int("n", 20, "limit rows, newest first; 0 shows all")
 	jsonOut := fs.Bool("json", false, "print raw jobs JSON")
 	openLatest := fs.Bool("open-latest", false, "open newest completed output")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	resp, err := daemon.New(cfg).Request(map[string]any{"op": "jobs"})
+	workerRunning := true
+	allJobs := []map[string]any{}
 	if err != nil {
-		return fmt.Errorf("worker is not running; use flux warm --preload=false or flux warm")
+		workerRunning = false
+		_, statePath, _, _ := daemon.New(cfg).Paths()
+		allJobs = readStateJobs(statePath)
+	} else {
+		allJobs = resp.Jobs
 	}
-	jobs := filterJobs(resp.Jobs, *activeOnly, *doneOnly, *errorsOnly)
+	jobs := filterJobs(allJobs, *activeOnly, *doneOnly, *errorsOnly)
 	reverseJobs(jobs)
 	if *limit > 0 && len(jobs) > *limit {
 		jobs = jobs[:*limit]
 	}
 	if *jsonOut {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"ok": true, "jobs": jobs})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"ok": true, "worker_running": workerRunning, "jobs": jobs})
 	}
 	ui.Header("jobs", "persistent worker queue")
+	if workerRunning {
+		ui.KV("worker", ui.State("online"))
+	} else {
+		ui.KV("worker", ui.State("down")+" "+ui.Soft("showing on-disk ledger"))
+	}
 	if *openLatest {
-		job := newestOutputJob(resp.Jobs)
+		job := newestOutputJob(allJobs)
 		if job == nil {
 			return fmt.Errorf("no completed output to open")
 		}
 		return openOutput(jobDisplayOutput(job))
 	}
-	printQueueSummary(resp.Jobs)
+	printQueueSummary(allJobs)
 	if len(jobs) == 0 {
 		fmt.Println(ui.Soft("no jobs yet"))
 		return nil
@@ -2182,6 +2193,25 @@ func jobs(cfg config.Config, args []string) error {
 		printJobRow(job)
 	}
 	return nil
+}
+
+func readStateJobs(path string) []map[string]any {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	jobs := []map[string]any{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var job map[string]any
+		if err := json.Unmarshal([]byte(line), &job); err == nil {
+			jobs = append(jobs, job)
+		}
+	}
+	return jobs
 }
 
 func cancelJob(cfg config.Config, args []string) error {
