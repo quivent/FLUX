@@ -1,0 +1,16 @@
+[Unit]
+Description=Council Nexus continuity daemon
+After=network-online.target piper-runtime.service
+Wants=network-online.target piper-runtime.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Council-of-Gemmas
+Environment=COUNCIL_ROOT=/root/Council-of-Gemmas
+ExecStart=/usr/bin/python3 /root/Council-of-Gemmas/daemons/nexus.py serve --host 127.0.0.1 --port 9999
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

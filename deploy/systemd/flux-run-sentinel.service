@@ -1,0 +1,15 @@
+[Unit]
+Description=FLUX eight-hour run sentinel
+After=network-online.target flux-server.service flux-worker.service nexus-runtime.service piper-runtime.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/FLUX
+ExecStart=/usr/bin/python3 /root/FLUX/scripts/run_sentinel.py --hours 8 --interval 15
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

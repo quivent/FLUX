@@ -1,0 +1,17 @@
+[Unit]
+Description=Council Piper asset transport daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Council-of-Gemmas
+Environment=COUNCIL_ROOT=/root/Council-of-Gemmas
+ExecStartPre=-/usr/bin/rm -f /tmp/piper.sock
+ExecStart=/usr/bin/python3 /root/Council-of-Gemmas/daemons/piper.py serve
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
