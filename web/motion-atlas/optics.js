@@ -15,7 +15,7 @@ $("copyOptics").onclick=async()=>{await navigator.clipboard.writeText($("compile
 $("generateOptics").onclick=async()=>{const button=$("generateOptics");button.disabled=true;$("opticState").textContent="DISPATCHING OPTICAL PROOFS";try{const base=String(Date.now()%800000000+10000000),r=await fetch("/api/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:$("compiledOptics").textContent,model:"dev",backend:"cuda",width:512,height:512,steps:16,guidance:4.2,seed:base,filename:`optical-proof-${Date.now()}.png`,iterations:8})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Dispatch failed");$("opticState").textContent="PIPER · PROOFS IN FLIGHT";toast("Eight optical proofs dispatched")}catch(e){$("opticState").textContent="OPTICAL BENCH ATTENTION";toast(e.message)}finally{button.disabled=false}};
 const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{const a=JSON.parse(e.data).asset||{};if(!String(a.name||"").startsWith("optical-proof-"))return;const img=document.createElement("img");img.src=a.access_url;img.title=`Seed ${a.seed||"—"}`;$("opticAssets").prepend(img);$("opticState").textContent="PIPER · OPTICAL PROOF RECEIVED"});
 const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{const m=JSON.parse(e.data),top=$("modelTopState");top.className="modelTopState "+(m.loaded?"loaded":m.downloaded?"downloaded":"");top.lastChild.textContent=m.loaded?" MODEL LOADED":m.downloaded?" MODEL READY":" MODEL MISSING"});
-const sphere={job:null,points:[],yaw:.35,pitch:-.12,zoom:1,auto:true,drag:null,median:0,max:0};
+const sphere={job:null,points:[],yaw:.35,pitch:-.12,zoom:1,drag:null};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const angular=(a,b)=>Math.acos(clamp(a.x*b.x+a.y*b.y+a.z*b.z,-1,1));
 function sphereOrder(job){
@@ -28,27 +28,24 @@ function sphereOrder(job){
 }
 async function refreshSphere(){
   try{const r=await fetch("/api/jobs"),j=await r.json(),jobs=Array.isArray(j)?j:(j.jobs||[]);sphere.job=jobs.find(x=>String(x.status).toLowerCase()==="running"&&Number(x.n_rows)>0)||jobs.find(x=>Number(x.n_rows)>0)||null;if(!sphere.job)return;
-    sphere.points=sphereOrder(sphere.job);const deltas=sphere.points.slice(1).map((p,i)=>angular(sphere.points[i],p)).sort((a,b)=>a-b);sphere.median=deltas[Math.floor(deltas.length/2)]||0;sphere.max=deltas.at(-1)||0;
-    const done=Number(sphere.job.step||sphere.job.atlas_done||0),total=Number(sphere.job.total_steps||sphere.job.atlas_total||sphere.points.length),slots=(Number(sphere.job.n_rows)||1024)*(Number(sphere.job.n_cols)||64),unsafe=sphere.max>Math.max(.45,sphere.median*4);
-    $("sphereJob").textContent=sphere.job.id||"ATLAS";$("sphereCoverage").textContent=`${(total/slots*100).toFixed(3)}% · ${done}/${total}`;$("spherePath").textContent=String(sphere.job.sample_mode||"—").toUpperCase();$("sphereSeed").textContent=String(sphere.job.seed||"—");$("sphereMedian").textContent=`${sphere.median.toFixed(3)} RAD`;$("sphereMax").textContent=`${sphere.max.toFixed(3)} RAD`;$("sphereContinuity").textContent=unsafe?"DISCONTINUITY":"BOUNDED";$("sphereContinuity").style.color=unsafe?"#ff6077":"#6df1ff";
+    sphere.points=sphereOrder(sphere.job);const done=Number(sphere.job.step||sphere.job.atlas_done||0),rows=Number(sphere.job.n_rows)||1024,cols=Number(sphere.job.n_cols)||64,sites=rows*cols,current=sphere.points[Math.max(0,Math.min(done-1,sphere.points.length-1))],index=current?.index??0,row=Math.floor(index/cols),col=index%cols,coupling=Number(sphere.job.shell_coupling)||1,theta=2*Math.PI*(row+coupling*col/cols+.5)/rows,phi=2*Math.PI*(col+coupling*row/rows+.5)/cols;
+    $("sphereSeed").textContent=String(sphere.job.seed||"—");$("sphereRendered").textContent=done.toLocaleString();$("sphereFrontier").textContent=index.toLocaleString();$("sphereTheta").textContent=`${(theta*180/Math.PI).toFixed(2)}°`;$("spherePhi").textContent=`${(phi*180/Math.PI).toFixed(2)}°`;$("sphereRow").textContent=row;$("sphereCol").textContent=col;$("sphereRho").textContent=`${(done/sites*100).toFixed(1)}%`;$("sphereRows").textContent=`${(Math.min(1,Math.ceil(done/cols)/rows)*100).toFixed(1)}%`;$("sphereSites").textContent=sites.toLocaleString();
   }catch{}
 }
 function drawSphere(){
   const canvas=$("opticSphere"),box=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,box.width),h=Math.max(1,box.height);
   if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}
   const c=canvas.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
-  if(sphere.auto&&!sphere.drag)sphere.yaw+=.0015;
+  if(!sphere.drag)sphere.yaw+=.0003;
   const cx=w/2,cy=h/2,r=Math.min(w,h)*.425*sphere.zoom,project=p=>{const x1=p.x*Math.cos(sphere.yaw)-p.z*Math.sin(sphere.yaw),z1=p.x*Math.sin(sphere.yaw)+p.z*Math.cos(sphere.yaw),y=p.y*Math.cos(sphere.pitch)-z1*Math.sin(sphere.pitch),z=p.y*Math.sin(sphere.pitch)+z1*Math.cos(sphere.pitch);return{x:cx+x1*r,y:cy-y*r,z,w:p.w}};
-  c.strokeStyle="#6df1ff22";c.lineWidth=.7;
+  const shell=c.createRadialGradient(cx-r*.28,cy-r*.3,r*.08,cx,cy,r);shell.addColorStop(0,"rgba(44,61,98,.42)");shell.addColorStop(.72,"rgba(18,32,60,.32)");shell.addColorStop(1,"rgba(6,7,11,.16)");c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.fillStyle=shell;c.fill();
+  const done=Number(sphere.job?.step||sphere.job?.atlas_done||0),sites=(Number(sphere.job?.n_rows)||1024)*(Number(sphere.job?.n_cols)||64),rho=clamp(done/sites,0,1),fillR=r*rho;if(fillR>0){c.beginPath();c.arc(cx,cy,fillR,0,Math.PI*2);c.fillStyle="rgba(109,241,255,.42)";c.fill();if(fillR>r*.02){c.beginPath();c.arc(cx,cy,fillR,0,Math.PI*2);c.strokeStyle="rgba(159,247,255,.55)";c.lineWidth=.8;c.stroke()}}
+  c.strokeStyle="rgba(93,114,166,.25)";c.lineWidth=.7;
   for(let lat=-3;lat<=3;lat++){c.beginPath();for(let i=0;i<=96;i++){const phi=i/96*Math.PI*2,mu=Math.PI*(lat+4)/8,p=project({x:Math.sin(mu)*Math.cos(phi),y:Math.cos(mu),z:Math.sin(mu)*Math.sin(phi)});i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)}c.stroke()}
   for(let lon=0;lon<12;lon++){c.beginPath();for(let i=0;i<=64;i++){const mu=i/64*Math.PI,phi=lon/12*Math.PI*2,p=project({x:Math.sin(mu)*Math.cos(phi),y:Math.cos(mu),z:Math.sin(mu)*Math.sin(phi)});i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)}c.stroke()}
-  const done=Number(sphere.job?.step||sphere.job?.atlas_done||0),projected=sphere.points.map((p,i)=>({...project(p),i})),limit=Math.max(0,Math.min(done,projected.length));
-  for(let i=1;i<projected.length;i++){const a=projected[i-1],b=projected[i],delta=angular(sphere.points[i-1],sphere.points[i]),bad=delta>Math.max(.45,sphere.median*4);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.strokeStyle=bad?"#ff6077":i<limit?`hsla(${185+55*(sphere.points[i].w+1)/2},90%,70%,${a.z>0?.72:.25})`:"#6df1ff16";c.lineWidth=bad?2:i<limit?1.2:.55;c.stroke()}
-  const draw=projected.slice().sort((a,b)=>a.z-b.z);for(const p of draw){const complete=p.i<done,front=p.i===Math.max(0,done-1),hue=185+55*(sphere.points[p.i].w+1)/2;c.beginPath();c.arc(p.x,p.y,front?4:complete?1.75:.8,0,Math.PI*2);c.fillStyle=front?"#fff":complete?`hsla(${hue},90%,70%,${p.z>0?.95:.48})`:"#6df1ff2d";c.fill();if(front){c.shadowBlur=16;c.shadowColor="#fff";c.fill();c.shadowBlur=0}}
+  const draw=sphere.points.slice(0,done).map((p,i)=>({...project(p),i})).sort((a,b)=>a.z-b.z);for(const p of draw){const front=p.i===Math.max(0,done-1);c.beginPath();c.arc(p.x,p.y,front?4:1.8,0,Math.PI*2);c.fillStyle=front?"#fff":"#6df1ff";c.fill();if(front){c.shadowBlur=14;c.shadowColor="#fff";c.fill();c.shadowBlur=0}}
   c.beginPath();c.arc(cx,cy,3.5,0,Math.PI*2);c.fillStyle="#f5bf4f";c.shadowBlur=12;c.shadowColor="#f5bf4f";c.fill();c.shadowBlur=0;requestAnimationFrame(drawSphere);
 }
-$("sphereReset").onclick=()=>{sphere.yaw=.35;sphere.pitch=-.12;sphere.zoom=1};
-$("sphereAuto").onclick=()=>{sphere.auto=!sphere.auto;$("sphereAuto").classList.toggle("active",sphere.auto)};
 const sphereCanvas=$("opticSphere");
 sphereCanvas.addEventListener("pointerdown",e=>{sphere.drag={x:e.clientX,y:e.clientY};sphereCanvas.setPointerCapture(e.pointerId)});
 sphereCanvas.addEventListener("pointermove",e=>{if(!sphere.drag)return;sphere.yaw+=(e.clientX-sphere.drag.x)*.008;sphere.pitch=clamp(sphere.pitch+(e.clientY-sphere.drag.y)*.008,-1.35,1.35);sphere.drag={x:e.clientX,y:e.clientY}});

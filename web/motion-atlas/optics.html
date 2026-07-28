@@ -29,11 +29,15 @@
     <div class="opticViewport">
       <div class="lensAssembly" id="lensAssembly"><i></i><i></i><i></i><i></i><div class="sensorPlane"></div><div class="lightCone"></div></div>
       <section class="sphereCartography" aria-label="Live latent sphere coverage">
-        <div class="sphereTitle"><span>LATENT MANIFOLD · S³ PROJECTION</span><b id="sphereJob">WAITING FOR ATLAS</b></div>
-        <div class="sphereTools"><button id="sphereReset" type="button">RESET VIEW</button><button id="sphereAuto" class="active" type="button">AUTO ROTATE</button><span>DRAG TO ORBIT · WHEEL TO ZOOM</span></div>
+        <div class="cartographyLegend">
+          <div><i class="seedDot"></i><span>seed <b id="sphereSeed">—</b> (centre · e₀ · θ=0)</span></div>
+          <div><i class="probeDot"></i><span>filled probes (<b id="sphereRendered">0</b>)</span></div>
+          <div><i class="frontierDot"></i><span>frontier i=<b id="sphereFrontier">—</b></span></div>
+          <div><em>θ <b id="sphereTheta">—</b></em><small> · </small><strong>φ <b id="spherePhi">—</b></strong><small> · row <b id="sphereRow">—</b> col <b id="sphereCol">—</b></small></div>
+          <div class="rhoLine">ρ <b id="sphereRho">0.0%</b> radial · <b id="sphereRows">0.0%</b> θ rows</div>
+          <div class="cartographyNote">cyan = progress ρ · dots = <b id="sphereSites">65,536</b> (θ,φ) shell sites · wire = reference</div>
+        </div>
         <canvas id="opticSphere"></canvas>
-        <div class="sphereLegend"><span><i class="done"></i>RENDERED</span><span><i class="planned"></i>PLANNED</span><span><i class="frontier"></i>FRONTIER</span></div>
-        <div class="sphereMetrics"><span>COVERAGE <b id="sphereCoverage">—</b></span><span>PATH <b id="spherePath">—</b></span><span>SEED <b id="sphereSeed">—</b></span><span>MEDIAN STEP <b id="sphereMedian">—</b></span><span>MAX STEP <b id="sphereMax">—</b></span><span>CONTINUITY <b id="sphereContinuity">—</b></span></div>
       </section>
       <div class="opticReadout"><span>FIELD / <b id="fieldReadout">NORMAL</b></span><span>PLANE / <b id="planeReadout">4.0 M</b></span><span>GATE / <b id="gateReadout">1.00×</b></span></div>
       <div class="opticAssets" id="opticAssets"></div>
