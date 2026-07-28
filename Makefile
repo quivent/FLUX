@@ -11,10 +11,15 @@ WIDTH ?= 1024
 HEIGHT ?= 1024
 GUIDANCE ?= 3.5
 SEED ?=
+BACKEND ?= cuda
+DEV_ADDR ?= 127.0.0.1:7861
+PROD_ADDR ?= 0.0.0.0:7861
+OPEN ?= true
+TOKEN ?=
 
 VENV_PY := $(VENV)/bin/python
 
-.PHONY: help setup check generate run flux go-build install studio accel bench warm serve jobs recipes muse history tree colors download clean-output
+.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod studio accel bench warm serve jobs recipes muse history tree colors download clean-output
 
 help:
 	@echo "Targets:"
@@ -23,6 +28,9 @@ help:
 	@echo "  make generate   Generate one image with PROMPT='...'"
 	@echo "  make flux       Build and install ~/.local/bin/flux"
 	@echo "  make install    Alias for make flux"
+	@echo "  make motion-install  Install all Motion Atlas dependencies and model"
+	@echo "  make motion-dev      Install and serve Motion Atlas locally"
+	@echo "  make motion-prod     Install and serve Motion Atlas on PROD_ADDR (auth required)"
 	@echo "  make studio     Show CLI/runtime overview"
 	@echo "  make accel      Show acceleration backend posture"
 	@echo "  make bench      Benchmark socket backends"
@@ -41,6 +49,8 @@ help:
 	@echo "  MODEL_DIR=$(MODEL_DIR)"
 	@echo "  OUT_DIR=$(OUT_DIR)"
 	@echo "  WIDTH=$(WIDTH) HEIGHT=$(HEIGHT) STEPS=$(STEPS) GUIDANCE=$(GUIDANCE)"
+	@echo "  BACKEND=$(BACKEND) DEV_ADDR=$(DEV_ADDR) PROD_ADDR=$(PROD_ADDR)"
+	@echo "  TOKEN=<secret> (or FLUX_HTTP_TOKEN) for make motion-prod"
 
 setup:
 	@set -eu; \
@@ -81,6 +91,20 @@ flux: go-build
 	./flux install
 
 install: flux
+
+motion-install: setup flux
+	./flux atlas motion --backend "$(BACKEND)" --setup-only
+
+motion-dev: motion-install
+	./flux atlas motion --backend "$(BACKEND)" --addr "$(DEV_ADDR)" --open="$(OPEN)"
+
+motion-prod: motion-install
+	@set -eu; \
+	if [ -z "$(TOKEN)" ] && [ -z "$${FLUX_HTTP_TOKEN:-}" ]; then \
+		echo "motion-prod requires TOKEN=<secret> or FLUX_HTTP_TOKEN" >&2; \
+		exit 1; \
+	fi; \
+	./flux atlas motion --backend "$(BACKEND)" --addr "$(PROD_ADDR)" --token "$(TOKEN)" --open=false
 
 studio: flux
 	./flux studio

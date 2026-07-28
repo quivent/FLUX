@@ -767,11 +767,19 @@ func atlasMotion(cfg config.Config, args []string) error {
 	open := fs.Bool("open", true, "open the suite in a browser")
 	token := fs.String("token", "", "access token for non-local binds")
 	backend := fs.String("backend", "cuda", "default backend")
+	setupOnly := fs.Bool("setup-only", false, "install prerequisites and exit")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if err := ensureAtlasMotionPrerequisites(&cfg); err != nil {
 		return err
+	}
+	if *setupOnly {
+		ui.Header("motion atlas sphere", "prerequisites ready")
+		ui.KV("python", cfg.Python)
+		ui.KV("model", cfg.ModelDir)
+		ui.KV("backend", strings.ToLower(strings.TrimSpace(*backend)))
+		return nil
 	}
 	cfg.Backend = strings.ToLower(strings.TrimSpace(*backend))
 	if err := validateBackend(cfg.Backend); err != nil {

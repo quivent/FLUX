@@ -50,7 +50,7 @@ Second-pass features:
 - `plan`: exact local command preview.
 - `burst`: multiple seed variants with one command.
 - `warm`: persistent worker that loads FLUX into memory.
-- `atlas motion`: open the one-page terminal launch panel for CUDA motion
+- `atlas motion`: install prerequisites and open the dedicated Motion Atlas Sphere web suite
   paths, geometry, quality, traversal, and cross-frame cache settings.
 - `serve`: local HTTP API and dashboard backed by the Unix socket worker.
 - `gallery`: Atelier-style live gallery backed by the same server and event streams.
