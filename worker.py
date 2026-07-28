@@ -1175,6 +1175,12 @@ class Worker:
         render_order = _atlas_render_order(index_start, index_end, n_rows, n_cols, traversal_order)
         render_count = int(job.get("render_count") or 0)
         sample_mode = str(job.get("sample_mode") or "contiguous")
+        if sample_mode in ("even", "stride"):
+            sample_mode = "smooth_even"
+            job["sample_mode"] = sample_mode
+        # "even" was historically uniform as a set but alternated by ~pi radians
+        # in playback. Keep accepting old queued manifests, but give them the
+        # corrected equal-area motion path at execution time.
         if sample_mode == "smooth_even":
             render_order = _atlas_smooth_sphere_order(
                 render_order, render_count, n_rows, n_cols

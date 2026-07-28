@@ -1006,6 +1006,11 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	if sampleMode == "sparse" {
 		sampleMode = "nested_sparse"
 	}
+	// Preserve compatibility with older clients without preserving the old
+	// temporally discontinuous ordering. Uniform sphere sampling is always smooth.
+	if sampleMode == "even" || sampleMode == "stride" {
+		sampleMode = "smooth_even"
+	}
 	indexStart := 0
 	indexEnd := latentCells
 	if runType == "path" {
