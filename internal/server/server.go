@@ -188,6 +188,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/health", s.health)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
+	mux.HandleFunc("/api/telemetry/processes/events", s.telemetryProcessEvents)
 	mux.HandleFunc("/api/assets/events", s.assetEvents)
 	mux.HandleFunc("/api/model/download", s.modelDownload)
 	mux.HandleFunc("/api/model/load", s.modelLoad)
@@ -417,6 +418,59 @@ func (s Server) telemetryEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		raw, _ := json.Marshal(map[string]any{"ok": true, "available": true, "gpu": gpu})
 		if _, err := fmt.Fprintf(w, "event: gpu\ndata: %s\n\n", raw); err != nil {
+			return
+		}
+		flusher.Flush()
+	}
+}
+
+func (s Server) telemetryProcessEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Accel-Buffering", "no")
+	cmd := exec.CommandContext(r.Context(), "nvidia-smi", "pmon", "-s", "um", "-d", "1")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil || cmd.Start() != nil {
+		return
+	}
+	defer func() { _ = cmd.Wait() }()
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 12 || strings.HasPrefix(fields[0], "#") || fields[1] == "-" {
+			continue
+		}
+		pid, _ := strconv.Atoi(fields[1])
+		command := strings.Join(fields[11:], " ")
+		if raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+			if full := strings.TrimSpace(strings.ReplaceAll(string(raw), "\x00", " ")); full != "" {
+				command = full
+			}
+		}
+		label := "GPU PROCESS"
+		lower := strings.ToLower(command)
+		switch {
+		case strings.Contains(lower, "vllm"):
+			label = "vLLM"
+		case strings.Contains(lower, "worker.py") || strings.Contains(lower, "flux"):
+			label = "FLUX"
+		}
+		event := map[string]any{
+			"pid": pid, "gpu": fields[0], "sm": telemetryNumber(fields[3]),
+			"memory_utilization": telemetryNumber(fields[4]),
+			"memory_used":        telemetryNumber(fields[9]),
+			"label":              label, "command": command,
+		}
+		raw, _ := json.Marshal(event)
+		if _, err := fmt.Fprintf(w, "event: process\ndata: %s\n\n", raw); err != nil {
 			return
 		}
 		flusher.Flush()
@@ -974,6 +1028,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.writeQueuedAtlasPlaceholder(id, draft, plan)
+	nexus := submitNexusReceipt(id, draft, plan)
 	client := daemon.New(s.cfg)
 	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
 		if err := client.Start(false); err != nil {
@@ -1017,7 +1072,34 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"draft":   draft,
 		"viewer":  viewer,
 		"gallery": gallery,
+		"nexus":   nexus,
 	})
+}
+
+func submitNexusReceipt(id string, draft, plan map[string]any) map[string]any {
+	address := strings.TrimSpace(os.Getenv("NEXUS_ADDR"))
+	if address == "" {
+		address = "127.0.0.1:9999"
+	}
+	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
+	if err != nil {
+		return map[string]any{"ok": false, "status": "unavailable", "error": err.Error()}
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	payload := map[string]any{"type": "submit", "job": map[string]any{
+		"id": id, "job_id": id, "kind": "flux.motion_atlas",
+		"status": "queued", "draft": draft, "plan": plan,
+	}}
+	raw, _ := json.Marshal(payload)
+	if _, err := fmt.Fprintf(conn, "%s\n", raw); err != nil {
+		return map[string]any{"ok": false, "status": "send-failed", "error": err.Error()}
+	}
+	var receipt map[string]any
+	if err := json.NewDecoder(conn).Decode(&receipt); err != nil {
+		return map[string]any{"ok": false, "status": "invalid-receipt", "error": err.Error()}
+	}
+	return receipt
 }
 
 func (s Server) writeQueuedAtlasPlaceholder(id string, draft, plan map[string]any) {

@@ -45,6 +45,18 @@
           <input id="cellsNumber" type="number" min="1" max="65536" value="1024" aria-label="Exact atlas cell count">
         </div>
       </div>
+      <div class="executionSpine">
+        <div class="sectionLabel"><span>EXECUTION SPINE</span><strong id="spineState">READY</strong></div>
+        <ol>
+          <li data-step="model"><i>01</i><div><strong>Model loaded</strong><small>FLUX.1 Dev · BF16 residency</small></div><b></b></li>
+          <li data-step="planned"><i>02</i><div><strong>Job planned</strong><small>Manifest and latent path validated</small></div><b></b></li>
+          <li data-step="dispatched"><i>03</i><div><strong>Dispatched</strong><small>Submission receipt issued</small></div><b></b></li>
+          <li data-step="nexus"><i>04</i><div><strong>Nexus accepted</strong><small>Orchestration authority receipt</small></div><b></b></li>
+          <li data-step="worker"><i>05</i><div><strong>Worker / FLUX ready</strong><small>Resident CUDA execution lane</small></div><b></b></li>
+          <li data-step="producing"><i>06</i><div><strong>Producing</strong><small id="productionSummary">Waiting for launch</small></div><b></b></li>
+          <li data-step="assets"><i>07</i><div><strong>Assets socketed</strong><small id="assetSummary">Piper has not emitted an asset</small></div><b></b></li>
+        </ol>
+      </div>
       <div class="sectionLabel"><span>SESSIONS</span><button id="refreshJobs">↻</button></div>
       <div class="sessions" id="sessions">
         <div class="session empty"><span>NO ACTIVE RUNS</span><small>Launch an atlas to begin</small></div>
@@ -69,6 +81,7 @@
         <div class="gpuDatum"><span>THERMAL</span><strong id="thermalValue">—°</strong></div>
         <div class="gpuDatum"><span>POWER</span><strong id="powerValue">— W</strong></div>
       </div>
+      <div class="processRail"><span class="processLabel">VRAM OWNERS</span><div id="gpuProcesses"><span class="processEmpty">Awaiting NVIDIA process events</span></div></div>
       <div class="viewport" id="viewport">
         <div class="sphere" id="sphere">
           <div class="orbit orbitA"></div><div class="orbit orbitB"></div><div class="orbit orbitC"></div>
