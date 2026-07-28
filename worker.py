@@ -603,6 +603,7 @@ class Worker:
             "status": "queued", "created": time.time(), "prompt": payload["prompt"],
             "width": probe_job["width"], "height": probe_job["height"], "steps": probe_job["steps"],
             "guidance": float(payload.get("guidance", 3.5)), "seed": int(payload.get("seed") or 0),
+            "latent_distance": _finite_float(payload.get("latent_distance"), 1.12, 0.01, 4.0),
             "filename": payload.get("filename") or f"seed-preview-{job_id}.png",
             "output": "", "outputs": [], "error": "", "phase": "queued", "step": 0,
             "total_steps": probe_job["steps"], "batch_plan": batch_plan, "batch_size": 0,
@@ -839,7 +840,7 @@ class Worker:
                 radius = float(flattened[0].norm())
                 basis = [vector.to(self.device) for vector in _gram_schmidt(flattened)]
                 latent_shape = anchors[0].shape
-                continuity = {**job, "arc": 0.16, "orbit": 1.0, "seed_lock": 0.72}
+                latent_distance = float(job["latent_distance"])
                 publish_queue = queue.Queue()
                 cadence = 0.45
 
@@ -874,13 +875,15 @@ class Worker:
                     job["phase"] = f"batch_{batch_size}"
                     job["step"] = 0
                     self._write_jobs()
-                    latents = torch.cat([
-                        _atlas_latent(
-                            "elliptic", ((ordinal + i) / max(1, job["images_total"] - 1)) * math.tau,
-                            0.0, basis, radius, latent_shape, dtype, continuity,
-                        )
-                        for i in range(batch_size)
-                    ])
+                    latents = []
+                    for i in range(batch_size):
+                        progress = (ordinal + i) / max(1, job["images_total"] - 1)
+                        distance = latent_distance * progress
+                        bearing = progress * (math.pi / 3.0)
+                        tangent = math.cos(bearing) * basis[1] + math.sin(bearing) * basis[2]
+                        latent = radius * (math.cos(distance) * basis[0] + math.sin(distance) * tangent)
+                        latents.append(latent.reshape(latent_shape).to(dtype))
+                    latents = torch.cat(latents)
                     def on_step_end(_pipe, step, _timestep, callback_kwargs):
                         if job.get("cancel_requested"):
                             raise CancelledJob("job cancelled")

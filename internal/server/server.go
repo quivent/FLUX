@@ -60,29 +60,30 @@ var motionAssetHub = struct {
 }{clients: make(map[chan map[string]any]struct{})}
 
 type renderRequest struct {
-	Prompt     string  `json:"prompt"`
-	Model      string  `json:"model"`
-	Backend    string  `json:"backend"`
-	Preset     string  `json:"preset"`
-	Style      string  `json:"style"`
-	Mood       string  `json:"mood"`
-	Camera     string  `json:"camera"`
-	Light      string  `json:"light"`
-	Palette    string  `json:"palette"`
-	Texture    string  `json:"texture"`
-	Detail     string  `json:"detail"`
-	Chaos      string  `json:"chaos"`
-	Director   string  `json:"director"`
-	Ratio      string  `json:"ratio"`
-	Width      int     `json:"width"`
-	Height     int     `json:"height"`
-	Steps      int     `json:"steps"`
-	Guidance   float64 `json:"guidance"`
-	Seed       string  `json:"seed"`
-	Filename   string  `json:"filename"`
-	Iterations int     `json:"iterations"`
-	Draft      bool    `json:"draft"`
-	DryRun     bool    `json:"dry_run"`
+	Prompt         string  `json:"prompt"`
+	Model          string  `json:"model"`
+	Backend        string  `json:"backend"`
+	Preset         string  `json:"preset"`
+	Style          string  `json:"style"`
+	Mood           string  `json:"mood"`
+	Camera         string  `json:"camera"`
+	Light          string  `json:"light"`
+	Palette        string  `json:"palette"`
+	Texture        string  `json:"texture"`
+	Detail         string  `json:"detail"`
+	Chaos          string  `json:"chaos"`
+	Director       string  `json:"director"`
+	Ratio          string  `json:"ratio"`
+	Width          int     `json:"width"`
+	Height         int     `json:"height"`
+	Steps          int     `json:"steps"`
+	Guidance       float64 `json:"guidance"`
+	LatentDistance float64 `json:"latent_distance"`
+	Seed           string  `json:"seed"`
+	Filename       string  `json:"filename"`
+	Iterations     int     `json:"iterations"`
+	Draft          bool    `json:"draft"`
+	DryRun         bool    `json:"dry_run"`
 }
 
 type renderPlan struct {
@@ -944,6 +945,7 @@ func (s Server) previewAtlasSeeds(w http.ResponseWriter, r *http.Request) {
 		"op": "submit_seed_preview", "model_family": plan.Model, "backend": plan.Backend,
 		"prompt": plan.Prompt, "width": plan.Width, "height": plan.Height,
 		"steps": plan.Steps, "guidance": plan.Guidance, "seed": plan.Seed, "filename": plan.Filename,
+		"latent_distance": req.LatentDistance,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())

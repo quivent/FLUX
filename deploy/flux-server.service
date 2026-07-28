@@ -1,0 +1,16 @@
+[Unit]
+Description=FLUX Motion Atlas web and event server
+After=network-online.target flux-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/FLUX
+ExecStart=/root/FLUX/flux serve --addr 127.0.0.1:7861
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
