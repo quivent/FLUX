@@ -36,6 +36,7 @@ type Response struct {
 	Profile  map[string]any   `json:"profile,omitempty"`
 	Jobs     []map[string]any `json:"jobs,omitempty"`
 	Job      map[string]any   `json:"job,omitempty"`
+	Removed  []string         `json:"removed,omitempty"`
 	Raw      map[string]any   `json:"-"`
 }
 

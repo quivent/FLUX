@@ -1,4 +1,6 @@
 const $=id=>document.getElementById(id);
+const FUEL_CAPACITY_SEC=6*3600;
+const FUEL_LOW_SEC=30*60;
 const resumedJob=sessionStorage.getItem("motionAtlasJob");
 const state={studyType:null,runType:"path",activeJob:resumedJob,started:0,frames:[],assetSide:"A",acceptedAssetJobs:new Set(),hydratedJobs:new Set(),pendingAssets:new Map(),gpuProcesses:new Map(),preview:new Map(),selectedFlavor:null,model:{known:false,downloaded:false,loaded:false,pendingPreview:!resumedJob},discovery:{started:false,stopped:false,level:0,jobs:new Map(),ready:new Set()}};
 const pageStudies=[
@@ -69,7 +71,7 @@ function showManifest(p){const entries=[["Backend",p.backend],["Sequence",`${p.c
 function escapeHTML(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML}
 function renderGPU(g){if(!g)return;$("gpuName").textContent=g.name;$("device").textContent=`CUDA · ${g.name.replace(/^NVIDIA /,"")}`;const memPct=g.memory_total?g.memory_used/g.memory_total*100:0,powerPct=g.power_limit?g.power_draw/g.power_limit*100:0;$("vramValue").textContent=`${(g.memory_used/1024).toFixed(1)} / ${(g.memory_total/1024).toFixed(0)} GB`;$("vramBar").style.width=Math.min(100,memPct)+"%";$("computeValue").textContent=Math.round(g.utilization)+"%";$("computeBar").style.width=Math.min(100,g.utilization)+"%";$("thermalValue").textContent=Math.round(g.temperature)+"°";$("powerValue").textContent=`${Math.round(g.power_draw)} W · ${Math.round(powerPct)}%`}
 function renderGPUProcess(p){state.gpuProcesses.set(p.pid,p);$("gpuProcesses").innerHTML=[...state.gpuProcesses.values()].sort((a,b)=>b.memory_used-a.memory_used).map(x=>`<div class="gpuProcess ${String(x.label).toLowerCase()}" title="${escapeHTML(x.command)}"><b>${escapeHTML(x.label)}</b><span>PID ${x.pid}</span><strong>${(Number(x.memory_used)/1024).toFixed(1)} GB</strong><span>SM ${Math.round(Number(x.sm))}%</span></div>`).join("")}
-function renderModel(m){const pendingPreview=state.model.pendingPreview,justLoaded=!state.model.loaded&&!!m.loaded;state.model={known:true,downloaded:!!m.downloaded,loaded:!!m.loaded,pendingPreview};$("downloadState").textContent=m.downloaded?"READY":m.downloading?"DOWNLOADING":"NOT FOUND";$("loadState").textContent=m.loaded?"RESIDENT":"NOT LOADED";$("downloadDot").classList.toggle("on",!!m.downloaded);$("loadDot").classList.toggle("on",!!m.loaded);$("downloadModel").disabled=!!m.downloaded||!!m.downloading;$("loadModel").disabled=!m.downloaded||!!m.loaded;$("modelProgressBar").classList.toggle("busy",!!m.downloading);$("modelProgressBar").style.width=m.loaded?"100%":m.downloaded&&!m.downloading?"62%":"";$("modelMessage").textContent=m.message||m.device||(m.loaded?"Model is resident on the GPU.":m.downloaded?"BF16 weights are ready. Load the worker to continue.":"FLUX.1 Dev weights are not on disk.");const top=$("modelTopState");top.className="modelTopState "+(m.loaded?"loaded":m.downloaded?"downloaded":"");top.lastChild.textContent=m.loaded?" MODEL LOADED":m.downloaded?" LOAD WORKER":" MODEL MISSING";checkpoint("model",m.loaded?"done":"");checkpoint("worker",m.loaded?"done":"");if(!m.loaded&&state.frames.length===0){$("stageMessage").style.display="grid";$("stageMessage").innerHTML="<strong>FLUX WORKER NOT LOADED</strong><span>Load the resident worker before generating previews or starting the atlas.</span>"}updateJobReady();if(justLoaded&&pendingPreview){state.model.pendingPreview=false;renderSeedBatch()}}
+function renderModel(m){const pendingPreview=state.model.pendingPreview,justLoaded=!state.model.loaded&&!!m.loaded;state.model={known:true,downloaded:!!m.downloaded,loaded:!!m.loaded,pendingPreview};$("downloadState").textContent=m.downloaded?"READY":m.downloading?"DOWNLOADING":"NOT FOUND";$("loadState").textContent=m.loaded?"RESIDENT":"NOT LOADED";$("downloadDot").classList.toggle("on",!!m.downloaded);$("loadDot").classList.toggle("on",!!m.loaded);$("downloadModel").disabled=!!m.downloaded||!!m.downloading;$("loadModel").disabled=!m.downloaded||!!m.loaded;$("modelProgressBar").classList.toggle("busy",!!m.downloading);$("modelProgressBar").style.width=m.loaded?"100%":m.downloaded&&!m.downloading?"62%":"";$("modelMessage").textContent=m.message||m.device||(m.loaded?"Model is resident on the GPU.":m.downloaded?"BF16 weights are ready. Load the worker to continue.":"FLUX.1 Dev weights are not on disk.");const top=$("modelTopState");top.className="modelTopState "+(m.loaded?"loaded":m.downloaded?"downloaded":"");top.lastChild.textContent=m.loaded?" MODEL LOADED":m.downloaded?" LOAD WORKER":" MODEL MISSING";checkpoint("model",m.loaded?"done":"");checkpoint("worker",m.loaded?"done":"");if(!m.loaded&&state.frames.length===0){$("stageMessage").style.display="grid";$("stageMessage").innerHTML="<strong>FLUX WORKER NOT LOADED</strong><span>Load the resident worker before generating previews or starting the atlas.</span>"}updateJobReady();if(justLoaded&&pendingPreview){state.model.pendingPreview=false}}
 function showJobProgress(job){
   if(!job)return;
   state.activeJob=job.id;
@@ -99,6 +101,7 @@ function renderJobFeed(j){
   const allJobs=j.jobs||[];
   try{updatePreview(allJobs)}catch{}
   try{updateDiscovery(allJobs)}catch{}
+  try{renderFuel(allJobs)}catch{}
   const atlasJobs=allJobs.filter(x=>String(x.kind||"")==="atlas_sphere"||x.viewer_url);
   const previewJobs=allJobs.filter(x=>String(x.kind||"")==="seed_preview");
   const running=x=>["running","queued","cancelling"].includes(String(x.status).toLowerCase());
@@ -106,7 +109,8 @@ function renderJobFeed(j){
   const newest=rows=>[...rows].sort((a,b)=>Number(b.created||0)-Number(a.created||0))[0];
   const resumed=allJobs.find(x=>x.id===state.activeJob);
   const pinned=state.pinnedJob?allJobs.find(x=>x.id===state.pinnedJob):null;
-  const chosen=pinned||newest(atlasJobs.filter(active))||newest(previewJobs.filter(active))||(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
+  const sticky=state.shownJob?allJobs.find(x=>x.id===state.shownJob&&active(x)):null;
+  const chosen=pinned||sticky||newest(atlasJobs.filter(active))||newest(previewJobs.filter(active))||(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
   const switched=state.shownJob!==(chosen&&chosen.id);
   $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
   if(chosen){
@@ -160,6 +164,59 @@ function playFrame(){
   $("sphere").style.display="none";
   $("stageMessage").style.display="none";
 }
+function humanDuration(sec){
+  if(!Number.isFinite(sec)||sec<=0)return "—";
+  if(sec<90)return Math.ceil(sec)+"s";
+  if(sec<5400)return (sec/60).toFixed(sec<600?1:0)+"m";
+  return (sec/3600).toFixed(1)+"h";
+}
+function renderEtaBar(){
+  const p=state.progress;
+  if(!p||!(p.total>0)||!(p.rate>0)){
+    $("etaBar").style.width="0%";
+    $("etaClock").textContent="—";
+    return;
+  }
+  const projected=Math.min(p.total,p.done+p.rate*((Date.now()-p.at)/1000));
+  const elapsed=projected/p.rate;
+  const totalEst=p.total/p.rate;
+  $("etaBar").style.width=Math.min(100,elapsed/totalEst*100).toFixed(2)+"%";
+  $("etaClock").textContent=`${humanDuration(elapsed)} / ${humanDuration(totalEst)}`;
+}
+function renderFuel(jobs){
+  const st=x=>String(x.status).toLowerCase();
+  const runningJobs=jobs.filter(x=>st(x)==="running");
+  const queuedJobs=jobs.filter(x=>st(x)==="queued");
+  const failedJobs=jobs.filter(x=>["error","cancelled"].includes(st(x)));
+  const pending=runningJobs.concat(queuedJobs);
+  let remaining=0;
+  for(const job of pending){
+    const preview=String(job.kind||"")==="seed_preview";
+    const done=Number(preview?job.images_done:(job.atlas_done??job.step??0))||0;
+    const total=Number(preview?job.images_total:(job.atlas_total??job.total_steps??0))||0;
+    if(total>done)remaining+=total-done;
+  }
+  const rate=state.progress&&state.progress.rate>0?state.progress.rate:(state.lastRate||0);
+  if(state.progress&&state.progress.rate>0)state.lastRate=state.progress.rate;
+  const seconds=rate>0?remaining/rate:0;
+  const tank=$("fuelTank");
+  const pct=FUEL_CAPACITY_SEC>0?Math.min(100,seconds/FUEL_CAPACITY_SEC*100):0;
+  $("fuelBar").style.width=pct.toFixed(2)+"%";
+  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"EMPTY";
+  $("statRunning").textContent=runningJobs.length;
+  $("statPending").textContent=queuedJobs.length;
+  $("statFailed").textContent=failedJobs.length;
+  $("statFailed").parentElement.classList.toggle("warn",failedJobs.length>0);
+  $("statRunning").parentElement.classList.toggle("warn",runningJobs.length===0);
+  const clear=$("clearErrors");
+  if(clear)clear.disabled=failedJobs.length===0||!!state.clearing;
+  state.failedJobIds=failedJobs.map(x=>x.id);
+  $("fuelDetail").textContent=remaining>0
+    ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
+    :"Queue is dry — stage more work";
+  tank.classList.toggle("empty",remaining===0);
+  tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
+}
 function tickProgress(){
   const p=state.progress;
   if(!p||!(p.total>0))return;
@@ -170,6 +227,7 @@ function tickProgress(){
     const remaining=(p.total-projected)/p.rate;
     if(remaining>0)$("eta").textContent=remaining<90?Math.ceil(remaining)+" sec":(remaining/60).toFixed(1)+" min";
   }
+  renderEtaBar();
 }
 async function prefillRecent(){
   if(state.frames.length)return;
@@ -205,5 +263,18 @@ $("focusStage").onclick=()=>{document.querySelector(".workspace").classList.togg
 $("indexStart").oninput=updateRange;$("cells").oninput=()=>{$("cellsNumber").value=$("cells").value;updateRange()};$("cellsNumber").oninput=()=>{$("cells").value=Math.max(1,Math.min(65536,numeric("cellsNumber")||1));updateRange()};$("planButton").onclick=renderSeedBatch;$("launchButton").onclick=()=>{if(!state.model.loaded){state.model.pendingPreview=true;$("stageMessage").innerHTML="<strong>LOADING FLUX WORKER</strong><span>The visible prompt will begin as one coherent 32-image GPU batch.</span>";return modelAction(state.model.downloaded?"/api/model/load":"/api/model/download")}submit(false)};$("launchFromPlan").onclick=()=>{$("manifestDialog").close();submit(false)};$("refreshJobs").onclick=refreshJobs;
 document.querySelectorAll(".dialogClose,.dialogCloseButton").forEach(b=>b.onclick=()=>$("manifestDialog").close());
 $("helpButton").onclick=()=>toast("Plan a coherent latent path, then launch it into the resident FLUX worker.");
+$("clearErrors").onclick=async()=>{
+  const count=(state.failedJobIds||[]).length;
+  if(!count||state.clearing)return;
+  state.clearing=true;$("clearErrors").disabled=true;
+  try{
+    const r=await fetch("/api/jobs/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({keep:0,statuses:["error","cancelled"]})});
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw Error(j.error||"Could not clear failed jobs");
+    toast(`Cleared ${(j.removed||[]).length} failed job${(j.removed||[]).length===1?"":"s"}`);
+    refreshJobs();
+  }catch(e){toast(e.message)}
+  finally{state.clearing=false}
+};
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
 $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();refreshJobs();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);

@@ -109,11 +109,32 @@
         <div class="filmEmpty">Generated cells will arrive here in traversal order</div>
       </div>
       <div class="telemetry">
-        <div><span>PROGRESS</span><strong id="progressText">0 / 1024</strong></div>
+        <div><span>PROGRESS</span><strong id="progressText">— / —</strong></div>
         <div class="progress"><i id="progressBar"></i></div>
         <div><span>RATE</span><strong id="rate">— fps</strong></div>
         <div><span>CACHE</span><strong id="cacheState">XFRAME / .30</strong></div>
         <div><span>ETA</span><strong id="eta">—</strong></div>
+      </div>
+      <div class="fuelRail">
+        <div class="fuelBlock">
+          <div class="fuelHead"><span>ELAPSED / ESTIMATE</span><strong id="etaClock">—</strong></div>
+          <div class="etaTrack"><i id="etaBar"></i></div>
+        </div>
+        <div class="fuelBlock" id="fuelTank">
+          <div class="fuelHead"><span>QUEUE FUEL</span><strong id="fuelLabel">—</strong></div>
+          <div class="fuelTrack" aria-label="Queue depth">
+            <i id="fuelBar"></i>
+            <b class="fuelMark" style="left:15%"></b>
+            <b class="fuelMark" style="left:40%"></b>
+          </div>
+          <div class="fuelStats">
+            <span>RUNNING <b id="statRunning">—</b></span>
+            <span>PENDING <b id="statPending">—</b></span>
+            <span>FAILED <b id="statFailed">—</b></span>
+            <button id="clearErrors" type="button" title="Remove failed and cancelled jobs from the list">CLEAR FAILED</button>
+          </div>
+          <small id="fuelDetail">Reading queue depth</small>
+        </div>
       </div>
     </section>
 

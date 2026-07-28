@@ -52,6 +52,15 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
         bVisible: b ? getComputedStyle(b).opacity : null,
         filmstripImgs: document.querySelectorAll('#filmstrip img').length,
         progressWidth: bar ? bar.style.width : null,
+        etaWidth: (document.getElementById('etaBar') || {}).style?.width ?? null,
+        etaClock: (document.getElementById('etaClock') || {}).textContent,
+        fuelWidth: (document.getElementById('fuelBar') || {}).style?.width ?? null,
+        fuelLabel: (document.getElementById('fuelLabel') || {}).textContent,
+        fuelDetail: (document.getElementById('fuelDetail') || {}).textContent,
+        fuelClass: (document.getElementById('fuelTank') || {}).className,
+        statRunning: (document.getElementById('statRunning') || {}).textContent,
+        statPending: (document.getElementById('statPending') || {}).textContent,
+        statFailed: (document.getElementById('statFailed') || {}).textContent,
         progressText: (document.getElementById('progressText') || {}).textContent,
         sigilActive: sigil ? sigil.classList.contains('active') : null,
         sessions: document.querySelectorAll('#sessions [data-job]').length,
@@ -100,6 +109,13 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
   console.log('NO FAKE ZERO       :', fakeZero === 0 ? 'PASS' : `FAIL (${fakeZero} samples showed a 0/N label with no real job data)`);
   const jobIds = new Set(samples.map(s => s.activeJob).filter(Boolean));
   console.log('JOB STABLE         :', jobIds.size <= 1 ? `PASS (${[...jobIds]})` : `FAIL (switched between ${[...jobIds].join(', ')})`);
+  const etaWidths = new Set(samples.map(s => s.etaWidth).filter(w => w && w !== '0%'));
+  console.log('ETA BAR ADVANCING  :', etaWidths.size > 1 ? `PASS (${etaWidths.size} distinct, now ${last.etaWidth}, ${last.etaClock})` : `FAIL (${etaWidths.size} distinct: ${[...etaWidths]})`);
+  const fuelOk = last.fuelWidth && last.fuelWidth !== '0%' && last.fuelLabel && last.fuelLabel !== '—';
+  console.log('QUEUE FUEL GAUGE   :', fuelOk ? `PASS (${last.fuelLabel} | ${last.fuelDetail})` : `FAIL (width=${last.fuelWidth} label=${last.fuelLabel})`);
+  console.log('FUEL STATE         :', last.fuelClass || '(none)');
+  const statsOk = last.statRunning !== '—' && last.statPending !== '—' && last.statFailed !== '—';
+  console.log('QUEUE STATS        :', statsOk ? `PASS (running ${last.statRunning}, pending ${last.statPending}, failed ${last.statFailed})` : `FAIL (running=${last.statRunning} pending=${last.statPending} failed=${last.statFailed})`);
   console.log('====================================================\n');
 
   await browser.close();

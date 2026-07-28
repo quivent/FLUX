@@ -213,6 +213,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
+	mux.HandleFunc("/api/jobs/prune", s.pruneJobs)
 	mux.HandleFunc("/api/render", s.render)
 	mux.HandleFunc("/api/img2img", s.img2img)
 	mux.HandleFunc("/api/img2img/jobs", s.img2imgJobs)
@@ -901,6 +902,42 @@ func serverModelReady(modelDir string) bool {
 		}
 	}
 	return true
+}
+
+func (s Server) pruneJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	var req struct {
+		Keep     *int     `json:"keep"`
+		Statuses []string `json:"statuses"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+	keep := 0
+	if req.Keep != nil && *req.Keep >= 0 {
+		keep = *req.Keep
+	}
+	statuses := req.Statuses
+	if len(statuses) == 0 {
+		statuses = []string{"error", "cancelled"}
+	}
+	for _, status := range statuses {
+		switch status {
+		case "error", "cancelled", "done":
+		default:
+			writeError(w, http.StatusBadRequest, "statuses may only include error, cancelled, or done")
+			return
+		}
+	}
+	resp, err := s.client.Request(map[string]any{"op": "prune", "keep": keep, "statuses": statuses})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "removed": resp.Removed})
 }
 
 func (s Server) cancelJob(w http.ResponseWriter, r *http.Request) {
