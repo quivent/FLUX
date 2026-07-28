@@ -23,7 +23,6 @@ func (s Server) storeAtlasReceipt(jobID string, accepted bool, status string, pa
 	if err != nil {
 		return
 	}
-	defer db.Close()
 	raw, _ := json.Marshal(payload)
 	_, _ = db.Exec(`INSERT INTO atlas_receipts(job_id,nexus_accepted,status,payload_json,updated_at)
 		VALUES(?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET nexus_accepted=excluded.nexus_accepted,
@@ -36,7 +35,6 @@ func (s Server) restoreAtlasReceipts() {
 	if err != nil {
 		return
 	}
-	defer db.Close()
 	rows, err := db.Query(`SELECT job_id,nexus_accepted FROM atlas_receipts`)
 	if err != nil {
 		return
@@ -61,7 +59,6 @@ func (s Server) atlasCatalog(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer db.Close()
 	jobs := make([]map[string]any, 0)
 	rows, err := db.Query(`SELECT id, kind, status, phase, prompt, seed, backend, progress, total, created_at, updated_at
 		FROM atlas_jobs ORDER BY updated_at DESC LIMIT 500`)
@@ -120,7 +117,6 @@ func (s Server) atlasSeeds(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer db.Close()
 	rows, err := db.Query(`SELECT seed, description, source_job_id, created_at, updated_at
 		FROM atlas_seeds ORDER BY updated_at DESC LIMIT 2000`)
 	if err != nil {
@@ -174,7 +170,6 @@ func (s Server) storeAtlasSeed(seed, description, sourceJobID string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 	now := time.Now().Unix()
 	_, err = db.Exec(`INSERT INTO atlas_seeds(seed, description, source_job_id, created_at, updated_at)
 		VALUES(?,?,?,?,?)
@@ -195,7 +190,6 @@ func (s Server) storeAtlasJobs(jobs []map[string]any) {
 		slog.Warn("atlas job catalog unavailable", "error", err)
 		return
 	}
-	defer db.Close()
 	now := time.Now().Unix()
 	tx, err := db.Begin()
 	if err != nil {
@@ -272,7 +266,6 @@ func (s Server) storeAtlasAsset(event map[string]any) {
 		slog.Warn("atlas asset catalog unavailable", "error", err)
 		return
 	}
-	defer db.Close()
 	now := time.Now().Unix()
 	_, err = db.Exec(`INSERT INTO atlas_assets
 		(id, job_id, seed, path, access_url, media_type, cell_index, metadata_json, created_at, updated_at)

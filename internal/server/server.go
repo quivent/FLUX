@@ -55,8 +55,8 @@ var atlasNexusReceipts sync.Map
 
 var studioSchemaState = struct {
 	sync.Mutex
-	ready map[string]bool
-}{ready: make(map[string]bool)}
+	dbs map[string]*sql.DB
+}{dbs: make(map[string]*sql.DB)}
 
 var motionAssetHub = struct {
 	sync.Mutex
@@ -2278,17 +2278,18 @@ func (s Server) openStudioDB() (*sql.DB, error) {
 		return nil, err
 	}
 	dbPath := filepath.Join(stateDir, "studio.sqlite")
-	dsn := "file:" + filepath.ToSlash(dbPath) + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)"
+	studioSchemaState.Lock()
+	defer studioSchemaState.Unlock()
+	if db := studioSchemaState.dbs[dbPath]; db != nil {
+		return db, nil
+	}
+	dsn := "file:" + filepath.ToSlash(dbPath) + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(DELETE)&_pragma=synchronous(FULL)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxIdleConns(1)
 	db.SetMaxOpenConns(1)
-	studioSchemaState.Lock()
-	defer studioSchemaState.Unlock()
-	if studioSchemaState.ready[dbPath] {
-		return db, nil
-	}
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS collections (
 	path TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -2355,7 +2356,7 @@ CREATE INDEX IF NOT EXISTS atlas_seeds_updated_idx ON atlas_seeds(updated_at);
 		_ = db.Close()
 		return nil, err
 	}
-	studioSchemaState.ready[dbPath] = true
+	studioSchemaState.dbs[dbPath] = db
 	return db, nil
 }
 
@@ -2368,7 +2369,6 @@ func (s Server) applyCollectionDB(items []map[string]any) {
 		slog.Warn("collection database unavailable", "error", err)
 		return
 	}
-	defer db.Close()
 
 	now := time.Now().Unix()
 	for _, item := range items {
@@ -2605,7 +2605,6 @@ func (s Server) loadCollectionPicks(rel string) map[string]bool {
 		slog.Warn("collection picks database unavailable", "error", err)
 		return picks
 	}
-	defer db.Close()
 	rows, err := db.Query(`SELECT image_name FROM collection_picks WHERE collection_path=? ORDER BY created_at, image_name`, rel)
 	if err != nil {
 		slog.Warn("collection picks read failed", "path", rel, "error", err)
@@ -2677,7 +2676,6 @@ func (s Server) collectionPicks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer db.Close()
 	tx, err := db.Begin()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
