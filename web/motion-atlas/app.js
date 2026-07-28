@@ -79,7 +79,7 @@ function renderJobFeed(j){
   const running=x=>["running","queued","cancelling"].includes(String(x.status).toLowerCase());
   const newest=rows=>[...rows].sort((a,b)=>Number(b.created||0)-Number(a.created||0))[0];
   const resumed=allJobs.find(x=>x.id===state.activeJob);
-  const chosen=resumed||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||newest(previewJobs)||newest(atlasJobs);
+  const chosen=(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
   $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
   if(chosen){
     state.activeJob=chosen.id;
