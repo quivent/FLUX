@@ -303,6 +303,8 @@ class Worker:
         self.jobs_lock = threading.RLock()
         self.jobs = self._load_jobs()
         self.profile = self._load_profile()
+        self.atlas_tasks = queue.Queue()
+        threading.Thread(target=self._run_atlas_queue, daemon=True).start()
         if preload and self.default_backend in ("auto", "mps", "cpu"):
             if self.kind == "img2img":
                 self._load_img2img_pipe()
@@ -768,9 +770,18 @@ class Worker:
                 job[key] = draft[key]
         with self.jobs_lock:
             self.jobs[job_id] = job
+            job["queue_position"] = self.atlas_tasks.qsize() + 1
             self._write_jobs()
-        threading.Thread(target=self._run_atlas_job, args=(job_id,), daemon=True).start()
+        self.atlas_tasks.put(job_id)
         return {"ok": True, "job": job, "already": False}
+
+    def _run_atlas_queue(self):
+        while True:
+            job_id = self.atlas_tasks.get()
+            try:
+                self._run_atlas_job(job_id)
+            finally:
+                self.atlas_tasks.task_done()
 
     def resolve_backend(self, requested, job):
         requested = normalize_backend(requested)
@@ -981,6 +992,7 @@ class Worker:
             if job.get("status") == "cancelled":
                 self._write_jobs()
                 return
+            job["queue_position"] = 0
             job["status"] = "running"
             job["phase"] = "loading_model"
             job["started"] = time.time()
