@@ -68,7 +68,9 @@ setup:
 		uv_bin="$$(command -v uv 2>/dev/null || true)"; \
 		if [ -z "$$uv_bin" ]; then uv_bin="$$HOME/.local/bin/uv"; fi; \
 	fi; \
-	"$$uv_bin" venv "$(VENV)" --python "$(PYTHON)"; \
+	if [ ! -x "$(VENV_PY)" ]; then \
+		"$$uv_bin" venv "$(VENV)" --python "$(PYTHON)"; \
+	fi; \
 	"$$uv_bin" pip install --python "$(VENV_PY)" -r requirements.txt
 
 check:
