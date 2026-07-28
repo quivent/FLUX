@@ -37,14 +37,19 @@ def default_model_dir():
         home / "Models" / "flux1",
         home / "models" / "flux1",
         home / "models" / "FLUX.1-dev",
+        home / "models" / "flux" / "FLUX.1-dev",
     ]
     for candidate in candidates:
         if valid_model_dir(candidate):
             return str(candidate)
     if env_model:
         return env_model
+    # Keep this fallback chain identical to internal/config/config.go:resolveModelDir
+    # and core/paths.py:flux_model_dir() in Council-of-Gemmas.
     if pathlib.Path("/models").exists():
         return "/models/flux1"
+    if (home / "models").exists():
+        return str(home / "models" / "flux1")
     return str(home / "Models" / "flux1")
 
 

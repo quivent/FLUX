@@ -73,6 +73,7 @@ func resolveModelDir(home string) string {
 		filepath.Join(home, "Models", "flux1"),
 		filepath.Join(home, "models", "flux1"),
 		filepath.Join(home, "models", "FLUX.1-dev"),
+		filepath.Join(home, "models", "flux", "FLUX.1-dev"),
 	}
 	for _, candidate := range candidates {
 		if validFluxModelDir(candidate) {
@@ -82,8 +83,14 @@ func resolveModelDir(home string) string {
 	if envModel != "" {
 		return envModel
 	}
+	// Nothing on disk yet: name the directory a downloader would fill. Prefer a
+	// model root that already exists so we agree with Council's resolver instead
+	// of inventing ~/Models on a case-sensitive filesystem.
 	if _, err := os.Stat("/models"); err == nil {
 		return "/models/flux1"
+	}
+	if _, err := os.Stat(filepath.Join(home, "models")); err == nil {
+		return filepath.Join(home, "models", "flux1")
 	}
 	return filepath.Join(home, "Models", "flux1")
 }

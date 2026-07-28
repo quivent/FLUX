@@ -2,8 +2,12 @@
 const $=id=>document.getElementById(id);
 const FUEL_CAPACITY_SEC=6*3600;
 const FUEL_LOW_SEC=30*60;
+const ATLAS_FIELD=65536;
 const resumedJob=sessionStorage.getItem("motionAtlasJob");
-const state={studyType:null,runType:"path",activeJob:resumedJob,started:0,frames:[],assetSide:"A",acceptedAssetJobs:new Set(),hydratedJobs:new Set(),pendingAssets:new Map(),gpuProcesses:new Map(),preview:new Map(),selectedFlavor:null,model:{known:false,downloaded:false,loaded:false,pendingPreview:!resumedJob},discovery:{started:false,stopped:false,level:0,jobs:new Map(),ready:new Set()}};
+// Where the last dispatched atlas stopped, so Continue can pick the path back up
+// across a reload. Shape: {start,end,cells}.
+const resumedRange=(()=>{try{const r=JSON.parse(sessionStorage.getItem("motionAtlasRange")||"null");return r&&Number.isFinite(r.end)?r:null}catch{return null}})();
+const state={studyType:null,runType:"path",activeJob:resumedJob,lastRange:resumedRange,started:0,frames:[],assetSide:"A",acceptedAssetJobs:new Set(),hydratedJobs:new Set(),pendingAssets:new Map(),gpuProcesses:new Map(),preview:new Map(),selectedFlavor:null,model:{known:false,downloaded:false,loaded:false,pendingPreview:!resumedJob},discovery:{started:false,stopped:false,level:0,jobs:new Map(),ready:new Set()}};
 const pageStudies=[
 
 // studies.js
@@ -34,7 +38,7 @@ function renderSpineState(){const producing=document.querySelector('[data-step="
 
 // map.js
 function checkpoint(name,status="done"){const row=document.querySelector(`[data-step="${name}"]`);if(!row)return;const current=row.classList.contains("active")?"active":row.classList.contains("done")?"done":"";if(current!==status){row.classList.remove("active","done");if(status)row.classList.add(status);renderSpineState()}}
-function updateJobReady(){const configured=state.studyType&&$("prompt").value.trim()&&$("id").value.trim()&&numeric("cells")>0&&numeric("batchSize")>0&&numeric("size")>0&&numeric("steps")>0&&numeric("guidance")>0,loaded=state.model.loaded;checkpoint("planned",configured?"done":"");$("planButton").disabled=!loaded||!configured;$("launchButton").disabled=state.model.known&&loaded&&!configured;$("launchButton").querySelector("span").textContent=!state.model.known?"Checking worker":!loaded?(state.model.downloaded?"Load worker":"Download model"):configured?`Start ${state.studyType}`:"Choose loop or atlas";return !!configured&&loaded}
+function updateJobReady(){const configured=state.studyType&&$("prompt").value.trim()&&$("id").value.trim()&&numeric("cells")>0&&numeric("batchSize")>0&&numeric("size")>0&&numeric("steps")>0&&numeric("guidance")>0,loaded=state.model.loaded;checkpoint("planned",configured?"done":"");$("planButton").disabled=!loaded||!configured;$("launchButton").disabled=state.model.known&&loaded&&!configured;$("launchButton").querySelector("span").textContent=!state.model.known?"Checking worker":!loaded?(state.model.downloaded?"Load worker":"Download model"):configured?`Start ${state.studyType}`:"Choose loop or atlas";updateContinue();return !!configured&&loaded}
 function drawMap(){
   const c=$("mapCanvas"),d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;
   const x=c.getContext("2d");x.scale(d,d);x.strokeStyle="#55e7ee22";x.lineWidth=.7;
@@ -44,10 +48,11 @@ function drawMap(){
   for(let i=0;i<15;i++){x.beginPath();x.moveTo(i*r.width/14,0);x.quadraticCurveTo(r.width/2,r.height/2,(14-i)*r.width/14,r.height);x.stroke()}
 }
 function updateRange(){
-  const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(65536,start+cells);
+  const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(ATLAS_FIELD,start+cells);
   $("indexStartOut").value=start.toLocaleString();$("cellsOut").value=`${cells.toLocaleString()} cells`;
   $("rangeLabel").value=`${start.toLocaleString()}—${end.toLocaleString()}`;if(!state.progress)$("progressText").textContent="— / —";
-  document.querySelector(".mapCursor").style.top=`${Math.min(94,start/65536*100)}%`;
+  document.querySelector(".mapCursor").style.top=`${Math.min(94,start/ATLAS_FIELD*100)}%`;
+  updateContinue();
 }
 function payload(dryRun=false){const start=numeric("indexStart"),cells=numeric("cells");return{
   prompt:$("prompt").value.trim(),id:$("id").value.trim(),backend:$("backend").value,model:$("model").value,precision:$("precision").value,batch_size:numeric("batchSize"),study_type:state.studyType,run_type:state.runType,
@@ -61,9 +66,47 @@ async function submit(dryRun){
   const body=payload(dryRun);if(!body.prompt){toast("A motion prompt is required");return}
   if(!dryRun)state.discovery.stopped=true;
   const button=dryRun?$("planButton"):$("launchButton");button.disabled=true;
+  if(!dryRun){state.submitting=true;updateContinue()}
   try{const r=await fetch("/api/atlas/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Atlas request failed");
-    if(dryRun)showManifest(j.plan);else{state.activeJob=j.job?.id||j.plan?.id;acceptAssetJob(state.activeJob);state.started=Date.now();checkpoint("planned");checkpoint("dispatched");if(j.nexus?.ok)checkpoint("nexus");else checkpoint("nexus","active");checkpoint("producing","active");$("productionSummary").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()} cells · starting now`;$("progressText").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()}`;$("progressBar").style.width="0%";$("stageMessage").innerHTML="<strong>ATLAS IN MOTION</strong><span>The resident worker is traversing the planned sphere.</span>";toast("Atlas queued on "+String(j.plan?.backend||"worker").toUpperCase())}
-  }catch(e){toast(e.message)}finally{button.disabled=false}
+    if(dryRun)showManifest(j.plan);else{state.activeJob=j.job?.id||j.plan?.id;acceptAssetJob(state.activeJob);state.started=Date.now();rememberRange(body);checkpoint("planned");checkpoint("dispatched");if(j.nexus?.ok)checkpoint("nexus");else checkpoint("nexus","active");checkpoint("producing","active");$("productionSummary").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()} cells · starting now`;$("progressText").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()}`;$("progressBar").style.width="0%";$("stageMessage").innerHTML="<strong>ATLAS IN MOTION</strong><span>The resident worker is traversing the planned sphere.</span>";toast("Atlas queued on "+String(j.plan?.backend||"worker").toUpperCase())}
+  }catch(e){toast(e.message)}finally{button.disabled=false;state.submitting=false;updateContinue()}
+}
+function rememberRange(body){
+  const start=Number(body.index_start)||0,end=Number(body.index_end)||0;
+  if(!(end>start))return;
+  state.lastRange={start,end,cells:Number(body.cells)||end-start};
+  try{sessionStorage.setItem("motionAtlasRange",JSON.stringify(state.lastRange))}catch{}
+  updateContinue();
+}
+// Next origin is where the last dispatch ended, snapped to the slider's step and
+// held inside the field so the tail chunk still fits.
+function nextOrigin(){
+  const last=state.lastRange;
+  if(!last)return null;
+  const input=$("indexStart"),step=Number(input.step)||1,max=Number(input.max)||ATLAS_FIELD;
+  if(last.end>=ATLAS_FIELD)return null;
+  // Range inputs snap the assigned value to their step, so round up: overshooting
+  // a few cells beats handing back an origin that never advances.
+  const origin=Math.min(Math.ceil(last.end/step)*step,Math.floor(max/step)*step);
+  return origin>last.start?origin:null;
+}
+function updateContinue(){
+  const button=$("continueButton");
+  if(!button)return;
+  const origin=nextOrigin();
+  const ready=origin!==null&&state.model.loaded&&!state.submitting;
+  button.disabled=!ready;
+  button.title=!state.lastRange?"Start an atlas first"
+    :origin===null?"The 65,536-cell field is fully traversed"
+    :!state.model.loaded?"Load the FLUX worker first"
+    :`Next: ${origin.toLocaleString()}—${Math.min(ATLAS_FIELD,origin+(numeric("cells")||state.lastRange.cells)).toLocaleString()}`;
+}
+function continueAtlas(){
+  const origin=nextOrigin();
+  if(origin===null){toast(state.lastRange?"The atlas field is fully traversed":"Start an atlas before continuing");return}
+  $("indexStart").value=String(origin);
+  updateRange();
+  submit(false);
 }
 async function previewFlavors(){const prompt=$("prompt").value.trim();if(!prompt){toast("A motion prompt is required");return}state.preview.clear();state.selectedFlavor=null;$("previewGrid").innerHTML=Array.from({length:32},()=>'<div class="flavorPending"></div>').join("");$("previewStatus").textContent="Dispatching 32 unique seeds";$("previewCount").textContent="0 / 32";$("previewProgressBar").style.width="0%";$("launchFlavor").disabled=true;$("previewDialog").showModal();checkpoint("planned");const base=String(Date.now()%800000000+10000000);try{const r=await fetch("/api/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,model:"dev",backend:$("backend").value,width:384,height:384,steps:12,guidance:numeric("guidance"),seed:base,filename:`atlas-flavor-${Date.now()}.png`,iterations:32})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Preview batch failed");(j.jobs||[]).forEach((job,i)=>state.preview.set(job.id,{seed:String(j.plans?.[i]?.seed??Number(base)+i),job}));$("previewStatus").textContent="Generating flavor batch on the resident FLUX worker";checkpoint("planned")}catch(e){$("previewStatus").textContent=e.message;toast(e.message)}}
 async function renderSeedBatch(){if(!state.model.loaded){toast("Load the FLUX worker before generating");return}const prompt=$("prompt").value.trim();if(!prompt){toast("A motion prompt is required");return}const button=$("planButton"),base=String(Date.now()%800000000+10000000);button.disabled=true;button.textContent="Dispatching 32…";try{const r=await fetch("/api/atlas/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,model:"dev",backend:$("backend").value,width:numeric("size"),height:numeric("size"),steps:numeric("steps"),guidance:numeric("guidance"),latent_distance:numeric("latentDistance"),seed:base,filename:`seed-ramp-${Date.now()}.png`})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Generation failed");if(j.job?.id){state.activeJob=j.job.id;sessionStorage.setItem("motionAtlasJob",j.job.id);acceptAssetJob(j.job.id)}checkpoint("dispatched");checkpoint("nexus",j.nexus?.ok?"done":"active");$("assetSummary").textContent="One coherent 32-image batch is rendering";toast("32-image continuity batch is running")}catch(e){toast(e.message)}finally{button.textContent="Generate 32";updateJobReady()}}
@@ -288,20 +331,25 @@ function renderFuel(jobs){
   const tank=$("fuelTank");
   const pct=FUEL_CAPACITY_SEC>0?Math.min(100,seconds/FUEL_CAPACITY_SEC*100):0;
   $("fuelBar").style.width=pct.toFixed(2)+"%";
-  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"EMPTY";
+  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"IDLE";
   $("statRunning").textContent=runningJobs.length;
   $("statPending").textContent=queuedJobs.length;
   $("statFailed").textContent=failedJobs.length;
   $("statFailed").parentElement.classList.toggle("warn",failedJobs.length>0);
-  $("statRunning").parentElement.classList.toggle("warn",runningJobs.length===0);
+  // Nothing running is only worth flagging when work is queued behind it; an
+  // empty queue is idle, not a fault.
+  const stalled=runningJobs.length===0&&queuedJobs.length>0;
+  $("statRunning").parentElement.classList.toggle("warn",stalled);
   const clear=$("clearErrors");
   if(clear)clear.disabled=failedJobs.length===0||!!state.clearing;
   state.failedJobIds=failedJobs.map(x=>x.id);
   $("fuelDetail").textContent=remaining>0
     ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
-    :state.activeJob?"Queue complete":"Idle — ready to launch";
-  tank.classList.toggle("empty",false);
+    :state.activeJob?"Queue complete":(state.lastRange?"Idle · Continue extends the atlas":"Idle — ready to launch");
+  tank.classList.toggle("idle",remaining===0);
+  tank.classList.toggle("stalled",stalled);
   tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
+  updateContinue();
 }
 function tickProgress(){
   const p=state.progress;
@@ -316,20 +364,25 @@ function tickProgress(){
   renderEtaBar();
 
 // fuel.js
-  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"EMPTY";
+  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"IDLE";
   $("statRunning").textContent=runningJobs.length;
   $("statPending").textContent=queuedJobs.length;
   $("statFailed").textContent=failedJobs.length;
   $("statFailed").parentElement.classList.toggle("warn",failedJobs.length>0);
-  $("statRunning").parentElement.classList.toggle("warn",runningJobs.length===0);
+  // Nothing running is only worth flagging when work is queued behind it; an
+  // empty queue is idle, not a fault.
+  const stalled=runningJobs.length===0&&queuedJobs.length>0;
+  $("statRunning").parentElement.classList.toggle("warn",stalled);
   const clear=$("clearErrors");
   if(clear)clear.disabled=failedJobs.length===0||!!state.clearing;
   state.failedJobIds=failedJobs.map(x=>x.id);
   $("fuelDetail").textContent=remaining>0
     ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
-    :state.activeJob?"Queue complete":"Idle — ready to launch";
-  tank.classList.toggle("empty",false);
+    :state.activeJob?"Queue complete":(state.lastRange?"Idle · Continue extends the atlas":"Idle — ready to launch");
+  tank.classList.toggle("idle",remaining===0);
+  tank.classList.toggle("stalled",stalled);
   tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
+  updateContinue();
 }
 function tickProgress(){
   const p=state.progress;
@@ -378,7 +431,7 @@ const geometryCopy={elliptic:["ELLIPTIC · CONTROLLED ORBIT","A smooth closed ar
 document.querySelectorAll(".parameter input,.dimAxis input,#latentDistance").forEach(input=>input.oninput=()=>{const out=document.querySelector(`output[data-for="${input.id}"]`);if(out)out.value=Number(input.value).toFixed(2);const shell=Math.max(.82,Math.min(1.14,.88+numeric("latentDistance")*.1)),spin=["dimXY","dimXZ","dimXW","dimYZ","dimYW","dimZW"].reduce((n,id)=>n+numeric(id),0)*5;$("sphere").style.setProperty("--shell",shell);$("sphere").style.setProperty("--spin",spin+"deg");$("sphere").style.filter=`drop-shadow(0 0 ${18+numeric("seedLock")*42}px rgba(85,231,238,.24))`});
 document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-view]").forEach(x=>x.classList.remove("active"));b.classList.add("active");const frame=b.dataset.view==="frame"&&state.frames.length;$("assetStage").style.display=frame?"block":"none";$("sphere").style.display=frame?"none":"block"});
 $("focusStage").onclick=()=>{document.querySelector(".workspace").classList.toggle("stageFocused");$("focusStage").textContent=document.querySelector(".workspace").classList.contains("stageFocused")?"↙":"↗";setTimeout(drawMap,350)};
-$("indexStart").oninput=updateRange;$("cells").oninput=()=>{$("cellsNumber").value=$("cells").value;updateRange()};$("cellsNumber").oninput=()=>{$("cells").value=Math.max(1,Math.min(65536,numeric("cellsNumber")||1));updateRange()};$("planButton").onclick=renderSeedBatch;$("launchButton").onclick=()=>{if(!state.model.loaded){state.model.pendingPreview=true;$("stageMessage").innerHTML="<strong>LOADING FLUX WORKER</strong><span>The visible prompt will begin as one coherent 32-image GPU batch.</span>";return modelAction(state.model.downloaded?"/api/model/load":"/api/model/download")}submit(false)};$("launchFromPlan").onclick=()=>{$("manifestDialog").close();submit(false)};$("refreshJobs").onclick=refreshJobs;
+$("indexStart").oninput=updateRange;$("cells").oninput=()=>{$("cellsNumber").value=$("cells").value;updateRange()};$("cellsNumber").oninput=()=>{$("cells").value=Math.max(1,Math.min(65536,numeric("cellsNumber")||1));updateRange()};$("planButton").onclick=renderSeedBatch;$("continueButton").onclick=continueAtlas;$("launchButton").onclick=()=>{if(!state.model.loaded){state.model.pendingPreview=true;$("stageMessage").innerHTML="<strong>LOADING FLUX WORKER</strong><span>The visible prompt will begin as one coherent 32-image GPU batch.</span>";return modelAction(state.model.downloaded?"/api/model/load":"/api/model/download")}submit(false)};$("launchFromPlan").onclick=()=>{$("manifestDialog").close();submit(false)};$("refreshJobs").onclick=refreshJobs;
 document.querySelectorAll(".dialogClose,.dialogCloseButton").forEach(b=>b.onclick=()=>$("manifestDialog").close());
 $("helpButton").onclick=()=>toast("Plan a coherent latent path, then launch it into the resident FLUX worker.");
 $("clearErrors").onclick=async()=>{
