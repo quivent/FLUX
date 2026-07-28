@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% set page = "governor" %}
+{% set body_class = "motionGovernor" %}
+{% set skip_header = true %}
+{% block title %}Governor · FLUX Motion Atlas{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/motion-atlas/governor.css?v={{ build_stamp }}">
+{% endblock %}
+{% block status %}
+  <span class="siteGovernor">SITE RUNTIME · GOVERNOR</span>
+{% endblock %}
+{% block body %}
+  <div id="app"></div>
+{% endblock %}
+{% block scripts %}
+  <script type="module" src="/motion-atlas/governor.js?v={{ build_stamp }}"></script>
+{% endblock %}

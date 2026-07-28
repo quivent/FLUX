@@ -201,6 +201,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/flux/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/api/health", s.health)
+	mux.HandleFunc("/api/governor/chat", s.governorChat)
+	mux.HandleFunc("/api/visionary/chat", s.visionaryChat)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
 	mux.HandleFunc("/api/telemetry/processes/events", s.telemetryProcessEvents)
@@ -341,9 +343,12 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	allowed := map[string]bool{
 		"index.html": true, "app.css": true, "app.js": true,
+		"topbar.css": true,
 		"optics.html": true, "optics.js": true,
 		"queue.html": true, "queue.js": true,
 		"registry.html": true, "registry.js": true,
+		"governor.html": true, "governor.js": true, "governor.css": true,
+		"visionary.html": true, "visionary.js": true, "visionary.css": true,
 	}
 	if !allowed[name] {
 		http.NotFound(w, r)
@@ -353,6 +358,61 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
+}
+
+func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://governor.influx.vision/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, "unable to create Governor request", http.StatusInternalServerError)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	response, err := (&http.Client{Timeout: 5 * time.Minute}).Do(request)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	defer response.Body.Close()
+	w.Header().Set("Content-Type", response.Header.Get("Content-Type"))
+	w.WriteHeader(response.StatusCode)
+	_, _ = io.Copy(w, response.Body)
+}
+
+func (s Server) visionaryChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 32<<20))
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "http://127.0.0.1:8001/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, "unable to create Visionary request", http.StatusInternalServerError)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 5 * time.Minute}).Do(request)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	defer response.Body.Close()
+	w.Header().Set("Content-Type", response.Header.Get("Content-Type"))
+	w.WriteHeader(response.StatusCode)
+	_, _ = io.Copy(w, response.Body)
 }
 
 func (s Server) atlasWatch(w http.ResponseWriter, r *http.Request) {

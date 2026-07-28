@@ -1,39 +1,16 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <!-- build:1785240511 -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#080b0e">
-  <title>FLUX Queue</title>
-  <link rel="stylesheet" href="/motion-atlas/topbar.css?v=1785240511">
-  
-  <link rel="stylesheet" href="/motion-atlas/app.css?v=1785240511">
-
-</head>
-<body class="suitePage queuePage">
-  <div class="noise"></div>
-  
-  <header class="atlasTopbar">
-    <a class="atlasIdentity" href="/motion-atlas/">
-      <span class="atlasSigil">F</span>
-      <b>FLUX <small>MOTION ATLAS SPHERE</small></b>
-    </a>
-    <nav class="atlasTabs">
-      <a href="/motion-atlas/">ATLAS</a>
-      <a href="/motion-atlas/optics.html">OPTICS</a>
-      <a class="active" href="/motion-atlas/queue.html">QUEUE</a>
-      <a href="/motion-atlas/registry.html">GALLERY</a>
-      <a href="/motion-atlas/governor.html">GOVERNOR</a>
-      <a href="/motion-atlas/visionary.html">VISIONARY</a>
-    </nav>
-    <div class="atlasStatus">
+{% extends "base.html" %}
+{% set page = "queue" %}
+{% set body_class = "suitePage queuePage" %}
+{% block title %}FLUX Queue{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/motion-atlas/app.css?v={{ build_stamp }}">
+{% endblock %}
+{% block pre_header %}<div class="noise"></div>{% endblock %}
+{% block status %}
   <span class="status" id="queueState"><i></i><span>LOCAL QUEUE READY</span></span>
   <span class="device">NEXUS · VERIFIED</span>
-</div>
-  </header>
-  
-  
+{% endblock %}
+{% block body %}
 <main class="queueWorkspace">
   <aside class="queueComposer">
     <div class="panelHead"><span>03</span><h2>Prepopulate study</h2></div>
@@ -59,26 +36,7 @@
   </section>
 </main>
 <div class="toast" id="toast"></div>
-
-  
-  <script src="queue.js?v=1785240511"></script>
-
-  <script>
-  (function(){
-    var sigil=document.querySelector('.atlasSigil');
-    if(!sigil)return;
-    try{
-      var es=new EventSource('/api/jobs/events');
-      es.addEventListener('jobs',function(e){
-        try{
-          var data=JSON.parse(e.data);
-          var jobs=(data.jobs||data||[]);
-          var active=jobs.some(function(j){return j.status==='running'||j.status==='queued'});
-          sigil.classList.toggle('active',active);
-        }catch{}
-      });
-    }catch{}
-  })();
-  </script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}
+  <script src="queue.js?v={{ build_stamp }}"></script>
+{% endblock %}

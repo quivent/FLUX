@@ -1,67 +1,25 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <!-- build:1785240511 -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#080b0e">
-  <title>FLUX Gallery</title>
-  <link rel="stylesheet" href="/motion-atlas/topbar.css?v=1785240511">
-  
+{% extends "base.html" %}
+{% set page = "registry" %}
+{% set body_class = "suitePage registryPage" %}
+{% block title %}FLUX Gallery{% endblock %}
+{% block head %}
   <style>html,body{margin:0;min-height:100%;background:#07090b;color:#e5edf0}body{opacity:0}body.galleryReady{opacity:1;transition:opacity .45s ease}</style>
-  <link rel="stylesheet" href="/motion-atlas/app.css?v=1785240511">
+  <link rel="stylesheet" href="/motion-atlas/app.css?v={{ build_stamp }}">
   <link rel="prefetch" href="index.html"><link rel="prefetch" href="optics.html">
-
-</head>
-<body class="suitePage registryPage">
-  <div class="noise"></div>
-  
-  <header class="atlasTopbar">
-    <a class="atlasIdentity" href="/motion-atlas/">
-      <span class="atlasSigil">F</span>
-      <b>FLUX <small>MOTION ATLAS SPHERE</small></b>
-    </a>
-    <nav class="atlasTabs">
-      <a href="/motion-atlas/">ATLAS</a>
-      <a href="/motion-atlas/optics.html">OPTICS</a>
-      <a href="/motion-atlas/queue.html">QUEUE</a>
-      <a class="active" href="/motion-atlas/registry.html">GALLERY</a>
-      <a href="/motion-atlas/governor.html">GOVERNOR</a>
-      <a href="/motion-atlas/visionary.html">VISIONARY</a>
-    </nav>
-    <div class="atlasStatus">
+{% endblock %}
+{% block pre_header %}<div class="noise"></div>{% endblock %}
+{% block status %}
   <span class="status"><i></i><span id="registryState">LIVE GALLERY</span></span>
   <span class="modelTopState" id="modelTopState"><i></i>MODEL CHECKING</span>
   <span class="device">SQLITE · WAL</span>
-</div>
-  </header>
-  
-  
+{% endblock %}
+{% block body %}
 <main class="registryWorkspace">
   <section class="registryHead"><div><span class="eyebrow">ASSET MONITOR</span><h1>Generated work, visible.</h1><p>Open any asset directly. Activity stays secondary.</p></div><div class="registryStats"><div><span>ACTIVITY</span><strong id="jobCount">—</strong></div><button id="assetVault"><span>VISIBLE ASSETS</span><strong id="assetCount">—</strong></button><div><span>SEEDS</span><strong id="seedCount">—</strong></div></div></section>
   <section class="registryTools"><input id="registrySearch" type="search" placeholder="Search visible assets by filename or path"><div class="registryFilters galleryModes"><button class="active" data-gallery-mode="images">IMAGES</button><button data-gallery-mode="sets">SETS</button><span id="ledgerStamp">AWAITING ASSET EVENT</span></div></section>
   <section class="registryBody assetOnly"><div class="registryDetail"><div class="auditAssets assetWall galleryOpening" id="assetWall"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></section>
 </main><dialog id="collectionViewer"><button id="closeCollectionViewer" class="dialogClose">×</button><span class="eyebrow">RECORDED GENERATION SETTINGS</span><h2 id="collectionTitle"></h2><div id="collectionSettings" class="detailFacts"></div><div class="dialogActions"><button id="openCollection" class="primary">Open collection →</button></div></dialog><dialog id="assetViewer" class="assetViewer"><button id="closeAssetViewer" class="dialogClose">×</button><img id="assetViewerImage"><div><button id="assetPrev">← PREVIOUS</button><button id="motionPlay">▶ PLAY MOTION</button><span id="assetViewerLabel"></span><button id="assetNext">NEXT →</button></div></dialog>
-
-  
-  <script src="registry.js?v=1785240511"></script>
-
-  <script>
-  (function(){
-    var sigil=document.querySelector('.atlasSigil');
-    if(!sigil)return;
-    try{
-      var es=new EventSource('/api/jobs/events');
-      es.addEventListener('jobs',function(e){
-        try{
-          var data=JSON.parse(e.data);
-          var jobs=(data.jobs||data||[]);
-          var active=jobs.some(function(j){return j.status==='running'||j.status==='queued'});
-          sigil.classList.toggle('active',active);
-        }catch{}
-      });
-    }catch{}
-  })();
-  </script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}
+  <script src="registry.js?v={{ build_stamp }}"></script>
+{% endblock %}
