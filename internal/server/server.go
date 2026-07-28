@@ -235,6 +235,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/collections", s.collections)
 	mux.HandleFunc("/api/collection", s.collection)
 	mux.HandleFunc("/api/collection/picks", s.collectionPicks)
+	mux.HandleFunc("/api/collection/delete", s.deleteCollection)
 	mux.HandleFunc("/api/recent-images", s.recentImages)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
 	mux.HandleFunc("/api/gallery/events/", s.galleryEvents)
@@ -2959,6 +2960,10 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
 	rel, ok := s.cleanOutputRel(r.URL.Query().Get("path"))
 	if !ok || !(strings.HasPrefix(rel, "batches/") || strings.HasPrefix(rel, "atlas/")) {
 		writeError(w, http.StatusBadRequest, "invalid collection path")
@@ -3099,6 +3104,8 @@ func (s Server) collectionSummary(r *http.Request, rel string) map[string]any {
 	total := 0
 	var thumb string
 	var latest time.Time
+	samples := make([]string, 0, 40)
+	allFrames := make([]string, 0, 256)
 	rejects := loadCollectionRejects(baseAbs)
 	_ = filepath.WalkDir(baseAbs, func(file string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -3121,6 +3128,12 @@ func (s Server) collectionSummary(r *http.Request, rel string) map[string]any {
 			return nil
 		}
 		count++
+		if len(allFrames) < 4000 {
+			fileRel, relErr := filepath.Rel(s.cfg.OutputDir, file)
+			if relErr == nil {
+				allFrames = append(allFrames, publicOutputRelURL(r, fileRel))
+			}
+		}
 		info, _ := entry.Info()
 		if info != nil && info.ModTime().After(latest) {
 			latest = info.ModTime()
@@ -3153,6 +3166,16 @@ func (s Server) collectionSummary(r *http.Request, rel string) map[string]any {
 	if strings.HasPrefix(rel, "atlas/") {
 		kind = "atlas"
 	}
+	sort.Strings(allFrames)
+	if n := len(allFrames); n > 0 {
+		want := 40
+		if n < want {
+			want = n
+		}
+		for i := 0; i < want; i++ {
+			samples = append(samples, allFrames[i*n/want])
+		}
+	}
 	return map[string]any{
 		"name":         name,
 		"raw_name":     path.Base(filepath.ToSlash(rel)),
@@ -3164,6 +3187,7 @@ func (s Server) collectionSummary(r *http.Request, rel string) map[string]any {
 		"updated":      latest.Unix(),
 		"updated_text": latest.Format("Jan 2 15:04"),
 		"thumbnail":    thumb,
+		"samples":      samples,
 		"url":          publicGalleryRelURL(r, rel),
 		"raw_url":      publicOutputRelURL(r, rel),
 	}

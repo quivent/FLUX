@@ -18,7 +18,13 @@ const numeric=id=>Number($(id).value);
 function toast(message){$("toast").textContent=message;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
 function acceptAssetJob(id){if(!id)return;state.acceptedAssetJobs.add(id);for(const event of state.pendingAssets.get(id)||[])ingestAssetEvent(event);state.pendingAssets.delete(id);hydrateJobAssets(id)}
 async function hydrateJobAssets(id){if(state.hydratedJobs.has(id))return;state.hydratedJobs.add(id);try{const r=await fetch("/api/atlas/catalog"),j=await r.json(),all=j.assets||[];let assets=all.filter(a=>a.job_id===id),source=id;if(!assets.length){const prompt=(j.jobs||[]).find(x=>x.id===id)?.prompt,prior=(j.jobs||[]).filter(x=>x.id!==id&&x.prompt===prompt&&all.some(a=>a.job_id===x.id)).sort((a,b)=>Number(b.updated_at)-Number(a.updated_at))[0];if(prior){source=prior.id;assets=all.filter(a=>a.job_id===source);$("assetSummary").textContent="Previous horse collection visible · live batch rendering"}}assets.sort((a,b)=>Number(a.cell_index)-Number(b.cell_index)||Number(a.created_at)-Number(b.created_at)).slice(-64).forEach(a=>ingestAssetEvent({job_id:source,asset:a}))}catch{state.hydratedJobs.delete(id)}}
-function ingestAssetEvent(event){clearPrefilled();const a=event.asset||{};ingestFrame({url:a.access_url,index:a.index,seed:a.seed,total:Number(a.total)||0,updateProgress:!!state.activeJob&&event.job_id===state.activeJob})}
+function ingestAssetEvent(event){
+  const shown=state.pinnedJob||state.shownJob||state.activeJob;
+  if(shown&&event.job_id!==shown)return;
+  clearPrefilled();
+  const a=event.asset||{};
+  ingestFrame({url:a.access_url,index:a.index,seed:a.seed,total:Number(a.total)||0,live:true,updateProgress:!!state.activeJob&&event.job_id===state.activeJob});
+}
 function renderSpineState(){const producing=document.querySelector('[data-step="producing"]');$("spineState").textContent=producing?.classList.contains("active")?"PRODUCING":document.querySelector('[data-step="assets"]')?.classList.contains("done")?"LIVE":"READY"}
 function checkpoint(name,status="done"){const row=document.querySelector(`[data-step="${name}"]`);if(!row)return;const current=row.classList.contains("active")?"active":row.classList.contains("done")?"done":"";if(current!==status){row.classList.remove("active","done");if(status)row.classList.add(status);renderSpineState()}}
 function updateJobReady(){const configured=state.studyType&&$("prompt").value.trim()&&$("id").value.trim()&&numeric("cells")>0&&numeric("batchSize")>0&&numeric("size")>0&&numeric("steps")>0&&numeric("guidance")>0,loaded=state.model.loaded;checkpoint("planned",configured?"done":"");$("planButton").disabled=!loaded||!configured;$("launchButton").disabled=state.model.known&&loaded&&!configured;$("launchButton").querySelector("span").textContent=!state.model.known?"Checking worker":!loaded?(state.model.downloaded?"Load worker":"Download model"):configured?`Start ${state.studyType}`:"Choose loop or atlas";return !!configured&&loaded}
@@ -78,6 +84,7 @@ function showJobProgress(job){
   const preview=String(job.kind||"")==="seed_preview",atlas=String(job.kind||"")==="atlas_sphere";
   const delivered=Number(preview?job.images_done:(job.atlas_done??job.step??0));
   const total=Number(preview?job.images_total:(job.atlas_total??job.total_steps??0));
+  state.batchSize=Number(job.batch_size||job.batch_plan?.[0])||state.batchSize||64;
   const batchRendering=atlas&&String(job.phase||"").startsWith("batch ");
   const batchSize=Number(job.batch_size||1),batchStep=Number(job.cell_step||0),batchSteps=Number(job.cell_total_steps||job.steps||0);
   const effectiveDone=delivered+(batchRendering&&batchSteps?batchSize*batchStep/batchSteps:0);
@@ -125,6 +132,14 @@ function renderJobFeed(j){
   $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
   if(chosen){
     state.activeJob=chosen.id;
+    if(switched&&state.shownJob){
+      state.frames=[];state.playIndex=null;
+      state.playQueue=[];
+      if(state.playPump){clearTimeout(state.playPump);state.playPump=null}
+      const strip=$("filmstrip");
+      if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());
+      state.hydratedJobs.delete(chosen.id);
+    }
     state.shownJob=chosen.id;
     sessionStorage.setItem("motionAtlasJob",chosen.id);
     if(switched&&chosen.prompt){
@@ -152,17 +167,51 @@ function renderJobFeed(j){
   document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.pinnedJob=job.id;state.activeJob=job.id;state.shownJob=null;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);clearPrefilled();state.frames=[];const strip=$("filmstrip");if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());state.hydratedJobs.delete(job.id);hydrateJobAssets(job.id);showJobProgress(job)});
 }
 async function refreshJobs(){try{const r=await fetch("/api/jobs"),j=await r.json();renderJobFeed(j)}catch{}}
-function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{(data.jobs||[]).filter(x=>["running","queued"].includes(String(x.status).toLowerCase())).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
+function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{const shown=state.pinnedJob||state.shownJob;if(shown)acceptAssetJob(shown);else (data.jobs||[]).filter(x=>String(x.status).toLowerCase()==="running").slice(0,1).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
 async function modelAction(path){try{const r=await fetch(path,{method:"POST"}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Model action failed");$("modelMessage").textContent=String(j.status||"Working").toUpperCase();$("modelProgressBar").classList.add("busy")}catch(e){toast(e.message)}}
 function loadThumbnail(img,url,seed){document.querySelectorAll("#filmstrip img").forEach(x=>x.classList.remove("selected"));img.classList.add("selected");$("assetSummary").textContent="Loading selected frame…";const shown=$("assetFrameA");shown.classList.remove("active");shown.onload=()=>{shown.classList.add("active");$("assetSummary").textContent=seed?`Seed ${seed} selected · ready to start`:"Selected frame loaded"};shown.onerror=()=>{$("assetSummary").textContent="Frame failed to load"};shown.src=url;$("assetFrameB").classList.remove("active");if(seed){$("seed").value=seed;state.selectedFlavor={seed:String(seed),url};updateJobReady()}}
 function cycleFrame(delta){const frames=[...document.querySelectorAll("#filmstrip img")];if(!frames.length)return;let i=frames.findIndex(x=>x.classList.contains("selected"));i=(i<0?(delta>0?-1:0):i)+delta;i=(i+frames.length)%frames.length;frames[i].click();frames[i].scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})}
 function sweepFilmstrip(){const strip=$("filmstrip"),frames=[...strip.querySelectorAll("img")];if(state.filmstripSweeping||frames.length<64)return;state.filmstripSweeping=true;frames.slice(0,32).forEach((img,i)=>setTimeout(()=>{img.classList.add("departing");setTimeout(()=>img.remove(),180)},i*24));setTimeout(()=>{state.filmstripSweeping=false},32*24+220)}
-function ingestFrame(d){const url=d.url||d.output_url||d.image_url;if(url&&!state.frames.includes(url)){state.frames.push(url);checkpoint("assets");$("assetSummary").textContent=`${state.frames.length.toLocaleString()} assets received from Piper`;const next=state.assetSide==="A"?$("assetFrameA"):$("assetFrameB"),prior=state.assetSide==="A"?$("assetFrameB"):$("assetFrameA");next.onload=()=>{prior.classList.remove("active");next.classList.add("active")};next.onerror=()=>{$("assetSummary").textContent="Incoming frame failed to load"};next.src=url;state.assetSide=state.assetSide==="A"?"B":"A";$("assetStage").style.display="block";$("sphere").style.display="none";$("stageMessage").style.display="none";const img=document.createElement("img");img.onload=()=>img.classList.remove("loading");img.onerror=()=>img.classList.add("failed");img.classList.add("loading");img.src=url;img.title=d.seed?`Load frame and select seed ${d.seed}`:"Load this frame";img.onclick=()=>loadThumbnail(img,url,d.seed);$("filmstrip").querySelector(".filmEmpty")?.remove();$("filmstrip").appendChild(img);$("filmstrip").scrollLeft=999999;sweepFilmstrip()}
+function ingestFrame(d){const url=d.url||d.output_url||d.image_url;if(url&&!state.frames.includes(url)){state.frames.push(url);if(d.live){state.lastFrameAt=Date.now();queueFrames([url])}checkpoint("assets");$("assetSummary").textContent=`${state.frames.length.toLocaleString()} assets received from Piper`;const next=state.assetSide==="A"?$("assetFrameA"):$("assetFrameB"),prior=state.assetSide==="A"?$("assetFrameB"):$("assetFrameA");if(!d.live){next.onload=()=>{prior.classList.remove("active");next.classList.add("active")};next.onerror=()=>{$("assetSummary").textContent="Incoming frame failed to load"};next.src=url;state.assetSide=state.assetSide==="A"?"B":"A";$("assetStage").style.display="block";$("sphere").style.display="none";$("stageMessage").style.display="none";}const img=document.createElement("img");img.onload=()=>img.classList.remove("loading");img.onerror=()=>img.classList.add("failed");img.classList.add("loading");img.src=url;img.title=d.seed?`Load frame and select seed ${d.seed}`:"Load this frame";img.onclick=()=>loadThumbnail(img,url,d.seed);$("filmstrip").querySelector(".filmEmpty")?.remove();$("filmstrip").appendChild(img);$("filmstrip").scrollLeft=999999;sweepFilmstrip()}
   if(d.updateProgress){const done=Number(d.completed||state.frames.length),total=Number(d.total||0),pct=total?Math.min(100,done/total*100):0;$("progressBar").style.width=pct+"%";$("progressText").textContent=total?`${done.toLocaleString()} / ${total.toLocaleString()}`:"— / —";if(state.started&&done&&total){const fps=done/((Date.now()-state.started)/1000);$("rate").textContent=fps.toFixed(2)+" fps";$("eta").textContent=Math.max(0,(total-done)/fps/60).toFixed(1)+" min"}}$("currentCell").textContent=d.index==null?"—":String(d.index).padStart(5,"0")}
-function playFrame(){
-  if(state.frames.length<2)return;
-  state.playIndex=((state.playIndex??-1)+1)%state.frames.length;
-  const url=state.frames[state.playIndex];
+// The worker delivers a whole batch at once (batch_size frames in one burst),
+// then renders silently for roughly batch_size/rate seconds. Showing the burst
+// immediately would flash 64 frames and then freeze, so arriving frames are
+// queued and released at the pace they were actually rendered. The interval is
+// derived from the live queue depth, so if the queue falls behind it drains
+// faster and catches up by the time the next batch lands.
+function queueFrames(urls){
+  if(!urls||!urls.length)return;
+  // A gap since the last arrival means a new batch just landed; restart the
+  // pacing window from now.
+  if(Date.now()-(state.lastQueueAt||0)>2000)state.batchAt=Date.now();
+  state.lastQueueAt=Date.now();
+  state.playQueue=(state.playQueue||[]).concat(urls);
+  if(!state.playPump)pumpFrame();
+}
+function paceMs(){
+  const q=(state.playQueue||[]).length;
+  if(!q)return 900;
+  const rate=(state.progress&&state.progress.rate>0)?state.progress.rate:(state.lastRate||1);
+  const batch=Math.max(1,Number(state.batchSize||64));
+  // How long the worker takes to produce one batch, and how much of that
+  // window is left. Dividing the remaining window by the remaining queue keeps
+  // the interval stable instead of decelerating as the queue drains.
+  const periodMs=(batch/Math.max(rate,0.05))*1000;
+  const elapsed=Date.now()-(state.batchAt||Date.now());
+  const remaining=periodMs-elapsed;
+  // Behind schedule, or more queued than one batch: drain at render pace or faster.
+  if(remaining<=0||q>batch)return Math.max(80,Math.min(600,periodMs/Math.max(q,1)));
+  return Math.max(80,Math.min(2000,remaining/q));
+}
+function pumpFrame(){
+  const q=state.playQueue||[];
+  if(!q.length){state.playPump=null;return}
+  showStageFrame(q.shift());
+  state.playPump=setTimeout(pumpFrame,paceMs());
+}
+function showStageFrame(url){
+  if(!url)return;
   const next=state.playSide==="B"?$("assetFrameB"):$("assetFrameA");
   const prior=state.playSide==="B"?$("assetFrameA"):$("assetFrameB");
   if(!next)return;
@@ -170,9 +219,21 @@ function playFrame(){
   next.classList.add("active");
   if(prior)prior.classList.remove("active");
   state.playSide=state.playSide==="B"?"A":"B";
+  state.shownFrame=url;
   $("assetStage").style.display="block";
   $("sphere").style.display="none";
   $("stageMessage").style.display="none";
+}
+function playFrame(){
+  // Idle filler: only used when the queue is empty and nothing is arriving,
+  // so the stage never sits frozen on a single frame.
+  if((state.playQueue||[]).length)return;
+  if(state.frames.length<2)return;
+  if(Date.now()-(state.lastFrameAt||0)<2500)return;
+  const window=Math.min(state.frames.length,24);
+  const base=state.frames.length-window;
+  state.playIndex=base+(((state.playIndex??base)-base+1)%window);
+  showStageFrame(state.frames[state.playIndex]);
 }
 function humanDuration(sec){
   if(!Number.isFinite(sec)||sec<=0)return "—";

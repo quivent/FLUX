@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	_ "image/png"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +21,11 @@ func (s Server) assetThumbnail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source := strings.TrimSpace(r.URL.Query().Get("src"))
+	// Clients may send either a root-relative path or a fully qualified URL.
+	// Behind a reverse proxy the latter is common, so reduce it to its path.
+	if parsed, err := url.Parse(source); err == nil && parsed.Path != "" && (parsed.Scheme == "http" || parsed.Scheme == "https") {
+		source = parsed.Path
+	}
 	if !strings.HasPrefix(source, "/outputs/") {
 		writeError(w, http.StatusBadRequest, "thumbnail source must be an output asset")
 		return
