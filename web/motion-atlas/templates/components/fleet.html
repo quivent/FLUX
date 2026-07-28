@@ -1,0 +1,11 @@
+{# Fleet GPU telemetry cards #}
+<div class="gpuFleet" id="gpuFleet">
+  {% for gpu in range(gpu_count) %}
+  <div class="gpuCard" data-gpu="{{ gpu }}">
+    <div class="gpuCardHead"><span class="gpuIndex">GPU {{ gpu }}</span><strong class="gpuCardName">—</strong><small class="gpuCardPhase">LOADING</small></div>
+    <div class="gauge"><div class="gaugeHead"><span>VRAM</span><strong class="gpuCardVram">—</strong></div><div class="meter"><i class="gpuCardVramBar"></i></div></div>
+    <div class="gauge"><div class="gaugeHead"><span>SM</span><strong class="gpuCardCompute">—</strong></div><div class="meter"><i class="gpuCardComputeBar"></i></div></div>
+    <div class="gpuCardStats"><span class="gpuCardThermal">—°</span><span class="gpuCardPower">— W</span></div>
+  </div>
+  {% endfor %}
+</div>

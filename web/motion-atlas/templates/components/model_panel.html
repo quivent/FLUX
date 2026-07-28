@@ -1,0 +1,14 @@
+{# Model residency panel — inspector right column #}
+<section class="modelModule">
+  <div class="modelTitle"><span>MODEL RESIDENCY</span><strong>FLUX.1 DEV · BF16</strong></div>
+  <div class="modelStates">
+    <div><i id="downloadDot"></i><span>ON DISK</span><strong id="downloadState">CHECKING</strong></div>
+    <div><i id="loadDot"></i><span>IN VRAM</span><strong id="loadState">CHECKING</strong></div>
+  </div>
+  <div class="modelProgress"><i id="modelProgressBar"></i></div>
+  <small id="modelMessage">Reading the model lifecycle stream.</small>
+  <div class="modelActions">
+    <button id="downloadModel" type="button">Download</button>
+    <button id="loadModel" type="button">Load to GPU</button>
+  </div>
+</section>

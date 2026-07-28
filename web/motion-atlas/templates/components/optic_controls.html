@@ -1,0 +1,21 @@
+{# Optics — lens specification panel #}
+<aside class="opticControls">
+  <div class="panelHead"><span>01</span><h2>Lens specification</h2></div>
+  <div class="opticPresetDeck">
+    <button data-optic="anamorphic"><b>2×</b><span><strong>Anamorphic nocturne</strong><small>Oval falloff · horizontal bloom</small></span></button>
+    <button data-optic="portrait"><b>85</b><span><strong>Portrait compression</strong><small>Quiet plane · graceful isolation</small></span></button>
+    <button data-optic="documentary"><b>35</b><span><strong>Documentary glass</strong><small>Human field · restrained texture</small></span></button>
+    <button data-optic="macro"><b>100</b><span><strong>Macro inspection</strong><small>Surface detail · narrow plane</small></span></button>
+  </div>
+  <label>Subject direction<textarea id="opticPrompt">A dark horse in powerful lateral motion through rain-lit Samara, deep architectural parallax and exact anatomical continuity</textarea></label>
+  <div class="opticGrid">
+    <label>Focal length <output id="focalOut">50 mm</output><input id="focal" type="range" min="14" max="200" value="50"></label>
+    <label>Aperture <output id="apertureOut">T2.0</output><input id="aperture" type="range" min="12" max="160" value="20"></label>
+    <label>Focus distance <output id="focusOut">4.0 m</output><input id="focus" type="range" min="3" max="300" value="40"></label>
+    <label>Anamorphic squeeze <output id="squeezeOut">1.00×</output><input id="squeeze" type="range" min="100" max="200" value="100"></label>
+    <label>Lens character <select id="character"><option>modern neutral</option><option>vintage low-contrast</option><option>Cooke warmth</option><option>Zeiss micro-contrast</option><option>re-housed Soviet glass</option></select></label>
+    <label>Focus behavior <select id="focusBehavior"><option>locked subject plane</option><option>measured rack focus</option><option>deep focus</option><option>breathing pull</option></select></label>
+    <label>Distortion <output id="distortionOut">0%</output><input id="distortion" type="range" min="-30" max="30" value="0"></label>
+    <label>Halation <output id="halationOut">12%</output><input id="halation" type="range" min="0" max="100" value="12"></label>
+  </div>
+</aside>

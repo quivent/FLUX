@@ -1,0 +1,53 @@
+{# Live frame stage — viewport, filmstrip, telemetry #}
+<section class="stage">
+  <div class="stageHead">
+    <div><span class="eyebrow">LIVE FRAME STAGE</span><h1 id="stageTitle">Motion continuity, mapped.</h1><small class="stageJobMeta" id="stageJobMeta"></small><small class="stagePrompt" id="stagePrompt"></small></div>
+    <div class="stageTools"><div class="viewSwitch"><button class="active" data-view="frame">Frame</button><button data-view="sphere">Sphere</button></div><button class="focusButton" id="focusStage" aria-label="Expand stage">↗</button></div>
+  </div>
+  <div class="viewport" id="viewport">
+    <div class="sphere" id="sphere">
+      <div class="orbit orbitA"></div><div class="orbit orbitB"></div><div class="orbit orbitC"></div>
+      <div class="sphereCore"></div><div class="axis"></div>
+    </div>
+    <div class="assetStage" id="assetStage">
+      <img id="assetFrameA" alt="Current Piper asset">
+      <img id="assetFrameB" alt="Incoming Piper asset">
+      <span class="piperBadge"><i></i>PIPER · UNIX SOCKET</span>
+    </div>
+    <div class="reticle"><i></i><i></i><i></i><i></i></div>
+    <div class="coordinate"><span>CELL</span><strong id="currentCell">—</strong><small id="coordinate">θ — / φ —</small></div>
+    <div class="stageMessage" id="stageMessage"><strong>READY FOR A PATH</strong><span>Plan the latent orbit, then launch it into the resident FLUX worker.</span></div>
+    <div class="frameNavHint">CLICK THUMBNAIL TO LOAD <b>←</b><b>→</b> CYCLE MOTION</div>
+  </div>
+  <div class="filmstrip" id="filmstrip">
+    <div class="filmEmpty">Generated cells will arrive here in traversal order</div>
+  </div>
+  <div class="telemetry">
+    <div><span>PROGRESS</span><strong id="progressText">— / —</strong></div>
+    <div class="progress"><i id="progressBar"></i></div>
+    <div><span>RATE</span><strong id="rate">— fps</strong></div>
+    <div><span>CACHE</span><strong id="cacheState">XFRAME / .30</strong></div>
+    <div><span>ETA</span><strong id="eta">—</strong></div>
+  </div>
+  <div class="fuelRail">
+    <div class="fuelBlock">
+      <div class="fuelHead"><span>ELAPSED / ESTIMATE</span><strong id="etaClock">—</strong></div>
+      <div class="etaTrack"><i id="etaBar"></i></div>
+    </div>
+    <div class="fuelBlock" id="fuelTank">
+      <div class="fuelHead"><span>QUEUE FUEL</span><strong id="fuelLabel">—</strong></div>
+      <div class="fuelTrack" aria-label="Queue depth">
+        <i id="fuelBar"></i>
+        <b class="fuelMark" style="left:15%"></b>
+        <b class="fuelMark" style="left:40%"></b>
+      </div>
+      <div class="fuelStats">
+        <span>RUNNING <b id="statRunning">—</b></span>
+        <span>PENDING <b id="statPending">—</b></span>
+        <span>FAILED <b id="statFailed">—</b></span>
+        <button id="clearErrors" type="button" title="Remove failed and cancelled jobs from the list">CLEAR FAILED</button>
+      </div>
+      <small id="fuelDetail">Reading queue depth</small>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,2 @@
+/* spine.css */
+.presetDeck{display:flex;gap:4px;margin:0 0 12px}.presetDeck button{padding:5px 8px;border:1px solid var(--line);border-radius:3px;background:#0a0f12;color:var(--muted);font:8px/1 var(--mono);letter-spacing:.06em;cursor:pointer;transition:border-color .2s,color .2s}.presetDeck button:hover,.presetDeck button.selected{border-color:var(--cyan);color:var(--cyan)}

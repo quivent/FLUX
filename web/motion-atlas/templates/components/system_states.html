@@ -1,0 +1,13 @@
+{# System readiness panel — bottom of navigator #}
+<div class="systemStates" aria-label="System readiness">
+  <div class="sectionLabel"><span>SYSTEM</span><strong id="systemLabel">CHECKING</strong></div>
+  <div class="stateRow" data-step="nexus"><i></i><strong>Nexus</strong><small>Orchestration daemon</small></div>
+  <div class="stateRow" data-step="worker"><i></i><strong>Worker</strong><small>CUDA compute socket</small></div>
+  <div class="stateRow" data-step="model"><i></i><strong>Model</strong><small>BF16 VRAM residency</small></div>
+  <div class="stateRow" data-step="assets"><i></i><strong>Piper</strong><small id="assetSummary">Asset delivery</small></div>
+  <div class="systemActions">
+    <button onclick="fetch('/api/warm?preload=1',{method:'POST'}).then(()=>location.reload())">Warm fleet</button>
+    <button onclick="fetch('/api/stop',{method:'POST'}).then(()=>location.reload())">Stop workers</button>
+    <button onclick="fetch('/api/warm',{method:'POST'}).then(()=>location.reload())">Restart</button>
+  </div>
+</div>
