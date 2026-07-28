@@ -7,6 +7,7 @@ import math
 import os
 import pathlib
 import platform
+import queue
 import socket
 import shutil
 import subprocess
@@ -839,6 +840,33 @@ class Worker:
                 basis = [vector.to(self.device) for vector in _gram_schmidt(flattened)]
                 latent_shape = anchors[0].shape
                 continuity = {**job, "arc": 0.16, "orbit": 1.0, "seed_lock": 0.72}
+                publish_queue = queue.Queue()
+                cadence = 0.45
+
+                def publish_in_order():
+                    next_emit = time.monotonic()
+                    while True:
+                        item = publish_queue.get()
+                        if item is None:
+                            publish_queue.task_done()
+                            return
+                        output, index, access_url, pace = item
+                        delay = next_emit - time.monotonic()
+                        if delay > 0:
+                            time.sleep(delay)
+                        _publish_piper_asset(
+                            job["id"], output, index, job["images_total"],
+                            access_url=access_url, seed=base_seed,
+                        )
+                        with self.jobs_lock:
+                            job["images_done"] = index + 1
+                            job["delivery_interval"] = pace
+                            self._write_jobs()
+                        next_emit = max(next_emit, time.monotonic()) + pace
+                        publish_queue.task_done()
+
+                publisher = threading.Thread(target=publish_in_order, daemon=True)
+                publisher.start()
                 for batch_size in job["batch_plan"]:
                     if job.get("cancel_requested"):
                         raise CancelledJob("job cancelled")
@@ -859,25 +887,29 @@ class Worker:
                         job["step"] = int(step) + 1
                         self._write_jobs()
                         return callback_kwargs
+                    batch_started = time.monotonic()
                     images = self.pipe(
                         prompt=job["prompt"], width=job["width"], height=job["height"],
                         guidance_scale=job["guidance"], num_inference_steps=job["steps"],
                         num_images_per_prompt=batch_size, latents=latents,
                         callback_on_step_end=on_step_end,
                     ).images
+                    observed = (time.monotonic() - batch_started) / max(1, batch_size)
+                    cadence = max(0.10, min(1.25, 0.65 * cadence + 0.35 * observed))
                     for image in images:
                         filename = f"{source.stem}-{ordinal + 1:02d}{source.suffix or '.png'}"
                         output = self.out_dir / filename
                         image.save(output)
                         output_rel = output.resolve().relative_to(self.out_dir.resolve())
-                        _publish_piper_asset(
-                            job["id"], output, ordinal, job["images_total"],
-                            access_url="/outputs/" + output_rel.as_posix(), seed=base_seed + ordinal,
-                        )
                         job["outputs"].append(str(output))
+                        publish_queue.put((
+                            output, ordinal, "/outputs/" + output_rel.as_posix(), cadence,
+                        ))
                         ordinal += 1
-                        job["images_done"] = ordinal
                         self._write_jobs()
+                publish_queue.join()
+                publish_queue.put(None)
+                publish_queue.join()
                 job["status"] = "done"
                 job["phase"] = "done"
                 job["output"] = job["outputs"][0] if job["outputs"] else ""
