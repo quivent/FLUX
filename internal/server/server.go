@@ -204,6 +204,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/img2img/cancel", s.img2imgCancel)
 	mux.HandleFunc("/api/blend", s.blendImages)
 	mux.HandleFunc("/api/atlas/submit", s.submitAtlas)
+	mux.HandleFunc("/api/atlas/seeds", s.atlasSeeds)
+	mux.HandleFunc("/api/atlas/seed", s.atlasSeed)
 	mux.HandleFunc("/api/upload", s.uploadImage)
 	mux.HandleFunc("/api/warm", s.warm)
 	mux.HandleFunc("/api/stop", s.stop)
@@ -220,6 +222,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
+	go s.reconcileAtlasCatalog()
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
@@ -540,6 +543,7 @@ func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 		if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
 			continue
 		}
+		s.storeAtlasAsset(event)
 		raw, _ := json.Marshal(event)
 		if _, err := fmt.Fprintf(w, "event: asset\ndata: %s\n\n", raw); err != nil {
 			return
@@ -599,6 +603,7 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 			body["worker_running"] = false
 			body["worker_error"] = err.Error()
 		} else {
+			s.storeAtlasJobs(resp.Jobs)
 			body["jobs"] = s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
 			body["model_loaded"] = resp.Loaded
 			body["backend"] = resp.Backend
@@ -794,8 +799,8 @@ func (s Server) render(w http.ResponseWriter, r *http.Request) {
 	if iterations <= 0 {
 		iterations = 1
 	}
-	if iterations > 50 {
-		iterations = 50
+	if iterations > 64 {
+		iterations = 64
 	}
 	plans := make([]renderPlan, 0, iterations)
 	for i := 0; i < iterations; i++ {
@@ -838,6 +843,8 @@ func (s Server) render(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		jobs = append(jobs, s.jobWithOutputURL(r, resp.Job))
+		s.storeAtlasJobs([]map[string]any{resp.Job})
+		s.storeAtlasSeed(plan.Seed, plan.Prompt, stringValue(resp.Job["id"]))
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "job": jobs[0], "jobs": jobs, "plan": plans[0], "plans": plans, "iterations": iterations})
 }
@@ -1065,6 +1072,8 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		job["viewer_url"] = viewer
 		job["gallery_url"] = gallery
 	}
+	s.storeAtlasJobs([]map[string]any{resp.Job})
+	s.storeAtlasSeed(seedA, req.Prompt, stringValue(resp.Job["id"]))
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"ok":      true,
 		"job":     job,
@@ -2150,7 +2159,44 @@ CREATE TABLE IF NOT EXISTS collection_picks (
 	created_at INTEGER NOT NULL DEFAULT 0,
 	updated_at INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY(collection_path, image_name)
-);`); err != nil {
+);
+CREATE TABLE IF NOT EXISTS atlas_seeds (
+	seed TEXT PRIMARY KEY,
+	description TEXT NOT NULL DEFAULT '',
+	source_job_id TEXT NOT NULL DEFAULT '',
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS atlas_jobs (
+	id TEXT PRIMARY KEY,
+	kind TEXT NOT NULL DEFAULT '',
+	status TEXT NOT NULL DEFAULT '',
+	phase TEXT NOT NULL DEFAULT '',
+	prompt TEXT NOT NULL DEFAULT '',
+	seed TEXT NOT NULL DEFAULT '',
+	backend TEXT NOT NULL DEFAULT '',
+	progress INTEGER NOT NULL DEFAULT 0,
+	total INTEGER NOT NULL DEFAULT 0,
+	payload_json TEXT NOT NULL DEFAULT '{}',
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS atlas_assets (
+	id TEXT PRIMARY KEY,
+	job_id TEXT NOT NULL DEFAULT '',
+	seed TEXT NOT NULL DEFAULT '',
+	path TEXT NOT NULL DEFAULT '',
+	access_url TEXT NOT NULL DEFAULT '',
+	media_type TEXT NOT NULL DEFAULT '',
+	cell_index INTEGER NOT NULL DEFAULT -1,
+	metadata_json TEXT NOT NULL DEFAULT '{}',
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS atlas_jobs_status_idx ON atlas_jobs(status, updated_at);
+CREATE INDEX IF NOT EXISTS atlas_assets_job_idx ON atlas_assets(job_id, created_at);
+CREATE INDEX IF NOT EXISTS atlas_seeds_updated_idx ON atlas_seeds(updated_at);
+`); err != nil {
 		_ = db.Close()
 		return nil, err
 	}

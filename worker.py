@@ -33,7 +33,7 @@ class CancelledJob(RuntimeError):
     pass
 
 
-def _publish_piper_asset(job_id, path, index, total):
+def _publish_piper_asset(job_id, path, index, total, *, access_url=None, seed=None):
     socket_path = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
     payload = {
         "type": "asset.publish",
@@ -45,7 +45,8 @@ def _publish_piper_asset(job_id, path, index, total):
             "media_type": "image/png",
             "index": int(index),
             "total": int(total),
-            "access_url": f"/outputs/atlas/{job_id}.sphere/{pathlib.Path(path).name}",
+            "access_url": access_url or f"/outputs/atlas/{job_id}.sphere/{pathlib.Path(path).name}",
+            "seed": "" if seed is None else str(seed),
         },
     }
     try:
@@ -792,6 +793,14 @@ class Worker:
             self._write_jobs()
             try:
                 output = self._render(job)
+                try:
+                    output_rel = pathlib.Path(output).resolve().relative_to(self.out_dir.resolve())
+                    access_url = "/outputs/" + output_rel.as_posix()
+                except (OSError, ValueError):
+                    access_url = ""
+                job["piper_asset_ready"] = _publish_piper_asset(
+                    job["id"], output, 0, 1, access_url=access_url, seed=job.get("seed")
+                )
                 seconds = time.time() - float(job["started"])
                 job["status"] = "done"
                 job["phase"] = "done"
