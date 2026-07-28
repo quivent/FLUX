@@ -45,22 +45,27 @@ def _publish_piper_asset(job_id, path, index, total, *, access_url=None, seed=No
             "path": str(path),
             "media_type": "image/png",
             "index": int(index),
+            "cell_index": int(index),
             "total": int(total),
             "access_url": access_url or f"/outputs/atlas/{job_id}.sphere/{pathlib.Path(path).name}",
             "seed": "" if seed is None else str(seed),
         },
     }
-    try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-            conn.settimeout(1.0)
-            conn.connect(socket_path)
-            conn.sendall((json.dumps(payload, separators=(",", ":")) + "\n").encode())
-            conn.shutdown(socket.SHUT_WR)
-            raw = conn.recv(4096)
-        receipt = json.loads(raw.decode("utf-8", "replace").strip())
-        return bool(receipt.get("ok")) and receipt.get("status") == "published"
-    except OSError:
-        return False
+    for attempt in range(3):
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+                conn.settimeout(2.0)
+                conn.connect(socket_path)
+                conn.sendall((json.dumps(payload, separators=(",", ":")) + "\n").encode())
+                conn.shutdown(socket.SHUT_WR)
+                raw = conn.recv(4096)
+            receipt = json.loads(raw.decode("utf-8", "replace").strip())
+            if receipt.get("ok") and receipt.get("status") == "published":
+                return True
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+        time.sleep(0.15 * (attempt + 1))
+    return False
 
 
 def _finite_int(value, fallback, minimum, maximum):
