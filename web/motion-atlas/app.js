@@ -84,6 +84,16 @@ function showJobProgress(job){
   const pct=total?Math.min(100,effectiveDone/total*100):0;
   const batchLabel=batchRendering?` · ${String(job.phase).toUpperCase()} · STEP ${batchStep}/${batchSteps}`:"";
   $("experimentPhase").textContent=`${String(job.status||"queued").toUpperCase()}${batchLabel||` · ${String(job.phase||"WAITING").toUpperCase()}`}`;
+  if($("stageTitle")){
+    const label=String(job.id||"").replace(/[-_]+/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+    $("stageTitle").textContent=label||"Motion continuity, mapped.";
+    $("stageTitle").title=job.prompt||"";
+  }
+  if($("stageJobMeta")){
+    const bits=[String(job.kind||"").replace("_"," "),job.width?`${job.width}px`:"",job.steps?`${job.steps} steps`:"",job.seed?`seed ${job.seed}`:"",job.mode||""].filter(Boolean);
+    $("stageJobMeta").textContent=bits.join(" · ");
+  }
+  if($("stagePrompt"))$("stagePrompt").textContent=job.prompt||"";
   $("progressText").textContent=total?`${Math.floor(effectiveDone).toLocaleString()} / ${total.toLocaleString()}`:"— / —";
   $("progressBar").style.width=pct+"%";
   $("productionSummary").textContent=total?`${delivered.toLocaleString()} / ${total.toLocaleString()} ${preview?"images":"cells"}${batchLabel}`:String(job.phase||job.status);
