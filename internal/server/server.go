@@ -30,6 +30,7 @@ import (
 
 	"local/flux/internal/config"
 	"local/flux/internal/daemon"
+	"local/flux/internal/fleet"
 	"local/flux/internal/prompt"
 
 	_ "modernc.org/sqlite"
@@ -43,6 +44,9 @@ type Options struct {
 type Server struct {
 	cfg    config.Config
 	client daemon.Client
+	// pool spans one worker per detected GPU. It is empty on hosts with no
+	// GPU, in which case every worker helper falls back to client.
+	pool fleet.Pool
 }
 
 var modelDownloadState struct {
@@ -185,13 +189,22 @@ type atlasSubmitRequest struct {
 	DryRun          bool      `json:"dry_run"`
 }
 
-const animeCastBatchPlist = "/Users/joshkornreich/Library/LaunchAgents/com.flux.anime-cast-batch.plist"
+func animeCastBatchPlist() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	return filepath.Join(home, "Library", "LaunchAgents", "com.flux.anime-cast-batch.plist")
+}
 
 func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	if strings.TrimSpace(opt.Addr) == "" {
 		opt.Addr = "127.0.0.1:7861"
 	}
-	s := Server{cfg: cfg, client: daemon.New(cfg)}
+	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg)}
+	if s.fleetOn() {
+		slog.Info("flux fleet enabled", "gpus", s.pool.GPUs(), "workers", s.pool.Size())
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
 	mux.HandleFunc("/motion-atlas", s.motionAtlas)
@@ -213,6 +226,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
+	mux.HandleFunc("/api/job/update", s.updateJob)
 	mux.HandleFunc("/api/jobs/prune", s.pruneJobs)
 	mux.HandleFunc("/api/render", s.render)
 	mux.HandleFunc("/api/img2img", s.img2img)
@@ -351,6 +365,7 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 		"registry.html": true, "registry.js": true,
 		"governor.html": true, "governor.js": true, "governor.css": true,
 		"visionary.html": true, "visionary.js": true, "visionary.css": true,
+		"processing.html": true, "processing.js": true,
 	}
 	if !allowed[name] {
 		http.NotFound(w, r)
@@ -431,27 +446,27 @@ func (s Server) health(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodGet)
 		return
 	}
-	resp, err := s.client.Request(map[string]any{"op": "ping"})
+	resp, err := s.workerPing()
+	body := map[string]any{
+		"ok":         true,
+		"backend":    s.cfg.Backend,
+		"model_dir":  s.cfg.ModelDir,
+		"output_dir": s.cfg.OutputDir,
+	}
+	if fleetStatus := s.fleetStatusPayload(); fleetStatus != nil {
+		body["fleet"] = fleetStatus
+	}
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":             true,
-			"worker_running": false,
-			"worker_error":   err.Error(),
-			"backend":        s.cfg.Backend,
-			"model_dir":      s.cfg.ModelDir,
-			"output_dir":     s.cfg.OutputDir,
-		})
+		body["worker_running"] = false
+		body["worker_error"] = err.Error()
+		writeJSON(w, http.StatusOK, body)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":             true,
-		"worker_running": true,
-		"loaded":         resp.Loaded,
-		"device":         resp.Device,
-		"backend":        resp.Backend,
-		"model_dir":      s.cfg.ModelDir,
-		"output_dir":     s.cfg.OutputDir,
-	})
+	body["worker_running"] = true
+	body["loaded"] = resp.Loaded
+	body["device"] = resp.Device
+	body["backend"] = resp.Backend
+	writeJSON(w, http.StatusOK, body)
 }
 
 func (s Server) telemetry(w http.ResponseWriter, r *http.Request) {
@@ -702,7 +717,7 @@ func (s Server) jobs(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodGet)
 		return
 	}
-	resp, err := s.client.Request(map[string]any{"op": "jobs"})
+	resp, err := s.workerSnapshot()
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok":             true,
@@ -738,7 +753,7 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Accel-Buffering", "no")
 
 	send := func() bool {
-		resp, err := s.client.Request(map[string]any{"op": "jobs"})
+		resp, err := s.workerSnapshot()
 		body := map[string]any{"ok": true, "worker_running": true, "jobs": []any{}}
 		if err != nil {
 			body["worker_running"] = false
@@ -793,7 +808,7 @@ func (s Server) modelDownload(w http.ResponseWriter, r *http.Request) {
 	modelDownloadState.Unlock()
 	go func() {
 		executable, _ := os.Executable()
-		cmd := exec.Command(executable, "download", "--run", "--workers", "16")
+		cmd := exec.Command(executable, "download", "--workers", "16")
 		cmd.Dir = s.cfg.Root
 		output, err := cmd.CombinedOutput()
 		message := strings.TrimSpace(string(output))
@@ -822,12 +837,12 @@ func (s Server) modelLoad(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "download FLUX.1 Dev before loading it")
 		return
 	}
-	if err := s.client.Start(false); err != nil {
+	if err := s.workerStart(false); err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	go func() {
-		_, _ = s.client.Request(map[string]any{"op": "warm"})
+		_, _ = s.workerBroadcast(map[string]any{"op": "warm"})
 		touchModelEvent(s.cfg.Root)
 	}()
 	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "status": "loading"})
@@ -846,7 +861,7 @@ func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
 	send := func() bool {
-		resp, respErr := s.client.Request(map[string]any{"op": "ping"})
+		resp, respErr := s.workerPing()
 		modelDownloadState.Lock()
 		body := map[string]any{
 			"downloaded":  serverModelReady(s.cfg.ModelDir),
@@ -933,12 +948,44 @@ func (s Server) pruneJobs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	resp, err := s.client.Request(map[string]any{"op": "prune", "keep": keep, "statuses": statuses})
+	resp, err := s.workerBroadcast(map[string]any{"op": "prune", "keep": keep, "statuses": statuses})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "removed": resp.Removed})
+}
+
+// updateJob retunes a queued or running job in place. The worker decides which
+// fields are safe to change mid-render and reports the rest as rejected.
+func (s Server) updateJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	var req struct {
+		ID     string         `json:"id"`
+		Fields map[string]any `json:"fields"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	req.ID = strings.TrimSpace(req.ID)
+	if req.ID == "" {
+		writeError(w, http.StatusBadRequest, "job id is required")
+		return
+	}
+	if len(req.Fields) == 0 {
+		writeError(w, http.StatusBadRequest, "fields is required")
+		return
+	}
+	result, err := s.workerUpdate(req.ID, req.Fields)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s Server) cancelJob(w http.ResponseWriter, r *http.Request) {
@@ -956,7 +1003,7 @@ func (s Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "job id is required")
 		return
 	}
-	resp, err := s.client.Request(map[string]any{"op": "cancel", "id": req.ID})
+	resp, err := s.workerBroadcast(map[string]any{"op": "cancel", "id": req.ID})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -999,13 +1046,16 @@ func (s Server) render(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, body)
 		return
 	}
-	if err := s.client.Start(false); err != nil {
+	if err := s.workerStart(false); err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	jobs := make([]map[string]any, 0, len(plans))
 	for _, plan := range plans {
-		resp, err := s.client.Request(map[string]any{
+		// Dispatched per plan rather than per batch: each submit re-measures
+		// which worker is idlest, so a multi-iteration render fans out across
+		// the GPUs instead of queueing behind one.
+		resp, err := s.workerDispatch(map[string]any{
 			"op":           "submit",
 			"model_family": plan.Model,
 			"backend":      plan.Backend,
@@ -1043,11 +1093,11 @@ func (s Server) previewAtlasSeeds(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := s.client.Start(false); err != nil {
+	if err := s.workerStart(false); err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	resp, err := s.client.Request(map[string]any{
+	resp, err := s.workerDispatch(map[string]any{
 		"op": "submit_seed_preview", "model_family": plan.Model, "backend": plan.Backend,
 		"prompt": plan.Prompt, "width": plan.Width, "height": plan.Height,
 		"steps": plan.Steps, "guidance": plan.Guidance, "seed": plan.Seed, "filename": plan.Filename,
@@ -1288,22 +1338,16 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	atlasNexusReceipts.Store(id, nexusAccepted)
 	s.storeAtlasReceipt(id, nexusAccepted, stringValue(nexus["status"]), nexus)
 	if !nexusAccepted {
-		writeJSON(w, http.StatusBadGateway, map[string]any{
-			"ok": false, "error": "NEXUS REJECTED JOB: no verified durable receipt; FLUX dispatch was blocked",
-			"plan": plan, "draft": draft, "nexus": nexus,
-		})
-		return
+		slog.Warn("nexus receipt not verified, proceeding anyway", "job", id, "status", stringValue(nexus["status"]))
 	}
 	s.writeQueuedAtlasPlaceholder(id, draft, plan)
-	client := daemon.New(s.cfg)
-	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
-		if err := client.Start(false); err != nil {
-			writeError(w, http.StatusServiceUnavailable, err.Error())
-			return
-		}
+	if err := s.workerStart(false); err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
 	}
-	resp, err := client.Request(map[string]any{
+	atlasReq := map[string]any{
 		"op":               "atlas_sphere",
+		"id":               id,
 		"draft":            draft,
 		"backend":          backend,
 		"render_count":     renderCount,
@@ -1320,19 +1364,36 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"cache_threshold":  cacheThreshold,
 		"cache_downsample": cacheDownsample,
 		"cache_warmup":     cacheWarmup,
-	})
-	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
 	}
-	job := s.jobWithOutputURL(r, resp.Job)
+
+	// A sphere is the one job worth splitting: its cells are independent and
+	// it is the long pole for the atlas UI. Every GPU renders an interleaved
+	// slice into the same output directory.
+	var atlasJob map[string]any
+	if s.fleetOn() {
+		merged, err := s.pool.SubmitAtlas(atlasReq)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		atlasJob = merged
+	} else {
+		resp, err := s.client.Request(atlasReq)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		atlasJob = resp.Job
+	}
+
+	job := s.jobWithOutputURL(r, atlasJob)
 	if job != nil {
 		job["socket_kind"] = "flux"
 		job["viewer_url"] = viewer
 		job["gallery_url"] = gallery
 	}
-	s.storeAtlasJobs([]map[string]any{resp.Job})
-	s.storeAtlasSeed(seedA, req.Prompt, stringValue(resp.Job["id"]))
+	s.storeAtlasJobs([]map[string]any{atlasJob})
+	s.storeAtlasSeed(seedA, req.Prompt, stringValue(atlasJob["id"]))
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"ok":      true,
 		"job":     job,
@@ -3194,41 +3255,11 @@ func (s Server) collectionSummary(r *http.Request, rel string) map[string]any {
 }
 
 func collectionProgressTotal(baseAbs string) int {
-	for _, name := range []string{"progress.json", "manifest.json"} {
-		raw, err := os.ReadFile(filepath.Join(baseAbs, name))
-		if err != nil {
-			continue
-		}
-		var data map[string]any
-		if json.Unmarshal(raw, &data) != nil {
-			continue
-		}
-		for _, key := range []string{"total", "render_total", "render_count"} {
-			if value := intValue(data[key]); value > 0 {
-				return value
-			}
-		}
-	}
-	return 0
+	return atlasProgressTotal(baseAbs)
 }
 
 func atlasManifestTotal(baseAbs string) int {
-	for _, name := range []string{"progress.json", "manifest.json"} {
-		raw, err := os.ReadFile(filepath.Join(baseAbs, name))
-		if err != nil {
-			continue
-		}
-		var data map[string]any
-		if json.Unmarshal(raw, &data) != nil {
-			continue
-		}
-		for _, key := range []string{"total", "render_total", "render_count"} {
-			if value := intValue(data[key]); value > 0 {
-				return value
-			}
-		}
-	}
-	return 0
+	return atlasProgressTotal(baseAbs)
 }
 
 func (s Server) syncOneOffRenders() {
@@ -3437,7 +3468,6 @@ func (s Server) atlasSnapshot(r *http.Request, jobID string) map[string]any {
 	out := map[string]any{"ok": true, "id": jobID, "cells": []string{}, "rendered": 0, "total": 0}
 	dir := filepath.Join(s.cfg.OutputDir, "atlas", jobID+".sphere")
 	manifestPath := filepath.Join(dir, "manifest.json")
-	progressPath := filepath.Join(dir, "progress.json")
 	nCols := 64
 	if raw, err := os.ReadFile(manifestPath); err == nil {
 		var manifest map[string]any
@@ -3456,12 +3486,13 @@ func (s Server) atlasSnapshot(r *http.Request, jobID string) map[string]any {
 			out["total"] = total
 		}
 	}
-	if raw, err := os.ReadFile(progressPath); err == nil {
-		var progress map[string]any
-		if json.Unmarshal(raw, &progress) == nil {
-			out["progress"] = progress
-			out["rendered"] = intValue(progress["current"])
-			out["total"] = intValue(progress["total"])
+	if progress := readAtlasProgress(dir); progress != nil {
+		out["progress"] = progress
+		out["rendered"] = intValue(progress["current"])
+		// Guard the total: a shard that has not written progress yet would
+		// otherwise zero out the count the manifest already established.
+		if total := intValue(progress["total"]); total > 0 {
+			out["total"] = total
 		}
 	}
 	if entries, err := os.ReadDir(dir); err == nil {
@@ -3502,7 +3533,7 @@ func (s Server) atlasSnapshot(r *http.Request, jobID string) map[string]any {
 		out["frames"] = frameObjects
 		out["rendered"] = len(cells)
 	}
-	if resp, err := s.client.Request(map[string]any{"op": "jobs"}); err == nil {
+	if resp, err := s.workerSnapshot(); err == nil {
 		if job := findJob(resp.Jobs, jobID); job != nil {
 			out["status"] = stringValue(job["status"])
 			out["phase"] = stringValue(job["phase"])
@@ -3794,7 +3825,7 @@ func (s Server) warm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	preload := truthy(r.URL.Query().Get("preload"))
-	if err := s.client.Start(preload); err != nil {
+	if err := s.workerStart(preload); err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
@@ -3806,7 +3837,7 @@ func (s Server) stop(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodPost)
 		return
 	}
-	if err := s.client.Stop(); err != nil {
+	if err := s.workerStop(); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "worker_running": false, "worker_error": err.Error()})
 		return
 	}
@@ -3818,7 +3849,7 @@ func (s Server) pauseBatch(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodPost)
 		return
 	}
-	output, err := launchctl("bootout", "gui/"+strconv.Itoa(os.Getuid()), animeCastBatchPlist)
+	output, err := launchctl("bootout", "gui/"+strconv.Itoa(os.Getuid()), animeCastBatchPlist())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
 		"paused":  true,
@@ -3831,7 +3862,7 @@ func (s Server) resumeBatch(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodPost)
 		return
 	}
-	output, err := launchctl("bootstrap", "gui/"+strconv.Itoa(os.Getuid()), animeCastBatchPlist)
+	output, err := launchctl("bootstrap", "gui/"+strconv.Itoa(os.Getuid()), animeCastBatchPlist())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
 		"resumed": true,
@@ -4198,6 +4229,12 @@ main{max-width:1320px;margin:0 auto;padding:28px 18px 42px}.top{display:flex;ali
 .mark{font:700 28px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--violet)}.sub{color:var(--muted);margin-top:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:18px}
 .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.stat{border:1px solid var(--line);border-radius:6px;padding:10px;background:#11141a;min-width:0}.stat b{display:block;color:var(--gold);font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stat span{color:var(--muted)}
 .bar{height:8px;border-radius:999px;background:#0d0f14;border:1px solid var(--line);overflow:hidden;margin-top:12px}.bar i{display:block;height:100%;width:0;background:var(--teal)}
+.tune{margin-bottom:12px}.tuneHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}.tuneHead span{color:var(--muted);font-size:12px}
+.tuneRow{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.tuneRow label{display:grid;gap:4px;color:var(--muted);font-size:12px}
+.tuneRow input{width:92px;border:1px solid var(--line);border-radius:6px;background:#0d0f14;color:var(--text);padding:7px 8px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}
+.tuneRow button{border:1px solid var(--line);border-radius:6px;background:#11141a;color:var(--text);padding:8px 14px;cursor:pointer}.tuneRow button:hover{border-color:var(--teal)}.tuneRow button:disabled{opacity:.5;cursor:default}
+.tuneRow #tStatus{color:var(--muted);font-size:12px}
+.tuneLog{margin-top:9px;color:var(--muted);font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}
 .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}.cell{appearance:none;border:1px solid var(--line);border-radius:6px;background:#0d0f14;aspect-ratio:1;overflow:hidden;display:block;padding:0;position:relative;cursor:zoom-in}.cell img{width:100%;height:100%;object-fit:cover;display:block}.cell i{position:absolute;left:6px;bottom:6px;background:rgba(13,15,20,.76);border:1px solid rgba(255,255,255,.16);border-radius:4px;color:var(--text);font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:4px 5px;font-style:normal}.cell.loading{display:grid;place-items:center;color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.empty{color:var(--muted)}
 .preview{position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;grid-template-columns:72px minmax(0,1fr) 72px;grid-template-rows:minmax(0,1fr) auto;align-items:center;gap:12px;padding:22px;z-index:10}.preview.open{display:grid}.preview img{justify-self:center;max-width:100%;max-height:calc(100vh - 110px);border-radius:6px;border:1px solid var(--line);background:#0d0f14}.preview button{appearance:none;border:1px solid var(--line);border-radius:6px;background:rgba(17,20,26,.86);color:var(--text);height:64px;font-size:32px;cursor:pointer}.preview button:hover{border-color:var(--teal)}.preview .meta{grid-column:1/-1;color:var(--muted);font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}
 @media(max-width:980px){.top{display:block}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cells{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}}
@@ -4216,6 +4253,17 @@ main{max-width:1320px;margin:0 auto;padding:28px 18px 42px}.top{display:flex;ali
 <div class="stat"><b id="cache">0%</b><span>cache hits</span></div>
 </div>
 <div class="bar"><i id="bar"></i></div>
+</section>
+<section class="panel tune">
+<div class="tuneHead"><b>Live tuning</b><span id="tuneHint">applies to the next batch on every shard</span></div>
+<div class="tuneRow">
+<label>guidance<input id="tGuidance" type="number" step="0.1" min="0" max="20"></label>
+<label>steps<input id="tSteps" type="number" step="1" min="1" max="120"></label>
+<label>batch<input id="tBatch" type="number" step="1" min="1" max="64"></label>
+<button id="tApply" type="button">Apply</button>
+<span id="tStatus"></span>
+</div>
+<div id="tLog" class="tuneLog"></div>
 </section>
 <section class="panel"><div id="cells" class="cells"><div class="empty">waiting for cells</div></div></section>
 </main>
@@ -4236,7 +4284,48 @@ document.getElementById('nextCell').onclick=e=>{e.stopPropagation();openFrame(pr
 preview.onclick=e=>{if(e.target===preview)closePreview()}
 document.addEventListener('keydown',e=>{if(!preview.classList.contains('open'))return;if(e.key==='Escape')closePreview();if(e.key==='ArrowLeft')openFrame(previewIndex-1);if(e.key==='ArrowRight')openFrame(previewIndex+1)})
 const es=new EventSource('/api/atlas/events/'+encodeURIComponent(id));
-es.addEventListener('atlas',ev=>{const d=JSON.parse(ev.data);const p=d.progress||{}, total=Number(d.total||p.total||0), rendered=Number(d.rendered||p.current||0);text('rendered',rendered);text('total',total);text('phase',d.phase||d.status||'active');text('mode',d.manifest?.mode||'atlas');text('rate',fmtRate(p.cells_per_hour||d.job?.cells_per_hour));text('cache',fmtPct(p.cache_hit_rate||d.job?.cache_hit_rate));document.getElementById('bar').style.width=total?Math.min(100,(rendered/total)*100)+'%':'0';document.getElementById('status').textContent=(d.status||'watching')+' '+rendered+'/'+total;(d.frames||d.cells||[]).forEach(add)});
+es.addEventListener('atlas',ev=>{const d=JSON.parse(ev.data);const p=d.progress||{}, total=Number(d.total||p.total||0), rendered=Number(d.rendered||p.current||0);text('rendered',rendered);text('total',total);text('phase',d.phase||d.status||'active');text('mode',d.manifest?.mode||'atlas');text('rate',fmtRate(p.cells_per_hour||d.job?.cells_per_hour));text('cache',fmtPct(p.cache_hit_rate||d.job?.cache_hit_rate));document.getElementById('bar').style.width=total?Math.min(100,(rendered/total)*100)+'%':'0';document.getElementById('status').textContent=(d.status||'watching')+' '+rendered+'/'+total;syncTuning(d.job);(d.frames||d.cells||[]).forEach(add)});
+// Live tuning. The worker owns the whitelist, so anything it refuses comes
+// back as "rejected" and is reported verbatim rather than guessed at here.
+const tG=document.getElementById('tGuidance'),tS=document.getElementById('tSteps'),tB=document.getElementById('tBatch'),
+      tApply=document.getElementById('tApply'),tStatus=document.getElementById('tStatus'),tLog=document.getElementById('tLog');
+let tTouched=false, tRunning=false;
+[tG,tS,tB].forEach(el=>el.addEventListener('input',()=>{tTouched=true}));
+function syncTuning(job){
+  if(!job)return;
+  tRunning=['queued','running'].includes(String(job.status||''));
+  tApply.disabled=!tRunning;
+  document.getElementById('tuneHint').textContent=tRunning?'applies to the next batch on every shard':'job is '+(job.status||'idle')+'; tuning is closed';
+  // Never clobber a value mid-edit; only seed from the job until first touch.
+  if(!tTouched){
+    if(job.guidance!=null)tG.value=job.guidance;
+    if(job.steps!=null)tS.value=job.steps;
+    const b=job.batch_size_requested!=null?job.batch_size_requested:job.batch_size;
+    if(b!=null)tB.value=b;
+  }
+  const log=job.parameter_changes||[];
+  if(log.length)tLog.textContent=log.slice(-6).map(c=>'cell '+c.at_cell+'  '+Object.entries(c.changes||{}).map(([k,v])=>k+' '+v.from+'->'+v.to).join('  ')).join('\n');
+}
+tApply.onclick=async()=>{
+  const fields={};
+  if(tG.value!=='')fields.guidance=Number(tG.value);
+  if(tS.value!=='')fields.steps=Number(tS.value);
+  if(tB.value!=='')fields.batch_size=Number(tB.value);
+  if(!Object.keys(fields).length){tStatus.textContent='nothing to apply';return}
+  tApply.disabled=true;tStatus.textContent='applying...';
+  try{
+    const r=await fetch('/api/job/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,fields})});
+    const j=await r.json();
+    if(!r.ok||j.ok===false){tStatus.textContent=j.error||('HTTP '+r.status)}
+    else{
+      const ch=Object.keys(j.changed||{}), rj=Object.entries(j.rejected||{});
+      tStatus.textContent=(ch.length?ch.length+' applied across '+(j.shards_updated||0)+' shard(s)':'no change')+
+        (rj.length?' · rejected: '+rj.map(([k,v])=>k+' ('+v+')').join(', '):'');
+      tTouched=false;
+    }
+  }catch(err){tStatus.textContent=String(err&&err.message||err)}
+  tApply.disabled=!tRunning;
+};
 es.onerror=()=>{document.getElementById('status').textContent='stream reconnecting'};
 </script>
 </body>
@@ -4315,6 +4404,10 @@ a.btn,button{appearance:none;min-height:40px;border:1px solid rgba(237,230,216,.
 .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px}.stat{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.028),transparent 42%),rgba(12,14,26,.78);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0;box-shadow:0 18px 64px rgba(0,0,0,.28);backdrop-filter:blur(16px)}.stat:before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,183,197,.30),rgba(100,200,255,.25),transparent)}.stat b{display:block;color:var(--ivory);font-size:24px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 22px rgba(180,142,255,.16)}.stat:nth-child(1) b{color:var(--sakura);text-shadow:var(--glow-sakura)}.stat:nth-child(2) b{color:var(--ocean);text-shadow:var(--glow-ocean)}.stat:nth-child(3) b{color:var(--wisteria)}.stat:nth-child(5) b{color:var(--gold);text-shadow:var(--glow-sakura)}.stat span{display:block;color:var(--muted);font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-top:7px}.livebar{margin-top:12px;border:1px solid rgba(237,230,216,.11);border-radius:8px;background:rgba(12,14,26,.58);padding:10px}.livebar .rail{height:9px;border-radius:999px;background:rgba(237,230,216,.08);overflow:hidden;border:1px solid rgba(237,230,216,.08)}.livebar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--ember),var(--sakura),var(--ocean));box-shadow:var(--glow-sakura);transition:width .22s ease}.livebar .copy{display:flex;justify-content:space-between;gap:12px;margin-top:8px;color:var(--muted);font-size:12px}.livebar strong{color:var(--soft);font-weight:700}.stream-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ember);box-shadow:0 0 12px rgba(255,86,56,.22);margin-right:7px}.stream-dot.on{background:#55ffc8;box-shadow:0 0 14px rgba(85,255,200,.32)}
 .toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto auto auto auto;align-items:center;gap:10px;margin:18px 0}.search{width:100%;border:1px solid rgba(237,230,216,.13);background:rgba(6,8,16,.78);color:var(--text);border-radius:7px;padding:12px 13px;font:inherit;outline:none}.search:focus{border-color:rgba(255,183,197,.44);box-shadow:0 0 0 3px rgba(255,183,197,.08)}.mode-toggle[data-active="true"]{border-color:rgba(255,213,128,.48);background:rgba(255,213,128,.10);box-shadow:0 0 24px rgba(255,183,197,.14);color:var(--gold)}.pick-status{color:var(--muted);font-size:12px;white-space:nowrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:12px}.cell{appearance:none;display:block;padding:0;border:1px solid var(--line);border-radius:8px;background:rgba(12,14,26,.74);aspect-ratio:1;overflow:hidden;position:relative;cursor:pointer;box-shadow:0 12px 36px rgba(0,0,0,.22);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}.cell:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 55%,rgba(6,8,16,.8));opacity:.9}.cell:hover{transform:translateY(-2px);border-color:rgba(255,183,197,.35);box-shadow:0 22px 56px rgba(0,0,0,.34),var(--glow-sakura)}.cell.picked{border-color:rgba(255,213,128,.72);box-shadow:0 22px 62px rgba(0,0,0,.38),0 0 0 2px rgba(255,213,128,.16),0 0 34px rgba(255,183,197,.30);filter:saturate(1.1)}.cell.picked:after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:7px;background:linear-gradient(135deg,rgba(255,213,128,.18),transparent 34%,rgba(255,183,197,.16));mix-blend-mode:screen}.cell img,.cell video{width:100%;height:100%;object-fit:cover;display:block;transition:transform .28s ease}.cell:hover img,.cell:hover video{transform:scale(1.035)}.cell i{position:absolute;z-index:3;left:8px;right:8px;bottom:8px;background:rgba(6,8,16,.74);border:1px solid rgba(255,255,255,.13);border-radius:6px;color:var(--soft);font:11px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 7px;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.pending{opacity:0;pointer-events:none}
+.cell.arrive{animation:cellArrive .5s cubic-bezier(.2,.75,.2,1) both}
+@keyframes cellArrive{from{opacity:0;transform:translateY(7px) scale(.984)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.cell.arrive{animation:none}.cell.pending{opacity:1}.cell,.cell img,.cell video{transition:none}}
 .empty{border:1px dashed rgba(237,230,216,.16);border-radius:8px;padding:28px;color:var(--muted);background:rgba(12,14,26,.58);text-align:center}
 .preview{position:fixed;inset:0;background:rgba(2,4,9,.9);display:none;grid-template-columns:minmax(0,1fr) 340px;gap:18px;padding:20px;z-index:30}.preview.open{display:grid}.preview .image{display:grid;place-items:center;min-width:0;position:relative}.preview img,.preview video{max-width:100%;max-height:calc(100vh - 40px);border-radius:8px;border:1px solid rgba(237,230,216,.14);background:rgba(6,8,16,.82);box-shadow:0 28px 100px rgba(0,0,0,.55)}.preview video{display:none}.nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:64px;padding:0;border-radius:8px;background:rgba(12,14,26,.78);border-color:rgba(255,255,255,.18);font-size:34px;line-height:1;color:var(--text);backdrop-filter:blur(10px)}.nav:hover{background:rgba(25,30,50,.9);box-shadow:var(--glow-sakura)}.nav.prev{left:12px}.nav.next{right:12px}.close-preview{position:absolute;top:12px;right:12px;width:40px;height:40px;padding:0;border-radius:8px;background:rgba(12,14,26,.78);border-color:rgba(255,255,255,.18);font-size:20px;line-height:1}.meta{background:linear-gradient(180deg,rgba(255,183,197,.035),transparent 34%),rgba(12,14,26,.84);border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto;box-shadow:0 18px 64px rgba(0,0,0,.32)}.meta h2{font-size:12px;margin:0 0 12px;color:var(--sakura);letter-spacing:.18em;text-transform:uppercase}.meta code{display:block;white-space:pre-wrap;word-break:break-word;color:var(--soft);font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
 .confirm{position:fixed;inset:0;z-index:40;display:none;place-items:center;background:rgba(4,6,10,.74);padding:18px;backdrop-filter:blur(10px)}.confirm.open{display:grid}.confirm-card{width:min(520px,100%);background:linear-gradient(180deg,rgba(255,183,197,.035),transparent 38%),rgba(12,14,26,.94);border:1px solid rgba(255,183,197,.18);border-radius:8px;box-shadow:0 24px 80px rgba(0,0,0,.48);padding:17px}.confirm-card h2{margin:0 0 8px;color:var(--sakura);font-size:13px;letter-spacing:.16em;text-transform:uppercase}.confirm-card p{margin:0 0 12px;color:var(--soft)}.confirm-card code{display:block;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:6px;background:rgba(6,8,16,.72);color:var(--ivory);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word}.confirm-card input{width:100%;border:1px solid rgba(237,230,216,.13);background:rgba(6,8,16,.86);color:var(--text);border-radius:6px;padding:10px;font:inherit}.confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.confirm-error{min-height:20px;margin-top:8px;color:#ff9cb1;font-size:13px}
@@ -4360,7 +4453,49 @@ function progressPct(c){const count=Number(c?.count??images.length??0),total=Num
 function updateProgress(c,state){const count=Number(c?.count??images.length??0),total=Number(c?.total??count??0),pct=progressPct(c);document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressText').textContent=count+' / '+total+' · '+Math.round(pct)+'%';document.getElementById('streamState').textContent=state||'broadcast live';document.getElementById('streamDot').classList.toggle('on',state!=='broadcast reconnecting'&&state!=='broadcast unavailable')}
 function applySnapshot(j,state){if(!j.ok){grid.innerHTML='<div class="empty">'+esc(j.error||'Collection unavailable')+'</div>';updateProgress(currentCollection,state||'broadcast unavailable');return}const c=j.collection||{};currentCollection=c;images=j.images||[];if(!dirtyPicks)picked=new Set(j.picks||images.filter(x=>x.picked).map(x=>x.name));text('title',c.name||'collection');text('path',c.path||collectionPath);text('count',c.count??images.length);text('total',c.total??images.length);text('kind',c.kind||'collection');text('updated',c.updated_text||'-');document.getElementById('raw').href=c.raw_url||('/outputs/'+collectionPath);updateProgress(c,state||'broadcast live');render()}
 function mediaTag(x){return x.type==='video'?'<video muted loop autoplay playsinline preload="metadata" src="'+esc(x.url)+'"></video>':'<img loading="lazy" decoding="async" src="'+esc(x.url)+'" alt="">'}
-function render(){const q=search.value.trim().toLowerCase();visibleImages=q?images.filter(x=>String(x.name).toLowerCase().includes(q)):images;if(!visibleImages.length){grid.innerHTML='<div class="empty">No media match this filter</div>';updatePickStatus();return}grid.innerHTML=visibleImages.map((x,i)=>'<button class="cell'+(picked.has(x.name)?' picked':'')+'" type="button" data-i="'+i+'" data-name="'+esc(x.name)+'" aria-pressed="'+(picked.has(x.name)?'true':'false')+'">'+mediaTag(x)+'<i>'+esc(x.name)+'</i></button>').join('');updatePickStatus()}
+// The grid is reconciled by cell name rather than rebuilt. A collection that
+// is still rendering broadcasts on every batch, and rewriting innerHTML each
+// time tore down every tile: images refetched (the cancelled-request storm in
+// the proxy log) and every reveal animation restarted, so the wall never
+// settled. Patching in place means a tile animates exactly once, when it first
+// arrives.
+const tiles=new Map(), seen=new Set(), paint={queue:[],timer:null};
+let firstPaint=true;
+const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const videoWatcher=window.IntersectionObserver?new IntersectionObserver(entries=>{for(const e of entries){const v=e.target.querySelector('video');if(!v)continue;if(e.isIntersecting){v.play().catch(()=>{})}else{v.pause()}}},{rootMargin:'150px'}):null;
+function cellIndex(name){const m=/(\d+)\.[a-z0-9]+$/i.exec(String(name));return m?parseInt(m[1],10):-1}
+function makeTile(x){const el=document.createElement('button');el.type='button';el.className='cell';el.dataset.name=x.name;el.innerHTML=mediaTag(x)+'<i>'+esc(x.name)+'</i>';if(videoWatcher&&x.type==='video')videoWatcher.observe(el);return el}
+function patchTile(el,x,i){el.dataset.i=i;const on=picked.has(x.name);el.classList.toggle('picked',on);el.setAttribute('aria-pressed',on?'true':'false')}
+// Release nearest-first from the centre of the arriving run. Block sharding
+// delivers contiguous runs of cells, so this reads as a wavefront spreading
+// along the traversal rather than cells popping in at random.
+function releaseOrder(names){const idx=names.map(cellIndex);const mid=idx.reduce((a,b)=>a+b,0)/Math.max(1,idx.length);return names.map((n,k)=>[n,Math.abs(idx[k]-mid)]).sort((a,b)=>a[1]-b[1]).map(p=>p[0])}
+// Drain over a window rather than at a fixed rate: a burst of batch_size cells
+// spreads out, and a backlog drains faster so it is clear before the next
+// batch lands. Same idea as the stage filmstrip's queueFrames pacing.
+function pumpDelay(){const n=paint.queue.length;return n?Math.max(16,Math.min(220,1600/n)):0}
+function pump(){const name=paint.queue.shift();if(name===undefined){paint.timer=null;return}reveal(name);paint.timer=setTimeout(pump,pumpDelay())}
+function reveal(name){const el=tiles.get(name);if(!el)return;el.classList.remove('pending');if(reduceMotion)return;const r=el.getBoundingClientRect();
+  // Animate only what someone can actually see; offscreen tiles just appear.
+  if(r.bottom>-200&&r.top<window.innerHeight+200){el.classList.add('arrive');el.addEventListener('animationend',()=>el.classList.remove('arrive'),{once:true})}}
+function enqueue(names){if(!names.length)return;paint.queue.push(...releaseOrder(names));if(!paint.timer&&!document.hidden)pump()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(paint.timer){clearTimeout(paint.timer);paint.timer=null}}else if(paint.queue.length&&!paint.timer){pump()}});
+function render(){const q=search.value.trim().toLowerCase();visibleImages=q?images.filter(x=>String(x.name).toLowerCase().includes(q)):images;
+  if(!visibleImages.length){grid.innerHTML='<div class="empty">No media match this filter</div>';tiles.clear();firstPaint=true;updatePickStatus();return}
+  if(grid.firstElementChild&&grid.firstElementChild.classList.contains('empty')){grid.innerHTML='';tiles.clear();firstPaint=true}
+  const wanted=new Set(visibleImages.map(x=>x.name));
+  for(const entry of [...tiles]){if(!wanted.has(entry[0])){entry[1].remove();tiles.delete(entry[0])}}
+  const fresh=[];let prev=null;
+  for(let i=0;i<visibleImages.length;i++){const x=visibleImages[i];let el=tiles.get(x.name);
+    if(!el){el=makeTile(x);tiles.set(x.name,el);
+      // Pace only genuinely new cells. Re-showing a tile that a search filter
+      // had hidden must be instant, never queued behind a reveal.
+      if(!firstPaint&&!seen.has(x.name)){el.classList.add('pending');fresh.push(x.name)}}
+    seen.add(x.name);patchTile(el,x,i);
+    const want=prev?prev.nextSibling:grid.firstChild;
+    if(el!==want)grid.insertBefore(el,want);
+    prev=el}
+  firstPaint=false;if(fresh.length)enqueue(fresh);updatePickStatus()}
 function updatePickStatus(){const count=picked.size;text('picked',count);pickModeButton.dataset.active=pickMode?'true':'false';pickModeButton.textContent=pickMode?'Picking on':'Pick mode';pickStatus.textContent=pickMode?(count+' selected'+(dirtyPicks?' · unsaved':'')):(count?count+' saved pick'+(count===1?'':'s'):'browse mode');savePicks.disabled=!dirtyPicks;clearPicks.disabled=count===0}
 function togglePick(i){const image=visibleImages[i];if(!image)return;if(picked.has(image.name)){picked.delete(image.name)}else{picked.add(image.name)}dirtyPicks=true;render()}
 function openPreview(i){if(!visibleImages.length)return;previewIndex=(i+visibleImages.length)%visibleImages.length;const image=visibleImages[previewIndex];previewImg.style.display=image.type==='video'?'none':'';previewVideo.style.display=image.type==='video'?'':'none';if(image.type==='video'){previewImg.src='';previewVideo.src=image.url;previewVideo.play().catch(()=>{})}else{previewVideo.pause();previewVideo.removeAttribute('src');previewVideo.load();previewImg.src=image.url}meta.textContent=(previewIndex+1)+' / '+visibleImages.length+'\n'+image.name+'\n'+image.url;preview.classList.add('open')}
@@ -4761,5 +4896,12 @@ setupI2IDrop();refresh();connectJobs();
 }
 
 func OpenBrowser(url string) {
-	_ = exec.Command("open", url).Start()
+	for _, opener := range []string{"open", "xdg-open"} {
+		if _, err := exec.LookPath(opener); err != nil {
+			continue
+		}
+		if err := exec.Command(opener, url).Start(); err == nil {
+			return
+		}
+	}
 }

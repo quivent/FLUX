@@ -24,10 +24,11 @@ from PIL import Image
 import numpy as np
 
 import flux_ane
+import flux_paths
 
 
-DEFAULT_MODEL_DIR = "/Users/joshkornreich/Models/flux1"
-DEFAULT_OUT_DIR = "/Users/joshkornreich/Models/flux-output"
+DEFAULT_MODEL_DIR = flux_paths.default_model_dir()
+DEFAULT_OUT_DIR = flux_paths.default_out_dir()
 
 
 class CancelledJob(RuntimeError):
@@ -66,6 +67,18 @@ def _publish_piper_asset(job_id, path, index, total, *, access_url=None, seed=No
             pass
         time.sleep(0.15 * (attempt + 1))
     return False
+
+
+def _atomic_write_json(path, payload):
+    """Write JSON so a concurrent reader never sees a half-written file.
+
+    Shards of one sphere share an output directory and both finish by updating
+    manifest.json, so these writes genuinely race; os.replace makes each one
+    all-or-nothing.
+    """
+    tmp = path.with_name(f"{path.name}.tmp{os.getpid()}")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    os.replace(tmp, path)
 
 
 def _finite_int(value, fallback, minimum, maximum):
@@ -247,6 +260,65 @@ def _atlas_loop_order(indices, render_count, n_rows, n_cols):
         if idx in allowed:
             ordered.append(idx)
     return ordered
+
+
+# Fields an in-flight job will re-read, as name -> (cast, min, max, job key).
+# The job key differs for batch_size because the render loop overwrites
+# job["batch_size"] with the size it actually used.
+LIVE_JOB_FIELDS = {
+    "guidance": (float, 0.0, 20.0, "guidance"),
+    "steps": (int, 1, 120, "steps"),
+    "batch_size": (int, 1, 64, "batch_size_requested"),
+    # Latent-path controls. _atlas_latent already re-reads all of these from the
+    # job for every cell it builds, so they take effect on the next cell with no
+    # further plumbing. shell_scale is the latent-distance knob: it scales theta
+    # and azimuth, so it directly sets how far apart consecutive frames sit and
+    # is the main lever on motion continuity. shell_coupling is read once per
+    # batch (see _render_atlas) rather than per cell.
+    "shell_scale": (float, 0.01, 4.0, "shell_scale"),
+    "shell_coupling": (float, -16.0, 16.0, "shell_coupling"),
+    "seed_lock": (float, 0.0, 0.95, "seed_lock"),
+    "arc": (float, -8.0, 8.0, "arc"),
+    "amp": (float, -8.0, 8.0, "amp"),
+    "spin": (float, -32.0, 32.0, "spin"),
+    "base": (float, -8.0, 8.0, "base"),
+    "orbit": (float, -32.0, 32.0, "orbit"),
+}
+
+
+def _atlas_shard_slice(order, shard_id, shard_total, block=1):
+    """Select this shard's cells by round-robining contiguous blocks.
+
+    A stride-1 interleave (block=1) spreads cells evenly but leaves each worker
+    rendering cells that are shard_total apart on the traversal. That defeats
+    the cross-frame cache, whose hit rate depends on consecutive cells being
+    neighbours on the sphere. Handing out whole blocks instead keeps locality
+    inside a block while still spreading blocks across the sphere, so the watch
+    UI fills evenly and load stays balanced.
+
+    The partition is a function of position only, so shards are disjoint and
+    exhaustive for any block size.
+    """
+    if shard_total <= 1:
+        return list(order)
+    block = max(1, int(block or 1))
+    out = []
+    for start in range(0, len(order), block):
+        if (start // block) % shard_total == shard_id:
+            out.extend(order[start:start + block])
+    return out
+
+
+def _atlas_shard_block(run_total, shard_total, requested):
+    """Clamp the block size so every shard still receives work.
+
+    With 64 cells over 4 shards, a block of 32 would hand everything to shards
+    0 and 1 and idle the other two, so the block can never exceed an even share.
+    """
+    if shard_total <= 1:
+        return 1
+    block = max(1, int(requested or 1))
+    return max(1, min(block, run_total // shard_total or 1))
 
 
 def _atlas_order_delta_summary(indices, n_rows, n_cols, traversal, coupling, sample_limit=4096):
@@ -614,6 +686,10 @@ class Worker:
             "loaded": self.pipe is not None,
             "img2img_loaded": self.img2img_pipe is not None,
             "device": self.device,
+            # The physical GPU this process owns. Fleet workers are pinned with
+            # CUDA_VISIBLE_DEVICES, so self.device is always cuda:0 inside the
+            # process and the real ordinal only survives in the environment.
+            "gpu": os.environ.get("FLUX_WORKER_GPU") or os.environ.get("CUDA_VISIBLE_DEVICES") or "",
             "backend": self.default_backend,
             "backends": backend_capabilities(),
             "profile": self.profile,
@@ -753,8 +829,15 @@ class Worker:
         requested_backend = normalize_backend(payload.get("backend") or self.default_backend)
         size = _finite_int(payload.get("size") or draft.get("size"), 384, 128, 2048)
         steps = _finite_int(payload.get("steps") or draft.get("steps"), 40, 1, 120)
-        n_rows = _finite_int(draft.get("n_rows"), 1024, 1, 1_000_000)
-        n_cols = _finite_int(draft.get("n_cols"), 64, 1, 1_000_000)
+        # Motion-shaped defaults. Stepping one column advances azimuth by
+        # 2*pi/n_cols, so n_cols alone sets the angular distance between
+        # consecutive frames: the old 1024x64 default capped continuity at
+        # 360/64 = 5.6 deg per frame and completed a revolution every 64 frames,
+        # which reads as spinning rather than motion. 16x4096 keeps the same
+        # 65536-cell sphere but gives 0.088 deg per frame - one smooth
+        # revolution across a 4096-frame run.
+        n_rows = _finite_int(draft.get("n_rows"), 16, 1, 1_000_000)
+        n_cols = _finite_int(draft.get("n_cols"), 4096, 1, 1_000_000)
         grid_total = n_rows * n_cols
         n_latent = _finite_int(payload.get("n_latent") or draft.get("n_latent"), grid_total, 1, grid_total)
         index_start = _finite_int(payload.get("index_start"), int(draft.get("index_start") or 0), 0, n_latent)
@@ -768,6 +851,18 @@ class Worker:
         run_total = max(0, index_end - index_start)
         if render_count > 0:
             run_total = min(run_total, render_count)
+        # A fleet submits the same job id to every worker, distinguished only by
+        # (shard_id, shard_total). This worker renders every shard_total-th cell
+        # of the traversal order starting at shard_id, so shards are disjoint
+        # without any cross-worker coordination.
+        shard_total = _finite_int(payload.get("shard_total"), 1, 1, 64)
+        shard_id = _finite_int(payload.get("shard_id"), 0, 0, max(0, shard_total - 1))
+        shard_block = _atlas_shard_block(
+            run_total, shard_total, _finite_int(payload.get("shard_block"), 32, 1, 4096)
+        )
+        # Derive the count from the same function that does the slicing, rather
+        # than a parallel formula that could drift from it.
+        shard_run_total = len(_atlas_shard_slice(range(run_total), shard_id, shard_total, shard_block))
         traversal_order = str(payload.get("traversal_order") or draft.get("traversal_order") or "column_serpentine")
         sample_mode = str(payload.get("sample_mode") or draft.get("sample_mode") or "contiguous").lower()
         study_type = str(payload.get("study_type") or draft.get("study_type") or "unclassified").lower()
@@ -810,8 +905,15 @@ class Worker:
             "index_end": index_end,
             "render_count": render_count,
             "batch_size": batch_size,
+            # batch_size is overwritten each batch with the actual size, so the
+            # live control keeps its own key.
+            "batch_size_requested": batch_size,
             "precision": "bf16",
-            "atlas_total": run_total,
+            "shard_id": shard_id,
+            "shard_total": shard_total,
+            "shard_block": shard_block,
+            "atlas_total": shard_run_total,
+            "atlas_full_total": run_total,
             "atlas_done": 0,
             "rates": draft.get("rates") or [],
             "offsets": draft.get("offsets") or [],
@@ -823,7 +925,7 @@ class Worker:
             "error": "",
             "phase": "queued",
             "step": 0,
-            "total_steps": max(1, run_total),
+            "total_steps": max(1, shard_run_total),
             "cancel_requested": False,
         }
         for key in ("arc", "amp", "spin", "base", "orbit"):
@@ -1172,8 +1274,14 @@ class Worker:
 
         out_dir = pathlib.Path(job["output"])
         out_dir.mkdir(parents=True, exist_ok=True)
+        shard_total = max(1, int(job.get("shard_total") or 1))
+        shard_id = min(max(0, int(job.get("shard_id") or 0)), shard_total - 1)
         manifest_path = out_dir / "manifest.json"
-        progress_path = out_dir / "progress.json"
+        # Every shard writes into this one directory, so each keeps its own
+        # progress file and the Go side sums them. Only shard 0 writes the
+        # manifest, and it describes the whole sphere rather than its own slice.
+        progress_name = f"progress.shard{shard_id}.json" if shard_total > 1 else "progress.json"
+        progress_path = out_dir / progress_name
         size = int(job["width"])
         steps = int(job["steps"])
         n_rows = int(job["n_rows"])
@@ -1221,8 +1329,18 @@ class Worker:
             )
         else:
             render_order = _atlas_sample_order(render_order, render_count, sample_mode)
+        # Summarise the whole traversal before slicing: the delta summary is a
+        # property of the sphere path, not of whichever cells this worker drew.
+        full_render_order = render_order
+        full_total = len(full_render_order)
+        order_summary = _atlas_order_delta_summary(full_render_order, n_rows, n_cols, traversal, coupling)
+        if shard_total > 1:
+            # Block size is fixed at submit time and read back here so both
+            # sides agree even if the run total is recomputed differently.
+            render_order = _atlas_shard_slice(
+                full_render_order, shard_id, shard_total, int(job.get("shard_block") or 1)
+            )
         total = len(render_order)
-        order_summary = _atlas_order_delta_summary(render_order, n_rows, n_cols, traversal, coupling)
         def prompt_for_cell(row, col):
             view_prompts = job.get("view_prompts") if isinstance(job.get("view_prompts"), list) else []
             view_prompts = [str(x).strip() for x in view_prompts if str(x).strip()]
@@ -1271,7 +1389,8 @@ class Worker:
             "render_count": render_count,
             "batch_size": int(job.get("batch_size") or 1),
             "precision": "bf16",
-            "render_total": total,
+            "render_total": full_total,
+            "shard_total": shard_total,
             "sample_mode": sample_mode,
             "study_type": job.get("study_type") or "unclassified",
             "size": size,
@@ -1280,6 +1399,17 @@ class Worker:
             "traversal": traversal,
             "traversal_order": traversal_order,
             "traversal_order_summary": order_summary,
+            # Make continuity legible. A reckless geometry (too few columns) or
+            # a survey sampler (nested_sparse bisects the range, so consecutive
+            # frames land near-antipodal) both show up here rather than only in
+            # the finished images.
+            "degrees_per_frame": round(math.degrees(order_summary.get("median_radians", 0.0)), 4),
+            "motion_verdict": (
+                "near-identical" if math.degrees(order_summary.get("median_radians", 0.0)) < 0.2
+                else "smooth" if math.degrees(order_summary.get("median_radians", 0.0)) < 1.0
+                else "steppy" if math.degrees(order_summary.get("median_radians", 0.0)) < 6.0
+                else "unrelated"
+            ),
             "adapter": adapter_name,
             "cache_threshold": cache_threshold,
             "cache_downsample": cache_downsample,
@@ -1295,7 +1425,8 @@ class Worker:
             "offsets": job.get("offsets") or [],
             "out_dir": str(out_dir),
         }
-        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        if shard_id == 0:
+            _atomic_write_json(manifest_path, manifest)
 
         def cell_path(i):
             return out_dir / f"cell_{i:05d}.png"
@@ -1323,6 +1454,9 @@ class Worker:
                 "job_id": job["id"],
                 "current": done,
                 "total": total,
+                "full_total": full_total,
+                "shard_id": shard_id,
+                "shard_total": shard_total,
                 "current_index": current_index,
                 "elapsed_seconds": elapsed,
                 "cells_per_hour": cells_per_second * 3600,
@@ -1358,13 +1492,23 @@ class Worker:
             )
             xframe_cache_context.atlas_step_keyed_buffers = True
         pending_indices = [i for i in render_order if not cell_path(i).exists()]
-        requested_batch_size = max(1, int(job.get("batch_size") or 1))
-        if requested_batch_size > 1 and xframe_cache_context is not None:
+        if int(job.get("batch_size_requested") or 1) > 1 and xframe_cache_context is not None:
             raise ValueError("batched atlas rendering requires cache adapter none")
-        for batch_start in range(0, len(pending_indices), requested_batch_size):
+        # Cursor rather than a fixed range: batch size is re-read every
+        # iteration so an `update` mid-render takes effect on the next batch.
+        batch_start = 0
+        # shard 0 sets the reference phase and never waits; a lone worker has
+        # nothing to spread against.
+        phased = shard_total <= 1 or shard_id == 0
+        while batch_start < len(pending_indices):
             if job.get("cancel_requested"):
                 raise CancelledJob("atlas job cancelled")
+            requested_batch_size = max(1, int(job.get("batch_size_requested") or 1))
+            if xframe_cache_context is not None:
+                requested_batch_size = 1
+            steps = max(1, int(job.get("steps") or steps))
             batch_indices = pending_indices[batch_start:batch_start + requested_batch_size]
+            batch_start += len(batch_indices)
             batch_latents = []
             batch_prompt_embeds = []
             batch_pooled_prompt_embeds = []
@@ -1431,12 +1575,37 @@ class Worker:
                 previous_prompt_text = batch_prompts[-1]
                 done += 1
                 write_progress(done, i)
+
+            # Every shard starts together and takes the same time per batch, so
+            # without this the whole fleet finishes in lockstep: 4x batch_size
+            # cells land in a couple of seconds, then nothing for a minute.
+            # After the first batch each shard knows how long a batch actually
+            # takes, so it can spread itself across one period. Self-calibrating
+            # means no timing constant to keep in sync with size/steps/batch.
+            if not phased:
+                offset = batch_seconds * shard_id / shard_total
+                deadline = time.time() + offset
+                while True:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        break
+                    if job.get("cancel_requested"):
+                        raise CancelledJob("atlas job cancelled")
+                    job["phase"] = f"phasing shard {shard_id} ({remaining:.0f}s)"
+                    self._write_jobs()
+                    time.sleep(min(0.5, remaining))
+                phased = True
+                job["shard_phase_offset"] = round(offset, 2)
         try:
             progress_path.unlink()
         except FileNotFoundError:
             pass
-        manifest["rendered"] = sum(1 for i in render_order if cell_path(i).exists())
-        manifest["adapter_counts"] = {"anchors": done, "adapted": 0}
+        # Count across the whole traversal, not this shard's slice: every shard
+        # rewrites the manifest as it finishes, and the last one to land must
+        # leave the true whole-sphere total behind.
+        rendered_total = sum(1 for i in full_render_order if cell_path(i).exists())
+        manifest["rendered"] = rendered_total
+        manifest["adapter_counts"] = {"anchors": rendered_total, "adapted": 0}
         if self.first_block_cache_stats is not None:
             cache_checks = int(self.first_block_cache_stats.get("checks", 0))
             cache_hits = int(self.first_block_cache_stats.get("hits", 0))
@@ -1447,7 +1616,14 @@ class Worker:
                 "hit_rate": cache_hits / cache_checks if cache_checks else 0.0,
             }
         manifest["finished"] = time.time()
-        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        if shard_total > 1:
+            # Only the shard that completes the sphere should mark it finished;
+            # otherwise the first shard to end would stamp a finish time while
+            # three others are still rendering.
+            manifest["shard_finished"] = shard_id
+            if rendered_total < full_total:
+                manifest.pop("finished", None)
+        _atomic_write_json(manifest_path, manifest)
         return out_dir
 
     def _render_torch(self, job, backend):
@@ -1586,6 +1762,71 @@ class Worker:
         self._write_jobs()
         return {"ok": True, "job": job, "changed": True}
 
+    def update(self, payload):
+        """Retune a queued or running job without restarting it.
+
+        Only fields the render loop re-reads each batch are accepted. Geometry
+        (size, grid, mode, traversal, seeds) fixes the latent basis every cell
+        is drawn from, so changing it mid-sphere would leave the cells rendered
+        before the change inconsistent with those after; those are rejected
+        rather than silently producing an incoherent study.
+
+        Writes land on the shared job dict, which is the same channel cancel
+        already uses: a single item assignment is atomic under the GIL, and the
+        render thread picks it up on its next iteration.
+        """
+        job_id = str(payload.get("id") or "").strip()
+        with self.jobs_lock:
+            job = self.jobs.get(job_id)
+        if not job:
+            return {"ok": False, "error": f"unknown job {job_id!r}"}
+        status = job.get("status")
+        if status not in ("queued", "running"):
+            return {"ok": False, "error": f"job {job_id} is {status}; only queued or running jobs accept updates"}
+
+        fields = payload.get("fields")
+        if not isinstance(fields, dict) or not fields:
+            return {"ok": False, "error": "update requires a fields object"}
+
+        xframe = str(job.get("adapter") or "none").replace("_", "-").lower() in (
+            "atlas-xframe-cache", "xframe-cache",
+        )
+        changed, rejected = {}, {}
+        for key, raw in fields.items():
+            spec = LIVE_JOB_FIELDS.get(key)
+            if spec is None:
+                rejected[key] = "not live-updatable"
+                continue
+            cast, lo, hi, target = spec
+            try:
+                value = cast(raw)
+            except (TypeError, ValueError):
+                rejected[key] = f"expected {cast.__name__}"
+                continue
+            if value < lo or value > hi:
+                rejected[key] = f"out of range [{lo}, {hi}]"
+                continue
+            if key == "batch_size" and value > 1 and xframe:
+                rejected[key] = "batching requires cache adapter none"
+                continue
+            before = job.get(target)
+            if before == value:
+                continue
+            job[target] = value
+            changed[key] = {"from": before, "to": value}
+
+        if changed:
+            # Record where in the sphere the change landed; a retuned run is no
+            # longer uniform and the manifest should be able to say so.
+            job.setdefault("parameter_changes", []).append({
+                "ts": time.time(),
+                "at_cell": int(job.get("atlas_done") or 0),
+                "changes": changed,
+            })
+            with self.jobs_lock:
+                self._write_jobs()
+        return {"ok": True, "job": job, "changed": changed, "rejected": rejected}
+
     def prune(self, keep=20, statuses=None):
         keep = max(0, int(keep))
         statuses = set(statuses or ["done", "error", "cancelled"])
@@ -1701,6 +1942,8 @@ def serve(args):
                     resp = worker.list_profile()
                 elif op == "cancel":
                     resp = worker.cancel(req.get("id", ""))
+                elif op == "update":
+                    resp = worker.update(req)
                 elif op == "prune":
                     resp = worker.prune(req.get("keep", 20), req.get("statuses"))
                 elif op == "stop":
