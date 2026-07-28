@@ -53,6 +53,12 @@ var modelDownloadState struct {
 
 var atlasNexusReceipts sync.Map
 
+var motionAssetHub = struct {
+	sync.Mutex
+	clients map[chan map[string]any]struct{}
+	recent  []map[string]any
+}{clients: make(map[chan map[string]any]struct{})}
+
 type renderRequest struct {
 	Prompt     string  `json:"prompt"`
 	Model      string  `json:"model"`
@@ -226,6 +232,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
 	go s.reconcileAtlasCatalog()
+	go s.runPiperAssetHub(ctx)
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
@@ -520,46 +527,94 @@ func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
 		return
 	}
-	socketPath := strings.TrimSpace(os.Getenv("PIPER_SOCKET"))
-	if socketPath == "" {
-		socketPath = "/tmp/piper.sock"
-	}
-	conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
-	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "Piper socket unavailable")
-		return
-	}
-	defer conn.Close()
-	if _, err := fmt.Fprintln(conn, `{"type":"asset.subscribe","consumer":"flux-motion-atlas"}`); err != nil {
-		return
-	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	jobFilter := strings.TrimSpace(r.URL.Query().Get("job_id"))
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		var event map[string]any
-		if json.Unmarshal(scanner.Bytes(), &event) != nil {
-			continue
-		}
-		if stringValue(event["event"]) != "ASSET_READY" {
-			continue
-		}
+	events := make(chan map[string]any, 32)
+	motionAssetHub.Lock()
+	motionAssetHub.clients[events] = struct{}{}
+	recent := append([]map[string]any(nil), motionAssetHub.recent...)
+	motionAssetHub.Unlock()
+	defer func() {
+		motionAssetHub.Lock()
+		delete(motionAssetHub.clients, events)
+		motionAssetHub.Unlock()
+	}()
+	send := func(event map[string]any) bool {
 		if jobFilter != "" && stringValue(event["job_id"]) != jobFilter {
-			continue
+			return true
 		}
 		asset, _ := event["asset"].(map[string]any)
 		if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
-			continue
+			return true
 		}
-		s.storeAtlasAsset(event)
 		raw, _ := json.Marshal(event)
 		if _, err := fmt.Fprintf(w, "event: asset\ndata: %s\n\n", raw); err != nil {
-			return
+			return false
 		}
 		flusher.Flush()
+		return true
+	}
+	for _, event := range recent {
+		if !send(event) {
+			return
+		}
+	}
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
+}
+
+func (s Server) runPiperAssetHub(ctx context.Context) {
+	socketPath := strings.TrimSpace(os.Getenv("PIPER_SOCKET"))
+	if socketPath == "" {
+		socketPath = "/tmp/piper.sock"
+	}
+	for ctx.Err() == nil {
+		conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+				continue
+			}
+		}
+		_, _ = fmt.Fprintln(conn, `{"type":"asset.subscribe","consumer":"flux-motion-atlas-hub"}`)
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			var event map[string]any
+			if json.Unmarshal(scanner.Bytes(), &event) != nil || stringValue(event["event"]) != "ASSET_READY" {
+				continue
+			}
+			asset, _ := event["asset"].(map[string]any)
+			if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
+				continue
+			}
+			s.storeAtlasAsset(event)
+			motionAssetHub.Lock()
+			motionAssetHub.recent = append(motionAssetHub.recent, event)
+			if len(motionAssetHub.recent) > 64 {
+				motionAssetHub.recent = motionAssetHub.recent[len(motionAssetHub.recent)-64:]
+			}
+			for client := range motionAssetHub.clients {
+				select {
+				case client <- event:
+				default:
+				}
+			}
+			motionAssetHub.Unlock()
+		}
+		_ = conn.Close()
 	}
 }
 
