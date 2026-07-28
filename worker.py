@@ -588,6 +588,31 @@ class Worker:
         threading.Thread(target=self._run_job, args=(job_id,), daemon=True).start()
         return {"ok": True, "job": job}
 
+    def submit_seed_preview(self, payload):
+        batch_plan = [1, 2, 4, 8, 16]
+        job_id = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
+        requested_backend = normalize_backend(payload.get("backend") or self.default_backend)
+        probe_job = {"width": int(payload.get("width", 512)), "height": int(payload.get("height", 512)), "steps": int(payload.get("steps", 20))}
+        backend = self.resolve_backend(requested_backend, probe_job)
+        if backend != "cuda":
+            raise ValueError("seed preview batching requires CUDA")
+        job = {
+            "id": job_id, "kind": "seed_preview", "backend": backend, "requested_backend": requested_backend,
+            "model_family": str(payload.get("model_family") or payload.get("model") or "dev").lower(),
+            "status": "queued", "created": time.time(), "prompt": payload["prompt"],
+            "width": probe_job["width"], "height": probe_job["height"], "steps": probe_job["steps"],
+            "guidance": float(payload.get("guidance", 3.5)), "seed": int(payload.get("seed") or 0),
+            "filename": payload.get("filename") or f"seed-preview-{job_id}.png",
+            "output": "", "outputs": [], "error": "", "phase": "queued", "step": 0,
+            "total_steps": probe_job["steps"], "batch_plan": batch_plan, "batch_size": 0,
+            "images_done": 0, "images_total": sum(batch_plan), "cancel_requested": False,
+        }
+        with self.jobs_lock:
+            self.jobs[job_id] = job
+            self._write_jobs()
+        threading.Thread(target=self._run_seed_preview_job, args=(job_id,), daemon=True).start()
+        return {"ok": True, "job": job}
+
     def submit_img2img(self, payload):
         job_id = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
         requested_backend = normalize_backend(payload.get("backend") or self.default_backend)
@@ -783,6 +808,67 @@ class Worker:
         with self.lock:
             job = self.jobs[job_id]
             if job.get("status") == "cancelled":
+                self._write_jobs()
+
+    def _run_seed_preview_job(self, job_id):
+        with self.lock:
+            job = self.jobs[job_id]
+            job["status"] = "running"
+            job["phase"] = "loading_model"
+            job["started"] = time.time()
+            self._write_jobs()
+            try:
+                self.device = "cuda"
+                self._load_pipe(self.device)
+                base_seed = int(job["seed"])
+                ordinal = 0
+                source = pathlib.Path(job["filename"])
+                for batch_size in job["batch_plan"]:
+                    if job.get("cancel_requested"):
+                        raise CancelledJob("job cancelled")
+                    job["batch_size"] = batch_size
+                    job["phase"] = f"batch_{batch_size}"
+                    job["step"] = 0
+                    self._write_jobs()
+                    generators = [torch.Generator(device="cpu").manual_seed(base_seed + ordinal + i) for i in range(batch_size)]
+                    def on_step_end(_pipe, step, _timestep, callback_kwargs):
+                        if job.get("cancel_requested"):
+                            raise CancelledJob("job cancelled")
+                        job["step"] = int(step) + 1
+                        self._write_jobs()
+                        return callback_kwargs
+                    images = self.pipe(
+                        prompt=job["prompt"], width=job["width"], height=job["height"],
+                        guidance_scale=job["guidance"], num_inference_steps=job["steps"],
+                        num_images_per_prompt=batch_size, generator=generators,
+                        callback_on_step_end=on_step_end,
+                    ).images
+                    for image in images:
+                        filename = f"{source.stem}-{ordinal + 1:02d}{source.suffix or '.png'}"
+                        output = self.out_dir / filename
+                        image.save(output)
+                        output_rel = output.resolve().relative_to(self.out_dir.resolve())
+                        _publish_piper_asset(
+                            job["id"], output, ordinal, job["images_total"],
+                            access_url="/outputs/" + output_rel.as_posix(), seed=base_seed + ordinal,
+                        )
+                        job["outputs"].append(str(output))
+                        ordinal += 1
+                        job["images_done"] = ordinal
+                        self._write_jobs()
+                job["status"] = "done"
+                job["phase"] = "done"
+                job["output"] = job["outputs"][0] if job["outputs"] else ""
+                job["seconds"] = time.time() - float(job["started"])
+            except CancelledJob:
+                job["status"] = "cancelled"
+                job["phase"] = "cancelled"
+            except Exception as exc:
+                job["status"] = "error"
+                job["phase"] = "error"
+                job["error"] = repr(exc)
+            finally:
+                job["finished"] = time.time()
                 self._write_jobs()
                 return
             job["status"] = "running"
@@ -1448,6 +1534,8 @@ def serve(args):
                     resp = worker.status()
                 elif op == "submit":
                     resp = worker.submit(req)
+                elif op == "submit_seed_preview":
+                    resp = worker.submit_seed_preview(req)
                 elif op == "submit_img2img":
                     resp = worker.submit_img2img(req)
                 elif op == "atlas_sphere":
