@@ -1264,29 +1264,41 @@ class Worker:
                 num_inference_steps=steps,
             )
             xframe_cache_context.atlas_step_keyed_buffers = True
-        for order_pos, i in enumerate(render_order):
+        pending_indices = [i for i in render_order if not cell_path(i).exists()]
+        requested_batch_size = max(1, int(job.get("batch_size") or 1))
+        if requested_batch_size > 1 and xframe_cache_context is not None:
+            raise ValueError("batched atlas rendering requires cache adapter none")
+        for batch_start in range(0, len(pending_indices), requested_batch_size):
             if job.get("cancel_requested"):
                 raise CancelledJob("atlas job cancelled")
-            if cell_path(i).exists():
-                continue
-            row = i // n_cols
-            col = i % n_cols
-            prompt_text = prompt_for_cell(row, col)
-            prompt_embeds, pooled_prompt_embeds = prompt_cache[prompt_text]
-            prompt_changed = previous_prompt_text is not None and prompt_text != previous_prompt_text
-            theta, azimuth = _sphere_probe(row, col, n_rows, n_cols, traversal, coupling)
-            latents = _atlas_latent(mode, theta, azimuth, basis, radius, shape, dtype, job)
-            cell_steps = steps
-            cell_role = adapter_name if adapter_name != "none" else "anchor"
-            cell_started = time.time()
-            cache_before = dict(self.first_block_cache_stats or {})
+            batch_indices = pending_indices[batch_start:batch_start + requested_batch_size]
+            batch_latents = []
+            batch_prompt_embeds = []
+            batch_pooled_prompt_embeds = []
+            batch_prompts = []
+            for i in batch_indices:
+                row, col = divmod(i, n_cols)
+                prompt_text = prompt_for_cell(row, col)
+                prompt_embeds, pooled_prompt_embeds = prompt_cache[prompt_text]
+                theta, azimuth = _sphere_probe(row, col, n_rows, n_cols, traversal, coupling)
+                batch_latents.append(_atlas_latent(mode, theta, azimuth, basis, radius, shape, dtype, job))
+                batch_prompt_embeds.append(prompt_embeds)
+                batch_pooled_prompt_embeds.append(pooled_prompt_embeds)
+                batch_prompts.append(prompt_text)
+            latents = torch.cat(batch_latents, dim=0)
+            prompt_embeds = torch.cat(batch_prompt_embeds, dim=0)
+            pooled_prompt_embeds = torch.cat(batch_pooled_prompt_embeds, dim=0)
+            batch_started = time.time()
+            job["batch_size"] = len(batch_indices)
+            job["phase"] = f"batch {done + 1}-{done + len(batch_indices)}"
+            self._write_jobs()
 
             def on_step_end(_pipe, step, _timestep, callback_kwargs):
                 if job.get("cancel_requested"):
                     raise CancelledJob("atlas job cancelled")
-                job["phase"] = f"cell {i}"
+                job["phase"] = f"batch {done + 1}-{done + len(batch_indices)}"
                 job["cell_step"] = int(step) + 1
-                job["cell_total_steps"] = cell_steps
+                job["cell_total_steps"] = steps
                 return callback_kwargs
 
             def run_pipe_call():
@@ -1295,45 +1307,37 @@ class Worker:
                     width=size,
                     height=size,
                     guidance_scale=float(job["guidance"]),
-                    num_inference_steps=cell_steps,
+                    num_inference_steps=steps,
                     latents=latents,
                     prompt_embeds=prompt_embeds,
                     pooled_prompt_embeds=pooled_prompt_embeds,
                     callback_on_step_end=on_step_end,
-                ).images[0]
+                ).images
 
             if xframe_cache_context is not None:
+                prompt_changed = previous_prompt_text is not None and batch_prompts[0] != previous_prompt_text
                 if prompt_changed:
                     xframe_cache_context.clear_buffers()
                 xframe_cache_context.executed_steps = 0
-                xframe_cache_context.num_inference_steps = cell_steps
+                xframe_cache_context.num_inference_steps = steps
                 xframe_cache_context.reset_incremental_names()
                 with xframe_cache_utils.cache_context(xframe_cache_context):
-                    image = run_pipe_call()
+                    images = run_pipe_call()
             else:
-                image = run_pipe_call()
-            job["phase"] = "saving"
-            self._write_jobs()
-            image.save(cell_path(i))
-            job["piper_asset_ready"] = _publish_piper_asset(job["id"], cell_path(i), i, total)
-            job["last_cell_seconds"] = time.time() - cell_started
-            job["last_cell_role"] = cell_role
-            job["last_cell_steps"] = cell_steps
-            if self.first_block_cache_stats is not None:
-                checks_before = int(cache_before.get("checks", 0))
-                hits_before = int(cache_before.get("hits", 0))
-                checks_after = int(self.first_block_cache_stats.get("checks", 0))
-                hits_after = int(self.first_block_cache_stats.get("hits", 0))
-                job["last_cell_cache_checks"] = checks_after - checks_before
-                job["last_cell_cache_hits"] = hits_after - hits_before
-                job["last_cell_cache_hit_rate"] = (
-                    (hits_after - hits_before) / (checks_after - checks_before)
-                    if checks_after > checks_before
-                    else 0.0
-                )
-            previous_prompt_text = prompt_text
-            done += 1
-            write_progress(done, i)
+                images = run_pipe_call()
+            batch_seconds = time.time() - batch_started
+            for i, image in zip(batch_indices, images):
+                if job.get("cancel_requested"):
+                    raise CancelledJob("atlas job cancelled")
+                job["phase"] = "saving"
+                image.save(cell_path(i))
+                job["piper_asset_ready"] = _publish_piper_asset(job["id"], cell_path(i), i, total)
+                job["last_cell_seconds"] = batch_seconds / max(1, len(batch_indices))
+                job["last_cell_role"] = f"batch-{len(batch_indices)}"
+                job["last_cell_steps"] = steps
+                previous_prompt_text = batch_prompts[-1]
+                done += 1
+                write_progress(done, i)
         try:
             progress_path.unlink()
         except FileNotFoundError:

@@ -171,7 +171,7 @@
             <label>Precision<select id="precision"><option value="bf16">BF16</option></select></label>
             <label>Backend<select id="backend"><option value="cuda">CUDA / B300</option><option value="auto">Automatic</option><option value="cpu">CPU diagnostic</option></select></label>
             <label>Resolution<select id="size"><option>512</option><option>768</option><option>1024</option></select></label>
-            <label>Batch size<input id="batchSize" type="number" min="1" max="64" value="1"></label>
+            <label>Batch size<input id="batchSize" type="number" min="1" max="64" value="64"></label>
             <label>Steps<input id="steps" type="number" min="1" max="120" value="36"></label>
             <label>Guidance<input id="guidance" type="number" step=".1" value="4.4"></label>
             <label>Cache<select id="adapter"><option value="atlas-xframe-cache">Atlas x-frame</option><option value="first-block-cache">First block</option><option value="none">Disabled</option></select></label>
