@@ -133,6 +133,7 @@ type blendRequest struct {
 type atlasSubmitRequest struct {
 	Prompt          string  `json:"prompt"`
 	ID              string  `json:"id"`
+	Backend         string  `json:"backend"`
 	RunType         string  `json:"run_type"`
 	IndexStart      int     `json:"index_start"`
 	IndexEnd        int     `json:"index_end"`
@@ -166,6 +167,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	s := Server{cfg: cfg, client: daemon.New(cfg)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
+	mux.HandleFunc("/motion-atlas", s.motionAtlas)
+	mux.HandleFunc("/motion-atlas/", s.motionAtlas)
 	mux.HandleFunc("/atlas-studio", s.atlasStudio)
 	mux.HandleFunc("/flux/atlas-studio", s.atlasStudio)
 	mux.HandleFunc("/atlas-watch", s.atlasWatch)
@@ -279,6 +282,22 @@ func (s Server) atlasStudio(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(atlasStudioHTML(s.cfg)))
+}
+
+func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/motion-atlas" {
+		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/motion-atlas/")
+	if name == "" {
+		name = "index.html"
+	}
+	if name != "index.html" && name != "app.css" && name != "app.js" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
 }
 
 func (s Server) atlasWatch(w http.ResponseWriter, r *http.Request) {
@@ -510,7 +529,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		req.IndexStart = 0
 		req.IndexEnd = latentCells
 	}
-	size := clampInt(req.Size, 256, 768, 512)
+	size := clampInt(req.Size, 256, 1024, 512)
 	steps := clampInt(req.Steps, 1, 120, 36)
 	guidance := req.Guidance
 	if guidance <= 0 {
@@ -535,6 +554,10 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	shellCoupling = clampFloat(shellCoupling, -16.0, 16.0)
 	mode := atlasChoice(req.Mode, []string{"elliptic", "omega", "sway", "oscillatory"}, "elliptic")
+	backend := atlasChoice(req.Backend, []string{"auto", "cuda", "mps", "cpu"}, s.cfg.Backend)
+	if backend == "" {
+		backend = "auto"
+	}
 	order := atlasChoice(req.TraversalOrder, []string{"row_serpentine", "column_serpentine", "raster"}, "row_serpentine")
 	adapter := atlasChoice(req.Adapter, []string{"none", "first-block-cache", "atlas-xframe-cache"}, "none")
 	cacheThreshold := req.CacheThreshold
@@ -604,7 +627,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	plan := map[string]any{
 		"id":               id,
 		"model":            "FLUX.1 dev",
-		"backend":          "mps",
+		"backend":          backend,
 		"width":            size,
 		"height":           size,
 		"steps":            steps,
@@ -653,7 +676,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Request(map[string]any{
 		"op":               "atlas_sphere",
 		"draft":            draft,
-		"backend":          "mps",
+		"backend":          backend,
 		"render_count":     renderCount,
 		"n_latent":         latentCells,
 		"index_start":      indexStart,

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080b0e">
+  <title>FLUX Motion Atlas Sphere</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="identity" href="/motion-atlas/">
+      <span class="sigil">F</span>
+      <span><b>FLUX</b><small>MOTION ATLAS SPHERE</small></span>
+    </a>
+    <div class="crumb"><span>STUDY</span><strong id="studyName">VOLGA / HORSE MOTION</strong></div>
+    <div class="system">
+      <span class="status"><i></i><span id="workerState">CONNECTING</span></span>
+      <span class="device" id="device">CUDA · B300</span>
+      <button class="iconButton" id="helpButton" aria-label="About this suite">?</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="navigator panel">
+      <div class="panelHead"><span>01</span><h2>Atlas navigator</h2></div>
+      <div class="runTypes" role="tablist" aria-label="Run type">
+        <button class="active" data-run="path">Path</button>
+        <button data-run="spot">Scout</button>
+        <button data-run="fill">Fill</button>
+      </div>
+      <div class="mapHeader"><label>LATENT FIELD</label><output id="rangeLabel">24,576—25,600</output></div>
+      <div class="atlasMap" id="atlasMap" aria-label="Atlas index range">
+        <canvas id="mapCanvas"></canvas>
+        <div class="mapCursor"><span></span></div>
+        <div class="mapLegend"><span>NORTH / HOME</span><span>65,536 CELLS</span></div>
+      </div>
+      <div class="rangeControl">
+        <label for="indexStart">Path origin <output id="indexStartOut">24576</output></label>
+        <input id="indexStart" type="range" min="0" max="64512" step="64" value="24576">
+        <label for="cells">Sequence length <output id="cellsOut">1024 frames</output></label>
+        <input id="cells" type="range" min="8" max="4096" step="8" value="1024">
+      </div>
+      <div class="sectionLabel"><span>SESSIONS</span><button id="refreshJobs">↻</button></div>
+      <div class="sessions" id="sessions">
+        <div class="session empty"><span>NO ACTIVE RUNS</span><small>Launch an atlas to begin</small></div>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="stageHead">
+        <div><span class="eyebrow">LIVE FRAME STAGE</span><h1 id="stageTitle">Motion continuity, mapped.</h1></div>
+        <div class="viewSwitch"><button class="active" data-view="frame">Frame</button><button data-view="sphere">Sphere</button></div>
+      </div>
+      <div class="viewport" id="viewport">
+        <div class="sphere" id="sphere">
+          <div class="orbit orbitA"></div><div class="orbit orbitB"></div><div class="orbit orbitC"></div>
+          <div class="sphereCore"></div><div class="axis"></div>
+        </div>
+        <img id="liveFrame" alt="Latest generated atlas frame">
+        <div class="reticle"><i></i><i></i><i></i><i></i></div>
+        <div class="coordinate"><span>CELL</span><strong id="currentCell">—</strong><small id="coordinate">θ — / φ —</small></div>
+        <div class="stageMessage" id="stageMessage"><strong>READY FOR A PATH</strong><span>Plan the latent orbit, then launch it into the resident FLUX worker.</span></div>
+      </div>
+      <div class="filmstrip" id="filmstrip">
+        <div class="filmEmpty">Generated cells will arrive here in traversal order</div>
+      </div>
+      <div class="telemetry">
+        <div><span>PROGRESS</span><strong id="progressText">0 / 1024</strong></div>
+        <div class="progress"><i id="progressBar"></i></div>
+        <div><span>RATE</span><strong id="rate">— fps</strong></div>
+        <div><span>CACHE</span><strong id="cacheState">XFRAME / .30</strong></div>
+        <div><span>ETA</span><strong id="eta">—</strong></div>
+      </div>
+    </section>
+
+    <aside class="inspector panel">
+      <div class="panelHead"><span>02</span><h2>Run inspector</h2></div>
+      <form id="atlasForm">
+        <section class="controlGroup open">
+          <button type="button" class="groupTitle"><span>Direction</span><i>−</i></button>
+          <div class="groupBody">
+            <label>Study name<input id="id" value="spheremap_atlas_horse_gallop_volga_motion"></label>
+            <label>Motion prompt<textarea id="prompt" rows="7">A powerful cinematic horse galloping through surreal Samara near the Volga, real sequential motion study: elegant dark horse in mid-stride, mane and tail whipping, hooves splashing through rain-slick street reflections, old wooden houses, flowered courtyards, tram wires, noble stone facades and Soviet blocks sliding in deep parallax, animated 3D film still, dynamic camera tracking beside the horse, consistent horse anatomy, no rider, no saddle, no cloth, no fabric, strong motion continuity</textarea></label>
+          </div>
+        </section>
+        <section class="controlGroup open">
+          <button type="button" class="groupTitle"><span>Latent geometry</span><i>−</i></button>
+          <div class="groupBody grid2">
+            <label>Orbit<select id="mode"><option value="elliptic">Elliptic</option><option value="omega">Omega / SO(4)</option><option value="sway">Sway</option><option value="oscillatory">Oscillatory</option></select></label>
+            <label>Traversal<select id="order"><option value="row_serpentine">Row serpentine</option><option value="column_serpentine">Column serpentine</option><option value="raster">Raster</option></select></label>
+            <label>Shell scale<input id="shellScale" type="number" step=".01" value="1.12"></label>
+            <label>Seed lock<input id="seedLock" type="number" step=".01" min="0" max=".95" value=".28"></label>
+            <label class="wide">Shell coupling<input id="shellCoupling" type="number" step=".01" value=".92"></label>
+          </div>
+        </section>
+        <section class="controlGroup open">
+          <button type="button" class="groupTitle"><span>Render & cache</span><i>−</i></button>
+          <div class="groupBody grid2">
+            <label>Backend<select id="backend"><option value="cuda">CUDA / B300</option><option value="auto">Automatic</option><option value="cpu">CPU diagnostic</option></select></label>
+            <label>Resolution<select id="size"><option>512</option><option>768</option><option>1024</option></select></label>
+            <label>Steps<input id="steps" type="number" min="1" max="120" value="36"></label>
+            <label>Guidance<input id="guidance" type="number" step=".1" value="4.4"></label>
+            <label>Cache<select id="adapter"><option value="atlas-xframe-cache">Atlas x-frame</option><option value="first-block-cache">First block</option><option value="none">Disabled</option></select></label>
+            <label>Threshold<input id="cacheThreshold" type="number" min="0" max="1" step=".01" value=".30"></label>
+            <label>Warmup<input id="cacheWarmup" type="number" min="0" value="0"></label>
+            <label>Home seed<input id="seed" value="random"></label>
+          </div>
+        </section>
+      </form>
+      <div class="launchBar">
+        <button id="planButton" class="secondary">Plan run</button>
+        <button id="launchButton" class="primary"><span>Launch atlas</span><i>→</i></button>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="manifestDialog">
+    <button class="dialogClose" aria-label="Close">×</button>
+    <span class="eyebrow">RUN MANIFEST</span><h2>Path is coherent and ready.</h2>
+    <div id="manifest"></div>
+    <div class="dialogActions"><button class="secondary dialogCloseButton">Keep editing</button><button class="primary" id="launchFromPlan">Launch this atlas →</button></div>
+  </dialog>
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

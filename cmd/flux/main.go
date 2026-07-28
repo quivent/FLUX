@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/huh/v2"
 	"local/flux/internal/config"
 	"local/flux/internal/daemon"
 	"local/flux/internal/history"
@@ -763,160 +762,38 @@ func atlas(cfg config.Config, args []string) error {
 }
 
 func atlasMotion(cfg config.Config, args []string) error {
-	draft := filepath.Join(cfg.Root, "atlas_drafts", "spheremap_atlas_horse_gallop_volga_motion_path_1024c_20260715.json")
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		draft = args[0]
-	}
-	if info, err := os.Stdin.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
-		return errors.New("atlas motion needs an interactive terminal; use `flux atlas sphere` for automation")
+	fs := flag.NewFlagSet("atlas motion", flag.ContinueOnError)
+	addr := fs.String("addr", "127.0.0.1:7861", "listen address")
+	open := fs.Bool("open", true, "open the suite in a browser")
+	token := fs.String("token", "", "access token for non-local binds")
+	backend := fs.String("backend", "cuda", "default backend")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 	if err := ensureAtlasMotionPrerequisites(&cfg); err != nil {
 		return err
 	}
-	raw, err := os.ReadFile(draft)
-	if err != nil {
+	cfg.Backend = strings.ToLower(strings.TrimSpace(*backend))
+	if err := validateBackend(cfg.Backend); err != nil {
 		return err
 	}
-	var source map[string]any
-	if err := json.Unmarshal(raw, &source); err != nil {
-		return err
+	resolvedToken := resolveToken(*token, "FLUX_HTTP_TOKEN")
+	if publicBindAddr(*addr) && resolvedToken == "" {
+		return fmt.Errorf("refusing to expose %s without auth; set --token or FLUX_HTTP_TOKEN", *addr)
 	}
-
-	jobID := valueOr(stringValue(source["id"]), "motion-atlas")
-	backend := "cuda"
-	mode := valueOr(stringValue(source["mode"]), "elliptic")
-	order := valueOr(stringValue(source["traversal_order"]), "row_serpentine")
-	cells := fmt.Sprint(intValue(source["render_count"]))
-	indexStart := fmt.Sprint(intValue(source["index_start"]))
-	indexEnd := fmt.Sprint(intValue(source["index_end"]))
-	size := fmt.Sprint(intValue(source["size"]))
-	steps := fmt.Sprint(intValue(source["steps"]))
-	guidance := fmt.Sprint(source["guidance"])
-	seed := fmt.Sprint(source["seed_a"])
-	shellScale := fmt.Sprint(source["shell_scale"])
-	seedLock := fmt.Sprint(source["seed_lock"])
-	shellCoupling := fmt.Sprint(source["shell_coupling"])
-	adapter := "atlas-xframe-cache"
-	cacheThreshold := "0.30"
-	cacheDownsample := "1"
-	cacheWarmup := "0"
-	action := "run"
-
-	required := func(value string) error {
-		if strings.TrimSpace(value) == "" {
-			return errors.New("required")
-		}
-		return nil
+	url := "http://" + *addr + "/motion-atlas/"
+	ui.Header("motion atlas sphere", "independent FLUX motion suite")
+	ui.KV("suite", url)
+	ui.KV("backend", cfg.Backend)
+	if host, _, splitErr := net.SplitHostPort(*addr); splitErr == nil && (host == "127.0.0.1" || host == "localhost") {
+		ui.KV("remote access", "ssh -L 7861:127.0.0.1:7861 <host>")
 	}
-	integer := func(minimum int) func(string) error {
-		return func(value string) error {
-			n, err := strconv.Atoi(value)
-			if err != nil || n < minimum {
-				return fmt.Errorf("enter an integer ≥ %d", minimum)
-			}
-			return nil
-		}
+	if *open {
+		server.OpenBrowser(url)
 	}
-	decimal := func(minimum, maximum float64) func(string) error {
-		return func(value string) error {
-			n, err := strconv.ParseFloat(value, 64)
-			if err != nil || n < minimum || n > maximum {
-				return fmt.Errorf("enter a number from %g to %g", minimum, maximum)
-			}
-			return nil
-		}
-	}
-
-	for {
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewNote().
-					Title("SPHERE ATLAS · MOTION STUDY").
-					Description("B300 / CUDA launch console\nConfigure a coherent latent path, then preview or queue it."),
-				huh.NewInput().Title("Draft").Description("Source atlas experiment JSON").Value(&draft).Validate(required),
-				huh.NewInput().Title("Job ID").Description("Output collection and viewer identifier").Value(&jobID).Validate(required),
-				huh.NewSelect[string]().Title("Compute backend").Value(&backend).Options(
-					huh.NewOption("CUDA · NVIDIA B300", "cuda"),
-					huh.NewOption("CPU · diagnostics only", "cpu"),
-				),
-			).Title("Study"),
-			huh.NewGroup(
-				huh.NewSelect[string]().Title("Latent path").Value(&mode).Options(
-					huh.NewOption("Elliptic · stable orbit", "elliptic"),
-					huh.NewOption("Omega · SO(4) rotation", "omega"),
-					huh.NewOption("Sway · outward and home", "sway"),
-					huh.NewOption("Oscillatory · reversible motion", "oscillatory"),
-				),
-				huh.NewSelect[string]().Title("Traversal").Value(&order).Options(
-					huh.NewOption("Row serpentine · motion continuity", "row_serpentine"),
-					huh.NewOption("Column serpentine", "column_serpentine"),
-					huh.NewOption("Raster", "raster"),
-				),
-				huh.NewInput().Title("Shell scale").Value(&shellScale).Validate(decimal(0.01, 4)),
-				huh.NewInput().Title("Seed lock").Description("Higher values preserve identity and composition").Value(&seedLock).Validate(decimal(0, 0.95)),
-				huh.NewInput().Title("Shell coupling").Value(&shellCoupling).Validate(decimal(-16, 16)),
-			).Title("Latent geometry").Description("Shape and continuity of the motion path"),
-			huh.NewGroup(
-				huh.NewInput().Title("Cells").Description("Frames sampled from the selected index range").Value(&cells).Validate(integer(1)),
-				huh.NewInput().Title("Index start").Value(&indexStart).Validate(integer(0)),
-				huh.NewInput().Title("Index end").Value(&indexEnd).Validate(integer(1)),
-				huh.NewInput().Title("Image size").Description("Square output resolution").Value(&size).Validate(integer(128)),
-				huh.NewInput().Title("Denoising steps").Value(&steps).Validate(integer(1)),
-				huh.NewInput().Title("Guidance").Value(&guidance).Validate(decimal(0, 20)),
-				huh.NewInput().Title("Home seed").Value(&seed).Validate(integer(0)),
-			).Title("Render").Description("Frame range and image quality"),
-			huh.NewGroup(
-				huh.NewSelect[string]().Title("Denoiser cache").Value(&adapter).Options(
-					huh.NewOption("Atlas cross-frame · recommended", "atlas-xframe-cache"),
-					huh.NewOption("First-block cache", "first-block-cache"),
-					huh.NewOption("Disabled", "none"),
-				),
-				huh.NewInput().Title("Residual threshold").Description("Higher values reuse more denoiser work").Value(&cacheThreshold).Validate(decimal(0, 1)),
-				huh.NewInput().Title("Downsample").Value(&cacheDownsample).Validate(integer(1)),
-				huh.NewInput().Title("Warmup steps").Value(&cacheWarmup).Validate(integer(0)),
-				huh.NewSelect[string]().Title("Action").Value(&action).Options(
-					huh.NewOption("Run atlas", "run"),
-					huh.NewOption("Preview plan, then return", "plan"),
-				),
-			).Title("Cache & launch").Description("Persistent reuse across neighboring atlas cells"),
-		).
-			WithTheme(huh.ThemeFunc(huh.ThemeCatppuccin)).
-			WithShowHelp(true).
-			WithShowErrors(true)
-		if err := form.Run(); err != nil {
-			if errors.Is(err, huh.ErrUserAborted) {
-				return nil
-			}
-			return err
-		}
-		runArgs := []string{
-			"--draft", draft, "--id", jobID, "--backend", backend,
-			"--mode", mode, "--order", order, "--sample-count", cells,
-			"--index-start", indexStart, "--index-end", indexEnd, "--size", size,
-			"--steps", steps, "--guidance", guidance, "--seed", seed,
-			"--shell-scale", shellScale, "--seed-lock", seedLock,
-			"--shell-coupling", shellCoupling, "--adapter", adapter,
-			"--cache-threshold", cacheThreshold, "--cache-downsample", cacheDownsample,
-			"--cache-warmup", cacheWarmup,
-		}
-		if action == "plan" {
-			runArgs = append(runArgs, "--dry-run")
-			if err := atlasSphere(cfg, runArgs); err != nil {
-				return err
-			}
-			var editAgain bool
-			if err := huh.NewConfirm().
-				Title("Return to the launch console?").
-				Affirmative("Edit settings").
-				Negative("Exit").
-				Value(&editAgain).
-				Run(); err != nil || !editAgain {
-				return err
-			}
-			continue
-		}
-		return atlasSphere(cfg, runArgs)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken})
 }
 
 func ensureAtlasMotionPrerequisites(cfg *config.Config) error {
