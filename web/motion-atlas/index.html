@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#080b0e">
   <title>FLUX Motion Atlas Sphere</title>
-  <link rel="stylesheet" href="app.css?v=20260728f">
+  <link rel="stylesheet" href="app.css?v=20260728g">
   <link rel="prefetch" href="optics.html"><link rel="prefetch" href="optics.js"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js">
 </head>
 <body>
@@ -145,10 +145,12 @@
           <div class="groupBody grid2">
             <label>Orbit<select id="mode"><option value="elliptic">Elliptic</option><option value="omega">Omega / SO(4)</option><option value="sway">Sway</option><option value="oscillatory">Oscillatory</option></select></label>
             <label>Traversal<select id="order"><option value="row_serpentine">Row serpentine</option><option value="column_serpentine">Column serpentine</option><option value="raster">Raster</option></select></label>
+            <div class="geometryExplainer wide"><strong id="geometryName">ELLIPTIC · CONTROLLED ORBIT</strong><p id="geometryHelp">A smooth closed arc around the home identity. Best for stable cinematic motion with gradual change.</p><small id="traversalHelp">Row serpentine walks each row forward, then reverses the next row to avoid a hard return jump.</small></div>
             <label class="wide parameter violet"><span>Identity lock <output data-for="seedLock">0.28</output></span><input id="seedLock" type="range" min="0" max=".95" step=".01" value=".28"></label>
             <label class="wide parameter amber"><span>Shell coupling <output data-for="shellCoupling">0.92</output></span><input id="shellCoupling" type="range" min="-4" max="4" step=".01" value=".92"></label>
             <div class="dimensionField wide">
-              <div class="dimensionHead"><span>SO(4) PLANE RATES</span><small>SIX COUPLED ROTATIONS</small></div>
+              <div class="dimensionHead"><span>SO(4) PLANE RATES</span><small>ABSTRACT LATENT PLANES · NOT SCREEN AXES</small></div>
+              <p class="dimensionHelp">Each slider sets angular velocity through one pair of four latent basis directions. Larger magnitude creates faster transformation; a negative value reverses that plane. Their combination defines the path’s character.</p>
               <div class="dimensionGrid">
                 <label class="dimAxis xy"><span>XY <output data-for="dimXY">.32</output></span><input id="dimXY" type="range" min="-2" max="2" step=".01" value=".32"></label>
                 <label class="dimAxis xz"><span>XZ <output data-for="dimXZ">.11</output></span><input id="dimXZ" type="range" min="-2" max="2" step=".01" value=".11"></label>
@@ -191,6 +193,6 @@
     <div class="dialogActions"><button class="secondary dialogCloseButton">Keep editing</button><button class="primary" id="launchFromPlan">Launch this atlas →</button></div>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="app.js?v=20260728f"></script>
+  <script src="app.js?v=20260728g"></script>
 </body>
 </html>
