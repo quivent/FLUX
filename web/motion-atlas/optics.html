@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b0e"><title>FLUX Aligned Optics</title><link rel="stylesheet" href="app.css?v=20260728w"><link rel="prefetch" href="index.html"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b0e"><title>FLUX Aligned Optics</title><link rel="stylesheet" href="app.css?v=20260728x"><link rel="prefetch" href="index.html"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js"></head>
 <body class="suitePage opticsPage"><div class="noise"></div>
 <header class="topbar"><a class="identity" href="/motion-atlas/"><span class="sigil">F</span><span><b>FLUX</b><small>MOTION ATLAS SPHERE</small></span></a><nav class="suiteTabs"><a href="/motion-atlas/">ATLAS</a><a class="active" href="/motion-atlas/optics.html">OPTICS</a><a href="/motion-atlas/queue.html">QUEUE</a><a href="/motion-atlas/registry.html">GALLERY</a><a href="https://gov.influx.vision/">GATEKEEPER</a></nav><div class="system"><span class="status"><i></i><span id="opticState">OPTICAL BENCH READY</span></span><span class="modelTopState" id="modelTopState"><i></i>MODEL CHECKING</span><span class="device">CUDA · B300</span></div></header>
 <main class="opticsWorkspace">
@@ -31,11 +31,11 @@
       <section class="sphereCartography" aria-label="Live latent sphere coverage">
         <div class="cartographyLegend">
           <div><i class="seedDot"></i><span>seed <b id="sphereSeed">—</b> (centre · e₀ · θ=0)</span></div>
-          <div><i class="probeDot"></i><span>filled probes (<b id="sphereRendered">0</b>)</span></div>
+          <div><i class="probeDot"></i><span><b id="sphereStudyKind">loop probes</b> (<b id="sphereRendered">0</b>)</span></div>
           <div><i class="frontierDot"></i><span>frontier i=<b id="sphereFrontier">—</b></span></div>
           <div><em>θ <b id="sphereTheta">—</b></em><small> · </small><strong>φ <b id="spherePhi">—</b></strong><small> · row <b id="sphereRow">—</b> col <b id="sphereCol">—</b></small></div>
-          <div class="rhoLine">ρ <b id="sphereRho">0.0%</b> radial · <b id="sphereRows">0.0%</b> θ rows</div>
-          <div class="cartographyNote">cyan = progress ρ · dots = <b id="sphereSites">65,536</b> (θ,φ) shell sites · wire = reference</div>
+          <div class="rhoLine"><span id="sphereMeasureLabel">loop closure</span> <b id="sphereRho">—</b> · <b id="sphereRows">0.0%</b> rendered</div>
+          <div class="cartographyNote">cyan = completed loop · faint line = planned motion · wire = reference</div>
         </div>
         <canvas id="opticSphere"></canvas>
       </section>
@@ -44,4 +44,4 @@
     </div>
     <div class="compiledPrompt"><span>OPTICAL INSTRUCTION</span><p id="compiledOptics"></p><button id="copyOptics">COPY</button></div>
   </section>
-</main><div class="toast" id="toast"></div><script src="optics.js?v=20260728w"></script></body></html>
+</main><div class="toast" id="toast"></div><script src="optics.js?v=20260728x"></script></body></html>
