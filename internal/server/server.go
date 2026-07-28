@@ -53,6 +53,11 @@ var modelDownloadState struct {
 
 var atlasNexusReceipts sync.Map
 
+var studioSchemaState = struct {
+	sync.Mutex
+	ready map[string]bool
+}{ready: make(map[string]bool)}
+
 var motionAssetHub = struct {
 	sync.Mutex
 	clients map[chan map[string]any]struct{}
@@ -2271,14 +2276,19 @@ func (s Server) openStudioDB() (*sql.DB, error) {
 	if err := os.MkdirAll(stateDir, 0700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", filepath.Join(stateDir, "studio.sqlite"))
+	dbPath := filepath.Join(stateDir, "studio.sqlite")
+	dsn := "file:" + filepath.ToSlash(dbPath) + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(`PRAGMA journal_mode=WAL;
-PRAGMA busy_timeout=5000;
-CREATE TABLE IF NOT EXISTS collections (
+	studioSchemaState.Lock()
+	defer studioSchemaState.Unlock()
+	if studioSchemaState.ready[dbPath] {
+		return db, nil
+	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS collections (
 	path TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	kind TEXT NOT NULL,
@@ -2344,6 +2354,7 @@ CREATE INDEX IF NOT EXISTS atlas_seeds_updated_idx ON atlas_seeds(updated_at);
 		_ = db.Close()
 		return nil, err
 	}
+	studioSchemaState.ready[dbPath] = true
 	return db, nil
 }
 
