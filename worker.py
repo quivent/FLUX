@@ -1,4 +1,7 @@
 import argparse
+import functools
+import gc
+import inspect
 import json
 import math
 import os
@@ -9,6 +12,7 @@ import shutil
 import subprocess
 import threading
 import time
+import unittest.mock
 import uuid
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
@@ -389,6 +393,72 @@ class Worker:
         self.pipe_adapter_config = None
         print("model_ready=true", flush=True)
 
+    def _discard_pipe_adapter(self):
+        if self.pipe is None:
+            self.pipe_adapter_config = None
+            self.first_block_cache_stats = None
+            return
+        self.pipe = None
+        self.pipe_device = None
+        self.pipe_adapter_config = None
+        self.first_block_cache_stats = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def _apply_flux_cache_compat(self, first_block_utils):
+        transformer = self.pipe.transformer
+        if getattr(transformer, "_is_cached", False):
+            return
+        single_blocks = transformer.single_transformer_blocks
+        signature = inspect.signature(single_blocks[0].forward)
+        if "encoder_hidden_states" not in signature.parameters:
+            from para_attn.first_block_cache.diffusers_adapters.flux import apply_cache_on_transformer
+
+            apply_cache_on_transformer(transformer)
+            return
+
+        class CurrentFluxCachedBlocks(first_block_utils.CachedTransformerBlocks):
+            def call_remaining_transformer_blocks(this, hidden_states, encoder_hidden_states, *args, **kwargs):
+                original_hidden = hidden_states
+                original_encoder = encoder_hidden_states
+                for block in this.transformer_blocks[1:]:
+                    encoder_hidden_states, hidden_states = block(
+                        hidden_states, encoder_hidden_states, *args, **kwargs
+                    )
+                for block in this.single_transformer_blocks or ():
+                    encoder_hidden_states, hidden_states = block(
+                        hidden_states, encoder_hidden_states, *args, **kwargs
+                    )
+                hidden_states = hidden_states.reshape(-1).contiguous().reshape(original_hidden.shape)
+                encoder_hidden_states = encoder_hidden_states.reshape(-1).contiguous().reshape(original_encoder.shape)
+                return (
+                    hidden_states,
+                    encoder_hidden_states,
+                    hidden_states - original_hidden,
+                    encoder_hidden_states - original_encoder,
+                )
+
+        cached_blocks = torch.nn.ModuleList([
+            CurrentFluxCachedBlocks(
+                transformer.transformer_blocks,
+                transformer.single_transformer_blocks,
+                transformer=transformer,
+                return_hidden_states_first=False,
+            )
+        ])
+        original_forward = transformer.forward
+
+        @functools.wraps(original_forward)
+        def cached_forward(this, *args, **kwargs):
+            with unittest.mock.patch.object(this, "transformer_blocks", cached_blocks), unittest.mock.patch.object(
+                this, "single_transformer_blocks", torch.nn.ModuleList()
+            ):
+                return original_forward(*args, **kwargs)
+
+        transformer.forward = cached_forward.__get__(transformer)
+        transformer._is_cached = True
+
     def _configure_pipe_adapter(self, adapter_name, *, cache_threshold=0.12, cache_downsample=1, cache_warmup=0):
         adapter_name = (adapter_name or "none").replace("_", "-").lower()
         if adapter_name in ("", "none", "off"):
@@ -455,9 +525,7 @@ class Worker:
             first_block_utils.CacheContext.remove_buffer = step_keyed_remove_buffer
 
         if canonical == "atlas-xframe-cache":
-            from para_attn.first_block_cache.diffusers_adapters.flux import apply_cache_on_transformer
-
-            apply_cache_on_transformer(self.pipe.transformer)
+            self._apply_flux_cache_compat(first_block_utils)
         else:
             from para_attn.first_block_cache.diffusers_adapters import apply_cache_on_pipe
 
@@ -782,6 +850,8 @@ class Worker:
             finally:
                 job["finished"] = time.time()
                 self._write_jobs()
+                if self.pipe_adapter_config is not None:
+                    self._discard_pipe_adapter()
 
     def _render(self, job):
         if job.get("kind") == "img2img":
@@ -863,6 +933,9 @@ class Worker:
             self.device = "cuda"
         else:
             self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        requested_adapter = str(job.get("adapter") or "none").replace("_", "-").lower()
+        if requested_adapter in ("", "none", "off") and self.pipe_adapter_config is not None:
+            self._discard_pipe_adapter()
         self._load_pipe(self.device)
 
         out_dir = pathlib.Path(job["output"])
