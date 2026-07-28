@@ -1424,9 +1424,14 @@ def serve(args):
     while True:
         conn, _ = srv.accept()
         with conn:
-            req = json.loads(conn.makefile().readline())
-            op = req.get("op")
             try:
+                line = conn.makefile().readline()
+                if not line.strip():
+                    continue
+                req = json.loads(line)
+                if not isinstance(req, dict):
+                    raise ValueError("request must be a JSON object")
+                op = req.get("op")
                 if op == "ping":
                     resp = worker.status()
                 elif op == "warm":
