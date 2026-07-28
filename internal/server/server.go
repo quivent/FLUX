@@ -160,6 +160,7 @@ type atlasSubmitRequest struct {
 	Precision       string    `json:"precision"`
 	BatchSize       int       `json:"batch_size"`
 	DimensionRates  []float64 `json:"dimension_rates"`
+	StudyType       string    `json:"study_type"`
 	RunType         string    `json:"run_type"`
 	IndexStart      int       `json:"index_start"`
 	IndexEnd        int       `json:"index_end"`
@@ -1001,8 +1002,13 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	batchSize := clampInt(req.BatchSize, 1, 64, 1)
 	rows, cols := 1024, 64
 	latentCells := rows * cols
+	studyType := atlasChoice(req.StudyType, []string{"loop", "atlas"}, "")
+	if studyType == "" {
+		writeError(w, http.StatusBadRequest, "study_type is required: choose loop or atlas")
+		return
+	}
 	runType := atlasChoice(req.RunType, []string{"spot", "fill", "path"}, "spot")
-	sampleMode := atlasChoice(req.SampleMode, []string{"nested_sparse", "sparse", "contiguous", "stride", "even", "smooth_even"}, "nested_sparse")
+	sampleMode := atlasChoice(req.SampleMode, []string{"loop", "nested_sparse", "sparse", "contiguous", "stride", "even", "smooth_even"}, "nested_sparse")
 	if sampleMode == "sparse" {
 		sampleMode = "nested_sparse"
 	}
@@ -1023,6 +1029,11 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	} else {
 		req.IndexStart = 0
 		req.IndexEnd = latentCells
+	}
+	if studyType == "loop" {
+		sampleMode = "loop"
+		indexStart = 0
+		indexEnd = latentCells
 	}
 	size := clampInt(req.Size, 256, 1024, 512)
 	steps := clampInt(req.Steps, 1, 120, 36)
@@ -1101,6 +1112,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"prompt":          req.Prompt,
 		"view_prompts":    []string{req.Prompt},
 		"mode":            mode,
+		"study_type":      studyType,
 		"run_type":        runType,
 		"sample_mode":     sampleMode,
 		"traversal":       "spherical_outward",
@@ -1143,6 +1155,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"latent_cells":     latentCells,
 		"grid":             fmt.Sprintf("%dx%d", rows, cols),
 		"mode":             mode,
+		"study_type":       studyType,
 		"run_type":         runType,
 		"sample_mode":      sampleMode,
 		"traversal_order":  order,
@@ -4333,7 +4346,8 @@ label{display:block;color:var(--muted);font-size:12px;letter-spacing:.08em;text-
 <h2>launch atlas</h2>
 <div class="head"><div><b>Sphere atlas lane</b><span>No image-to-image source. Samples a 1024x64 latent sphere map like the earlier working atlas.</span></div><span>dev · MPS · quality</span></div>
 <label>prompt</label><textarea id="atlasPrompt">Surreal cinematic architectural city scene in Samara, Russia, old carved wooden houses in the historic center, Soviet apartment blocks, noble stone buildings, private homes and Dubai-like glass towers, wet streets, ember light, dimensional urban depth, high contrast animated film still, visible camera motion and parallax, buildings and streets only, no people, no cloth, no fabric</textarea>
-<div class="two"><div><label>atlas id</label><input id="atlasID" placeholder="auto"></div><div><label>run type</label><select id="atlasRunType" onchange="updateAtlasMode()"><option value="spot" selected>sparse scout</option><option value="fill">fill same atlas</option><option value="path">local path</option></select></div></div>
+<div class="two"><div><label>study type</label><select id="atlasStudyType" onchange="updateAtlasMode()"><option value="">choose loop or atlas</option><option value="loop">loop study</option><option value="atlas">atlas study</option></select></div><div><label>atlas id</label><input id="atlasID" placeholder="auto"></div></div>
+<div><label>run type</label><select id="atlasRunType" onchange="updateAtlasMode()"><option value="spot" selected>sparse scout</option><option value="fill">fill same atlas</option><option value="path">local path</option></select></div>
 <div class="row"><div><label>samples</label><select id="atlasCells" onchange="updateAtlasNote()"><option value="1">1 cell test</option><option value="4">4 cell scout</option><option value="16">16 cells</option><option value="64" selected>64 cells</option><option value="128">128 cells</option><option value="256">256 cells</option></select></div><div><label>path start index</label><input id="atlasIndexStart" type="number" min="0" max="65535" step="1" value="0" oninput="updateAtlasNote()"></div><div><label>path end index</label><input id="atlasIndexEnd" type="number" min="1" max="65536" step="1" placeholder="auto" oninput="updateAtlasNote()"></div></div>
 <div class="row"><div><label>resolution</label><select id="atlasSize" onchange="updateAtlasNote()"><option value="384">384 square</option><option value="512" selected>512 square</option><option value="640">640 square</option><option value="768">768 square</option></select></div><div><label>steps</label><input id="atlasSteps" type="number" min="1" max="120" value="36" oninput="updateAtlasNote()"></div><div><label>guidance</label><input id="atlasGuidance" type="number" min="0" max="20" step="0.1" value="4.4"></div></div>
 <div class="row"><div><label>shell scale</label><input id="atlasShellScale" type="number" min="0.01" max="4" step="0.01" value="1.12"></div><div><label>seed lock</label><input id="atlasSeedLock" type="number" min="0" max="0.95" step="0.01" value="0.28"></div><div><label>coupling</label><input id="atlasShellCoupling" type="number" min="-16" max="16" step="0.01" value="0.92"></div></div>
@@ -4372,7 +4386,7 @@ function pct(done,total){return total?Math.max(0,Math.min(100,(Number(done||0)/N
 function fmtPct(v){return Math.round(Number(v||0)*10)/10+'%'}
 function fmtRate(v){const n=Number(v||0);return n>=100?Math.round(n)+'/h':n.toFixed(1)+'/h'}
 function fmtTime(sec){sec=Number(sec||0);if(!sec)return '-';if(sec<60)return Math.round(sec)+'s';if(sec<3600)return Math.round(sec/60)+'m';return (sec/3600).toFixed(1)+'h'}
-function atlasBody(dryRun){const runType=$('atlasRunType').value;return {prompt:$('atlasPrompt').value,id:$('atlasID').value,run_type:runType,cells:n('atlasCells')||64,index_start:n('atlasIndexStart')||0,index_end:n('atlasIndexEnd')||0,sample_mode:runType==='path'?'contiguous':'nested_sparse',size:n('atlasSize')||512,steps:n('atlasSteps')||36,guidance:n('atlasGuidance')||4.4,seed:$('atlasSeed').value,shell_scale:n('atlasShellScale')||1.12,seed_lock:n('atlasSeedLock')||0.28,shell_coupling:n('atlasShellCoupling')||0.92,mode:$('atlasMode').value,traversal_order:$('atlasOrder').value,adapter:$('atlasAdapter').value,cache_threshold:n('atlasCacheThreshold')||0.12,cache_downsample:n('atlasCacheDownsample')||1,cache_warmup:n('atlasCacheWarmup')||0,dry_run:dryRun}}
+function atlasBody(dryRun){const runType=$('atlasRunType').value,studyType=$('atlasStudyType').value;return {prompt:$('atlasPrompt').value,id:$('atlasID').value,study_type:studyType,run_type:runType,cells:n('atlasCells')||64,index_start:n('atlasIndexStart')||0,index_end:n('atlasIndexEnd')||0,sample_mode:studyType==='loop'?'loop':runType==='path'?'contiguous':'nested_sparse',size:n('atlasSize')||512,steps:n('atlasSteps')||36,guidance:n('atlasGuidance')||4.4,seed:$('atlasSeed').value,shell_scale:n('atlasShellScale')||1.12,seed_lock:n('atlasSeedLock')||0.28,shell_coupling:n('atlasShellCoupling')||0.92,mode:$('atlasMode').value,traversal_order:$('atlasOrder').value,adapter:$('atlasAdapter').value,cache_threshold:n('atlasCacheThreshold')||0.12,cache_downsample:n('atlasCacheDownsample')||1,cache_warmup:n('atlasCacheWarmup')||0,dry_run:dryRun}}
 function updateAtlasMode(){const path=$('atlasRunType').value==='path';$('atlasIndexStart').disabled=!path;$('atlasIndexEnd').disabled=!path;updateAtlasNote()}
 function updateAtlasNote(){const cells=n('atlasCells')||64,steps=n('atlasSteps')||36,size=n('atlasSize')||512,runType=$('atlasRunType').value,start=n('atlasIndexStart')||0,end=n('atlasIndexEnd')||0;if(runType==='path'){$('atlasNote').textContent=cells+' contiguous path samples · index '+start+' to '+(end||start+cells)+' · '+steps+' steps · '+size+' square · socket MPS';return}const verb=runType==='fill'?'nested fill':'nested sparse';$('atlasNote').textContent=cells+' '+verb+' samples from 1024x64 · '+steps+' steps · '+size+' square · socket MPS'}
 function say(html){$('out').innerHTML=html}

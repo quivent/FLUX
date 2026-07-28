@@ -235,6 +235,20 @@ def _atlas_smooth_sphere_order(indices, render_count, n_rows, n_cols):
     return ordered
 
 
+def _atlas_loop_order(indices, render_count, n_rows, n_cols):
+    """Sample one closed revolution without duplicating the endpoint."""
+    if render_count <= 0:
+        return []
+    allowed = set(indices)
+    ordered = []
+    for i in range(render_count):
+        row = min(n_rows - 1, math.floor(i * n_rows / render_count))
+        idx = row * n_cols
+        if idx in allowed:
+            ordered.append(idx)
+    return ordered
+
+
 def _atlas_order_delta_summary(indices, n_rows, n_cols, traversal, coupling, sample_limit=4096):
     if len(indices) < 2:
         return {"samples": 0, "median_radians": 0.0, "max_radians": 0.0}
@@ -740,6 +754,7 @@ class Worker:
             run_total = min(run_total, render_count)
         traversal_order = str(payload.get("traversal_order") or draft.get("traversal_order") or "column_serpentine")
         sample_mode = str(payload.get("sample_mode") or draft.get("sample_mode") or "contiguous").lower()
+        study_type = str(payload.get("study_type") or draft.get("study_type") or "unclassified").lower()
         adapter = str(payload.get("adapter") or draft.get("adapter") or "none").lower()
         cache_threshold = _finite_float(payload.get("cache_threshold") or draft.get("cache_threshold"), 0.12, 0.0, 1.0)
         cache_downsample = _finite_int(payload.get("cache_downsample") or draft.get("cache_downsample"), 1, 1, 64)
@@ -766,6 +781,7 @@ class Worker:
             "traversal": str(draft.get("traversal") or "spherical_outward"),
             "traversal_order": traversal_order,
             "sample_mode": sample_mode,
+            "study_type": study_type,
             "adapter": adapter,
             "cache_threshold": cache_threshold,
             "cache_downsample": cache_downsample,
@@ -1181,7 +1197,9 @@ class Worker:
         # "even" was historically uniform as a set but alternated by ~pi radians
         # in playback. Keep accepting old queued manifests, but give them the
         # corrected equal-area motion path at execution time.
-        if sample_mode == "smooth_even":
+        if sample_mode == "loop":
+            render_order = _atlas_loop_order(render_order, render_count, n_rows, n_cols)
+        elif sample_mode == "smooth_even":
             render_order = _atlas_smooth_sphere_order(
                 render_order, render_count, n_rows, n_cols
             )
@@ -1239,6 +1257,7 @@ class Worker:
             "precision": "bf16",
             "render_total": total,
             "sample_mode": sample_mode,
+            "study_type": job.get("study_type") or "unclassified",
             "size": size,
             "steps": steps,
             "mode": mode,

@@ -10,6 +10,7 @@
       <label>Study name<input id="queueName" required placeholder="atlas-sphere-study"></label>
       <label>Prompt<textarea id="queuePrompt" required placeholder="Describe the visual study"></textarea></label>
       <div class="queueFields">
+        <label>Study type<select id="queueStudyType" required><option value="">Choose…</option><option value="loop">Loop</option><option value="atlas">Atlas</option></select></label>
         <label>Cells<input id="queueCells" type="number" min="1" max="65536" value="64"></label>
         <label>Size<select id="queueSize"><option>512</option><option>768</option><option>1024</option></select></label>
         <label>Steps<input id="queueSteps" type="number" min="1" max="120" value="36"></label>
