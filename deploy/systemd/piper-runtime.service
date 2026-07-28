@@ -9,7 +9,7 @@ User=root
 WorkingDirectory=/root/Council-of-Gemmas
 Environment=COUNCIL_ROOT=/root/Council-of-Gemmas
 ExecStartPre=-/usr/bin/rm -f /tmp/piper.sock
-ExecStart=/usr/bin/python3 /root/Council-of-Gemmas/daemons/piper.py serve
+ExecStart=/usr/bin/python3 /root/Council-of-Gemmas/daemons/piper_stream.py
 Restart=always
 RestartSec=2
 

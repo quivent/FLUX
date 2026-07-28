@@ -1166,11 +1166,18 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 			_ = os.WriteFile(filepath.Join(s.cfg.Root, "atlas_drafts", id+".json"), append(raw, '\n'), 0o644)
 		}
 	}
-	s.writeQueuedAtlasPlaceholder(id, draft, plan)
 	nexus := submitNexusReceipt(id, draft, plan)
-	nexusAccepted, _ := nexus["ok"].(bool)
+	nexusAccepted := nexusReceiptVerified(id, nexus)
 	atlasNexusReceipts.Store(id, nexusAccepted)
 	s.storeAtlasReceipt(id, nexusAccepted, stringValue(nexus["status"]), nexus)
+	if !nexusAccepted {
+		writeJSON(w, http.StatusBadGateway, map[string]any{
+			"ok": false, "error": "NEXUS REJECTED JOB: no verified durable receipt; FLUX dispatch was blocked",
+			"plan": plan, "draft": draft, "nexus": nexus,
+		})
+		return
+	}
+	s.writeQueuedAtlasPlaceholder(id, draft, plan)
 	client := daemon.New(s.cfg)
 	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
 		if err := client.Start(false); err != nil {
@@ -1241,7 +1248,7 @@ func submitNexusReceipt(id string, draft, plan map[string]any) map[string]any {
 	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 	payload := map[string]any{"type": "submit", "job": map[string]any{
 		"id": id, "job_id": id, "kind": "flux.motion_atlas",
-		"status": "queued", "draft": draft, "plan": plan,
+		"status": "queued", "execution_owner": "flux", "draft": draft, "plan": plan,
 	}}
 	raw, _ := json.Marshal(payload)
 	if _, err := fmt.Fprintf(conn, "%s\n", raw); err != nil {
@@ -1252,6 +1259,16 @@ func submitNexusReceipt(id string, draft, plan map[string]any) map[string]any {
 		return map[string]any{"ok": false, "status": "invalid-receipt", "error": err.Error()}
 	}
 	return receipt
+}
+
+func nexusReceiptVerified(jobID string, receipt map[string]any) bool {
+	ok, _ := receipt["ok"].(bool)
+	accepted, _ := receipt["accepted"].(bool)
+	verified, _ := receipt["verified"].(bool)
+	return ok && accepted && verified &&
+		stringValue(receipt["status"]) == "accepted" &&
+		stringValue(receipt["job_id"]) == jobID &&
+		strings.TrimSpace(stringValue(receipt["receipt_id"])) != ""
 }
 
 func (s Server) writeQueuedAtlasPlaceholder(id string, draft, plan map[string]any) {

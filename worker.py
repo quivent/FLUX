@@ -56,8 +56,9 @@ def _publish_piper_asset(job_id, path, index, total, *, access_url=None, seed=No
             conn.connect(socket_path)
             conn.sendall((json.dumps(payload, separators=(",", ":")) + "\n").encode())
             conn.shutdown(socket.SHUT_WR)
-            conn.recv(4096)
-        return True
+            raw = conn.recv(4096)
+        receipt = json.loads(raw.decode("utf-8", "replace").strip())
+        return bool(receipt.get("ok")) and receipt.get("status") == "published"
     except OSError:
         return False
 
