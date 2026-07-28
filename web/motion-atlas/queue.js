@@ -1,7 +1,20 @@
 const $=id=>document.getElementById(id),KEY="flux.motion.queue.v1";
 let items=[];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function load(){try{items=JSON.parse(localStorage.getItem(KEY)||"[]")}catch{items=[]}render()}
+const studies=[
+["atlas-equine-lateral-motion","A dark horse in powerful lateral motion through rain-lit Samara, exact anatomy, stable identity, readable hoof contacts, cinematic architectural parallax"],
+["atlas-orbital-camera-continuity","A solitary silver figure on a basalt platform as the camera completes a controlled orbital move, consistent silhouette, background geometry, scale, and screen direction"],
+["atlas-volumetric-light-transport","A monumental glass pavilion at blue hour, shafts of amber light moving through fog, physically coherent reflections, refraction, occlusion, and exposure"],
+["atlas-material-response","An editorial arrangement of brushed titanium, wet obsidian, translucent resin, silk, and weathered leather under a traveling studio light"],
+["atlas-character-identity","A weathered astronaut crossing a red salt basin, facial identity, suit markings, proportions, and carried equipment remaining exact through pose changes"],
+["atlas-temporal-motion","A dancer executing a full turning leap in a stark concrete hall, anatomically plausible anticipation, airborne phase, landing, fabric inertia, and hair motion"],
+["atlas-topology-stress","An intricate kinetic sculpture unfolding from a compact polyhedron into interlocking ribbons without intersections, duplication, broken joints, or impossible topology"],
+["atlas-depth-parallax","A camera pushing through layered jungle ruins toward a luminous monolith, strong foreground occlusion, measured midground drift, and stable distant perspective"],
+["atlas-atmospheric-weather","A fishing vessel crossing a violent midnight squall, evolving wave structure, rain direction, spray, lightning illumination, and hull continuity"],
+["atlas-production-gauntlet","A continuous cinematic shot moving from macro mechanical detail to a wide autonomous atelier floor, coherent scale transition, legible action, stable assets, and no dropped frames"]
+];
+function defaultItem([id,prompt],i){return{key:`seed-${i+1}-${id}`,status:"draft",created_at:Date.now()+i,payload:{id,prompt,cells:i===9?256:64,size:i===9?768:512,steps:i===9?48:36,guidance:4.4,seed:String(2026072801+i),mode:["elliptic","omega","sway","oscillatory"][i%4],backend:"cuda",run_type:"spot",sample_mode:"nested_sparse",traversal_order:"row_serpentine",adapter:"atlas-xframe-cache"}}}
+function load(){try{const stored=localStorage.getItem(KEY);items=stored===null?studies.map(defaultItem):JSON.parse(stored)}catch{items=studies.map(defaultItem)}save()}
 function save(){localStorage.setItem(KEY,JSON.stringify(items));render()}
 function toast(message){$("toast").textContent=message;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
 function spec(){return{id:$("queueName").value.trim(),prompt:$("queuePrompt").value.trim(),cells:+$("queueCells").value,size:+$("queueSize").value,steps:+$("queueSteps").value,guidance:+$("queueGuidance").value,seed:$("queueSeed").value.trim()||"random",mode:$("queueMode").value,backend:"cuda",run_type:"spot",sample_mode:"nested_sparse",traversal_order:"row_serpentine",adapter:"atlas-xframe-cache"}}
