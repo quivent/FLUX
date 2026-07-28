@@ -198,6 +198,20 @@ func (s Server) storeAtlasJobs(jobs []map[string]any) {
 			slog.Warn("could not update atlas job catalog", "error", err)
 			return
 		}
+		if seed != "" {
+			_, err = tx.Exec(`INSERT INTO atlas_seeds(seed, description, source_job_id, created_at, updated_at)
+				VALUES(?,?,?,?,?)
+				ON CONFLICT(seed) DO UPDATE SET
+				description=CASE WHEN excluded.description <> '' THEN excluded.description ELSE atlas_seeds.description END,
+				source_job_id=CASE WHEN excluded.source_job_id <> '' THEN excluded.source_job_id ELSE atlas_seeds.source_job_id END,
+				updated_at=excluded.updated_at`,
+				seed, stringValue(job["prompt"]), id, now, now)
+			if err != nil {
+				_ = tx.Rollback()
+				slog.Warn("could not update atlas seed catalog", "error", err)
+				return
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		slog.Warn("could not commit atlas job catalog", "error", err)
