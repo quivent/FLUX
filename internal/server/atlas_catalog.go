@@ -257,6 +257,9 @@ func (s Server) storeAtlasAsset(event map[string]any) {
 	assetPath := stringValue(asset["path"])
 	accessURL := stringValue(asset["access_url"])
 	cell := intValue(asset["cell_index"])
+	if _, present := asset["cell_index"]; !present {
+		cell = intValue(asset["index"])
+	}
 	key := jobID + "\x00" + assetPath + "\x00" + accessURL + "\x00" + strconv.Itoa(cell)
 	sum := sha256.Sum256([]byte(key))
 	id := hex.EncodeToString(sum[:16])
