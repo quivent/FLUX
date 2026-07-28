@@ -4149,7 +4149,7 @@ startBroadcast();
 
 func validBackend(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "auto", "mps", "mlx", "coreml", "ane", "cpu":
+	case "", "auto", "cuda", "mps", "mlx", "coreml", "ane", "cpu":
 		return true
 	default:
 		return false
