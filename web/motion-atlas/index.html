@@ -30,6 +30,13 @@
         <button data-run="spot">Scout</button>
         <button data-run="fill">Fill</button>
       </div>
+      <div class="presetDeck">
+        <button data-preset="continuity"><i></i><span><strong>Hard continuity</strong><small>Identity-first tracking</small></span><b>01</b></button>
+        <button data-preset="cinema"><i></i><span><strong>Cinematic orbit</strong><small>Stable elliptical motion</small></span><b>02</b></button>
+        <button data-preset="parallax"><i></i><span><strong>Deep parallax</strong><small>Wide spatial separation</small></span><b>03</b></button>
+        <button data-preset="dream"><i></i><span><strong>Dream sphere</strong><small>Expressive SO(4) drift</small></span><b>04</b></button>
+        <button data-preset="sway"><i></i><span><strong>Return sway</strong><small>Reversible home motion</small></span><b>05</b></button>
+      </div>
       <div class="mapHeader"><label>LATENT FIELD</label><output id="rangeLabel">24,576—25,600</output></div>
       <div class="atlasMap" id="atlasMap" aria-label="Atlas index range">
         <canvas id="mapCanvas"></canvas>
@@ -49,7 +56,7 @@
         <div class="sectionLabel"><span>EXECUTION SPINE</span><strong id="spineState">READY</strong></div>
         <ol>
           <li data-step="model"><i>01</i><div><strong>Model loaded</strong><small>FLUX.1 Dev · BF16 residency</small></div><b></b></li>
-          <li data-step="planned"><i>02</i><div><strong>Job planned</strong><small>Manifest and latent path validated</small></div><b></b></li>
+          <li data-step="planned"><i>02</i><div><strong>Job ready</strong><small>Manifest and latent path validated</small></div><b></b></li>
           <li data-step="dispatched"><i>03</i><div><strong>Dispatched</strong><small>Submission receipt issued</small></div><b></b></li>
           <li data-step="nexus"><i>04</i><div><strong>Nexus accepted</strong><small>Orchestration authority receipt</small></div><b></b></li>
           <li data-step="worker"><i>05</i><div><strong>Worker / FLUX ready</strong><small>Resident CUDA execution lane</small></div><b></b></li>
