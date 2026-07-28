@@ -4,8 +4,12 @@ import math
 import pathlib
 import time
 
+import flux_paths
 
-DEFAULT_PROJECTION_PLAN = "/Users/joshkornreich/Models/flux1/ane/direct/dual_block_0_1024x1024.projectionplan.json"
+
+DEFAULT_PROJECTION_PLAN = str(
+    pathlib.Path(flux_paths.default_direct_ane_dir()) / "dual_block_0_1024x1024.projectionplan.json"
+)
 
 
 PROFILES = {
