@@ -29,6 +29,33 @@ class CancelledJob(RuntimeError):
     pass
 
 
+def _publish_piper_asset(job_id, path, index, total):
+    socket_path = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
+    payload = {
+        "type": "asset.publish",
+        "job_id": str(job_id),
+        "asset": {
+            "id": f"{job_id}:{index}",
+            "name": pathlib.Path(path).name,
+            "path": str(path),
+            "media_type": "image/png",
+            "index": int(index),
+            "total": int(total),
+            "access_url": f"/outputs/atlas/{job_id}.sphere/{pathlib.Path(path).name}",
+        },
+    }
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+            conn.settimeout(1.0)
+            conn.connect(socket_path)
+            conn.sendall((json.dumps(payload, separators=(",", ":")) + "\n").encode())
+            conn.shutdown(socket.SHUT_WR)
+            conn.recv(4096)
+        return True
+    except OSError:
+        return False
+
+
 def _finite_int(value, fallback, minimum, maximum):
     try:
         n = int(value)
@@ -1062,6 +1089,7 @@ class Worker:
             job["phase"] = "saving"
             self._write_jobs()
             image.save(cell_path(i))
+            job["piper_asset_ready"] = _publish_piper_asset(job["id"], cell_path(i), i, total)
             job["last_cell_seconds"] = time.time() - cell_started
             job["last_cell_role"] = cell_role
             job["last_cell_steps"] = cell_steps
@@ -1327,6 +1355,9 @@ def serve(args):
             op = req.get("op")
             try:
                 if op == "ping":
+                    resp = worker.status()
+                elif op == "warm":
+                    worker._load_pipe()
                     resp = worker.status()
                 elif op == "submit":
                     resp = worker.submit(req)

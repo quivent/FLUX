@@ -54,7 +54,7 @@
     <section class="stage">
       <div class="stageHead">
         <div><span class="eyebrow">LIVE FRAME STAGE</span><h1 id="stageTitle">Motion continuity, mapped.</h1></div>
-        <div class="viewSwitch"><button class="active" data-view="frame">Frame</button><button data-view="sphere">Sphere</button></div>
+        <div class="stageTools"><div class="viewSwitch"><button class="active" data-view="frame">Frame</button><button data-view="sphere">Sphere</button></div><button class="focusButton" id="focusStage" aria-label="Expand stage">↗</button></div>
       </div>
       <div class="gpuRail">
         <div class="gpuIdentity"><span class="gpuIndex">GPU 00</span><strong id="gpuName">NVIDIA BLACKWELL</strong><small id="experimentPhase">READY · NO ACTIVE EXPERIMENT</small></div>
@@ -74,7 +74,11 @@
           <div class="orbit orbitA"></div><div class="orbit orbitB"></div><div class="orbit orbitC"></div>
           <div class="sphereCore"></div><div class="axis"></div>
         </div>
-        <img id="liveFrame" alt="Latest generated atlas frame">
+        <div class="assetStage" id="assetStage">
+          <img id="assetFrameA" alt="Current Piper asset">
+          <img id="assetFrameB" alt="Incoming Piper asset">
+          <span class="piperBadge"><i></i>PIPER · UNIX SOCKET</span>
+        </div>
         <div class="reticle"><i></i><i></i><i></i><i></i></div>
         <div class="coordinate"><span>CELL</span><strong id="currentCell">—</strong><small id="coordinate">θ — / φ —</small></div>
         <div class="stageMessage" id="stageMessage"><strong>READY FOR A PATH</strong><span>Plan the latent orbit, then launch it into the resident FLUX worker.</span></div>
@@ -93,6 +97,13 @@
 
     <aside class="inspector panel">
       <div class="panelHead"><span>02</span><h2>Run inspector</h2></div>
+      <section class="modelModule">
+        <div class="modelTitle"><span>MODEL RESIDENCY</span><strong>FLUX.1 DEV · BF16</strong></div>
+        <div class="modelStates"><div><i id="downloadDot"></i><span>ON DISK</span><strong id="downloadState">CHECKING</strong></div><div><i id="loadDot"></i><span>IN VRAM</span><strong id="loadState">CHECKING</strong></div></div>
+        <div class="modelProgress"><i id="modelProgressBar"></i></div>
+        <small id="modelMessage">Reading the model lifecycle stream.</small>
+        <div class="modelActions"><button id="downloadModel" type="button">Download</button><button id="loadModel" type="button">Load to GPU</button></div>
+      </section>
       <form id="atlasForm">
         <section class="controlGroup open">
           <button type="button" class="groupTitle"><span>Direction</span><i>−</i></button>

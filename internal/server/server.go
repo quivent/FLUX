@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"local/flux/internal/config"
@@ -42,6 +43,12 @@ type Options struct {
 type Server struct {
 	cfg    config.Config
 	client daemon.Client
+}
+
+var modelDownloadState struct {
+	sync.Mutex
+	running bool
+	message string
 }
 
 type renderRequest struct {
@@ -181,6 +188,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/health", s.health)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
+	mux.HandleFunc("/api/assets/events", s.assetEvents)
+	mux.HandleFunc("/api/model/download", s.modelDownload)
+	mux.HandleFunc("/api/model/load", s.modelLoad)
+	mux.HandleFunc("/api/model/events", s.modelEvents)
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
@@ -431,6 +442,58 @@ func parseTelemetryLine(line string) (map[string]any, bool) {
 	}, true
 }
 
+func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming unsupported")
+		return
+	}
+	socketPath := strings.TrimSpace(os.Getenv("PIPER_SOCKET"))
+	if socketPath == "" {
+		socketPath = "/tmp/piper.sock"
+	}
+	conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "Piper socket unavailable")
+		return
+	}
+	defer conn.Close()
+	if _, err := fmt.Fprintln(conn, `{"type":"asset.subscribe","consumer":"flux-motion-atlas"}`); err != nil {
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	jobFilter := strings.TrimSpace(r.URL.Query().Get("job_id"))
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		var event map[string]any
+		if json.Unmarshal(scanner.Bytes(), &event) != nil {
+			continue
+		}
+		if stringValue(event["event"]) != "ASSET_READY" {
+			continue
+		}
+		if jobFilter != "" && stringValue(event["job_id"]) != jobFilter {
+			continue
+		}
+		asset, _ := event["asset"].(map[string]any)
+		if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
+			continue
+		}
+		raw, _ := json.Marshal(event)
+		if _, err := fmt.Fprintf(w, "event: asset\ndata: %s\n\n", raw); err != nil {
+			return
+		}
+		flusher.Flush()
+	}
+}
+
 func telemetryNumber(value string) float64 {
 	value = strings.TrimSpace(strings.TrimSuffix(value, " W"))
 	n, _ := strconv.ParseFloat(value, 64)
@@ -483,7 +546,11 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 			body["worker_error"] = err.Error()
 		} else {
 			body["jobs"] = s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
+			body["model_loaded"] = resp.Loaded
+			body["backend"] = resp.Backend
+			body["device"] = resp.Device
 		}
+		body["model_downloaded"] = serverModelReady(s.cfg.ModelDir)
 		data, err := json.Marshal(body)
 		if err != nil {
 			return false
@@ -506,6 +573,134 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (s Server) modelDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	modelDownloadState.Lock()
+	if modelDownloadState.running {
+		modelDownloadState.Unlock()
+		writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "status": "already-downloading"})
+		return
+	}
+	modelDownloadState.running = true
+	modelDownloadState.message = "Preparing FLUX.1 Dev BF16 download"
+	modelDownloadState.Unlock()
+	go func() {
+		executable, _ := os.Executable()
+		cmd := exec.Command(executable, "download", "--run", "--workers", "16")
+		cmd.Dir = s.cfg.Root
+		output, err := cmd.CombinedOutput()
+		message := strings.TrimSpace(string(output))
+		if len(message) > 500 {
+			message = message[len(message)-500:]
+		}
+		if err != nil {
+			message = err.Error() + " · " + message
+		}
+		modelDownloadState.Lock()
+		modelDownloadState.running = false
+		modelDownloadState.message = message
+		modelDownloadState.Unlock()
+		touchModelEvent(s.cfg.Root)
+	}()
+	touchModelEvent(s.cfg.Root)
+	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "status": "downloading"})
+}
+
+func (s Server) modelLoad(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	if !serverModelReady(s.cfg.ModelDir) {
+		writeError(w, http.StatusConflict, "download FLUX.1 Dev before loading it")
+		return
+	}
+	if err := s.client.Start(false); err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+	go func() {
+		_, _ = s.client.Request(map[string]any{"op": "warm"})
+		touchModelEvent(s.cfg.Root)
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "status": "loading"})
+}
+
+func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Accel-Buffering", "no")
+	send := func() bool {
+		resp, respErr := s.client.Request(map[string]any{"op": "ping"})
+		modelDownloadState.Lock()
+		body := map[string]any{
+			"downloaded":  serverModelReady(s.cfg.ModelDir),
+			"downloading": modelDownloadState.running,
+			"message":     modelDownloadState.message,
+			"loaded":      respErr == nil && resp.Loaded,
+			"device": func() string {
+				if respErr == nil {
+					return resp.Device
+				}
+				return ""
+			}(),
+		}
+		modelDownloadState.Unlock()
+		raw, _ := json.Marshal(body)
+		if _, err := fmt.Fprintf(w, "event: model\ndata: %s\n\n", raw); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+	if !send() {
+		return
+	}
+	statePath := filepath.Join(s.cfg.Root, ".fluxd", "model.event")
+	for waitForPathChange(r.Context(), statePath) {
+		if !send() {
+			return
+		}
+	}
+}
+
+func touchModelEvent(root string) {
+	dir := filepath.Join(root, ".fluxd")
+	_ = os.MkdirAll(dir, 0o755)
+	path := filepath.Join(dir, "model.event")
+	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o644)
+}
+
+func serverModelReady(modelDir string) bool {
+	required := []string{
+		"model_index.json", "scheduler/scheduler_config.json",
+		"text_encoder/model.safetensors",
+		"text_encoder_2/model-00001-of-00002.safetensors",
+		"text_encoder_2/model-00002-of-00002.safetensors",
+		"transformer/diffusion_pytorch_model-00001-of-00003.safetensors",
+		"transformer/diffusion_pytorch_model-00002-of-00003.safetensors",
+		"transformer/diffusion_pytorch_model-00003-of-00003.safetensors",
+		"vae/diffusion_pytorch_model.safetensors",
+	}
+	for _, rel := range required {
+		if _, err := os.Stat(filepath.Join(modelDir, rel)); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (s Server) cancelJob(w http.ResponseWriter, r *http.Request) {
