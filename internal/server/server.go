@@ -960,11 +960,11 @@ func (s Server) previewAtlasSeeds(w http.ResponseWriter, r *http.Request) {
 	jobID := stringValue(resp.Job["id"])
 	previewDraft := map[string]any{
 		"id": jobID, "kind": "flux.motion_atlas.preview", "prompt": plan.Prompt,
-		"latent_distance": req.LatentDistance, "batch_plan": []int{1, 2, 4, 8, 16},
+		"latent_distance": req.LatentDistance, "batch_plan": []int{32},
 	}
 	previewPlan := map[string]any{
 		"backend": plan.Backend, "width": plan.Width, "height": plan.Height,
-		"steps": plan.Steps, "guidance": plan.Guidance, "images_total": 31,
+		"steps": plan.Steps, "guidance": plan.Guidance, "images_total": 32,
 	}
 	nexus := submitNexusReceipt(jobID, previewDraft, previewPlan)
 	nexusAccepted, _ := nexus["ok"].(bool)
@@ -972,12 +972,12 @@ func (s Server) previewAtlasSeeds(w http.ResponseWriter, r *http.Request) {
 	s.storeAtlasReceipt(jobID, nexusAccepted, stringValue(nexus["status"]), nexus)
 	s.storeAtlasJobs([]map[string]any{resp.Job})
 	baseSeed, _ := strconv.ParseInt(plan.Seed, 10, 64)
-	for i := 0; i < 31; i++ {
+	for i := 0; i < 32; i++ {
 		s.storeAtlasSeed(strconv.FormatInt(baseSeed+int64(i), 10), plan.Prompt, stringValue(resp.Job["id"]))
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"ok": true, "job": s.jobWithOutputURL(r, resp.Job),
-		"batch_plan": []int{1, 2, 4, 8, 16}, "images_total": 31, "nexus": nexus,
+		"batch_plan": []int{32}, "images_total": 32, "nexus": nexus,
 	})
 }
 

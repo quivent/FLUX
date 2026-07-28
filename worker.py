@@ -590,7 +590,7 @@ class Worker:
         return {"ok": True, "job": job}
 
     def submit_seed_preview(self, payload):
-        batch_plan = [1, 2, 4, 8, 16]
+        batch_plan = [32]
         job_id = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
         requested_backend = normalize_backend(payload.get("backend") or self.default_backend)
         probe_job = {"width": int(payload.get("width", 512)), "height": int(payload.get("height", 512)), "steps": int(payload.get("steps", 20))}
@@ -882,7 +882,7 @@ class Worker:
                 latent_shape = anchors[0].shape
                 latent_distance = float(job["latent_distance"])
                 publish_queue = queue.Queue()
-                cadence = 0.45
+                cadence = 0.18
 
                 def publish_in_order():
                     next_emit = time.monotonic()
@@ -938,7 +938,7 @@ class Worker:
                         callback_on_step_end=on_step_end,
                     ).images
                     observed = (time.monotonic() - batch_started) / max(1, batch_size)
-                    cadence = max(0.10, min(1.25, 0.65 * cadence + 0.35 * observed))
+                    job["render_seconds_per_image"] = observed
                     for image in images:
                         filename = f"{source.stem}-{ordinal + 1:02d}{source.suffix or '.png'}"
                         output = self.out_dir / filename
