@@ -767,6 +767,12 @@ func atlasMotion(cfg config.Config, args []string) error {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		draft = args[0]
 	}
+	if info, err := os.Stdin.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return errors.New("atlas motion needs an interactive terminal; use `flux atlas sphere` for automation")
+	}
+	if err := ensureAtlasMotionPrerequisites(cfg); err != nil {
+		return err
+	}
 	raw, err := os.ReadFile(draft)
 	if err != nil {
 		return err
@@ -774,9 +780,6 @@ func atlasMotion(cfg config.Config, args []string) error {
 	var source map[string]any
 	if err := json.Unmarshal(raw, &source); err != nil {
 		return err
-	}
-	if info, err := os.Stdin.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
-		return errors.New("atlas motion needs an interactive terminal; use `flux atlas sphere` for automation")
 	}
 
 	values := []string{
@@ -846,6 +849,42 @@ func atlasMotion(cfg config.Config, args []string) error {
 			}
 		}
 	}
+}
+
+func ensureAtlasMotionPrerequisites(cfg config.Config) error {
+	probe := func() error {
+		return exec.Command(cfg.Python, "-c", `
+import torch
+import diffusers
+import transformers
+import para_attn
+if not torch.cuda.is_available():
+    raise SystemExit("PyTorch cannot see a CUDA GPU")
+`).Run()
+	}
+	if err := probe(); err != nil {
+		ui.Header("atlas setup", "installing CUDA motion prerequisites")
+		if err := runner.StreamNoResult(
+			context.Background(),
+			nil,
+			cfg.Python,
+			"-m", "pip", "install", "-r", filepath.Join(cfg.Root, "requirements.txt"),
+		); err != nil {
+			return fmt.Errorf("install atlas prerequisites: %w", err)
+		}
+		if err := probe(); err != nil {
+			return errors.New("atlas prerequisites installed, but PyTorch still cannot see CUDA")
+		}
+	}
+	if fluxModelReady(cfg.ModelDir) {
+		return nil
+	}
+	ui.Header("atlas setup", "fetching FLUX.1-dev prerequisites")
+	ui.KV("model", cfg.ModelDir)
+	if err := download(cfg, []string{"--run", "--workers", "16"}); err != nil {
+		return fmt.Errorf("download FLUX.1-dev (authenticate with `hf auth login` or set HF_TOKEN first): %w", err)
+	}
+	return nil
 }
 
 func atlasSphere(cfg config.Config, args []string) error {
