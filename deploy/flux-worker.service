@@ -1,0 +1,20 @@
+[Unit]
+Description=Persistent preloaded FLUX CUDA worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/FLUX
+ExecStartPre=/usr/bin/mkdir -p /root/FLUX/.fluxd /root/FLUX/outputs
+ExecStartPre=-/usr/bin/rm -f /root/FLUX/.fluxd/flux.sock
+ExecStart=/root/FLUX/.venv/bin/python -u /root/FLUX/worker.py --socket /root/FLUX/.fluxd/flux.sock --state /root/FLUX/.fluxd/jobs.jsonl --profile /root/FLUX/.fluxd/profile.json --model-dir /models/flux1 --out-dir /root/FLUX/outputs --backend auto --preload
+Restart=always
+RestartSec=2
+TimeoutStartSec=120
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

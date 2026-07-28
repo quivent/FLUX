@@ -1556,7 +1556,10 @@ def serve(args):
                     resp = {"ok": False, "error": f"unknown op {op!r}"}
             except Exception as exc:
                 resp = {"ok": False, "error": repr(exc)}
-            conn.sendall((json.dumps(resp) + "\n").encode())
+            try:
+                conn.sendall((json.dumps(resp) + "\n").encode())
+            except (BrokenPipeError, ConnectionResetError):
+                continue
     srv.close()
     try:
         sock_path.unlink()
