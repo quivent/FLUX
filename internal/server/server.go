@@ -271,6 +271,10 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if host := strings.ToLower(strings.TrimSpace(strings.Split(r.Host, ":")[0])); host == "flux.influx.vision" {
+		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(indexHTML(s.cfg)))
 }
