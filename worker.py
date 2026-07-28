@@ -823,6 +823,22 @@ class Worker:
                 base_seed = int(job["seed"])
                 ordinal = 0
                 source = pathlib.Path(job["filename"])
+                nc = int(self.pipe.transformer.config.in_channels) // 4
+                dtype = torch.bfloat16
+
+                def make_anchor(seed):
+                    generator = torch.Generator(device="cpu").manual_seed(seed)
+                    latent, _ = self.pipe.prepare_latents(
+                        1, nc, job["height"], job["width"], dtype, self.device, generator
+                    )
+                    return latent.detach().cpu().float()
+
+                anchors = [make_anchor(base_seed + offset) for offset in (0, 104729, 209759, 314159)]
+                flattened = [anchor.flatten() for anchor in anchors]
+                radius = float(flattened[0].norm())
+                basis = [vector.to(self.device) for vector in _gram_schmidt(flattened)]
+                latent_shape = anchors[0].shape
+                continuity = {**job, "arc": 0.16, "orbit": 1.0, "seed_lock": 0.72}
                 for batch_size in job["batch_plan"]:
                     if job.get("cancel_requested"):
                         raise CancelledJob("job cancelled")
@@ -830,7 +846,13 @@ class Worker:
                     job["phase"] = f"batch_{batch_size}"
                     job["step"] = 0
                     self._write_jobs()
-                    generators = [torch.Generator(device="cpu").manual_seed(base_seed + ordinal + i) for i in range(batch_size)]
+                    latents = torch.cat([
+                        _atlas_latent(
+                            "elliptic", ((ordinal + i) / max(1, job["images_total"] - 1)) * math.tau,
+                            0.0, basis, radius, latent_shape, dtype, continuity,
+                        )
+                        for i in range(batch_size)
+                    ])
                     def on_step_end(_pipe, step, _timestep, callback_kwargs):
                         if job.get("cancel_requested"):
                             raise CancelledJob("job cancelled")
@@ -840,7 +862,7 @@ class Worker:
                     images = self.pipe(
                         prompt=job["prompt"], width=job["width"], height=job["height"],
                         guidance_scale=job["guidance"], num_inference_steps=job["steps"],
-                        num_images_per_prompt=batch_size, generator=generators,
+                        num_images_per_prompt=batch_size, latents=latents,
                         callback_on_step_end=on_step_end,
                     ).images
                     for image in images:
