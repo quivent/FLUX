@@ -7,7 +7,7 @@ sentencepiece
 protobuf
 safetensors
 para-attn
-mlx
-coremltools
-mflux
-aneforge>=0.2.0
+mlx; sys_platform == "darwin"
+coremltools; sys_platform == "darwin"
+mflux; sys_platform == "darwin"
+aneforge>=0.2.0; sys_platform == "darwin"
