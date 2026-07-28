@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#080b0e">
   <title>FLUX Motion Atlas Sphere</title>
-  <link rel="stylesheet" href="app.css?v=20260728g">
+  <link rel="stylesheet" href="app.css?v=20260728m">
   <link rel="prefetch" href="optics.html"><link rel="prefetch" href="optics.js"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js">
 </head>
 <body>
@@ -27,6 +27,11 @@
   <main class="workspace">
     <aside class="navigator panel">
       <div class="panelHead"><span>01</span><h2>Atlas navigator</h2></div>
+      <div class="utilityStates" aria-label="Runtime utilities">
+        <div data-step="model"><i></i><span><strong>Model loaded</strong><small>BF16 residency</small></span></div>
+        <div data-step="worker"><i></i><span><strong>Worker / FLUX ready</strong><small>CUDA lane</small></span></div>
+        <div data-step="assets"><i></i><span><strong>Assets socketed</strong><small id="assetSummary">Piper standing by</small></span></div>
+      </div>
       <div class="runTypes" role="tablist" aria-label="Run type">
         <button class="active" data-run="path">Path</button>
         <button data-run="spot">Scout</button>
@@ -62,13 +67,10 @@
       <div class="executionSpine">
         <div class="sectionLabel"><span>EXECUTION SPINE</span><strong id="spineState">READY</strong></div>
         <ol>
-          <li data-step="model"><i>01</i><div><strong>Model loaded</strong><small>FLUX.1 Dev · BF16 residency</small></div><b></b></li>
-          <li data-step="planned"><i>02</i><div><strong>Job ready</strong><small>Manifest and latent path validated</small></div><b></b></li>
-          <li data-step="dispatched"><i>03</i><div><strong>Dispatched</strong><small>Submission receipt issued</small></div><b></b></li>
-          <li data-step="nexus"><i>04</i><div><strong>Nexus accepted</strong><small>Orchestration authority receipt</small></div><b></b></li>
-          <li data-step="worker"><i>05</i><div><strong>Worker / FLUX ready</strong><small>Resident CUDA execution lane</small></div><b></b></li>
-          <li data-step="producing"><i>06</i><div><strong>Producing</strong><small id="productionSummary">Waiting for launch</small></div><b></b></li>
-          <li data-step="assets"><i>07</i><div><strong>Assets socketed</strong><small id="assetSummary">Piper has not emitted an asset</small></div><b></b></li>
+          <li data-step="planned"><i>01</i><div><strong>Job ready</strong><small>Manifest and latent path validated</small></div><b></b></li>
+          <li data-step="dispatched"><i>02</i><div><strong>Dispatched</strong><small>Submission receipt issued</small></div><b></b></li>
+          <li data-step="nexus"><i>03</i><div><strong>Nexus accepted</strong><small>Orchestration authority receipt</small></div><b></b></li>
+          <li data-step="producing"><i>04</i><div><strong>Producing</strong><small id="productionSummary">Waiting for launch</small></div><b></b></li>
         </ol>
       </div>
       <div class="sectionLabel"><span>SESSIONS</span><button id="refreshJobs">↻</button></div>
