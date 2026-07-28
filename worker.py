@@ -231,14 +231,13 @@ def _atlas_order_delta_summary(indices, n_rows, n_cols, traversal, coupling, sam
 def _atlas_latent(mode, theta, azimuth, basis, radius, shape, dtype, job):
     e0, e1, e2, e3 = basis
     shell_scale = _finite_float(job.get("shell_scale"), 1.0, 0.01, 4.0)
-    radius = radius * shell_scale
     if mode == "omega":
         rates = _six6(job.get("rates"))
         offsets = _six6(job.get("offsets"))
         start = np.array([1.0, 0.0, 0.0, 0.0])
         if azimuth:
-            start = _expm_real(_so4([0.0, 0.0, float(azimuth), 0.0, 0.0, 0.0])) @ start
-        coeff = _expm_real(float(theta) * _so4(rates)) @ _expm_real(_so4(offsets)) @ start
+            start = _expm_real(_so4([0.0, 0.0, float(azimuth) * shell_scale, 0.0, 0.0, 0.0])) @ start
+        coeff = _expm_real(float(theta) * shell_scale * _so4(rates)) @ _expm_real(_so4(offsets)) @ start
         latent = (coeff[0] * e0 + coeff[1] * e1 + coeff[2] * e2 + coeff[3] * e3) * radius
     else:
         arc = _finite_float(job.get("arc"), 1.5708, -8.0, 8.0)
@@ -247,17 +246,18 @@ def _atlas_latent(mode, theta, azimuth, basis, radius, shape, dtype, job):
         base = _finite_float(job.get("base"), 0.0, -8.0, 8.0)
         orbit = _finite_float(job.get("orbit"), 1.0 if mode == "elliptic" else 0.0, -32.0, 32.0)
         if mode == "screw":
+            theta = theta * shell_scale
             latent = (radius / math.sqrt(2.0)) * (
                 math.cos(spin * theta) * e0 + math.sin(spin * theta) * e1
                 + math.cos(theta) * e2 + math.sin(theta) * e3
             )
         else:
             if mode == "sway":
-                a = amp * (1.0 - math.cos(theta)) / 2.0
+                a = shell_scale * amp * (1.0 - math.cos(theta)) / 2.0
             elif mode == "oscillatory":
-                a = amp * math.sin(theta)
+                a = shell_scale * amp * math.sin(theta)
             else:
-                a = base if base else arc
+                a = shell_scale * (base if base else arc)
             phi = orbit * theta + azimuth
             latent = radius * (
                 math.cos(a) * e0
