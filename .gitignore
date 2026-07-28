@@ -7,3 +7,5 @@ outputs/
 /flux
 /history.jsonl
 .fluxd/
+serve.log
+*.log
