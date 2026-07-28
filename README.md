@@ -15,41 +15,15 @@ Build and install the local command:
 ```zsh
 cd /Users/joshkornreich/FLUX
 make flux
-make install
 ```
 
 Use it:
 
 ```zsh
-./flux doctor
-./flux accel
-./flux ane probe
-./flux ane init
-./flux ane convert-vae --width 1024 --height 1024
-./flux bench --dry-run --backends mps,mlx
-./flux bench --backends mps,mlx --steps 8
-./flux studio
-./flux tree
-./flux colors
-./flux gpu
-./flux download
-./flux warm
-./flux serve
-./flux gallery --open
-./flux render "glass cabin in snow" --preset hero --async
-./flux jobs
-./flux stop
-./flux recipes
-./flux shape "glass cabin in snow" --preset hero
-./flux spark "orange translucent mechanical keyboard"
-./flux muse "anime rain station"
-./flux muse "anime rain station" --remote-url http://YOUR_HOST:7861 --commands
-./flux plan "glass cabin in snow" --preset hero
-./flux render "glass cabin in snow" --style cinema --mood quiet --ratio square
-./flux render "lonely train platform at dawn" --preset anime
-./flux render "orange translucent mechanical keyboard" --preset object --seed 1234
-./flux render "misty temple" --preset sketch --burst 3
-./flux history
+flux doctor
+flux accel
+flux atlas motion
+flux jobs
 ```
 
 The Go CLI is a colored local control surface over the lean Python runner. It
@@ -76,6 +50,8 @@ Second-pass features:
 - `plan`: exact local command preview.
 - `burst`: multiple seed variants with one command.
 - `warm`: persistent worker that loads FLUX into memory.
+- `atlas motion`: open the one-page terminal launch panel for CUDA motion
+  paths, geometry, quality, traversal, and cross-frame cache settings.
 - `serve`: local HTTP API and dashboard backed by the Unix socket worker.
 - `gallery`: Atelier-style live gallery backed by the same server and event streams.
 - `render --async`: queue jobs on the worker.

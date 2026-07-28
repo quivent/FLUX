@@ -6,6 +6,7 @@ accelerate
 sentencepiece
 protobuf
 safetensors
+para-attn
 mlx
 coremltools
 mflux

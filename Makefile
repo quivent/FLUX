@@ -21,8 +21,8 @@ help:
 	@echo "  make setup      Create .venv and install dependencies"
 	@echo "  make check      Verify Python, MPS, model files, and BF16 headers"
 	@echo "  make generate   Generate one image with PROMPT='...'"
-	@echo "  make flux       Build the Go CLI at ./flux"
-	@echo "  make install    Install flux symlink to ~/.local/bin/flux"
+	@echo "  make flux       Build and install ~/.local/bin/flux"
+	@echo "  make install    Alias for make flux"
 	@echo "  make studio     Show CLI/runtime overview"
 	@echo "  make accel      Show acceleration backend posture"
 	@echo "  make bench      Benchmark socket backends"
@@ -59,11 +59,13 @@ generate run:
 		--guidance $(GUIDANCE) \
 		$(if $(SEED),--seed $(SEED),)
 
-flux go-build:
+go-build:
 	go build -o flux ./cmd/flux
 
-install: flux
+flux: go-build
 	./flux install
+
+install: flux
 
 studio: flux
 	./flux studio

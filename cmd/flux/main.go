@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -753,8 +755,96 @@ func atlas(cfg config.Config, args []string) error {
 	switch args[0] {
 	case "sphere", "spheremap":
 		return atlasSphere(cfg, args[1:])
+	case "motion", "b300":
+		return atlasMotion(cfg, args[1:])
 	default:
-		return fmt.Errorf("atlas needs a command: sphere")
+		return fmt.Errorf("atlas needs a command: sphere or motion")
+	}
+}
+
+func atlasMotion(cfg config.Config, args []string) error {
+	draft := filepath.Join(cfg.Root, "atlas_drafts", "spheremap_atlas_horse_gallop_volga_motion_path_1024c_20260715.json")
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		draft = args[0]
+	}
+	raw, err := os.ReadFile(draft)
+	if err != nil {
+		return err
+	}
+	var source map[string]any
+	if err := json.Unmarshal(raw, &source); err != nil {
+		return err
+	}
+	if info, err := os.Stdin.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return errors.New("atlas motion needs an interactive terminal; use `flux atlas sphere` for automation")
+	}
+
+	values := []string{
+		draft,
+		valueOr(stringValue(source["id"]), "motion-atlas"),
+		"cuda",
+		valueOr(stringValue(source["mode"]), "elliptic"),
+		valueOr(stringValue(source["traversal_order"]), "row_serpentine"),
+		fmt.Sprint(intValue(source["render_count"])),
+		fmt.Sprint(intValue(source["index_start"])),
+		fmt.Sprint(intValue(source["index_end"])),
+		fmt.Sprint(intValue(source["size"])),
+		fmt.Sprint(intValue(source["steps"])),
+		fmt.Sprint(source["guidance"]),
+		fmt.Sprint(source["seed_a"]),
+		fmt.Sprint(source["shell_scale"]),
+		fmt.Sprint(source["seed_lock"]),
+		fmt.Sprint(source["shell_coupling"]),
+		"atlas-xframe-cache",
+		"0.30",
+		"1",
+		"0",
+	}
+	labels := []string{
+		"draft", "job id", "backend", "path mode", "order", "cells",
+		"index start", "index end", "image size", "steps", "guidance", "seed",
+		"shell scale", "seed lock", "shell coupling", "cache", "cache threshold",
+		"cache downsample", "cache warmup",
+	}
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("\033[2J\033[H")
+		ui.Header("atlas motion", "B300 launch panel")
+		for i, label := range labels {
+			fmt.Printf("  %2d  %-18s %s\n", i+1, label, values[i])
+		}
+		fmt.Print("\n  Edit 1-19 · [p] plan · [r] run · [q] quit\n  > ")
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+		switch strings.ToLower(choice) {
+		case "q", "quit":
+			return nil
+		case "p", "plan", "r", "run":
+			runArgs := []string{
+				"--draft", values[0], "--id", values[1], "--backend", values[2],
+				"--mode", values[3], "--order", values[4], "--sample-count", values[5],
+				"--index-start", values[6], "--index-end", values[7], "--size", values[8],
+				"--steps", values[9], "--guidance", values[10], "--seed", values[11],
+				"--shell-scale", values[12], "--seed-lock", values[13],
+				"--shell-coupling", values[14], "--adapter", values[15],
+				"--cache-threshold", values[16], "--cache-downsample", values[17],
+				"--cache-warmup", values[18],
+			}
+			if strings.ToLower(choice) == "p" || strings.ToLower(choice) == "plan" {
+				runArgs = append(runArgs, "--dry-run")
+			}
+			return atlasSphere(cfg, runArgs)
+		default:
+			n, err := strconv.Atoi(choice)
+			if err != nil || n < 1 || n > len(values) {
+				continue
+			}
+			fmt.Printf("  %s [%s]: ", labels[n-1], values[n-1])
+			next, _ := reader.ReadString('\n')
+			if next = strings.TrimSpace(next); next != "" {
+				values[n-1] = next
+			}
+		}
 	}
 }
 
@@ -762,7 +852,7 @@ func atlasSphere(cfg config.Config, args []string) error {
 	defaultDraft := filepath.Join(atelierHome(), "Atelier", "data", "motion", "job_drafts", "parameter_grid_atlas", "spheremap_atlas_atlas_echo_study_1782180450145_0.json")
 	fs := flag.NewFlagSet("atlas sphere", flag.ExitOnError)
 	draftPath := fs.String("draft", defaultDraft, "Atelier latent_sphere_map draft JSON")
-	backend := fs.String("backend", cfg.Backend, "backend: auto, mps, cpu")
+	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, cpu")
 	limit := fs.Int("limit", 0, "cap cells; 0 runs the full draft")
 	sampleCount := fs.Int("sample-count", 0, "render first N cells from traversal order without shrinking the index window")
 	indexStart := fs.Int("index-start", 0, "first atlas cell index")
@@ -771,6 +861,11 @@ func atlasSphere(cfg config.Config, args []string) error {
 	steps := fs.Int("steps", 0, "override draft steps")
 	size := fs.Int("size", 0, "override draft square size")
 	guidance := fs.Float64("guidance", 0, "override guidance")
+	mode := fs.String("mode", "", "override latent path mode")
+	seed := fs.String("seed", "", "override home seed")
+	shellScale := fs.Float64("shell-scale", -1, "override latent shell scale")
+	seedLock := fs.Float64("seed-lock", -1, "override home-latent lock")
+	shellCoupling := fs.Float64("shell-coupling", -17, "override row/column coupling")
 	traversalOrder := fs.String("order", "column_serpentine", "render order: column_serpentine, row_serpentine, or raster")
 	adapter := fs.String("adapter", "none", "atlas adapter: none, first-block-cache, or atlas-xframe-cache")
 	cacheThreshold := fs.Float64("cache-threshold", 0.12, "first-block-cache residual diff threshold")
@@ -795,6 +890,21 @@ func atlasSphere(cfg config.Config, args []string) error {
 	}
 	if *id != "" {
 		draft["id"] = *id
+	}
+	if *mode != "" {
+		draft["mode"] = *mode
+	}
+	if *seed != "" {
+		draft["seed_a"] = *seed
+	}
+	if *shellScale >= 0 {
+		draft["shell_scale"] = *shellScale
+	}
+	if *seedLock >= 0 {
+		draft["seed_lock"] = *seedLock
+	}
+	if *shellCoupling >= -16 {
+		draft["shell_coupling"] = *shellCoupling
 	}
 	gridTotal := intValue(draft["n_rows"]) * intValue(draft["n_cols"])
 	total := intValue(draft["n_latent"])

@@ -823,10 +823,14 @@ class Worker:
 
     def _render_atlas(self, job):
         backend = job.get("backend", "mps")
-        if backend not in ("mps", "cpu"):
-            raise RuntimeError("atlas sphere currently supports mps/cpu socket backends only")
+        if backend not in ("cuda", "mps", "cpu"):
+            raise RuntimeError("atlas sphere supports cuda/mps/cpu socket backends only")
         if backend == "cpu":
             self.device = "cpu"
+        elif backend == "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError("atlas sphere requested cuda, but PyTorch cannot see a CUDA GPU")
+            self.device = "cuda"
         else:
             self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         self._load_pipe(self.device)
