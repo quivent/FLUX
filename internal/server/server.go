@@ -340,6 +340,7 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	allowed := map[string]bool{
 		"index.html": true, "app.css": true, "app.js": true,
 		"optics.html": true, "optics.js": true,
+		"queue.html": true, "queue.js": true,
 		"registry.html": true, "registry.js": true,
 	}
 	if !allowed[name] {

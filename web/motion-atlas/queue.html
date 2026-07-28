@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b0e"><title>FLUX Queue</title><link rel="stylesheet" href="app.css?v=20260728q"></head>
+<body class="suitePage queuePage"><div class="noise"></div>
+<header class="topbar"><a class="identity" href="/motion-atlas/"><span class="sigil">F</span><span><b>FLUX</b><small>MOTION ATLAS SPHERE</small></span></a><nav class="suiteTabs"><a href="/motion-atlas/">ATLAS</a><a href="/motion-atlas/optics.html">OPTICS</a><a class="active" href="/motion-atlas/queue.html">QUEUE</a><a href="/motion-atlas/registry.html">GALLERY</a></nav><div class="system"><span class="status" id="queueState"><i></i><span>LOCAL QUEUE READY</span></span><span class="device">NEXUS · VERIFIED</span></div></header>
+<main class="queueWorkspace">
+  <aside class="queueComposer">
+    <div class="panelHead"><span>03</span><h2>Prepopulate study</h2></div>
+    <form id="queueForm">
+      <label>Study name<input id="queueName" required placeholder="atlas-sphere-study"></label>
+      <label>Prompt<textarea id="queuePrompt" required placeholder="Describe the visual study"></textarea></label>
+      <div class="queueFields">
+        <label>Cells<input id="queueCells" type="number" min="1" max="65536" value="64"></label>
+        <label>Size<select id="queueSize"><option>512</option><option>768</option><option>1024</option></select></label>
+        <label>Steps<input id="queueSteps" type="number" min="1" max="120" value="36"></label>
+        <label>Guidance<input id="queueGuidance" type="number" min=".1" max="20" step=".1" value="4.4"></label>
+        <label>Seed<input id="queueSeed" value="random"></label>
+        <label>Mode<select id="queueMode"><option>elliptic</option><option>omega</option><option>sway</option><option>oscillatory</option></select></label>
+      </div>
+      <button class="primary queueAdd" type="submit"><span>Add study</span><span>→</span></button>
+    </form>
+  </aside>
+  <section class="queueBoard">
+    <header class="queueHero"><div><span class="eyebrow">DURABLE LAUNCH BOARD</span><h1>Prepare the work. Dispatch with proof.</h1><p>A job is not accepted until Nexus returns a verifiable receipt.</p></div><button class="primary" id="launchAll">Launch pending →</button></header>
+    <div class="queueMetrics"><div><span>PENDING</span><strong id="pendingCount">0</strong></div><div><span>ACCEPTED</span><strong id="acceptedCount">0</strong></div><div><span>ATTENTION</span><strong id="failedCount">0</strong></div></div>
+    <div class="queueList" id="queueList"><div class="queueEmpty">No studies staged. Build the first one at left.</div></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div><script src="queue.js?v=20260728q"></script></body></html>
