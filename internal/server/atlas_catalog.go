@@ -76,7 +76,7 @@ func (s Server) atlasCatalog(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 	assets := make([]map[string]any, 0)
 	rows, err = db.Query(`SELECT id, job_id, seed, path, access_url, media_type, cell_index, created_at, updated_at
-		FROM atlas_assets ORDER BY updated_at DESC LIMIT 1000`)
+		FROM atlas_assets ORDER BY updated_at DESC LIMIT 10000`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -260,7 +260,10 @@ func (s Server) storeAtlasAsset(event map[string]any) {
 	if _, present := asset["cell_index"]; !present {
 		cell = intValue(asset["index"])
 	}
-	key := jobID + "\x00" + assetPath + "\x00" + accessURL + "\x00" + strconv.Itoa(cell)
+	key := jobID + "\x00" + assetPath + "\x00" + accessURL
+	if cell >= 0 {
+		key = jobID + "\x00cell\x00" + strconv.Itoa(cell)
+	}
 	sum := sha256.Sum256([]byte(key))
 	id := hex.EncodeToString(sum[:16])
 	raw, _ := json.Marshal(asset)
@@ -302,13 +305,20 @@ func (s Server) reconcileAtlasCatalog() {
 			return nil
 		}
 		jobID := strings.TrimSuffix(filepath.Base(filepath.Dir(file)), ".sphere")
+		cell := -1
+		base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		if strings.HasPrefix(base, "cell_") {
+			if parsed, parseErr := strconv.Atoi(strings.TrimPrefix(base, "cell_")); parseErr == nil {
+				cell = parsed
+			}
+		}
 		s.storeAtlasAsset(map[string]any{
 			"job_id": jobID,
 			"asset": map[string]any{
 				"path":       filepath.ToSlash(rel),
 				"access_url": "/outputs/" + filepath.ToSlash(rel),
 				"media_type": "image/" + strings.TrimPrefix(ext, "."),
-				"cell_index": -1,
+				"cell_index": cell,
 				"source":     "startup-reconciliation",
 			},
 		})

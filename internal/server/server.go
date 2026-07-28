@@ -2368,6 +2368,7 @@ CREATE TABLE IF NOT EXISTS atlas_receipts (
 );
 CREATE INDEX IF NOT EXISTS atlas_jobs_status_idx ON atlas_jobs(status, updated_at);
 CREATE INDEX IF NOT EXISTS atlas_assets_job_idx ON atlas_assets(job_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS atlas_assets_job_cell_idx ON atlas_assets(job_id, cell_index) WHERE cell_index >= 0;
 CREATE INDEX IF NOT EXISTS atlas_seeds_updated_idx ON atlas_seeds(updated_at);
 `); err != nil {
 		_ = db.Close()
