@@ -43,8 +43,23 @@ help:
 	@echo "  WIDTH=$(WIDTH) HEIGHT=$(HEIGHT) STEPS=$(STEPS) GUIDANCE=$(GUIDANCE)"
 
 setup:
-	$(UV) venv $(VENV) --python $(PYTHON)
-	$(UV) pip install --python $(VENV_PY) -r requirements.txt
+	@set -eu; \
+	uv_bin="$$(command -v "$(UV)" 2>/dev/null || true)"; \
+	if [ -z "$$uv_bin" ]; then \
+		echo "uv not found; installing it now"; \
+		if command -v curl >/dev/null 2>&1; then \
+			curl -LsSf https://astral.sh/uv/install.sh | sh; \
+		elif command -v wget >/dev/null 2>&1; then \
+			wget -qO- https://astral.sh/uv/install.sh | sh; \
+		else \
+			echo "setup needs curl or wget to download uv" >&2; \
+			exit 1; \
+		fi; \
+		uv_bin="$$(command -v uv 2>/dev/null || true)"; \
+		if [ -z "$$uv_bin" ]; then uv_bin="$$HOME/.local/bin/uv"; fi; \
+	fi; \
+	"$$uv_bin" venv "$(VENV)" --python "$(PYTHON)"; \
+	"$$uv_bin" pip install --python "$(VENV_PY)" -r requirements.txt
 
 check:
 	MODEL_DIR="$(MODEL_DIR)" $(VENV_PY) check_flux.py
