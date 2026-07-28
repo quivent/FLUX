@@ -770,7 +770,7 @@ func atlasMotion(cfg config.Config, args []string) error {
 	if info, err := os.Stdin.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
 		return errors.New("atlas motion needs an interactive terminal; use `flux atlas sphere` for automation")
 	}
-	if err := ensureAtlasMotionPrerequisites(cfg); err != nil {
+	if err := ensureAtlasMotionPrerequisites(&cfg); err != nil {
 		return err
 	}
 	raw, err := os.ReadFile(draft)
@@ -851,7 +851,20 @@ func atlasMotion(cfg config.Config, args []string) error {
 	}
 }
 
-func ensureAtlasMotionPrerequisites(cfg config.Config) error {
+func ensureAtlasMotionPrerequisites(cfg *config.Config) error {
+	venvPython := filepath.Join(cfg.Root, ".venv", "bin", "python")
+	if _, err := os.Stat(venvPython); err != nil {
+		ui.Header("atlas setup", "creating the project Python environment")
+		if err := runner.StreamNoResult(
+			context.Background(),
+			nil,
+			"make",
+			"-C", cfg.Root, "setup",
+		); err != nil {
+			return fmt.Errorf("create atlas environment: %w", err)
+		}
+	}
+	cfg.Python = venvPython
 	probe := func() error {
 		return exec.Command(cfg.Python, "-c", `
 import torch
@@ -881,7 +894,7 @@ if not torch.cuda.is_available():
 	}
 	ui.Header("atlas setup", "fetching FLUX.1-dev prerequisites")
 	ui.KV("model", cfg.ModelDir)
-	if err := download(cfg, []string{"--run", "--workers", "16"}); err != nil {
+	if err := download(*cfg, []string{"--run", "--workers", "16"}); err != nil {
 		return fmt.Errorf("download FLUX.1-dev (authenticate with `hf auth login` or set HF_TOKEN first): %w", err)
 	}
 	return nil
