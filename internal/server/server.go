@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
@@ -179,6 +180,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/flux/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/api/health", s.health)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
+	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
@@ -363,24 +365,70 @@ func (s Server) telemetry(w http.ResponseWriter, r *http.Request) {
 	}
 	gpus := make([]map[string]any, 0)
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		parts := strings.Split(line, ",")
-		if len(parts) < 8 {
-			continue
+		if gpu, ok := parseTelemetryLine(line); ok {
+			gpus = append(gpus, gpu)
 		}
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
-		}
-		gpus = append(gpus, map[string]any{
-			"index": parts[0], "name": parts[1],
-			"utilization":  telemetryNumber(parts[2]),
-			"memory_used":  telemetryNumber(parts[3]),
-			"memory_total": telemetryNumber(parts[4]),
-			"temperature":  telemetryNumber(parts[5]),
-			"power_draw":   telemetryNumber(parts[6]),
-			"power_limit":  telemetryNumber(parts[7]),
-		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "available": len(gpus) > 0, "gpus": gpus})
+}
+
+func (s Server) telemetryEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming unsupported")
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	cmd := exec.CommandContext(r.Context(), "nvidia-smi",
+		"--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
+		"--format=csv,noheader,nounits", "--loop=1",
+	)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		return
+	}
+	defer func() { _ = cmd.Wait() }()
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		gpu, ok := parseTelemetryLine(scanner.Text())
+		if !ok {
+			continue
+		}
+		raw, _ := json.Marshal(map[string]any{"ok": true, "available": true, "gpu": gpu})
+		if _, err := fmt.Fprintf(w, "event: gpu\ndata: %s\n\n", raw); err != nil {
+			return
+		}
+		flusher.Flush()
+	}
+}
+
+func parseTelemetryLine(line string) (map[string]any, bool) {
+	parts := strings.Split(line, ",")
+	if len(parts) < 8 {
+		return nil, false
+	}
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return map[string]any{
+		"index": parts[0], "name": parts[1],
+		"utilization":  telemetryNumber(parts[2]),
+		"memory_used":  telemetryNumber(parts[3]),
+		"memory_total": telemetryNumber(parts[4]),
+		"temperature":  telemetryNumber(parts[5]),
+		"power_draw":   telemetryNumber(parts[6]),
+		"power_limit":  telemetryNumber(parts[7]),
+	}, true
 }
 
 func telemetryNumber(value string) float64 {
