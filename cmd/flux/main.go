@@ -835,6 +835,12 @@ func atlasMotion(cfg config.Config, args []string) error {
 			}
 			if strings.ToLower(choice) == "p" || strings.ToLower(choice) == "plan" {
 				runArgs = append(runArgs, "--dry-run")
+				if err := atlasSphere(cfg, runArgs); err != nil {
+					return err
+				}
+				fmt.Print("\n  Press Enter to return to settings.")
+				_, _ = reader.ReadString('\n')
+				continue
 			}
 			return atlasSphere(cfg, runArgs)
 		default:
