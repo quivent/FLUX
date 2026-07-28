@@ -347,15 +347,15 @@ class Worker:
         self.jobs = self._load_jobs()
         self.profile = self._load_profile()
         self.atlas_tasks = queue.Queue()
-        for job in self.jobs.values():
-            if job.get("kind") == "atlas_sphere" and job.get("status") == "queued":
-                self.atlas_tasks.put(job["id"])
-        threading.Thread(target=self._run_atlas_queue, daemon=True).start()
         if preload and self.default_backend in ("auto", "mps", "cpu"):
             if self.kind == "img2img":
                 self._load_img2img_pipe()
             else:
                 self._load_pipe()
+        for job in self.jobs.values():
+            if job.get("kind") == "atlas_sphere" and job.get("status") == "queued":
+                self.atlas_tasks.put(job["id"])
+        threading.Thread(target=self._run_atlas_queue, daemon=True).start()
 
     def _load_img2img_pipe(self, device=None):
         device = device or self.device
