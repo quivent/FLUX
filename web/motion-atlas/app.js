@@ -88,6 +88,16 @@ function renderJobFeed(j){
       $("prompt").value=chosen.prompt;
       sessionStorage.setItem("motionAtlasPrompt",chosen.prompt);
     }
+    const setValue=(id,value)=>{if(value!==undefined&&value!==null&&value!==""&&$(id))$(id).value=String(value)};
+    setValue("backend",chosen.requested_backend||chosen.backend);
+    setValue("size",chosen.width);
+    setValue("steps",chosen.steps||chosen.total_steps);
+    setValue("guidance",chosen.guidance);
+    setValue("latentDistance",chosen.latent_distance||chosen.shell_scale);
+    setValue("seed",chosen.seed);
+    setValue("batchSize",chosen.batch_size||chosen.batch_plan?.[0]);
+    const count=String(chosen.kind||"")==="seed_preview"?chosen.images_total:(chosen.atlas_total??chosen.cells);
+    if(count){setValue("cells",count);setValue("cellsNumber",count)}
     acceptAssetJob(chosen.id);
     checkpoint("dispatched");
     if(chosen.nexus_accepted)checkpoint("nexus");
