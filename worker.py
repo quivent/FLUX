@@ -811,6 +811,46 @@ class Worker:
             job = self.jobs[job_id]
             if job.get("status") == "cancelled":
                 self._write_jobs()
+                return
+            job["status"] = "running"
+            job["phase"] = "loading_model"
+            job["step"] = 0
+            job["total_steps"] = int(job.get("effective_steps") or job["steps"])
+            job["started"] = time.time()
+            self._write_jobs()
+            try:
+                output = self._render(job)
+                try:
+                    output_rel = pathlib.Path(output).resolve().relative_to(self.out_dir.resolve())
+                    access_url = "/outputs/" + output_rel.as_posix()
+                except (OSError, ValueError):
+                    access_url = ""
+                job["piper_asset_ready"] = _publish_piper_asset(
+                    job["id"], output, 0, 1, access_url=access_url, seed=job.get("seed")
+                )
+                seconds = time.time() - float(job["started"])
+                job["status"] = "done"
+                job["phase"] = "done"
+                job["step"] = int(job["steps"])
+                job["output"] = str(output)
+                job["seconds"] = seconds
+                self._record_profile(job, seconds)
+            except CancelledJob:
+                job["status"] = "cancelled"
+                job["phase"] = "cancelled"
+                job["error"] = ""
+            except Exception as exc:
+                if job.get("cancel_requested"):
+                    job["status"] = "cancelled"
+                    job["phase"] = "cancelled"
+                    job["error"] = ""
+                else:
+                    job["status"] = "error"
+                    job["phase"] = "error"
+                    job["error"] = repr(exc)
+            finally:
+                job["finished"] = time.time()
+                self._write_jobs()
 
     def _run_seed_preview_job(self, job_id):
         with self.lock:
@@ -928,45 +968,6 @@ class Worker:
                 job["finished"] = time.time()
                 self._write_jobs()
                 return
-            job["status"] = "running"
-            job["phase"] = "loading_model"
-            job["step"] = 0
-            job["total_steps"] = int(job.get("effective_steps") or job["steps"])
-            job["started"] = time.time()
-            self._write_jobs()
-            try:
-                output = self._render(job)
-                try:
-                    output_rel = pathlib.Path(output).resolve().relative_to(self.out_dir.resolve())
-                    access_url = "/outputs/" + output_rel.as_posix()
-                except (OSError, ValueError):
-                    access_url = ""
-                job["piper_asset_ready"] = _publish_piper_asset(
-                    job["id"], output, 0, 1, access_url=access_url, seed=job.get("seed")
-                )
-                seconds = time.time() - float(job["started"])
-                job["status"] = "done"
-                job["phase"] = "done"
-                job["step"] = int(job["steps"])
-                job["output"] = str(output)
-                job["seconds"] = seconds
-                self._record_profile(job, seconds)
-            except CancelledJob:
-                job["status"] = "cancelled"
-                job["phase"] = "cancelled"
-                job["error"] = ""
-            except Exception as exc:
-                if job.get("cancel_requested"):
-                    job["status"] = "cancelled"
-                    job["phase"] = "cancelled"
-                    job["error"] = ""
-                else:
-                    job["status"] = "error"
-                    job["phase"] = "error"
-                    job["error"] = repr(exc)
-            finally:
-                job["finished"] = time.time()
-                self._write_jobs()
 
     def _run_atlas_job(self, job_id):
         with self.lock:
