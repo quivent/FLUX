@@ -164,8 +164,8 @@
         </section>
       </form>
       <div class="launchBar">
-        <button id="planButton" class="secondary">Plan run</button>
-        <button id="launchButton" class="primary"><span>Launch atlas</span><i>→</i></button>
+        <button id="planButton" class="secondary">Preview flavors</button>
+        <button id="launchButton" class="primary" disabled><span>Select flavor first</span><i>→</i></button>
       </div>
     </aside>
   </main>
@@ -175,6 +175,14 @@
     <span class="eyebrow">RUN MANIFEST</span><h2>Path is coherent and ready.</h2>
     <div id="manifest"></div>
     <div class="dialogActions"><button class="secondary dialogCloseButton">Keep editing</button><button class="primary" id="launchFromPlan">Launch this atlas →</button></div>
+  </dialog>
+  <dialog id="previewDialog" class="previewDialog">
+    <button class="dialogClose previewClose" aria-label="Close">×</button>
+    <span class="eyebrow">FLAVOR SCOUT · 32 UNIQUE SEEDS</span><h2>Choose the visual home for this atlas.</h2>
+    <div class="previewStatus"><span id="previewStatus">Preparing preview batch</span><strong id="previewCount">0 / 32</strong></div>
+    <div class="previewProgress"><i id="previewProgressBar"></i></div>
+    <div class="previewGrid" id="previewGrid"></div>
+    <div class="dialogActions"><button class="secondary previewCloseButton">Keep editing</button><button class="primary" id="launchFlavor" disabled>Use selected flavor →</button></div>
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="app.js"></script>
