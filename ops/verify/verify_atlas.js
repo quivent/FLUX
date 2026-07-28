@@ -25,6 +25,8 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
   // Sample state repeatedly so we can see whether things actually move.
   const samples = [];
   const started = Date.now();
+  let firstRealProgressMs = null;
+  let firstFrameMs = null;
   while (Date.now() - started < WATCH_MS) {
     const snap = await page.evaluate(() => {
       const st = (typeof state !== 'undefined') ? state : null;
@@ -56,7 +58,9 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
       };
     });
     samples.push(snap);
-    await page.waitForTimeout(1500);
+    if (firstRealProgressMs === null && snap.progressObj) firstRealProgressMs = Date.now() - started;
+    if (firstFrameMs === null && snap.frames > 0) firstFrameMs = Date.now() - started;
+    await page.waitForTimeout(samples.length < 12 ? 250 : 1500);
   }
 
   const first = samples[0], last = samples[samples.length - 1];
@@ -77,7 +81,7 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
   console.log(JSON.stringify(last, null, 2));
 
   console.log('\n--- VERDICTS ---');
-  console.log('IMAGES DISPLAYED   :', (last.stageDisplay === 'block' && (last.aVisible === '1' || last.bVisible === '1') && distinctStageSrc.size > 0) ? 'PASS' : 'FAIL');
+  console.log('IMAGES DISPLAYED   :', (last.stageDisplay === 'block' && (parseFloat(last.aVisible) > 0.05 || parseFloat(last.bVisible) > 0.05) && distinctStageSrc.size > 0) ? 'PASS' : 'FAIL');
   console.log('SLIDESHOW CYCLING  :', distinctStageSrc.size > 1 ? `PASS (${distinctStageSrc.size} distinct frames shown)` : `FAIL (${distinctStageSrc.size} distinct)`);
   console.log('PROGRESS ADVANCING :', distinctWidths.size > 1 ? `PASS (${distinctWidths.size} distinct widths)` : `FAIL (${distinctWidths.size} distinct: ${[...distinctWidths]})`);
   console.log('SIGIL FLICKER ON   :', last.sigilActive ? 'PASS' : 'FAIL');
@@ -90,6 +94,12 @@ const WATCH_MS = Number(process.env.WATCH_MS || 15000);
   console.log('FRAMES INGESTED    :', last.frames > 0 ? `PASS (${last.frames})` : 'FAIL (0)');
   console.log('PREFILL CLEARED    :', last.prefilled === false ? 'PASS' : `note: prefilled=${last.prefilled}`);
   console.log('SESSIONS LISTED    :', last.sessions);
+  const fakeZero = samples.filter(s => !s.progressObj && /^0\s*\//.test(s.progressText || '')).length;
+  console.log('TIME TO PROGRESS   :', firstRealProgressMs === null ? 'FAIL (never)' : `${firstRealProgressMs}ms`);
+  console.log('TIME TO FIRST FRAME:', firstFrameMs === null ? 'FAIL (never)' : `${firstFrameMs}ms`);
+  console.log('NO FAKE ZERO       :', fakeZero === 0 ? 'PASS' : `FAIL (${fakeZero} samples showed a 0/N label with no real job data)`);
+  const jobIds = new Set(samples.map(s => s.activeJob).filter(Boolean));
+  console.log('JOB STABLE         :', jobIds.size <= 1 ? `PASS (${[...jobIds]})` : `FAIL (switched between ${[...jobIds].join(', ')})`);
   console.log('====================================================\n');
 
   await browser.close();

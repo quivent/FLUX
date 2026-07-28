@@ -29,7 +29,7 @@ function drawMap(){
 function updateRange(){
   const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(65536,start+cells);
   $("indexStartOut").value=start.toLocaleString();$("cellsOut").value=`${cells.toLocaleString()} cells`;
-  $("rangeLabel").value=`${start.toLocaleString()}—${end.toLocaleString()}`;$("progressText").textContent=`0 / ${cells.toLocaleString()}`;
+  $("rangeLabel").value=`${start.toLocaleString()}—${end.toLocaleString()}`;if(!state.progress)$("progressText").textContent="— / —";
   document.querySelector(".mapCursor").style.top=`${Math.min(94,start/65536*100)}%`;
 }
 function payload(dryRun=false){const start=numeric("indexStart"),cells=numeric("cells");return{
@@ -105,16 +105,19 @@ function renderJobFeed(j){
   const active=x=>String(x.status).toLowerCase()==="running";
   const newest=rows=>[...rows].sort((a,b)=>Number(b.created||0)-Number(a.created||0))[0];
   const resumed=allJobs.find(x=>x.id===state.activeJob);
-  const chosen=newest(atlasJobs.filter(active))||newest(previewJobs.filter(active))||(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
+  const pinned=state.pinnedJob?allJobs.find(x=>x.id===state.pinnedJob):null;
+  const chosen=pinned||newest(atlasJobs.filter(active))||newest(previewJobs.filter(active))||(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
+  const switched=state.shownJob!==(chosen&&chosen.id);
   $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
   if(chosen){
     state.activeJob=chosen.id;
+    state.shownJob=chosen.id;
     sessionStorage.setItem("motionAtlasJob",chosen.id);
-    if(chosen.prompt){
+    if(switched&&chosen.prompt){
       $("prompt").value=chosen.prompt;
       sessionStorage.setItem("motionAtlasPrompt",chosen.prompt);
     }
-    const setValue=(id,value)=>{if(value!==undefined&&value!==null&&value!==""&&$(id))$(id).value=String(value)};
+    const setValue=(id,value)=>{if(switched&&value!==undefined&&value!==null&&value!==""&&$(id))$(id).value=String(value)};
     setValue("backend",chosen.requested_backend||chosen.backend);
     setValue("size",chosen.width);
     setValue("steps",chosen.steps||chosen.total_steps);
@@ -132,7 +135,7 @@ function renderJobFeed(j){
     showJobProgress(chosen);
   }
   $("sessions").innerHTML=atlasJobs.length?atlasJobs.map(x=>`<button class="session ${x.id===state.activeJob?"active":""}" data-job="${escapeHTML(x.id)}"><span>${escapeHTML(x.prompt||"Motion atlas")}</span><small>${escapeHTML(x.status||"queued")} · ${Number(x.atlas_done??x.step??0).toLocaleString()} / ${Number(x.atlas_total??x.total_steps??0).toLocaleString()}</small></button>`).join(""):'<div class="session empty"><span>CONTINUITY PREVIEW</span><small>Its assets remain preserved in Gallery</small></div>';
-  document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.activeJob=job.id;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);showJobProgress(job)});
+  document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.pinnedJob=job.id;state.activeJob=job.id;state.shownJob=null;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);clearPrefilled();state.frames=[];const strip=$("filmstrip");if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());state.hydratedJobs.delete(job.id);hydrateJobAssets(job.id);showJobProgress(job)});
 }
 async function refreshJobs(){try{const r=await fetch("/api/jobs"),j=await r.json();renderJobFeed(j)}catch{}}
 function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{(data.jobs||[]).filter(x=>["running","queued"].includes(String(x.status).toLowerCase())).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
@@ -203,4 +206,4 @@ $("indexStart").oninput=updateRange;$("cells").oninput=()=>{$("cellsNumber").val
 document.querySelectorAll(".dialogClose,.dialogCloseButton").forEach(b=>b.onclick=()=>$("manifestDialog").close());
 $("helpButton").onclick=()=>toast("Plan a coherent latent path, then launch it into the resident FLUX worker.");
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
-$("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
+$("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();refreshJobs();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
