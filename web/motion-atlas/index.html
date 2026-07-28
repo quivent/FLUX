@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#080b0e">
   <title>FLUX Motion Atlas Sphere</title>
   <link rel="stylesheet" href="app.css">
+  <link rel="prefetch" href="optics.html"><link rel="prefetch" href="optics.js"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js">
 </head>
 <body>
   <div class="noise"></div>
@@ -17,6 +18,7 @@
     <nav class="suiteTabs"><a class="active" href="/motion-atlas/">ATLAS</a><a href="/motion-atlas/optics.html">OPTICS</a><a href="/motion-atlas/registry.html">REGISTRY</a></nav>
     <div class="system">
       <span class="status"><i></i><span id="workerState">CONNECTING</span></span>
+      <span class="modelTopState" id="modelTopState"><i></i>MODEL CHECKING</span>
       <span class="device" id="device">CUDA · B300</span>
       <button class="iconButton" id="helpButton" aria-label="About this suite">?</button>
     </div>
@@ -171,8 +173,8 @@
         </section>
       </form>
       <div class="launchBar">
-        <button id="planButton" class="secondary">Preview flavors</button>
-        <button id="launchButton" class="primary" disabled><span>Select flavor first</span><i>→</i></button>
+        <button id="planButton" class="secondary">Surprise orbit</button>
+        <button id="launchButton" class="primary"><span>Start atlas</span><i>→</i></button>
       </div>
     </aside>
   </main>
@@ -182,14 +184,6 @@
     <span class="eyebrow">RUN MANIFEST</span><h2>Path is coherent and ready.</h2>
     <div id="manifest"></div>
     <div class="dialogActions"><button class="secondary dialogCloseButton">Keep editing</button><button class="primary" id="launchFromPlan">Launch this atlas →</button></div>
-  </dialog>
-  <dialog id="previewDialog" class="previewDialog">
-    <button class="dialogClose previewClose" aria-label="Close">×</button>
-    <span class="eyebrow">FLAVOR SCOUT · 32 UNIQUE SEEDS</span><h2>Choose the visual home for this atlas.</h2>
-    <div class="previewStatus"><span id="previewStatus">Preparing preview batch</span><strong id="previewCount">0 / 32</strong></div>
-    <div class="previewProgress"><i id="previewProgressBar"></i></div>
-    <div class="previewGrid" id="previewGrid"></div>
-    <div class="dialogActions"><button class="secondary previewCloseButton">Keep editing</button><button class="primary" id="launchFlavor" disabled>Use selected flavor →</button></div>
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="app.js"></script>

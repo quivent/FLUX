@@ -329,6 +329,9 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if strings.HasSuffix(name, ".css") || strings.HasSuffix(name, ".js") {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
 }
 
