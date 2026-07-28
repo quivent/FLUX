@@ -1,4 +1,4 @@
-SHELL := /bin/zsh
+SHELL := /bin/sh
 
 PYTHON ?= python3.13
 UV ?= uv
