@@ -347,6 +347,9 @@ class Worker:
         self.jobs = self._load_jobs()
         self.profile = self._load_profile()
         self.atlas_tasks = queue.Queue()
+        for job in self.jobs.values():
+            if job.get("kind") == "atlas_sphere" and job.get("status") == "queued":
+                self.atlas_tasks.put(job["id"])
         threading.Thread(target=self._run_atlas_queue, daemon=True).start()
         if preload and self.default_backend in ("auto", "mps", "cpu"):
             if self.kind == "img2img":
@@ -378,7 +381,20 @@ class Worker:
                 job = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if job.get("status") in ("queued", "running", "cancelling"):
+            resumable_atlas = job.get("kind") == "atlas_sphere"
+            restart_error = (
+                job.get("status") == "error"
+                and job.get("error") == "worker restarted before this job finished"
+            )
+            if resumable_atlas and (
+                job.get("status") in ("queued", "running", "cancelling") or restart_error
+            ):
+                job["status"] = "queued"
+                job["phase"] = "recovered after worker restart"
+                job["error"] = ""
+                job["finished"] = None
+                job["cancel_requested"] = False
+            elif job.get("status") in ("queued", "running", "cancelling"):
                 job["status"] = "error"
                 job["phase"] = "interrupted"
                 job["error"] = "worker restarted before this job finished"
