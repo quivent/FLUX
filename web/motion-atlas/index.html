@@ -32,6 +32,11 @@
         <button data-run="spot">Scout</button>
         <button data-run="fill">Fill</button>
       </div>
+      <div class="latentDistanceHero">
+        <div><span>LATENT DISTANCE</span><output data-for="latentDistance">1.12</output></div>
+        <input id="latentDistance" type="range" min=".01" max="4" step=".01" value="1.12">
+        <small>Distance from the home identity through latent space</small>
+      </div>
       <div class="presetDeck">
         <button data-preset="continuity"><i></i><span><strong>Hard continuity</strong><small>Identity-first tracking</small></span><b>01</b></button>
         <button data-preset="cinema"><i></i><span><strong>Cinematic orbit</strong><small>Stable elliptical motion</small></span><b>02</b></button>
@@ -140,7 +145,6 @@
           <div class="groupBody grid2">
             <label>Orbit<select id="mode"><option value="elliptic">Elliptic</option><option value="omega">Omega / SO(4)</option><option value="sway">Sway</option><option value="oscillatory">Oscillatory</option></select></label>
             <label>Traversal<select id="order"><option value="row_serpentine">Row serpentine</option><option value="column_serpentine">Column serpentine</option><option value="raster">Raster</option></select></label>
-            <label class="wide parameter cyan"><span>Shell scale <output data-for="shellScale">1.12</output></span><input id="shellScale" type="range" min=".01" max="4" step=".01" value="1.12"></label>
             <label class="wide parameter violet"><span>Identity lock <output data-for="seedLock">0.28</output></span><input id="seedLock" type="range" min="0" max=".95" step=".01" value=".28"></label>
             <label class="wide parameter amber"><span>Shell coupling <output data-for="shellCoupling">0.92</output></span><input id="shellCoupling" type="range" min="-4" max="4" step=".01" value=".92"></label>
             <div class="dimensionField wide">
@@ -174,7 +178,7 @@
         </section>
       </form>
       <div class="launchBar">
-        <button id="planButton" class="secondary">Preview 32 seeds</button>
+        <button id="planButton" class="secondary">Preview 1·2·4·8·16</button>
         <button id="launchButton" class="primary"><span>Start atlas</span><i>→</i></button>
       </div>
     </aside>

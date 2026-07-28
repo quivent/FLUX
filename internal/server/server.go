@@ -212,6 +212,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/img2img/cancel", s.img2imgCancel)
 	mux.HandleFunc("/api/blend", s.blendImages)
 	mux.HandleFunc("/api/atlas/submit", s.submitAtlas)
+	mux.HandleFunc("/api/atlas/preview", s.previewAtlasSeeds)
 	mux.HandleFunc("/api/atlas/seeds", s.atlasSeeds)
 	mux.HandleFunc("/api/atlas/seed", s.atlasSeed)
 	mux.HandleFunc("/api/atlas/catalog", s.atlasCatalog)
@@ -231,6 +232,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
+	s.restoreAtlasReceipts()
 	go s.reconcileAtlasCatalog()
 	go s.runPiperAssetHub(ctx)
 
@@ -919,6 +921,45 @@ func (s Server) render(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "job": jobs[0], "jobs": jobs, "plan": plans[0], "plans": plans, "iterations": iterations})
 }
 
+func (s Server) previewAtlasSeeds(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	var req renderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	plan, err := s.plan(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := s.client.Start(false); err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+	resp, err := s.client.Request(map[string]any{
+		"op": "submit_seed_preview", "model_family": plan.Model, "backend": plan.Backend,
+		"prompt": plan.Prompt, "width": plan.Width, "height": plan.Height,
+		"steps": plan.Steps, "guidance": plan.Guidance, "seed": plan.Seed, "filename": plan.Filename,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	s.storeAtlasJobs([]map[string]any{resp.Job})
+	baseSeed, _ := strconv.ParseInt(plan.Seed, 10, 64)
+	for i := 0; i < 31; i++ {
+		s.storeAtlasSeed(strconv.FormatInt(baseSeed+int64(i), 10), plan.Prompt, stringValue(resp.Job["id"]))
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"ok": true, "job": s.jobWithOutputURL(r, resp.Job),
+		"batch_plan": []int{1, 2, 4, 8, 16}, "images_total": 31,
+	})
+}
+
 func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w, http.MethodPost)
@@ -1108,6 +1149,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	nexus := submitNexusReceipt(id, draft, plan)
 	nexusAccepted, _ := nexus["ok"].(bool)
 	atlasNexusReceipts.Store(id, nexusAccepted)
+	s.storeAtlasReceipt(id, nexusAccepted, stringValue(nexus["status"]), nexus)
 	client := daemon.New(s.cfg)
 	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
 		if err := client.Start(false); err != nil {
@@ -2271,6 +2313,13 @@ CREATE TABLE IF NOT EXISTS atlas_assets (
 	cell_index INTEGER NOT NULL DEFAULT -1,
 	metadata_json TEXT NOT NULL DEFAULT '{}',
 	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS atlas_receipts (
+	job_id TEXT PRIMARY KEY,
+	nexus_accepted INTEGER NOT NULL DEFAULT 0,
+	status TEXT NOT NULL DEFAULT '',
+	payload_json TEXT NOT NULL DEFAULT '{}',
 	updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS atlas_jobs_status_idx ON atlas_jobs(status, updated_at);

@@ -18,6 +18,39 @@ type atlasSeedRequest struct {
 	Description string `json:"description"`
 }
 
+func (s Server) storeAtlasReceipt(jobID string, accepted bool, status string, payload map[string]any) {
+	db, err := s.openStudioDB()
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	raw, _ := json.Marshal(payload)
+	_, _ = db.Exec(`INSERT INTO atlas_receipts(job_id,nexus_accepted,status,payload_json,updated_at)
+		VALUES(?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET nexus_accepted=excluded.nexus_accepted,
+		status=excluded.status,payload_json=excluded.payload_json,updated_at=excluded.updated_at`,
+		jobID, accepted, status, string(raw), time.Now().Unix())
+}
+
+func (s Server) restoreAtlasReceipts() {
+	db, err := s.openStudioDB()
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT job_id,nexus_accepted FROM atlas_receipts`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var jobID string
+		var accepted bool
+		if rows.Scan(&jobID, &accepted) == nil {
+			atlasNexusReceipts.Store(jobID, accepted)
+		}
+	}
+}
+
 func (s Server) atlasCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w, http.MethodGet)
