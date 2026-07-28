@@ -51,6 +51,8 @@ var modelDownloadState struct {
 	message string
 }
 
+var atlasNexusReceipts sync.Map
+
 type renderRequest struct {
 	Prompt     string  `json:"prompt"`
 	Model      string  `json:"model"`
@@ -582,10 +584,12 @@ func (s Server) jobs(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	jobs := s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
+	applyAtlasReceipts(jobs)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":             true,
 		"worker_running": true,
-		"jobs":           s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs)),
+		"jobs":           jobs,
 	})
 }
 
@@ -613,7 +617,9 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 			body["worker_error"] = err.Error()
 		} else {
 			s.storeAtlasJobs(resp.Jobs)
-			body["jobs"] = s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
+			jobs := s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
+			applyAtlasReceipts(jobs)
+			body["jobs"] = jobs
 			body["model_loaded"] = resp.Loaded
 			body["backend"] = resp.Backend
 			body["device"] = resp.Device
@@ -1045,6 +1051,8 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeQueuedAtlasPlaceholder(id, draft, plan)
 	nexus := submitNexusReceipt(id, draft, plan)
+	nexusAccepted, _ := nexus["ok"].(bool)
+	atlasNexusReceipts.Store(id, nexusAccepted)
 	client := daemon.New(s.cfg)
 	if _, err := client.Request(map[string]any{"op": "ping"}); err != nil {
 		if err := client.Start(false); err != nil {
@@ -1092,6 +1100,14 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"gallery": gallery,
 		"nexus":   nexus,
 	})
+}
+
+func applyAtlasReceipts(jobs []map[string]any) {
+	for _, job := range jobs {
+		if accepted, ok := atlasNexusReceipts.Load(stringValue(job["id"])); ok {
+			job["nexus_accepted"] = accepted
+		}
+	}
 }
 
 func submitNexusReceipt(id string, draft, plan map[string]any) map[string]any {
