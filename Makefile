@@ -3,7 +3,7 @@ SHELL := /bin/sh
 PYTHON ?= python3.13
 UV ?= uv
 VENV ?= .venv
-MODEL_DIR ?= /Users/joshkornreich/Models/flux1
+MODEL_DIR ?= $(if $(wildcard /models/flux1),/models/flux1,/Users/joshkornreich/Models/flux1)
 OUT_DIR ?= /Users/joshkornreich/Models/flux-output
 PROMPT ?= a small glass cabin in a snowy forest, cinematic light
 STEPS ?= 28
@@ -19,7 +19,7 @@ TOKEN ?=
 
 VENV_PY := $(VENV)/bin/python
 
-.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod studio accel bench warm serve jobs recipes muse history tree colors download clean-output
+.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output
 
 help:
 	@echo "Targets:"
@@ -31,6 +31,7 @@ help:
 	@echo "  make motion-install  Install all Motion Atlas dependencies and model"
 	@echo "  make motion-dev      Install and serve Motion Atlas locally"
 	@echo "  make motion-prod     Install and serve Motion Atlas on PROD_ADDR (auth required)"
+	@echo "  make motion-probe    Probe Nexus, Piper, worker, model, and socket flow"
 	@echo "  make studio     Show CLI/runtime overview"
 	@echo "  make accel      Show acceleration backend posture"
 	@echo "  make bench      Benchmark socket backends"
@@ -107,6 +108,9 @@ motion-prod: motion-install
 		exit 1; \
 	fi; \
 	./flux atlas motion --backend "$(BACKEND)" --addr "$(PROD_ADDR)" --token "$(TOKEN)" --open=false
+
+motion-probe:
+	python3 scripts/motion_probe.py --root "$(CURDIR)" --model-dir "$(MODEL_DIR)"
 
 studio: flux
 	./flux studio
