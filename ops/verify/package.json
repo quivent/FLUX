@@ -1,0 +1,8 @@
+{
+  "name": "atlas-verify",
+  "private": true,
+  "description": "Headless browser verification for the Motion Atlas suite",
+  "dependencies": {
+    "playwright": "1.62.0"
+  }
+}

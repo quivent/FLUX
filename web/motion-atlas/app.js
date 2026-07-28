@@ -16,7 +16,7 @@ const numeric=id=>Number($(id).value);
 function toast(message){$("toast").textContent=message;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
 function acceptAssetJob(id){if(!id)return;state.acceptedAssetJobs.add(id);for(const event of state.pendingAssets.get(id)||[])ingestAssetEvent(event);state.pendingAssets.delete(id);hydrateJobAssets(id)}
 async function hydrateJobAssets(id){if(state.hydratedJobs.has(id))return;state.hydratedJobs.add(id);try{const r=await fetch("/api/atlas/catalog"),j=await r.json(),all=j.assets||[];let assets=all.filter(a=>a.job_id===id),source=id;if(!assets.length){const prompt=(j.jobs||[]).find(x=>x.id===id)?.prompt,prior=(j.jobs||[]).filter(x=>x.id!==id&&x.prompt===prompt&&all.some(a=>a.job_id===x.id)).sort((a,b)=>Number(b.updated_at)-Number(a.updated_at))[0];if(prior){source=prior.id;assets=all.filter(a=>a.job_id===source);$("assetSummary").textContent="Previous horse collection visible · live batch rendering"}}assets.sort((a,b)=>Number(a.cell_index)-Number(b.cell_index)||Number(a.created_at)-Number(b.created_at)).slice(-64).forEach(a=>ingestAssetEvent({job_id:source,asset:a}))}catch{state.hydratedJobs.delete(id)}}
-function ingestAssetEvent(event){const a=event.asset||{};ingestFrame({url:a.access_url,index:a.index,seed:a.seed,total:Number(a.total)||0,updateProgress:!!state.activeJob&&event.job_id===state.activeJob})}
+function ingestAssetEvent(event){clearPrefilled();const a=event.asset||{};ingestFrame({url:a.access_url,index:a.index,seed:a.seed,total:Number(a.total)||0,updateProgress:!!state.activeJob&&event.job_id===state.activeJob})}
 function renderSpineState(){const producing=document.querySelector('[data-step="producing"]');$("spineState").textContent=producing?.classList.contains("active")?"PRODUCING":document.querySelector('[data-step="assets"]')?.classList.contains("done")?"LIVE":"READY"}
 function checkpoint(name,status="done"){const row=document.querySelector(`[data-step="${name}"]`);if(!row)return;const current=row.classList.contains("active")?"active":row.classList.contains("done")?"done":"";if(current!==status){row.classList.remove("active","done");if(status)row.classList.add(status);renderSpineState()}}
 function updateJobReady(){const configured=state.studyType&&$("prompt").value.trim()&&$("id").value.trim()&&numeric("cells")>0&&numeric("batchSize")>0&&numeric("size")>0&&numeric("steps")>0&&numeric("guidance")>0,loaded=state.model.loaded;checkpoint("planned",configured?"done":"");$("planButton").disabled=!loaded||!configured;$("launchButton").disabled=state.model.known&&loaded&&!configured;$("launchButton").querySelector("span").textContent=!state.model.known?"Checking worker":!loaded?(state.model.downloaded?"Load worker":"Download model"):configured?`Start ${state.studyType}`:"Choose loop or atlas";return !!configured&&loaded}
@@ -82,7 +82,7 @@ function showJobProgress(job){
   const pct=total?Math.min(100,effectiveDone/total*100):0;
   const batchLabel=batchRendering?` · ${String(job.phase).toUpperCase()} · STEP ${batchStep}/${batchSteps}`:"";
   $("experimentPhase").textContent=`${String(job.status||"queued").toUpperCase()}${batchLabel||` · ${String(job.phase||"WAITING").toUpperCase()}`}`;
-  $("progressText").textContent=total?`${delivered.toLocaleString()} / ${total.toLocaleString()}`:"— / —";
+  $("progressText").textContent=total?`${Math.floor(effectiveDone).toLocaleString()} / ${total.toLocaleString()}`:"— / —";
   $("progressBar").style.width=pct+"%";
   $("productionSummary").textContent=total?`${delivered.toLocaleString()} / ${total.toLocaleString()} ${preview?"images":"cells"}${batchLabel}`:String(job.phase||job.status);
   if(["running"].includes(String(job.status).toLowerCase()))checkpoint("producing","active");
@@ -90,17 +90,22 @@ function showJobProgress(job){
   const elapsed=Number(job.started)?Date.now()/1000-Number(job.started):0,rate=effectiveDone>0&&elapsed>0?effectiveDone/elapsed:0,eta=rate>0?(total-effectiveDone)/rate:0;
   if(rate>0)$("rate").textContent=rate.toFixed(2)+" fps";
   if(eta>0)$("eta").textContent=eta<90?Math.ceil(eta)+" sec":(eta/60).toFixed(1)+" min";
+  state.progress=String(job.status).toLowerCase()==="running"&&total>0
+    ?{done:effectiveDone,total:total,rate:rate,at:Date.now(),preview:preview}
+    :null;
   if(job.cache_hit_rate!=null)$("cacheState").textContent=`XFRAME / ${Math.round(Number(job.cache_hit_rate)*100)}% HIT`;
 }
 function renderJobFeed(j){
   const allJobs=j.jobs||[];
-  updatePreview(allJobs);updateDiscovery(allJobs);
+  try{updatePreview(allJobs)}catch{}
+  try{updateDiscovery(allJobs)}catch{}
   const atlasJobs=allJobs.filter(x=>String(x.kind||"")==="atlas_sphere"||x.viewer_url);
   const previewJobs=allJobs.filter(x=>String(x.kind||"")==="seed_preview");
   const running=x=>["running","queued","cancelling"].includes(String(x.status).toLowerCase());
+  const active=x=>String(x.status).toLowerCase()==="running";
   const newest=rows=>[...rows].sort((a,b)=>Number(b.created||0)-Number(a.created||0))[0];
   const resumed=allJobs.find(x=>x.id===state.activeJob);
-  const chosen=(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
+  const chosen=newest(atlasJobs.filter(active))||newest(previewJobs.filter(active))||(resumed&&running(resumed)?resumed:null)||newest(atlasJobs.filter(running))||newest(previewJobs.filter(running))||resumed||newest(previewJobs)||newest(atlasJobs);
   $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
   if(chosen){
     state.activeJob=chosen.id;
@@ -130,13 +135,59 @@ function renderJobFeed(j){
   document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.activeJob=job.id;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);showJobProgress(job)});
 }
 async function refreshJobs(){try{const r=await fetch("/api/jobs"),j=await r.json();renderJobFeed(j)}catch{}}
-function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{(data.jobs||[]).filter(x=>["running","queued"].includes(String(x.status).toLowerCase())).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(()=>{if(state.frames.length<2)return;cycleFrame(1)},380)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
+function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{(data.jobs||[]).filter(x=>["running","queued"].includes(String(x.status).toLowerCase())).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
 async function modelAction(path){try{const r=await fetch(path,{method:"POST"}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Model action failed");$("modelMessage").textContent=String(j.status||"Working").toUpperCase();$("modelProgressBar").classList.add("busy")}catch(e){toast(e.message)}}
 function loadThumbnail(img,url,seed){document.querySelectorAll("#filmstrip img").forEach(x=>x.classList.remove("selected"));img.classList.add("selected");$("assetSummary").textContent="Loading selected frame…";const shown=$("assetFrameA");shown.classList.remove("active");shown.onload=()=>{shown.classList.add("active");$("assetSummary").textContent=seed?`Seed ${seed} selected · ready to start`:"Selected frame loaded"};shown.onerror=()=>{$("assetSummary").textContent="Frame failed to load"};shown.src=url;$("assetFrameB").classList.remove("active");if(seed){$("seed").value=seed;state.selectedFlavor={seed:String(seed),url};updateJobReady()}}
 function cycleFrame(delta){const frames=[...document.querySelectorAll("#filmstrip img")];if(!frames.length)return;let i=frames.findIndex(x=>x.classList.contains("selected"));i=(i<0?(delta>0?-1:0):i)+delta;i=(i+frames.length)%frames.length;frames[i].click();frames[i].scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})}
 function sweepFilmstrip(){const strip=$("filmstrip"),frames=[...strip.querySelectorAll("img")];if(state.filmstripSweeping||frames.length<64)return;state.filmstripSweeping=true;frames.slice(0,32).forEach((img,i)=>setTimeout(()=>{img.classList.add("departing");setTimeout(()=>img.remove(),180)},i*24));setTimeout(()=>{state.filmstripSweeping=false},32*24+220)}
 function ingestFrame(d){const url=d.url||d.output_url||d.image_url;if(url&&!state.frames.includes(url)){state.frames.push(url);checkpoint("assets");$("assetSummary").textContent=`${state.frames.length.toLocaleString()} assets received from Piper`;const next=state.assetSide==="A"?$("assetFrameA"):$("assetFrameB"),prior=state.assetSide==="A"?$("assetFrameB"):$("assetFrameA");next.onload=()=>{prior.classList.remove("active");next.classList.add("active")};next.onerror=()=>{$("assetSummary").textContent="Incoming frame failed to load"};next.src=url;state.assetSide=state.assetSide==="A"?"B":"A";$("assetStage").style.display="block";$("sphere").style.display="none";$("stageMessage").style.display="none";const img=document.createElement("img");img.onload=()=>img.classList.remove("loading");img.onerror=()=>img.classList.add("failed");img.classList.add("loading");img.src=url;img.title=d.seed?`Load frame and select seed ${d.seed}`:"Load this frame";img.onclick=()=>loadThumbnail(img,url,d.seed);$("filmstrip").querySelector(".filmEmpty")?.remove();$("filmstrip").appendChild(img);$("filmstrip").scrollLeft=999999;sweepFilmstrip()}
   if(d.updateProgress){const done=Number(d.completed||state.frames.length),total=Number(d.total||0),pct=total?Math.min(100,done/total*100):0;$("progressBar").style.width=pct+"%";$("progressText").textContent=total?`${done.toLocaleString()} / ${total.toLocaleString()}`:"— / —";if(state.started&&done&&total){const fps=done/((Date.now()-state.started)/1000);$("rate").textContent=fps.toFixed(2)+" fps";$("eta").textContent=Math.max(0,(total-done)/fps/60).toFixed(1)+" min"}}$("currentCell").textContent=d.index==null?"—":String(d.index).padStart(5,"0")}
+function playFrame(){
+  if(state.frames.length<2)return;
+  state.playIndex=((state.playIndex??-1)+1)%state.frames.length;
+  const url=state.frames[state.playIndex];
+  const next=state.playSide==="B"?$("assetFrameB"):$("assetFrameA");
+  const prior=state.playSide==="B"?$("assetFrameA"):$("assetFrameB");
+  if(!next)return;
+  next.src=url;
+  next.classList.add("active");
+  if(prior)prior.classList.remove("active");
+  state.playSide=state.playSide==="B"?"A":"B";
+  $("assetStage").style.display="block";
+  $("sphere").style.display="none";
+  $("stageMessage").style.display="none";
+}
+function tickProgress(){
+  const p=state.progress;
+  if(!p||!(p.total>0))return;
+  const projected=p.rate>0?Math.min(p.total,p.done+p.rate*((Date.now()-p.at)/1000)):p.done;
+  $("progressBar").style.width=(projected/p.total*100).toFixed(2)+"%";
+  $("progressText").textContent=`${Math.floor(projected).toLocaleString()} / ${p.total.toLocaleString()}`;
+  if(p.rate>0){
+    const remaining=(p.total-projected)/p.rate;
+    if(remaining>0)$("eta").textContent=remaining<90?Math.ceil(remaining)+" sec":(remaining/60).toFixed(1)+" min";
+  }
+}
+async function prefillRecent(){
+  if(state.frames.length)return;
+  try{
+    const r=await fetch("/api/recent-images?limit=48"),j=await r.json();
+    const images=(j.images||[]).filter(x=>x.path).reverse();
+    if(!images.length)return;
+    if(state.frames.length)return;
+    state.prefilled=true;
+    $("stageMessage").querySelector("strong").textContent="PREVIOUS RENDERS";
+    $("stageMessage").querySelector("span").textContent="Showing recent work while the live stream connects.";
+    for(const image of images)ingestFrame({url:image.path,index:null,seed:"",total:0,updateProgress:false});
+  }catch{}
+}
+function clearPrefilled(){
+  if(!state.prefilled)return;
+  state.prefilled=false;
+  state.frames=[];
+  const strip=$("filmstrip");
+  if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());
+}
 document.querySelectorAll("[data-run]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-run]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.runType=b.dataset.run});
 document.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-study]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.studyType=b.dataset.study;updateJobReady()});
 const presets={continuity:{mode:"elliptic",seedLock:.58,shellScale:1.02,shellCoupling:.7,cacheThreshold:.22,rates:[.18,.06,-.04,.04,-.02,.01]},cinema:{mode:"elliptic",seedLock:.3,shellScale:1.12,shellCoupling:.92,cacheThreshold:.3,rates:[.32,.11,-.09,.08,-.06,.04]},parallax:{mode:"omega",seedLock:.2,shellScale:1.34,shellCoupling:1.45,cacheThreshold:.24,rates:[.5,.28,-.16,.22,-.12,.09]},dream:{mode:"omega",seedLock:.12,shellScale:1.55,shellCoupling:.55,cacheThreshold:.34,rates:[.72,-.38,.44,.31,-.27,.19]},sway:{mode:"sway",seedLock:.42,shellScale:1.08,shellCoupling:1.1,cacheThreshold:.27,rates:[.24,.09,-.05,.07,-.03,.02]}};
@@ -152,4 +203,4 @@ $("indexStart").oninput=updateRange;$("cells").oninput=()=>{$("cellsNumber").val
 document.querySelectorAll(".dialogClose,.dialogCloseButton").forEach(b=>b.onclick=()=>$("manifestDialog").close());
 $("helpButton").onclick=()=>toast("Plan a coherent latent path, then launch it into the resident FLUX worker.");
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
-$("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();connectStreams();window.addEventListener("resize",drawMap);
+$("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
