@@ -1667,7 +1667,13 @@ snapshot_download(
     max_workers=%d,
 )
 `, string(modelDirJSON), string(patternsJSON), *workers)
-		return runner.StreamNoResult(context.Background(), nil, cfg.Python, "-c", script)
+		return runner.StreamNoResult(
+			context.Background(),
+			map[string]string{"HF_HUB_DISABLE_XET": "1"},
+			cfg.Python,
+			"-c",
+			script,
+		)
 	}
 	if *plain {
 		fmt.Println(strings.Join(lines, "\n"))
