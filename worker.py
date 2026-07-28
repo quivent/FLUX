@@ -199,11 +199,40 @@ def _atlas_sample_order(indices, render_count, sample_mode):
                     if len(picked) >= render_count:
                         break
         return picked
-    if sample_mode in ("stride", "even"):
+    if sample_mode in ("stride", "even", "smooth_even"):
         if render_count == 1:
             return [indices[len(indices) // 2]]
         return [indices[min(len(indices) - 1, round(i * (len(indices) - 1) / (render_count - 1)))] for i in range(render_count)]
     return indices[:render_count]
+
+
+def _atlas_smooth_sphere_order(indices, render_count, n_rows, n_cols):
+    """Build an equal-area, serpentine shell scan with bounded frame-to-frame motion."""
+    if render_count <= 0 or render_count >= len(indices):
+        return indices
+    allowed = set(indices)
+    bands = max(1, math.ceil(render_count / n_cols))
+    ordered = []
+    seen = set()
+    for band in range(bands):
+        # Equal increments in cos(mu) distribute latitude bands by shell area.
+        mu = math.acos(1.0 - 2.0 * (band + 0.5) / bands)
+        row = min(n_rows - 1, max(0, round(mu * n_rows / math.pi - 0.5)))
+        cols = range(n_cols - 1, -1, -1) if band % 2 else range(n_cols)
+        for col in cols:
+            idx = row * n_cols + col
+            if idx in allowed and idx not in seen:
+                ordered.append(idx)
+                seen.add(idx)
+                if len(ordered) >= render_count:
+                    return ordered
+    # Narrow index ranges can exclude an equal-area target; fill locally and deterministically.
+    for idx in indices:
+        if idx not in seen:
+            ordered.append(idx)
+            if len(ordered) >= render_count:
+                break
+    return ordered
 
 
 def _atlas_order_delta_summary(indices, n_rows, n_cols, traversal, coupling, sample_limit=4096):
@@ -1146,7 +1175,12 @@ class Worker:
         render_order = _atlas_render_order(index_start, index_end, n_rows, n_cols, traversal_order)
         render_count = int(job.get("render_count") or 0)
         sample_mode = str(job.get("sample_mode") or "contiguous")
-        render_order = _atlas_sample_order(render_order, render_count, sample_mode)
+        if sample_mode == "smooth_even":
+            render_order = _atlas_smooth_sphere_order(
+                render_order, render_count, n_rows, n_cols
+            )
+        else:
+            render_order = _atlas_sample_order(render_order, render_count, sample_mode)
         total = len(render_order)
         order_summary = _atlas_order_delta_summary(render_order, n_rows, n_cols, traversal, coupling)
         def prompt_for_cell(row, col):

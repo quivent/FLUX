@@ -1002,7 +1002,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	rows, cols := 1024, 64
 	latentCells := rows * cols
 	runType := atlasChoice(req.RunType, []string{"spot", "fill", "path"}, "spot")
-	sampleMode := atlasChoice(req.SampleMode, []string{"nested_sparse", "sparse", "contiguous", "stride", "even"}, "nested_sparse")
+	sampleMode := atlasChoice(req.SampleMode, []string{"nested_sparse", "sparse", "contiguous", "stride", "even", "smooth_even"}, "nested_sparse")
 	if sampleMode == "sparse" {
 		sampleMode = "nested_sparse"
 	}

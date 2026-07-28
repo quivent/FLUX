@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b0e"><title>FLUX Aligned Optics</title><link rel="stylesheet" href="app.css"><link rel="prefetch" href="index.html"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b0e"><title>FLUX Aligned Optics</title><link rel="stylesheet" href="app.css?v=20260728u"><link rel="prefetch" href="index.html"><link rel="prefetch" href="registry.html"><link rel="prefetch" href="registry.js"></head>
 <body class="suitePage opticsPage"><div class="noise"></div>
 <header class="topbar"><a class="identity" href="/motion-atlas/"><span class="sigil">F</span><span><b>FLUX</b><small>MOTION ATLAS SPHERE</small></span></a><nav class="suiteTabs"><a href="/motion-atlas/">ATLAS</a><a class="active" href="/motion-atlas/optics.html">OPTICS</a><a href="/motion-atlas/queue.html">QUEUE</a><a href="/motion-atlas/registry.html">GALLERY</a><a href="https://gov.influx.vision/">GATEKEEPER</a></nav><div class="system"><span class="status"><i></i><span id="opticState">OPTICAL BENCH READY</span></span><span class="modelTopState" id="modelTopState"><i></i>MODEL CHECKING</span><span class="device">CUDA · B300</span></div></header>
 <main class="opticsWorkspace">
@@ -28,9 +28,15 @@
     <div class="stageHead"><div><span class="eyebrow">ALIGNED OPTICS · VIRTUAL LENS BENCH</span><h1>A shot begins with a coherent optical system.</h1></div><button id="generateOptics" class="primary">Generate 8 optical proofs →</button></div>
     <div class="opticViewport">
       <div class="lensAssembly" id="lensAssembly"><i></i><i></i><i></i><i></i><div class="sensorPlane"></div><div class="lightCone"></div></div>
+      <section class="sphereCartography" aria-label="Live latent sphere coverage">
+        <div class="sphereTitle"><span>LATENT SPHERE</span><b id="sphereJob">WAITING FOR ATLAS</b></div>
+        <canvas id="opticSphere"></canvas>
+        <div class="sphereLegend"><span><i class="done"></i>RENDERED</span><span><i class="planned"></i>PLANNED</span><span><i class="frontier"></i>FRONTIER</span></div>
+        <div class="sphereMetrics"><span>COVERAGE <b id="sphereCoverage">—</b></span><span>PATH <b id="spherePath">—</b></span><span>SEED <b id="sphereSeed">—</b></span></div>
+      </section>
       <div class="opticReadout"><span>FIELD / <b id="fieldReadout">NORMAL</b></span><span>PLANE / <b id="planeReadout">4.0 M</b></span><span>GATE / <b id="gateReadout">1.00×</b></span></div>
       <div class="opticAssets" id="opticAssets"></div>
     </div>
     <div class="compiledPrompt"><span>OPTICAL INSTRUCTION</span><p id="compiledOptics"></p><button id="copyOptics">COPY</button></div>
   </section>
-</main><div class="toast" id="toast"></div><script src="optics.js"></script></body></html>
+</main><div class="toast" id="toast"></div><script src="optics.js?v=20260728u"></script></body></html>
