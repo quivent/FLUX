@@ -243,7 +243,7 @@ func Usage() {
 		{"bench --dry-run", "show benchmark plan without starting worker"},
 		{"studio", "runtime posture, model paths, preset lanes"},
 		{"gpu", "show NVIDIA/Torch GPU state and active compute processes"},
-		{"download", "print the lean HF CLI BF16 download command"},
+		{"download", "fetch the FLUX.1-dev BF16 Diffusers snapshot"},
 		{"tree", "full command topology"},
 		{"colors", "palette and state sample"},
 	})
@@ -251,6 +251,9 @@ func Usage() {
 		{"warm", "start worker and load FLUX into memory"},
 		{"warm --preload=false", "start queue without loading the 32 GB model"},
 		{"serve", "local HTTP API and dashboard backed by the worker socket"},
+		{"serve oscillihue", "static file server for the web/ folder on :7870"},
+		{"oscillihue serve", "same static server, noun-first spelling"},
+		{"oscillihue --open --dir web", "serve a specific folder and open it"},
 		{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires a bearer token"},
 		{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
 		{"gallery", "start the Atelier gallery server at /gallery"},
