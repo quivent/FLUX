@@ -39,8 +39,11 @@
       <div class="rangeControl">
         <label for="indexStart">Path origin <output id="indexStartOut">24576</output></label>
         <input id="indexStart" type="range" min="0" max="64512" step="64" value="24576">
-        <label for="cells">Sequence length <output id="cellsOut">1024 frames</output></label>
-        <input id="cells" type="range" min="8" max="4096" step="8" value="1024">
+        <label for="cells">Count <output id="cellsOut">1,024 cells</output></label>
+        <div class="countControl">
+          <input id="cells" type="range" min="8" max="65536" step="8" value="1024">
+          <input id="cellsNumber" type="number" min="1" max="65536" value="1024" aria-label="Exact atlas cell count">
+        </div>
       </div>
       <div class="sectionLabel"><span>SESSIONS</span><button id="refreshJobs">↻</button></div>
       <div class="sessions" id="sessions">
@@ -52,6 +55,19 @@
       <div class="stageHead">
         <div><span class="eyebrow">LIVE FRAME STAGE</span><h1 id="stageTitle">Motion continuity, mapped.</h1></div>
         <div class="viewSwitch"><button class="active" data-view="frame">Frame</button><button data-view="sphere">Sphere</button></div>
+      </div>
+      <div class="gpuRail">
+        <div class="gpuIdentity"><span class="gpuIndex">GPU 00</span><strong id="gpuName">NVIDIA BLACKWELL</strong><small id="experimentPhase">READY · NO ACTIVE EXPERIMENT</small></div>
+        <div class="gauge">
+          <div class="gaugeHead"><span>VRAM</span><strong id="vramValue">— / —</strong></div>
+          <div class="meter"><i id="vramBar"></i></div>
+        </div>
+        <div class="gauge">
+          <div class="gaugeHead"><span>COMPUTE</span><strong id="computeValue">—%</strong></div>
+          <div class="meter"><i id="computeBar"></i></div>
+        </div>
+        <div class="gpuDatum"><span>THERMAL</span><strong id="thermalValue">—°</strong></div>
+        <div class="gpuDatum"><span>POWER</span><strong id="powerValue">— W</strong></div>
       </div>
       <div class="viewport" id="viewport">
         <div class="sphere" id="sphere">
@@ -82,7 +98,7 @@
           <button type="button" class="groupTitle"><span>Direction</span><i>−</i></button>
           <div class="groupBody">
             <label>Study name<input id="id" value="spheremap_atlas_horse_gallop_volga_motion"></label>
-            <label>Motion prompt<textarea id="prompt" rows="7">A powerful cinematic horse galloping through surreal Samara near the Volga, real sequential motion study: elegant dark horse in mid-stride, mane and tail whipping, hooves splashing through rain-slick street reflections, old wooden houses, flowered courtyards, tram wires, noble stone facades and Soviet blocks sliding in deep parallax, animated 3D film still, dynamic camera tracking beside the horse, consistent horse anatomy, no rider, no saddle, no cloth, no fabric, strong motion continuity</textarea></label>
+            <label>Motion prompt<textarea id="prompt" rows="11">A powerful cinematic horse galloping through surreal Samara near the Volga, real sequential motion study: elegant dark horse in mid-stride, mane and tail whipping, hooves splashing through rain-slick street reflections, old wooden houses, flowered courtyards, tram wires, noble stone facades and Soviet blocks sliding in deep parallax, animated 3D film still, dynamic camera tracking beside the horse, consistent horse anatomy, no rider, no saddle, no cloth, no fabric, strong motion continuity</textarea></label>
           </div>
         </section>
         <section class="controlGroup open">
@@ -90,16 +106,30 @@
           <div class="groupBody grid2">
             <label>Orbit<select id="mode"><option value="elliptic">Elliptic</option><option value="omega">Omega / SO(4)</option><option value="sway">Sway</option><option value="oscillatory">Oscillatory</option></select></label>
             <label>Traversal<select id="order"><option value="row_serpentine">Row serpentine</option><option value="column_serpentine">Column serpentine</option><option value="raster">Raster</option></select></label>
-            <label>Shell scale<input id="shellScale" type="number" step=".01" value="1.12"></label>
-            <label>Seed lock<input id="seedLock" type="number" step=".01" min="0" max=".95" value=".28"></label>
-            <label class="wide">Shell coupling<input id="shellCoupling" type="number" step=".01" value=".92"></label>
+            <label class="wide parameter cyan"><span>Shell scale <output data-for="shellScale">1.12</output></span><input id="shellScale" type="range" min=".01" max="4" step=".01" value="1.12"></label>
+            <label class="wide parameter violet"><span>Identity lock <output data-for="seedLock">0.28</output></span><input id="seedLock" type="range" min="0" max=".95" step=".01" value=".28"></label>
+            <label class="wide parameter amber"><span>Shell coupling <output data-for="shellCoupling">0.92</output></span><input id="shellCoupling" type="range" min="-4" max="4" step=".01" value=".92"></label>
+            <div class="dimensionField wide">
+              <div class="dimensionHead"><span>SO(4) PLANE RATES</span><small>SIX COUPLED ROTATIONS</small></div>
+              <div class="dimensionGrid">
+                <label class="axis xy"><span>XY <output data-for="dimXY">.32</output></span><input id="dimXY" type="range" min="-2" max="2" step=".01" value=".32"></label>
+                <label class="axis xz"><span>XZ <output data-for="dimXZ">.11</output></span><input id="dimXZ" type="range" min="-2" max="2" step=".01" value=".11"></label>
+                <label class="axis xw"><span>XW <output data-for="dimXW">-.09</output></span><input id="dimXW" type="range" min="-2" max="2" step=".01" value="-.09"></label>
+                <label class="axis yz"><span>YZ <output data-for="dimYZ">.08</output></span><input id="dimYZ" type="range" min="-2" max="2" step=".01" value=".08"></label>
+                <label class="axis yw"><span>YW <output data-for="dimYW">-.06</output></span><input id="dimYW" type="range" min="-2" max="2" step=".01" value="-.06"></label>
+                <label class="axis zw"><span>ZW <output data-for="dimZW">.04</output></span><input id="dimZW" type="range" min="-2" max="2" step=".01" value=".04"></label>
+              </div>
+            </div>
           </div>
         </section>
         <section class="controlGroup open">
           <button type="button" class="groupTitle"><span>Render & cache</span><i>−</i></button>
           <div class="groupBody grid2">
+            <label>Model<select id="model"><option value="FLUX.1-dev">FLUX.1 Dev</option></select></label>
+            <label>Precision<select id="precision"><option value="bf16">BF16</option></select></label>
             <label>Backend<select id="backend"><option value="cuda">CUDA / B300</option><option value="auto">Automatic</option><option value="cpu">CPU diagnostic</option></select></label>
             <label>Resolution<select id="size"><option>512</option><option>768</option><option>1024</option></select></label>
+            <label>Batch size<input id="batchSize" type="number" min="1" max="64" value="1"></label>
             <label>Steps<input id="steps" type="number" min="1" max="120" value="36"></label>
             <label>Guidance<input id="guidance" type="number" step=".1" value="4.4"></label>
             <label>Cache<select id="adapter"><option value="atlas-xframe-cache">Atlas x-frame</option><option value="first-block-cache">First block</option><option value="none">Disabled</option></select></label>

@@ -574,6 +574,7 @@ class Worker:
         if limit > 0:
             index_end = min(index_end, index_start + limit)
         render_count = _finite_int(payload.get("render_count") or draft.get("render_count"), 0, 0, n_latent)
+        batch_size = _finite_int(payload.get("batch_size") or draft.get("batch_size"), 1, 1, 64)
         run_total = max(0, index_end - index_start)
         if render_count > 0:
             run_total = min(run_total, render_count)
@@ -616,6 +617,8 @@ class Worker:
             "index_start": index_start,
             "index_end": index_end,
             "render_count": render_count,
+            "batch_size": batch_size,
+            "precision": "bf16",
             "atlas_total": run_total,
             "atlas_done": 0,
             "rates": draft.get("rates") or [],
@@ -921,6 +924,8 @@ class Worker:
             "index_end": index_end,
             "range_total": range_total,
             "render_count": render_count,
+            "batch_size": int(job.get("batch_size") or 1),
+            "precision": "bf16",
             "render_total": total,
             "sample_mode": sample_mode,
             "size": size,

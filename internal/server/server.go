@@ -131,31 +131,35 @@ type blendRequest struct {
 }
 
 type atlasSubmitRequest struct {
-	Prompt          string  `json:"prompt"`
-	ID              string  `json:"id"`
-	Backend         string  `json:"backend"`
-	RunType         string  `json:"run_type"`
-	IndexStart      int     `json:"index_start"`
-	IndexEnd        int     `json:"index_end"`
-	SampleMode      string  `json:"sample_mode"`
-	Cells           int     `json:"cells"`
-	Size            int     `json:"size"`
-	Steps           int     `json:"steps"`
-	Guidance        float64 `json:"guidance"`
-	Seed            string  `json:"seed"`
-	SeedB           int64   `json:"seed_b"`
-	SeedC           int64   `json:"seed_c"`
-	SeedD           int64   `json:"seed_d"`
-	ShellScale      float64 `json:"shell_scale"`
-	SeedLock        float64 `json:"seed_lock"`
-	ShellCoupling   float64 `json:"shell_coupling"`
-	Mode            string  `json:"mode"`
-	TraversalOrder  string  `json:"traversal_order"`
-	Adapter         string  `json:"adapter"`
-	CacheThreshold  float64 `json:"cache_threshold"`
-	CacheDownsample int     `json:"cache_downsample"`
-	CacheWarmup     int     `json:"cache_warmup"`
-	DryRun          bool    `json:"dry_run"`
+	Prompt          string    `json:"prompt"`
+	ID              string    `json:"id"`
+	Backend         string    `json:"backend"`
+	Model           string    `json:"model"`
+	Precision       string    `json:"precision"`
+	BatchSize       int       `json:"batch_size"`
+	DimensionRates  []float64 `json:"dimension_rates"`
+	RunType         string    `json:"run_type"`
+	IndexStart      int       `json:"index_start"`
+	IndexEnd        int       `json:"index_end"`
+	SampleMode      string    `json:"sample_mode"`
+	Cells           int       `json:"cells"`
+	Size            int       `json:"size"`
+	Steps           int       `json:"steps"`
+	Guidance        float64   `json:"guidance"`
+	Seed            string    `json:"seed"`
+	SeedB           int64     `json:"seed_b"`
+	SeedC           int64     `json:"seed_c"`
+	SeedD           int64     `json:"seed_d"`
+	ShellScale      float64   `json:"shell_scale"`
+	SeedLock        float64   `json:"seed_lock"`
+	ShellCoupling   float64   `json:"shell_coupling"`
+	Mode            string    `json:"mode"`
+	TraversalOrder  string    `json:"traversal_order"`
+	Adapter         string    `json:"adapter"`
+	CacheThreshold  float64   `json:"cache_threshold"`
+	CacheDownsample int       `json:"cache_downsample"`
+	CacheWarmup     int       `json:"cache_warmup"`
+	DryRun          bool      `json:"dry_run"`
 }
 
 const animeCastBatchPlist = "/Users/joshkornreich/Library/LaunchAgents/com.flux.anime-cast-batch.plist"
@@ -174,6 +178,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/flux/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/api/health", s.health)
+	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
@@ -339,6 +344,49 @@ func (s Server) health(w http.ResponseWriter, r *http.Request) {
 		"model_dir":      s.cfg.ModelDir,
 		"output_dir":     s.cfg.OutputDir,
 	})
+}
+
+func (s Server) telemetry(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "nvidia-smi",
+		"--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
+		"--format=csv,noheader,nounits",
+	).Output()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "available": false})
+		return
+	}
+	gpus := make([]map[string]any, 0)
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		parts := strings.Split(line, ",")
+		if len(parts) < 8 {
+			continue
+		}
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		gpus = append(gpus, map[string]any{
+			"index": parts[0], "name": parts[1],
+			"utilization":  telemetryNumber(parts[2]),
+			"memory_used":  telemetryNumber(parts[3]),
+			"memory_total": telemetryNumber(parts[4]),
+			"temperature":  telemetryNumber(parts[5]),
+			"power_draw":   telemetryNumber(parts[6]),
+			"power_limit":  telemetryNumber(parts[7]),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "available": len(gpus) > 0, "gpus": gpus})
+}
+
+func telemetryNumber(value string) float64 {
+	value = strings.TrimSpace(strings.TrimSuffix(value, " W"))
+	n, _ := strconv.ParseFloat(value, 64)
+	return n
 }
 
 func (s Server) jobs(w http.ResponseWriter, r *http.Request) {
@@ -512,7 +560,8 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "atlas prompt is required")
 		return
 	}
-	renderCount := clampInt(req.Cells, 1, 4096, 64)
+	renderCount := clampInt(req.Cells, 1, 65536, 64)
+	batchSize := clampInt(req.BatchSize, 1, 64, 1)
 	rows, cols := 1024, 64
 	latentCells := rows * cols
 	runType := atlasChoice(req.RunType, []string{"spot", "fill", "path"}, "spot")
@@ -571,6 +620,12 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 	cacheThreshold = clampFloat(cacheThreshold, 0.0, 1.0)
 	cacheDownsample := clampInt(req.CacheDownsample, 1, 64, 1)
 	cacheWarmup := clampInt(req.CacheWarmup, 0, steps, 0)
+	dimensionRates := []float64{0.32, 0.11, -0.09, 0.08, -0.06, 0.04}
+	if len(req.DimensionRates) == 6 {
+		for i, rate := range req.DimensionRates {
+			dimensionRates[i] = clampFloat(rate, -2, 2)
+		}
+	}
 
 	now := time.Now()
 	id := safeAtlasID(req.ID)
@@ -614,6 +669,9 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"index_start":     indexStart,
 		"index_end":       indexEnd,
 		"render_count":    renderCount,
+		"batch_size":      batchSize,
+		"model":           "FLUX.1-dev",
+		"precision":       "bf16",
 		"size":            size,
 		"steps":           steps,
 		"guidance":        guidance,
@@ -624,7 +682,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"shell_scale":     shellScale,
 		"seed_lock":       seedLock,
 		"shell_coupling":  shellCoupling,
-		"rates":           []float64{0.32, 0.11, -0.09, 0.08, -0.06, 0.04},
+		"rates":           dimensionRates,
 		"offsets":         []float64{0.18, -0.12, 0.10, -0.08, 0.06, -0.04},
 		"notes":           "Submitted from studio latent atlas controls. Prompt is passed as entered; no image-to-image path is used.",
 	}
@@ -637,6 +695,9 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"steps":            steps,
 		"guidance":         guidance,
 		"cells":            renderCount,
+		"batch_size":       batchSize,
+		"precision":        "BF16",
+		"dimension_rates":  dimensionRates,
 		"latent_cells":     latentCells,
 		"grid":             fmt.Sprintf("%dx%d", rows, cols),
 		"mode":             mode,
@@ -682,6 +743,7 @@ func (s Server) submitAtlas(w http.ResponseWriter, r *http.Request) {
 		"draft":            draft,
 		"backend":          backend,
 		"render_count":     renderCount,
+		"batch_size":       batchSize,
 		"n_latent":         latentCells,
 		"index_start":      indexStart,
 		"index_end":        indexEnd,
