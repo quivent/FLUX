@@ -3382,14 +3382,28 @@ func (s Server) jobsWithOutputURLs(r *http.Request, jobs []map[string]any) []map
 }
 
 func dashboardJobs(jobs []map[string]any) []map[string]any {
-	active := make([]map[string]any, 0, 4)
-	for _, job := range jobs {
-		status := strings.ToLower(stringValue(job["status"]))
-		if status == "queued" || status == "running" || status == "cancelling" {
-			active = append(active, job)
+	sorted := append([]map[string]any(nil), jobs...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		iActive := activeJobStatus(stringValue(sorted[i]["status"]))
+		jActive := activeJobStatus(stringValue(sorted[j]["status"]))
+		if iActive != jActive {
+			return iActive
 		}
+		return floatValue(sorted[i]["created"]) > floatValue(sorted[j]["created"])
+	})
+	if len(sorted) > 100 {
+		sorted = sorted[:100]
 	}
-	return active
+	return sorted
+}
+
+func activeJobStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "queued", "running", "cancelling":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s Server) jobWithOutputURL(r *http.Request, job map[string]any) map[string]any {
