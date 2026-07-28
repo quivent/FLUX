@@ -206,6 +206,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/atlas/submit", s.submitAtlas)
 	mux.HandleFunc("/api/atlas/seeds", s.atlasSeeds)
 	mux.HandleFunc("/api/atlas/seed", s.atlasSeed)
+	mux.HandleFunc("/api/atlas/catalog", s.atlasCatalog)
 	mux.HandleFunc("/api/upload", s.uploadImage)
 	mux.HandleFunc("/api/warm", s.warm)
 	mux.HandleFunc("/api/stop", s.stop)
@@ -319,7 +320,12 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "index.html"
 	}
-	if name != "index.html" && name != "app.css" && name != "app.js" {
+	allowed := map[string]bool{
+		"index.html": true, "app.css": true, "app.js": true,
+		"optics.html": true, "optics.js": true,
+		"registry.html": true, "registry.js": true,
+	}
+	if !allowed[name] {
 		http.NotFound(w, r)
 		return
 	}

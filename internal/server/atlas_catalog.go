@@ -18,6 +18,65 @@ type atlasSeedRequest struct {
 	Description string `json:"description"`
 }
 
+func (s Server) atlasCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	db, err := s.openStudioDB()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer db.Close()
+	jobs := make([]map[string]any, 0)
+	rows, err := db.Query(`SELECT id, kind, status, phase, prompt, seed, backend, progress, total, created_at, updated_at
+		FROM atlas_jobs ORDER BY updated_at DESC LIMIT 500`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for rows.Next() {
+		var id, kind, status, phase, prompt, seed, backend string
+		var progress, total, createdAt, updatedAt int64
+		if rows.Scan(&id, &kind, &status, &phase, &prompt, &seed, &backend, &progress, &total, &createdAt, &updatedAt) == nil {
+			jobs = append(jobs, map[string]any{"id": id, "kind": kind, "status": status, "phase": phase, "prompt": prompt, "seed": seed, "backend": backend, "progress": progress, "total": total, "created_at": createdAt, "updated_at": updatedAt})
+		}
+	}
+	rows.Close()
+	assets := make([]map[string]any, 0)
+	rows, err = db.Query(`SELECT id, job_id, seed, path, access_url, media_type, cell_index, created_at, updated_at
+		FROM atlas_assets ORDER BY updated_at DESC LIMIT 1000`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for rows.Next() {
+		var id, jobID, seed, path, accessURL, mediaType string
+		var cell, createdAt, updatedAt int64
+		if rows.Scan(&id, &jobID, &seed, &path, &accessURL, &mediaType, &cell, &createdAt, &updatedAt) == nil {
+			assets = append(assets, map[string]any{"id": id, "job_id": jobID, "seed": seed, "path": path, "access_url": accessURL, "media_type": mediaType, "cell_index": cell, "created_at": createdAt, "updated_at": updatedAt})
+		}
+	}
+	rows.Close()
+	seeds := make([]map[string]any, 0)
+	rows, err = db.Query(`SELECT seed, description, source_job_id, created_at, updated_at
+		FROM atlas_seeds ORDER BY updated_at DESC LIMIT 1000`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for rows.Next() {
+		var seed, description, sourceJobID string
+		var createdAt, updatedAt int64
+		if rows.Scan(&seed, &description, &sourceJobID, &createdAt, &updatedAt) == nil {
+			seeds = append(seeds, map[string]any{"seed": seed, "description": description, "source_job_id": sourceJobID, "created_at": createdAt, "updated_at": updatedAt})
+		}
+	}
+	rows.Close()
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "jobs": jobs, "assets": assets, "seeds": seeds})
+}
+
 func (s Server) atlasSeeds(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w, http.MethodGet)
