@@ -338,11 +338,11 @@ class Worker:
     def _write_jobs(self):
         with self.jobs_lock:
             rows = [dict(job) for job in self.jobs.values()]
-        tmp = self.state_path.with_suffix(".tmp")
-        with tmp.open("w") as f:
-            for job in rows:
-                f.write(json.dumps(job, sort_keys=True) + "\n")
-        tmp.replace(self.state_path)
+            tmp = self.state_path.with_suffix(".tmp")
+            with tmp.open("w") as f:
+                for job in rows:
+                    f.write(json.dumps(job, sort_keys=True) + "\n")
+            tmp.replace(self.state_path)
 
     def _load_profile(self):
         if not self.profile_path.exists():
