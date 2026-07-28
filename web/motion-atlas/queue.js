@@ -13,8 +13,26 @@ const studies=[
 ["atlas-atmospheric-weather","A fishing vessel crossing a violent midnight squall, evolving wave structure, rain direction, spray, lightning illumination, and hull continuity"],
 ["atlas-production-gauntlet","A continuous cinematic shot moving from macro mechanical detail to a wide autonomous atelier floor, coherent scale transition, legible action, stable assets, and no dropped frames"]
 ];
+const beautyDrift=[
+"A pale horse stands in shallow silver water at first light, quiet horizon, exact anatomy, restrained pearl and charcoal palette, lucid naturalism",
+"The pale horse begins walking through silver water, low ripples widening around each hoof, quiet horizon, pearl light acquiring a trace of rose",
+"The walking horse crosses a flooded marble court, distant columns appearing through morning mist, reflections remaining geometrically exact",
+"The marble court opens into a submerged garden, white irises and dark reeds entering the foreground, the horse moving with ceremonial calm",
+"The garden grows warmer and less architectural, rose mist threading through reeds while petals follow the horse's wake in coherent currents",
+"Petals lengthen into translucent ribbons of color, still governed by water and wind, the horse remaining tangible and anatomically constant",
+"The silver water becomes a mirror of a lavender sky, ribbons rising into slow helices around the horse without touching or obscuring it",
+"The horizon dissolves into immense planes of opal light, horse and reflection crossing the seam between water and sky, serene spatial continuity",
+"Opal planes bend into a luminous valley of soft crystalline forms, recognizable terrain emerging from light while the horse remains the visual anchor",
+"The crystalline valley blooms with impossible glass flora, cyan shadows and apricot highlights, delicate refraction, measured forward movement",
+"Glass flora releases constellations of tiny lights that organize into flowing currents, beauty shifting from botanical to celestial without a cut",
+"The horse walks through a weightless nocturne of indigo currents and gold particles, ground implied only by a faint reflective plane",
+"Gold particles gather into distant floating architecture, arches made from light and negative space, majestic scale with intimate calm",
+"The luminous architecture thins into calligraphic trajectories, horse, path, and city becoming an elegant system of moving lines and radiant intervals",
+"At the far edge of representation, the horse becomes a barely figurative constellation crossing a vast field of color-wind, still carrying the original gait, proportions, and quiet grace"
+].map((prompt,i)=>[`beauty-drift-${String(i+1).padStart(2,"0")}`,prompt]);
 function defaultItem([id,prompt],i){return{key:`seed-${i+1}-${id}`,status:"draft",created_at:Date.now()+i,payload:{id,prompt,cells:i===9?256:64,size:i===9?768:512,steps:i===9?48:36,guidance:4.4,seed:String(2026072801+i),mode:["elliptic","omega","sway","oscillatory"][i%4],backend:"cuda",run_type:"spot",sample_mode:"nested_sparse",traversal_order:"row_serpentine",adapter:"atlas-xframe-cache"}}}
-function load(){try{const stored=localStorage.getItem(KEY);items=stored===null?studies.map(defaultItem):JSON.parse(stored)}catch{items=studies.map(defaultItem)}save()}
+function driftItem([id,prompt],i){return{key:`drift-${i+1}-${id}`,status:"draft",created_at:Date.now()+100+i,payload:{id,prompt,cells:64,size:768,steps:36,guidance:4.4,seed:"314159265",seed_b:271828182,seed_c:161803398,seed_d:141421356,dimension_rates:[.18,.06,-.04,.04,-.02,.01],shell_scale:.72,seed_lock:.68,shell_coupling:.82,mode:"elliptic",backend:"cuda",run_type:"path",sample_mode:"contiguous",index_start:i*64,index_end:(i+1)*64,traversal_order:"row_serpentine",adapter:"atlas-xframe-cache",cache_threshold:.18,cache_downsample:1,cache_warmup:0}}}
+function load(){try{const stored=localStorage.getItem(KEY);items=stored===null?studies.map(defaultItem):JSON.parse(stored)}catch{items=studies.map(defaultItem)}const ids=new Set(items.map(x=>x.payload?.id));beautyDrift.map(driftItem).filter(x=>!ids.has(x.payload.id)).forEach(x=>items.push(x));save()}
 function save(){localStorage.setItem(KEY,JSON.stringify(items));render()}
 function toast(message){$("toast").textContent=message;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
 function spec(){return{id:$("queueName").value.trim(),prompt:$("queuePrompt").value.trim(),cells:+$("queueCells").value,size:+$("queueSize").value,steps:+$("queueSteps").value,guidance:+$("queueGuidance").value,seed:$("queueSeed").value.trim()||"random",mode:$("queueMode").value,backend:"cuda",run_type:"spot",sample_mode:"nested_sparse",traversal_order:"row_serpentine",adapter:"atlas-xframe-cache"}}
