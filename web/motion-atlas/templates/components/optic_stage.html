@@ -1,0 +1,21 @@
+{# Optics — virtual lens bench stage #}
+<section class="opticStage">
+  <div class="stageHead"><div><span class="eyebrow">ALIGNED OPTICS · VIRTUAL LENS BENCH</span><h1>A shot begins with a coherent optical system.</h1></div><button id="generateOptics" class="primary">Generate 8 optical proofs →</button></div>
+  <div class="opticViewport">
+    <div class="lensAssembly" id="lensAssembly"><i></i><i></i><i></i><i></i><div class="sensorPlane"></div><div class="lightCone"></div></div>
+    <section class="sphereCartography" aria-label="Live latent sphere coverage">
+      <div class="cartographyLegend">
+        <div><i class="seedDot"></i><span>seed <b id="sphereSeed">—</b> (centre · e₀ · θ=0)</span></div>
+        <div><i class="probeDot"></i><span><b id="sphereStudyKind">loop probes</b> (<b id="sphereRendered">0</b>)</span></div>
+        <div><i class="frontierDot"></i><span>frontier i=<b id="sphereFrontier">—</b></span></div>
+        <div><em>θ <b id="sphereTheta">—</b></em><small> · </small><strong>φ <b id="spherePhi">—</b></strong><small> · row <b id="sphereRow">—</b> col <b id="sphereCol">—</b></small></div>
+        <div class="rhoLine"><span id="sphereMeasureLabel">loop closure</span> <b id="sphereRho">—</b> · <b id="sphereRows">0.0%</b> rendered</div>
+        <div class="cartographyNote">cyan = completed loop · faint line = planned motion · wire = reference</div>
+      </div>
+      <canvas id="opticSphere"></canvas>
+    </section>
+    <div class="opticReadout"><span>FIELD / <b id="fieldReadout">NORMAL</b></span><span>PLANE / <b id="planeReadout">4.0 M</b></span><span>GATE / <b id="gateReadout">1.00×</b></span></div>
+    <div class="opticAssets" id="opticAssets"></div>
+  </div>
+  <div class="compiledPrompt"><span>OPTICAL INSTRUCTION</span><p id="compiledOptics"></p><button id="copyOptics">COPY</button></div>
+</section>

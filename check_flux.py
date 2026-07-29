@@ -1,11 +1,12 @@
 import json
-import os
 import pathlib
 import struct
 import sys
 
+import flux_paths
 
-MODEL_DIR = pathlib.Path(os.environ.get("MODEL_DIR", "/Users/joshkornreich/Models/flux1"))
+
+MODEL_DIR = pathlib.Path(flux_paths.default_model_dir())
 
 
 def safetensors_dtypes(path: pathlib.Path) -> set[str]:

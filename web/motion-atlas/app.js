@@ -1,9 +1,12 @@
+// core.js
 const $=id=>document.getElementById(id);
 const FUEL_CAPACITY_SEC=6*3600;
 const FUEL_LOW_SEC=30*60;
 const resumedJob=sessionStorage.getItem("motionAtlasJob");
 const state={studyType:null,runType:"path",activeJob:resumedJob,started:0,frames:[],assetSide:"A",acceptedAssetJobs:new Set(),hydratedJobs:new Set(),pendingAssets:new Map(),gpuProcesses:new Map(),preview:new Map(),selectedFlavor:null,model:{known:false,downloaded:false,loaded:false,pendingPreview:!resumedJob},discovery:{started:false,stopped:false,level:0,jobs:new Map(),ready:new Set()}};
 const pageStudies=[
+
+// studies.js
   ["Lanterns Across the Salt Observatory","At blue hour, a solitary white stag crosses a flooded marble observatory suspended above the sea; each measured step sends constellations trembling through reflected water while brass instruments, salt-worn columns, and distant storm light recede in exact cinematic perspective. A continuous lateral tracking shot, anatomically precise, luminous but restrained, quiet awe, coherent physical space, no text or ornament on the animal."],
   ["The Orchard Remembers the Wind","An ancient pear orchard bends beneath a lucid summer storm as a red fox runs between silvered trunks, loose petals and rain moving in layered parallax. Low tracking camera, precise animal anatomy, wet earth reflecting intermittent sky fire, restrained painterly realism, one continuous physical world, stable identity and graceful sequential motion."],
   ["Procession Through the Glass Tides","A small procession of pale horses walks across translucent tidal flats at dawn, their reflections descending into a submerged city of arches and gardens. Slow elevated camera drift, measured hoof movement, atmospheric depth, exact perspective, quiet ceremonial scale, consistent anatomy and identity, continuous cinematic motion without cuts."],
@@ -15,6 +18,8 @@ const pageStudies=[
 ];
 function seedPage(){const saved=[sessionStorage.getItem("motionAtlasTitle"),sessionStorage.getItem("motionAtlasPrompt"),sessionStorage.getItem("motionAtlasSeed")];if(saved.every(Boolean)){[$("id").value,$("prompt").value,$("seed").value]=saved;return}const bytes=new Uint32Array(2);crypto.getRandomValues(bytes);const index=bytes[0]%pageStudies.length,study=pageStudies[index],seed=String(10000000+bytes[1]%890000000);$("id").value=study[0];$("prompt").value=study[1];$("seed").value=seed;sessionStorage.setItem("motionAtlasTitle",study[0]);sessionStorage.setItem("motionAtlasPrompt",study[1]);sessionStorage.setItem("motionAtlasSeed",seed)}
 const numeric=id=>Number($(id).value);
+
+// assets.js
 function toast(message){$("toast").textContent=message;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
 function acceptAssetJob(id){if(!id)return;state.acceptedAssetJobs.add(id);for(const event of state.pendingAssets.get(id)||[])ingestAssetEvent(event);state.pendingAssets.delete(id);hydrateJobAssets(id)}
 async function hydrateJobAssets(id){if(state.hydratedJobs.has(id))return;state.hydratedJobs.add(id);try{const r=await fetch("/api/atlas/catalog"),j=await r.json(),all=j.assets||[];let assets=all.filter(a=>a.job_id===id),source=id;if(!assets.length){const prompt=(j.jobs||[]).find(x=>x.id===id)?.prompt,prior=(j.jobs||[]).filter(x=>x.id!==id&&x.prompt===prompt&&all.some(a=>a.job_id===x.id)).sort((a,b)=>Number(b.updated_at)-Number(a.updated_at))[0];if(prior){source=prior.id;assets=all.filter(a=>a.job_id===source);$("assetSummary").textContent="Previous horse collection visible · live batch rendering"}}assets.sort((a,b)=>Number(a.cell_index)-Number(b.cell_index)||Number(a.created_at)-Number(b.created_at)).slice(-64).forEach(a=>ingestAssetEvent({job_id:source,asset:a}))}catch{state.hydratedJobs.delete(id)}}
@@ -26,12 +31,16 @@ function ingestAssetEvent(event){
   ingestFrame({url:a.access_url,index:a.index,seed:a.seed,total:Number(a.total)||0,live:true,updateProgress:!!state.activeJob&&event.job_id===state.activeJob});
 }
 function renderSpineState(){const producing=document.querySelector('[data-step="producing"]');$("spineState").textContent=producing?.classList.contains("active")?"PRODUCING":document.querySelector('[data-step="assets"]')?.classList.contains("done")?"LIVE":"READY"}
+
+// map.js
 function checkpoint(name,status="done"){const row=document.querySelector(`[data-step="${name}"]`);if(!row)return;const current=row.classList.contains("active")?"active":row.classList.contains("done")?"done":"";if(current!==status){row.classList.remove("active","done");if(status)row.classList.add(status);renderSpineState()}}
 function updateJobReady(){const configured=state.studyType&&$("prompt").value.trim()&&$("id").value.trim()&&numeric("cells")>0&&numeric("batchSize")>0&&numeric("size")>0&&numeric("steps")>0&&numeric("guidance")>0,loaded=state.model.loaded;checkpoint("planned",configured?"done":"");$("planButton").disabled=!loaded||!configured;$("launchButton").disabled=state.model.known&&loaded&&!configured;$("launchButton").querySelector("span").textContent=!state.model.known?"Checking worker":!loaded?(state.model.downloaded?"Load worker":"Download model"):configured?`Start ${state.studyType}`:"Choose loop or atlas";return !!configured&&loaded}
 function drawMap(){
   const c=$("mapCanvas"),d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;
   const x=c.getContext("2d");x.scale(d,d);x.strokeStyle="#55e7ee22";x.lineWidth=.7;
   for(let i=0;i<18;i++){x.beginPath();x.ellipse(r.width/2,r.height/2,r.width*(.12+i*.027),r.height*(.42-i*.009),0,0,Math.PI*2);x.stroke()}
+
+// submit.js
   for(let i=0;i<15;i++){x.beginPath();x.moveTo(i*r.width/14,0);x.quadraticCurveTo(r.width/2,r.height/2,(14-i)*r.width/14,r.height);x.stroke()}
 }
 function updateRange(){
@@ -71,13 +80,13 @@ function updateDiscovery(jobs){
   for(const job of jobs){const item=d.jobs.get(job.id);if(!item)continue;item.job=job;if(job.output_url&&String(job.status).toLowerCase()==="done"&&!d.ready.has(job.id)){d.ready.add(job.id);ingestFrame({url:job.output_url,seed:item.seed,discovery:true})}}
   if(d.jobs.size&&[...d.jobs.values()].every(x=>["done","error","cancelled"].includes(String(x.job.status).toLowerCase()))){d.jobs.clear();d.ready.clear();startDiscoveryBatch()}
 }
-function showManifest(p){const entries=[["Backend",p.backend],["Sequence",`${p.cells} cells`],["Frame",`${p.width}² / ${p.steps} steps`],["Orbit",p.mode],["Traversal",p.traversal_order],["Cache",`${p.adapter} / ${p.cache_threshold}`]];
-  entries.splice(1,0,["Model",`FLUX.1 Dev / ${p.precision||"BF16"}`],["Batch",p.batch_size||1]);
-  checkpoint("planned");$("manifest").innerHTML=entries.map(([k,v])=>`<div class="manifestItem"><span>${k}</span><strong>${v}</strong></div>`).join("")+`<div class="manifestItem manifestPrompt"><span>Motion direction</span><strong>${escapeHTML(p.prompt)}</strong></div>`;$("manifestDialog").showModal()}
-function escapeHTML(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML}
-function renderGPU(g){if(!g)return;$("gpuName").textContent=g.name;$("device").textContent=`CUDA · ${g.name.replace(/^NVIDIA /,"")}`;const memPct=g.memory_total?g.memory_used/g.memory_total*100:0,powerPct=g.power_limit?g.power_draw/g.power_limit*100:0;$("vramValue").textContent=`${(g.memory_used/1024).toFixed(1)} / ${(g.memory_total/1024).toFixed(0)} GB`;$("vramBar").style.width=Math.min(100,memPct)+"%";$("computeValue").textContent=Math.round(g.utilization)+"%";$("computeBar").style.width=Math.min(100,g.utilization)+"%";$("thermalValue").textContent=Math.round(g.temperature)+"°";$("powerValue").textContent=`${Math.round(g.power_draw)} W · ${Math.round(powerPct)}%`}
-function renderGPUProcess(p){state.gpuProcesses.set(p.pid,p);$("gpuProcesses").innerHTML=[...state.gpuProcesses.values()].sort((a,b)=>b.memory_used-a.memory_used).map(x=>`<div class="gpuProcess ${String(x.label).toLowerCase()}" title="${escapeHTML(x.command)}"><b>${escapeHTML(x.label)}</b><span>PID ${x.pid}</span><strong>${(Number(x.memory_used)/1024).toFixed(1)} GB</strong><span>SM ${Math.round(Number(x.sm))}%</span></div>`).join("")}
+
+// gpu.js
+function renderGPU(g){if(!g)return;const card=document.querySelector(`.gpuCard[data-gpu="${g.index}"]`);if(!card)return;const memPct=g.memory_total?g.memory_used/g.memory_total*100:0;card.querySelector(".gpuCardName").textContent=g.name.replace(/^NVIDIA /,"");card.querySelector(".gpuCardPhase").textContent=g.utilization>10?"RENDERING":"IDLE";card.querySelector(".gpuCardVram").textContent=`${(g.memory_used/1024).toFixed(1)}/${(g.memory_total/1024).toFixed(0)} GB`;card.querySelector(".gpuCardVramBar").style.width=Math.min(100,memPct)+"%";card.querySelector(".gpuCardCompute").textContent=Math.round(g.utilization)+"%";card.querySelector(".gpuCardComputeBar").style.width=Math.min(100,g.utilization)+"%";card.querySelector(".gpuCardThermal").textContent=Math.round(g.temperature)+"°";card.querySelector(".gpuCardPower").textContent=Math.round(g.power_draw)+"W";card.classList.toggle("active",g.utilization>10)}
+function renderGPUProcess(p){state.gpuProcesses.set(p.pid,p)}
 function renderModel(m){const pendingPreview=state.model.pendingPreview,justLoaded=!state.model.loaded&&!!m.loaded;state.model={known:true,downloaded:!!m.downloaded,loaded:!!m.loaded,pendingPreview};$("downloadState").textContent=m.downloaded?"READY":m.downloading?"DOWNLOADING":"NOT FOUND";$("loadState").textContent=m.loaded?"RESIDENT":"NOT LOADED";$("downloadDot").classList.toggle("on",!!m.downloaded);$("loadDot").classList.toggle("on",!!m.loaded);$("downloadModel").disabled=!!m.downloaded||!!m.downloading;$("loadModel").disabled=!m.downloaded||!!m.loaded;$("modelProgressBar").classList.toggle("busy",!!m.downloading);$("modelProgressBar").style.width=m.loaded?"100%":m.downloaded&&!m.downloading?"62%":"";$("modelMessage").textContent=m.message||m.device||(m.loaded?"Model is resident on the GPU.":m.downloaded?"BF16 weights are ready. Load the worker to continue.":"FLUX.1 Dev weights are not on disk.");const top=$("modelTopState");top.className="modelTopState "+(m.loaded?"loaded":m.downloaded?"downloaded":"");top.lastChild.textContent=m.loaded?" MODEL LOADED":m.downloaded?" LOAD WORKER":" MODEL MISSING";checkpoint("model",m.loaded?"done":"");checkpoint("worker",m.loaded?"done":"");if(!m.loaded&&state.frames.length===0){$("stageMessage").style.display="grid";$("stageMessage").innerHTML="<strong>FLUX WORKER NOT LOADED</strong><span>Load the resident worker before generating previews or starting the atlas.</span>"}updateJobReady();if(justLoaded&&pendingPreview){state.model.pendingPreview=false}}
+
+// jobs.js
 function showJobProgress(job){
   if(!job)return;
   state.activeJob=job.id;
@@ -90,7 +99,7 @@ function showJobProgress(job){
   const effectiveDone=delivered+(batchRendering&&batchSteps?batchSize*batchStep/batchSteps:0);
   const pct=total?Math.min(100,effectiveDone/total*100):0;
   const batchLabel=batchRendering?` · ${String(job.phase).toUpperCase()} · STEP ${batchStep}/${batchSteps}`:"";
-  $("experimentPhase").textContent=`${String(job.status||"queued").toUpperCase()}${batchLabel||` · ${String(job.phase||"WAITING").toUpperCase()}`}`;
+  if($("experimentPhase"))$("experimentPhase").textContent=`${String(job.status||"queued").toUpperCase()}${batchLabel||` · ${String(job.phase||"WAITING").toUpperCase()}`}`;
   if($("stageTitle")){
     const label=String(job.id||"").replace(/[-_]+/g," ").replace(/\b\w/g,c=>c.toUpperCase());
     $("stageTitle").textContent=label||"Motion continuity, mapped.";
@@ -158,6 +167,10 @@ function renderJobFeed(j){
     if(count){setValue("cells",count);setValue("cellsNumber",count)}
     acceptAssetJob(chosen.id);
     allJobs.filter(x=>["running","queued"].includes(String(x.status).toLowerCase())).forEach(x=>acceptAssetJob(x.id));
+    // A job that exists was planned by definition. Without this, "Job ready"
+    // stays grey for anything the composer form did not submit (API, CLI,
+    // socket) even while the job is visibly running.
+    checkpoint("planned");
     checkpoint("dispatched");
     if(chosen.nexus_accepted)checkpoint("nexus");
     checkpoint("worker");
@@ -167,8 +180,10 @@ function renderJobFeed(j){
   document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.pinnedJob=job.id;state.activeJob=job.id;state.shownJob=null;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);clearPrefilled();state.frames=[];const strip=$("filmstrip");if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());state.hydratedJobs.delete(job.id);hydrateJobAssets(job.id);showJobProgress(job)});
 }
 async function refreshJobs(){try{const r=await fetch("/api/jobs"),j=await r.json();renderJobFeed(j)}catch{}}
-function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{const shown=state.pinnedJob||state.shownJob;if(shown)acceptAssetJob(shown);else (data.jobs||[]).filter(x=>String(x.status).toLowerCase()==="running").slice(0,1).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{$("computeValue").textContent="RECONNECTING"};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{$("stageMessage").querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
+function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{const shown=state.pinnedJob||state.shownJob;if(shown)acceptAssetJob(shown);else (data.jobs||[]).filter(x=>String(x.status).toLowerCase()==="running").slice(0,1).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{const el=$("stageMessage");if(el&&el.querySelector("span"))el.querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
 async function modelAction(path){try{const r=await fetch(path,{method:"POST"}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Model action failed");$("modelMessage").textContent=String(j.status||"Working").toUpperCase();$("modelProgressBar").classList.add("busy")}catch(e){toast(e.message)}}
+
+// stage.js
 function loadThumbnail(img,url,seed){document.querySelectorAll("#filmstrip img").forEach(x=>x.classList.remove("selected"));img.classList.add("selected");$("assetSummary").textContent="Loading selected frame…";const shown=$("assetFrameA");shown.classList.remove("active");shown.onload=()=>{shown.classList.add("active");$("assetSummary").textContent=seed?`Seed ${seed} selected · ready to start`:"Selected frame loaded"};shown.onerror=()=>{$("assetSummary").textContent="Frame failed to load"};shown.src=url;$("assetFrameB").classList.remove("active");if(seed){$("seed").value=seed;state.selectedFlavor={seed:String(seed),url};updateJobReady()}}
 function cycleFrame(delta){const frames=[...document.querySelectorAll("#filmstrip img")];if(!frames.length)return;let i=frames.findIndex(x=>x.classList.contains("selected"));i=(i<0?(delta>0?-1:0):i)+delta;i=(i+frames.length)%frames.length;frames[i].click();frames[i].scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})}
 function sweepFilmstrip(){const strip=$("filmstrip"),frames=[...strip.querySelectorAll("img")];if(state.filmstripSweeping||frames.length<64)return;state.filmstripSweeping=true;frames.slice(0,32).forEach((img,i)=>setTimeout(()=>{img.classList.add("departing");setTimeout(()=>img.remove(),180)},i*24));setTimeout(()=>{state.filmstripSweeping=false},32*24+220)}
@@ -284,8 +299,36 @@ function renderFuel(jobs){
   state.failedJobIds=failedJobs.map(x=>x.id);
   $("fuelDetail").textContent=remaining>0
     ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
-    :"Queue is dry — stage more work";
-  tank.classList.toggle("empty",remaining===0);
+    :state.activeJob?"Queue complete":"Idle — ready to launch";
+  tank.classList.toggle("empty",false);
+  tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
+}
+function tickProgress(){
+  const p=state.progress;
+  if(!p||!(p.total>0))return;
+  const projected=p.rate>0?Math.min(p.total,p.done+p.rate*((Date.now()-p.at)/1000)):p.done;
+  $("progressBar").style.width=(projected/p.total*100).toFixed(2)+"%";
+  $("progressText").textContent=`${Math.floor(projected).toLocaleString()} / ${p.total.toLocaleString()}`;
+  if(p.rate>0){
+    const remaining=(p.total-projected)/p.rate;
+    if(remaining>0)$("eta").textContent=remaining<90?Math.ceil(remaining)+" sec":(remaining/60).toFixed(1)+" min";
+  }
+  renderEtaBar();
+
+// fuel.js
+  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"EMPTY";
+  $("statRunning").textContent=runningJobs.length;
+  $("statPending").textContent=queuedJobs.length;
+  $("statFailed").textContent=failedJobs.length;
+  $("statFailed").parentElement.classList.toggle("warn",failedJobs.length>0);
+  $("statRunning").parentElement.classList.toggle("warn",runningJobs.length===0);
+  const clear=$("clearErrors");
+  if(clear)clear.disabled=failedJobs.length===0||!!state.clearing;
+  state.failedJobIds=failedJobs.map(x=>x.id);
+  $("fuelDetail").textContent=remaining>0
+    ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
+    :state.activeJob?"Queue complete":"Idle — ready to launch";
+  tank.classList.toggle("empty",false);
   tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
 }
 function tickProgress(){
@@ -301,6 +344,8 @@ function tickProgress(){
   renderEtaBar();
 }
 async function prefillRecent(){
+
+// prefill.js
   if(state.frames.length)return;
   try{
     const r=await fetch("/api/recent-images?limit=48"),j=await r.json();
@@ -319,6 +364,8 @@ function clearPrefilled(){
   state.frames=[];
   const strip=$("filmstrip");
   if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());
+
+// presets.js
 }
 document.querySelectorAll("[data-run]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-run]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.runType=b.dataset.run});
 document.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-study]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.studyType=b.dataset.study;updateJobReady()});
@@ -344,8 +391,41 @@ $("clearErrors").onclick=async()=>{
     if(!r.ok||!j.ok)throw Error(j.error||"Could not clear failed jobs");
     toast(`Cleared ${(j.removed||[]).length} failed job${(j.removed||[]).length===1?"":"s"}`);
     refreshJobs();
+
+// init.js
   }catch(e){toast(e.message)}
   finally{state.clearing=false}
 };
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
 $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();refreshJobs();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
+
+// Bootstrap: immediately fetch model + nexus + worker state on page load
+(async function(){
+  try{
+    const r=await fetch("/api/health"),j=await r.json();
+    if(j.ok){
+      const downloaded=!!j.loaded||j.worker_running;
+      renderModel({downloaded,loaded:!!j.loaded,device:j.device||"",downloading:false,message:j.loaded?"Model resident on GPU.":""});
+      $("workerState").textContent=j.worker_running?"WORKER LIVE":"SUITE LIVE";
+      document.querySelectorAll('.stateRow[data-step="worker"]').forEach(el=>{el.classList.remove("active");el.classList.toggle("done",j.worker_running)});
+      document.querySelectorAll('.stateRow[data-step="model"]').forEach(el=>{el.classList.remove("active");el.classList.toggle("done",!!j.loaded)});
+      document.querySelectorAll('.stateRow[data-step="assets"]').forEach(el=>{el.classList.remove("active");el.classList.toggle("done",j.worker_running)});
+    }
+  }catch(e){console.warn("health bootstrap",e)}
+  try{
+    const r=await fetch("/api/nexus/health"),j=await r.json();
+    document.querySelectorAll('.stateRow[data-step="nexus"]').forEach(el=>{
+      el.classList.toggle("done",!!j.nexus_up);
+      el.classList.toggle("active",!j.nexus_up);
+      const sm=el.querySelector("small");if(sm)sm.textContent=j.nexus_up?"Connected":"Offline (optional)";
+    });
+  }catch(e){
+    document.querySelectorAll('.stateRow[data-step="nexus"]').forEach(el=>{el.classList.add("active");const sm=el.querySelector("small");if(sm)sm.textContent="Skipped"});
+  }
+  // Update system label
+  const rows=document.querySelectorAll(".stateRow");
+  const done=[...rows].filter(el=>el.classList.contains("done")).length;
+  const lbl=$("systemLabel");
+  if(lbl){lbl.textContent=done>=rows.length-1?"READY":done>0?"PARTIAL":"OFFLINE";lbl.style.color=done>=rows.length-1?"#34d399":done>0?"#fbbf24":"#ff5f6d"}
+})();
+

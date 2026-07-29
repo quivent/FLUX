@@ -4,8 +4,10 @@ import os
 import pathlib
 import time
 
+import flux_paths
 
-DEFAULT_MODEL_DIR = "/Users/joshkornreich/Models/flux1"
+
+DEFAULT_MODEL_DIR = flux_paths.default_model_dir()
 REGISTRY_NAME = "registry.json"
 
 

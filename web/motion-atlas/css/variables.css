@@ -1,0 +1,5 @@
+/* variables.css */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+:root{--void:#07090b;--base:#0b0f12;--panel:#0e1317;--line:#213039;--line2:#182229;--text:#e5edf0;--muted:#71818a;--cyan:#55e7ee;--blue:#7691ff;--orange:#ff9b58;--mono:"JetBrains Mono",monospace;--display:"Rajdhani",sans-serif;--sans:"Space Grotesk",sans-serif}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--void);color:var(--text);font-family:var(--sans);overflow:hidden}button,input,textarea,select{font:inherit}.noise{position:fixed;inset:0;opacity:.025;pointer-events:none;z-index:9;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* topbar layout now in topbar.css; status-area components kept here */

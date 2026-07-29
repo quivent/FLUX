@@ -24,6 +24,8 @@ type Client struct {
 	log     string
 	pid     string
 	profile string
+	kind    string
+	env     map[string]string
 }
 
 type Response struct {
@@ -45,6 +47,20 @@ func New(cfg config.Config) Client {
 }
 
 func NewNamed(cfg config.Config, name string) Client {
+	var env map[string]string
+	if v := os.Getenv("FLUX_CUDA_DEVICES"); v != "" {
+		env = map[string]string{"CUDA_VISIBLE_DEVICES": v}
+	}
+	return NewWorker(cfg, name, name, env)
+}
+
+// NewWorker builds a client for a named worker with an explicit worker kind and
+// extra environment variables. Name and kind are separate because a fleet runs
+// several workers of kind "flux" under distinct names (flux-gpu0, flux-gpu1...),
+// each pinned to one GPU via CUDA_VISIBLE_DEVICES. Pinning through the
+// environment means every worker process still addresses its device as cuda:0,
+// so no device-index plumbing is needed inside worker.py.
+func NewWorker(cfg config.Config, name, kind string, env map[string]string) Client {
 	dir := filepath.Join(cfg.Root, ".fluxd")
 	socketName := "flux.sock"
 	stateName := "jobs.jsonl"
@@ -67,8 +83,13 @@ func NewNamed(cfg config.Config, name string) Client {
 		log:     filepath.Join(dir, logName),
 		pid:     filepath.Join(dir, pidName),
 		profile: filepath.Join(dir, profileName),
+		kind:    kind,
+		env:     env,
 	}
 }
+
+// Name reports the worker name this client addresses.
+func (c Client) Name() string { return c.name }
 
 func (c Client) Paths() (socket, state, log, pid string) {
 	return c.socket, c.state, c.log, c.pid
@@ -102,12 +123,18 @@ func (c Client) Start(preload bool) error {
 	if preload {
 		args = append(args, "--preload")
 	}
-	if c.name != "" && c.name != "flux" {
-		args = append(args, "--kind", c.name)
+	if c.kind != "" && c.kind != "flux" {
+		args = append(args, "--kind", c.kind)
 	}
 	cmd := exec.Command(c.cfg.Python, args...)
 	cmd.Stdout = logf
 	cmd.Stderr = logf
+	if len(c.env) > 0 {
+		cmd.Env = os.Environ()
+		for k, v := range c.env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		_ = logf.Close()

@@ -1,0 +1,40 @@
+{# Navigator panel — left column #}
+<aside class="navigator panel">
+  <div class="panelHead"><span>01</span><h2>Atlas navigator</h2></div>
+  <div class="runTypes studyTypes" role="group" aria-label="Study type">
+    <button data-study="loop">Loop study</button>
+    <button data-study="atlas">Atlas study</button>
+  </div>
+  <div class="presetDeck">
+    <button data-preset="continuity">CONT</button>
+    <button data-preset="cinema">CINE</button>
+    <button data-preset="parallax">PARA</button>
+    <button data-preset="dream">DREAM</button>
+    <button data-preset="sway">SWAY</button>
+  </div>
+  <div class="latentDistanceHero">
+    <div><span>LATENT DISTANCE</span><output data-for="latentDistance">1.12</output></div>
+    <input id="latentDistance" type="range" min=".01" max="4" step=".01" value="1.12">
+    <small>Maximum geodesic travel from home · 1.12 rad = 64° across the sequence</small>
+  </div>
+  <div class="mapHeader"><label>LATENT FIELD</label><output id="rangeLabel">24,576—25,600</output></div>
+  <div class="atlasMap" id="atlasMap" aria-label="Atlas index range">
+    <canvas id="mapCanvas"></canvas>
+    <div class="mapCursor"><span></span></div>
+    <div class="mapLegend"><span>NORTH / HOME</span><span>65,536 CELLS</span></div>
+  </div>
+  <div class="rangeControl">
+    <label for="indexStart">Path origin <output id="indexStartOut">24576</output></label>
+    <input id="indexStart" type="range" min="0" max="64512" step="64" value="24576">
+    <label for="cells">Count <output id="cellsOut">1,024 cells</output></label>
+    <div class="countControl">
+      <input id="cells" type="range" min="8" max="65536" step="8" value="1024">
+      <input id="cellsNumber" type="number" min="1" max="65536" value="1024" aria-label="Exact atlas cell count">
+    </div>
+  </div>
+  {% include "components/execution_spine.html" %}
+  <div id="sessions" style="display:none"></div>
+  <button id="refreshJobs" style="display:none"></button>
+  {% include "components/fleet.html" %}
+  {% include "components/system_states.html" %}
+</aside>

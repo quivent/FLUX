@@ -8,9 +8,11 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 import torch
 from diffusers import FluxPipeline
 
+import flux_paths
 
-DEFAULT_MODEL_DIR = "/Users/joshkornreich/Models/flux1"
-DEFAULT_OUT_DIR = "/Users/joshkornreich/Models/flux-output"
+
+DEFAULT_MODEL_DIR = flux_paths.default_model_dir()
+DEFAULT_OUT_DIR = flux_paths.default_out_dir()
 
 
 def choose_device(requested: str) -> str:

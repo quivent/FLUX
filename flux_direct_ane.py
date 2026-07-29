@@ -11,21 +11,23 @@ import numpy as np
 import torch
 from diffusers import FluxPipeline
 
+import flux_paths
 
-DEFAULT_MODEL_DIR = "/Users/joshkornreich/Models/flux1"
-DEFAULT_OUT_DIR = "/Users/joshkornreich/Models/flux1/ane/direct"
-DEFAULT_DENSE_SUMMARY = "/Users/joshkornreich/Models/flux1/ane/direct/dense_slice_1024x1024_summary.json"
-DEFAULT_BLOCK_BENCHMARK = "/Users/joshkornreich/Models/flux1/ane/direct/block_stack_1024x1024_benchmark.json"
-DEFAULT_LATENT_PIPELINE_BENCHMARK = "/Users/joshkornreich/Models/flux1/ane/direct/latent_pipeline_1024x1024_benchmark.json"
-DEFAULT_COMPONENT_BENCHMARK = "/Users/joshkornreich/Models/flux1/ane/direct/component_1024x1024_benchmark.json"
-DEFAULT_ANEFORGE_PROJECTION_BENCHMARK = (
-    "/Users/joshkornreich/Models/flux1/ane/direct/aneforge_projection_1024x1024_benchmark.json"
+
+DEFAULT_MODEL_DIR = flux_paths.default_model_dir()
+DEFAULT_OUT_DIR = flux_paths.default_direct_ane_dir()
+DEFAULT_DENSE_SUMMARY = os.path.join(DEFAULT_OUT_DIR, "dense_slice_1024x1024_summary.json")
+DEFAULT_BLOCK_BENCHMARK = os.path.join(DEFAULT_OUT_DIR, "block_stack_1024x1024_benchmark.json")
+DEFAULT_LATENT_PIPELINE_BENCHMARK = os.path.join(DEFAULT_OUT_DIR, "latent_pipeline_1024x1024_benchmark.json")
+DEFAULT_COMPONENT_BENCHMARK = os.path.join(DEFAULT_OUT_DIR, "component_1024x1024_benchmark.json")
+DEFAULT_ANEFORGE_PROJECTION_BENCHMARK = os.path.join(
+    DEFAULT_OUT_DIR, "aneforge_projection_1024x1024_benchmark.json"
 )
-DEFAULT_ANEFORGE_OPTIMIZED_PROJECTION_PLAN = (
-    "/Users/joshkornreich/Models/flux1/ane/direct/aneforge_optimized_projection_plan_1024x1024.json"
+DEFAULT_ANEFORGE_OPTIMIZED_PROJECTION_PLAN = os.path.join(
+    DEFAULT_OUT_DIR, "aneforge_optimized_projection_plan_1024x1024.json"
 )
-DEFAULT_ANEFORGE_ATTENTION_BENCHMARK = (
-    "/Users/joshkornreich/Models/flux1/ane/direct/aneforge_attention_1024x1024_benchmark.json"
+DEFAULT_ANEFORGE_ATTENTION_BENCHMARK = os.path.join(
+    DEFAULT_OUT_DIR, "aneforge_attention_1024x1024_benchmark.json"
 )
 
 

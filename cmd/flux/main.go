@@ -67,10 +67,14 @@ func main() {
 		err = download(cfg, os.Args[2:])
 	case "gpu", "gpus", "nvidia":
 		err = gpu(cfg, os.Args[2:])
+	case "fleet":
+		err = fleetCmd(cfg, os.Args[2:])
 	case "warm", "launch":
 		err = warm(cfg, os.Args[2:])
 	case "serve", "http":
 		err = serve(cfg, os.Args[2:])
+	case "oscillihue", "web":
+		err = oscillihue(cfg, os.Args[2:])
 	case "gallery", "view":
 		err = gallery(cfg, os.Args[2:])
 	case "remote":
@@ -403,10 +407,7 @@ func atelierStudies(cfg config.Config, args []string) error {
 }
 
 func atelierRoot() string {
-	if home := os.Getenv("HOME"); home != "" {
-		return filepath.Join(home, "Atelier")
-	}
-	return "/Users/joshkornreich/Atelier"
+	return filepath.Join(atelierHome(), "Atelier")
 }
 
 func atelierStudyRegistry(root string) []atelierStudy {
@@ -744,7 +745,10 @@ func atelierHome() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return home
 	}
-	return "/Users/joshkornreich"
+	if home, err := os.UserHomeDir(); err == nil {
+		return home
+	}
+	return "."
 }
 
 func atlas(cfg config.Config, args []string) error {
@@ -847,8 +851,8 @@ if not torch.cuda.is_available():
 	}
 	ui.Header("atlas setup", "fetching FLUX.1-dev prerequisites")
 	ui.KV("model", cfg.ModelDir)
-	if err := download(*cfg, []string{"--run", "--workers", "16"}); err != nil {
-		return fmt.Errorf("download FLUX.1-dev (authenticate with `hf auth login` or set HF_TOKEN first): %w", err)
+	if err := download(*cfg, []string{"--workers", "16"}); err != nil {
+		return fmt.Errorf("download FLUX.1-dev (set HF_TOKEN or run `hf auth login` first): %w", err)
 	}
 	return nil
 }
@@ -1596,65 +1600,247 @@ func bench(cfg config.Config, args []string) error {
 	return nil
 }
 
+const fluxRepoID = "black-forest-labs/FLUX.1-dev"
+
 func download(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("download", flag.ExitOnError)
-	plain := fs.Bool("plain", false, "print copy-safe shell command only")
-	run := fs.Bool("run", false, "run the Hugging Face snapshot download now")
-	workers := fs.Int("workers", 8, "hf download workers")
+	plain := fs.Bool("plain", false, "print the copy-safe shell command instead of downloading")
+	dry := fs.Bool("dry", false, "show the fetch plan and equivalent hf command without downloading")
+	force := fs.Bool("force", false, "re-run the fetch even when the snapshot is already complete")
+	token := fs.String("token", "", "Hugging Face `token` (defaults to HF_TOKEN, then the token from hf auth login)")
+	workers := fs.Int("workers", 8, "parallel download workers")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	patterns := fluxDownloadPatterns()
 	lines := []string{
-		"hf download black-forest-labs/FLUX.1-dev \\",
+		"hf download " + fluxRepoID + " \\",
 		fmt.Sprintf("  --local-dir %s \\", cfg.ModelDir),
 	}
 	for _, pattern := range patterns {
 		lines = append(lines, fmt.Sprintf("  --include %s \\", shellQuote(pattern)))
 	}
 	lines = append(lines, fmt.Sprintf("  --max-workers %d", *workers))
-	if *run {
-		ui.Header("download", "running FLUX.1-dev BF16 Diffusers fetch")
-		ui.KV("target", cfg.ModelDir)
-		ui.KV("python", cfg.Python)
-		patternsJSON, err := json.Marshal(patterns)
-		if err != nil {
-			return err
-		}
-		modelDirJSON, err := json.Marshal(cfg.ModelDir)
-		if err != nil {
-			return err
-		}
-		script := fmt.Sprintf(`from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id="black-forest-labs/FLUX.1-dev",
-    local_dir=%s,
-    allow_patterns=%s,
-    max_workers=%d,
-)
-`, string(modelDirJSON), string(patternsJSON), *workers)
-		return runner.StreamNoResult(
-			context.Background(),
-			map[string]string{"HF_HUB_DISABLE_XET": "1"},
-			cfg.Python,
-			"-c",
-			script,
-		)
-	}
+
 	if *plain {
 		fmt.Println(strings.Join(lines, "\n"))
 		return nil
 	}
-	ui.Header("download", "lean FLUX.1-dev BF16 Diffusers fetch")
-	ui.KV("target", cfg.ModelDir)
-	fmt.Println()
-	for _, line := range lines {
-		fmt.Println(ui.Code(line))
+	if *dry {
+		ui.Header("download", "lean FLUX.1-dev BF16 Diffusers fetch (dry run)")
+		ui.KV("repo", fluxRepoID)
+		ui.KV("target", cfg.ModelDir)
+		if fluxModelReady(cfg.ModelDir) {
+			ui.KV("state", ui.Good("already complete"))
+		} else {
+			ui.KV("state", ui.Warn("incomplete; flux download would fetch"))
+		}
+		fmt.Println()
+		for _, line := range lines {
+			fmt.Println(ui.Code(line))
+		}
+		fmt.Println()
+		fmt.Println(ui.Soft("Requires: HF_TOKEN or `hf auth login`, accepted FLUX.1-dev license, and about 32 GB free."))
+		return nil
 	}
-	fmt.Println()
-	fmt.Println(ui.Soft("Requires: hf auth login, accepted FLUX.1-dev license, and about 32 GB free."))
+
+	if fluxModelReady(cfg.ModelDir) && !*force {
+		ui.Header("download", "FLUX.1-dev BF16 Diffusers snapshot")
+		ui.KV("target", cfg.ModelDir)
+		ui.KV("state", ui.Good("already complete"))
+		fmt.Println(ui.Soft("Pass --force to re-verify every shard against the hub."))
+		return nil
+	}
+
+	resolvedToken := *token
+	if resolvedToken == "" {
+		resolvedToken = firstNonEmptyEnv("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_TOKEN")
+	}
+
+	ui.Header("download", "fetching FLUX.1-dev BF16 Diffusers weights")
+	ui.KV("repo", fluxRepoID)
+	ui.KV("target", cfg.ModelDir)
+	ui.KV("workers", *workers)
+
+	patternsJSON, err := json.Marshal(patterns)
+	if err != nil {
+		return err
+	}
+	modelDirJSON, err := json.Marshal(cfg.ModelDir)
+	if err != nil {
+		return err
+	}
+	script := fmt.Sprintf(fluxDownloadScript, strconv.Quote(fluxRepoID), string(modelDirJSON), string(patternsJSON), *workers)
+
+	env := map[string]string{
+		"HF_HUB_DISABLE_XET":           "1",
+		"HF_HUB_DISABLE_PROGRESS_BARS": "1",
+		"PYTHONUNBUFFERED":             "1",
+	}
+	if resolvedToken != "" {
+		env["HF_TOKEN"] = resolvedToken
+	}
+	if err := runner.StreamNoResult(context.Background(), env, cfg.Python, "-c", script); err != nil {
+		return fmt.Errorf("FLUX.1-dev download failed: %w", err)
+	}
+	if !fluxModelReady(cfg.ModelDir) {
+		return fmt.Errorf("download finished but %s is still missing required shards; re-run `flux download --force`", cfg.ModelDir)
+	}
+	ui.KV("state", ui.Good("snapshot complete"))
 	return nil
 }
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// fluxDownloadScript takes repo id, local dir, allow patterns, and worker count.
+// Hub progress bars are disabled, so it reports byte progress on its own lines
+// that survive log capture by the daemon and the HTTP server.
+const fluxDownloadScript = `
+import fnmatch, os, shutil, sys, threading, time
+
+from huggingface_hub import HfApi, get_token, snapshot_download
+from huggingface_hub.utils import GatedRepoError, HfHubHTTPError, RepositoryNotFoundError
+
+REPO = %s
+LOCAL_DIR = %s
+PATTERNS = %s
+WORKERS = %d
+
+
+def human(num):
+    step = float(num)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if step < 1024 or unit == "TiB":
+            return "%%.1f %%s" %% (step, unit)
+        step /= 1024
+
+
+def fail(message, hint=None):
+    print("error=" + message)
+    if hint:
+        print("hint=" + hint)
+    sys.exit(1)
+
+
+token = get_token()
+if not token:
+    fail(
+        "no Hugging Face token found",
+        "set HF_TOKEN=hf_..., pass flux download --token hf_..., or run hf auth login",
+    )
+
+api = HfApi(token=token)
+try:
+    who = api.whoami()
+    print("hf user=" + str(who.get("name") or who.get("fullname") or "unknown"))
+except HfHubHTTPError as exc:
+    fail("Hugging Face rejected the token (%%s)" %% exc.response.status_code if exc.response is not None else str(exc),
+         "check the token at https://huggingface.co/settings/tokens")
+
+try:
+    info = api.model_info(REPO, files_metadata=True)
+except GatedRepoError:
+    fail(
+        "this account has not been granted access to " + REPO,
+        "accept the license at https://huggingface.co/" + REPO + " then re-run flux download",
+    )
+except RepositoryNotFoundError:
+    fail(REPO + " is not visible to this token",
+         "the token needs read access to gated repos; regenerate it with 'Read access to contents of all public gated repos'")
+except HfHubHTTPError as exc:
+    fail("could not read repo metadata: " + str(exc))
+
+wanted = [
+    sibling
+    for sibling in info.siblings
+    if any(fnmatch.fnmatch(sibling.rfilename, pattern) for pattern in PATTERNS)
+]
+total = sum(sibling.size or 0 for sibling in wanted)
+print("files=%%d" %% len(wanted))
+print("size=" + human(total))
+
+
+def on_disk(path):
+    seen = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                seen += os.path.getsize(os.path.join(root, name))
+            except OSError:
+                pass
+    return seen
+
+
+os.makedirs(LOCAL_DIR, exist_ok=True)
+already = on_disk(LOCAL_DIR)
+free = shutil.disk_usage(LOCAL_DIR).free
+needed = max(total - already, 0)
+print("free=" + human(free))
+if free < needed:
+    fail(
+        "need %%s free at %%s but only %%s is available" %% (human(needed), LOCAL_DIR, human(free)),
+    )
+
+stop = threading.Event()
+
+
+def report():
+    started = time.time()
+    base = already
+    first = True
+    while first or not stop.wait(3.0):
+        if stop.is_set():
+            return
+        first = False
+        current = on_disk(LOCAL_DIR)
+        elapsed = max(time.time() - started, 1e-6)
+        rate = (current - base) / elapsed
+        pct = (current / total * 100.0) if total else 0.0
+        eta = ""
+        if rate > 0 and total > current:
+            remaining = int((total - current) / rate)
+            eta = " eta=%%dm%%02ds" %% (remaining // 60, remaining %% 60)
+        print(
+            "progress=%%.1f%%%% %%s/%%s rate=%%s/s%%s"
+            %% (pct, human(current), human(total), human(rate), eta)
+        )
+        sys.stdout.flush()
+
+
+watcher = threading.Thread(target=report, daemon=True)
+watcher.start()
+
+try:
+    snapshot_download(
+        repo_id=REPO,
+        local_dir=LOCAL_DIR,
+        allow_patterns=PATTERNS,
+        max_workers=WORKERS,
+        token=token,
+    )
+except GatedRepoError:
+    stop.set()
+    fail(
+        "this account has not been granted access to " + REPO,
+        "accept the license at https://huggingface.co/" + REPO + " then re-run flux download",
+    )
+except KeyboardInterrupt:
+    stop.set()
+    print("interrupted; re-run flux download to resume")
+    sys.exit(130)
+finally:
+    stop.set()
+
+print("downloaded=" + human(on_disk(LOCAL_DIR)))
+print("local_dir=" + LOCAL_DIR)
+`
 
 func fluxDownloadPatterns() []string {
 	return []string{
@@ -1756,7 +1942,8 @@ func tree() {
 				{"bench", "socket benchmark for backend auto-selection"},
 				{"bench --dry-run", "show benchmark plan without starting worker"},
 				{"studio", "paths, worker files, preset lanes"},
-				{"download", "print the lean Hugging Face download command"},
+				{"download", "fetch FLUX.1-dev BF16 weights from Hugging Face"},
+				{"download --dry", "show the fetch plan without downloading"},
 			},
 		},
 		{
@@ -1767,6 +1954,7 @@ func tree() {
 				{"warm", "launch worker and preload model"},
 				{"warm --preload=false", "launch queue without loading model"},
 				{"serve", "HTTP API and local dashboard over the worker socket"},
+				{"serve oscillihue", "serve the web/ folder as a static site on :7870"},
 				{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires token auth"},
 				{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
 				{"remote", "client for an exposed FLUX HTTP endpoint"},
@@ -1883,6 +2071,14 @@ func warm(cfg config.Config, args []string) error {
 }
 
 func serve(cfg config.Config, args []string) error {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		switch strings.ToLower(args[0]) {
+		case "oscillihue", "web", "static":
+			return serveOscillihue(cfg, args[1:])
+		default:
+			return fmt.Errorf("unknown serve target %q; use `flux serve` for the API or `flux serve oscillihue` for the web folder", args[0])
+		}
+	}
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
 	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
@@ -1915,6 +2111,66 @@ func serve(cfg config.Config, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken})
+}
+
+func serveOscillihue(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve oscillihue", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:7870", "HTTP listen address")
+	dir := fs.String("dir", filepath.Join(cfg.Root, "web"), "directory to serve")
+	open := fs.Bool("open", false, "open the site in the default browser")
+	quiet := fs.Bool("quiet", false, "suppress the per-request log")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("nothing to serve at %s: %w", root, err)
+	}
+	fallback := ""
+	if _, err := os.Stat(filepath.Join(root, "motion-atlas", "index.html")); err == nil {
+		fallback = "/motion-atlas/"
+	}
+	url := "http://" + *addr
+
+	ui.Header("oscillihue", "static web folder over HTTP")
+	ui.KV("url", url)
+	ui.KV("root", root)
+	if fallback != "" {
+		ui.KV("index", url+fallback)
+	}
+	ui.KV("auth", ui.Soft("none; static files only"))
+	if publicBindAddr(*addr) {
+		ui.KV("bind", ui.Warn("public; every file under root is reachable"))
+	}
+	ui.KV("stop", "ctrl-c")
+	if *open {
+		server.OpenBrowser(url + fallback)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServeStatic(ctx, server.StaticOptions{
+		Addr:     *addr,
+		Root:     root,
+		Fallback: fallback,
+		Quiet:    *quiet,
+	})
+}
+
+// oscillihue is the noun-first spelling: `flux oscillihue serve` and a bare
+// `flux oscillihue` both land on the same static server as `flux serve oscillihue`.
+func oscillihue(cfg config.Config, args []string) error {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		switch strings.ToLower(args[0]) {
+		case "serve", "http", "start", "web", "static":
+			args = args[1:]
+		default:
+			return fmt.Errorf("unknown oscillihue action %q; use `flux oscillihue serve`", args[0])
+		}
+	}
+	return serveOscillihue(cfg, args)
 }
 
 func gallery(cfg config.Config, args []string) error {
@@ -2588,7 +2844,7 @@ func render(cfg config.Config, args []string) error {
 		ui.KV("prompt", shaped)
 	}
 	if !*dryRun && !fluxModelReady(cfg.ModelDir) {
-		return fmt.Errorf("missing FLUX.1-dev Diffusers snapshot at %s; run `hf auth login` with accepted black-forest-labs/FLUX.1-dev access, then `flux download --run` or the printed `flux download` command", cfg.ModelDir)
+		return fmt.Errorf("missing FLUX.1-dev Diffusers snapshot at %s; set HF_TOKEN (or run `hf auth login`) with accepted black-forest-labs/FLUX.1-dev access, then run `flux download`", cfg.ModelDir)
 	}
 
 	baseArgs := []string{

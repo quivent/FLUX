@@ -1,0 +1,2 @@
+/* presets.css */
+.gauge{display:grid;gap:5px}.gaugeHead{display:flex;justify-content:space-between}.gaugeHead span,.gpuDatum span{color:var(--muted)}.gaugeHead strong,.gpuDatum strong{font-weight:400}.meter{height:3px;background:var(--line)}.meter i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));box-shadow:0 0 7px #55e7ee88;transition:width .6s ease}.gpuDatum{display:grid;gap:3px;min-width:52px}

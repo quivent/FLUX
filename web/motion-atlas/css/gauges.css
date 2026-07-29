@@ -1,0 +1,2 @@
+/* gauges.css */
+.countControl{display:grid;grid-template-columns:1fr 82px;align-items:center;gap:10px}.countControl input[type=number]{padding:6px 7px;text-align:right}
