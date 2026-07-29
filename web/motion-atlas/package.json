@@ -1,0 +1,16 @@
+{
+  "name": "@flux/motion-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:governor": "vite build --config vite.governor.config.ts"
+  },
+  "dependencies": {
+    "@gemstone/governor-ui": "file:../../../gemstone/governor-interface/src/governor-ui"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}

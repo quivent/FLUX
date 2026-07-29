@@ -1,0 +1,6 @@
+go_html_template/server
+rust_axum/target/
+jinja_fastapi/.venv/
+jinja_fastapi/__pycache__/
+__pycache__/
+.run/

@@ -64,6 +64,48 @@ var motionAssetHub = struct {
 	recent  []map[string]any
 }{clients: make(map[chan map[string]any]struct{})}
 
+// motionTelemetryHub fans a single shared nvidia-smi poll out to every
+// connected /api/telemetry/events client, instead of each connection
+// spawning its own "nvidia-smi --loop=1" subprocess (which is what
+// telemetryEvents used to do — fine for one viewer, but N viewers meant N
+// redundant GPU-query processes running simultaneously).
+var motionTelemetryHub = struct {
+	sync.Mutex
+	clients map[chan map[string]any]struct{}
+	latest  map[string]any
+}{clients: make(map[chan map[string]any]struct{})}
+
+// motionProcessHub is the same fan-out fix applied to the sibling
+// /api/telemetry/processes/events endpoint, which had the identical bug:
+// one "nvidia-smi pmon" subprocess spawned per connected client.
+var motionProcessHub = struct {
+	sync.Mutex
+	clients map[chan map[string]any]struct{}
+}{clients: make(map[chan map[string]any]struct{})}
+
+// jobsWorkerResponse is the shared, not-yet-per-client-personalized result
+// of one "op":"jobs" worker query — output URLs are added per subscriber
+// afterward (see jobsEvents) since they depend on that client's own
+// request Host (publicBaseURL(r)), which the shared poller has no access to.
+type jobsWorkerResponse struct {
+	WorkerRunning bool
+	WorkerError   string
+	Jobs          []map[string]any
+	ModelLoaded   bool
+	Backend       string
+	Device        string
+}
+
+// motionJobsHub fans a single shared worker query out to every connected
+// /api/jobs/events client, instead of each connection running its own
+// inotify watch on jobs.jsonl AND its own worker IPC round trip on every
+// change (N independent watches + N redundant IPC calls for identical data).
+var motionJobsHub = struct {
+	sync.Mutex
+	clients map[chan *jobsWorkerResponse]struct{}
+	latest  *jobsWorkerResponse
+}{clients: make(map[chan *jobsWorkerResponse]struct{})}
+
 type renderRequest struct {
 	Prompt         string  `json:"prompt"`
 	Model          string  `json:"model"`
@@ -247,6 +289,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	s.restoreAtlasReceipts()
 	go s.reconcileAtlasCatalog()
 	go s.runPiperAssetHub(ctx)
+	go s.runTelemetryHub(ctx)
+	go s.runTelemetryProcessHub(ctx)
+	go s.runJobsHub(ctx)
+	go s.runModelHub(ctx)
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
@@ -492,29 +538,81 @@ func (s Server) telemetryEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
-	cmd := exec.CommandContext(r.Context(), "nvidia-smi",
-		"--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
-		"--format=csv,noheader,nounits", "--loop=1",
-	)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return
-	}
-	if err := cmd.Start(); err != nil {
-		return
-	}
-	defer func() { _ = cmd.Wait() }()
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		gpu, ok := parseTelemetryLine(scanner.Text())
-		if !ok {
-			continue
-		}
-		raw, _ := json.Marshal(map[string]any{"ok": true, "available": true, "gpu": gpu})
+
+	events := make(chan map[string]any, 8)
+	motionTelemetryHub.Lock()
+	motionTelemetryHub.clients[events] = struct{}{}
+	latest := motionTelemetryHub.latest
+	motionTelemetryHub.Unlock()
+	defer func() {
+		motionTelemetryHub.Lock()
+		delete(motionTelemetryHub.clients, events)
+		motionTelemetryHub.Unlock()
+	}()
+
+	send := func(event map[string]any) bool {
+		raw, _ := json.Marshal(event)
 		if _, err := fmt.Fprintf(w, "event: gpu\ndata: %s\n\n", raw); err != nil {
-			return
+			return false
 		}
 		flusher.Flush()
+		return true
+	}
+	if latest != nil && !send(latest) {
+		return
+	}
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
+}
+
+// runTelemetryHub is the single shared nvidia-smi poller backing
+// motionTelemetryHub — started once at server startup, regardless of how
+// many /api/telemetry/events viewers connect or disconnect.
+func (s Server) runTelemetryHub(ctx context.Context) {
+	for ctx.Err() == nil {
+		cmd := exec.CommandContext(ctx, "nvidia-smi",
+			"--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
+			"--format=csv,noheader,nounits", "--loop=1",
+		)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil || cmd.Start() != nil {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+				continue
+			}
+		}
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			gpu, ok := parseTelemetryLine(scanner.Text())
+			if !ok {
+				continue
+			}
+			event := map[string]any{"ok": true, "available": true, "gpu": gpu}
+			motionTelemetryHub.Lock()
+			motionTelemetryHub.latest = event
+			for client := range motionTelemetryHub.clients {
+				select {
+				case client <- event:
+				default:
+				}
+			}
+			motionTelemetryHub.Unlock()
+		}
+		_ = cmd.Wait()
+		if ctx.Err() != nil {
+			return
+		}
+		time.Sleep(time.Second)
 	}
 }
 
@@ -530,44 +628,86 @@ func (s Server) telemetryProcessEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
-	cmd := exec.CommandContext(r.Context(), "nvidia-smi", "pmon", "-s", "um", "-d", "1")
-	stdout, err := cmd.StdoutPipe()
-	if err != nil || cmd.Start() != nil {
-		return
-	}
-	defer func() { _ = cmd.Wait() }()
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 12 || strings.HasPrefix(fields[0], "#") || fields[1] == "-" {
-			continue
+
+	events := make(chan map[string]any, 32)
+	motionProcessHub.Lock()
+	motionProcessHub.clients[events] = struct{}{}
+	motionProcessHub.Unlock()
+	defer func() {
+		motionProcessHub.Lock()
+		delete(motionProcessHub.clients, events)
+		motionProcessHub.Unlock()
+	}()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case event := <-events:
+			raw, _ := json.Marshal(event)
+			if _, err := fmt.Fprintf(w, "event: process\ndata: %s\n\n", raw); err != nil {
+				return
+			}
+			flusher.Flush()
 		}
-		pid, _ := strconv.Atoi(fields[1])
-		command := strings.Join(fields[11:], " ")
-		if raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
-			if full := strings.TrimSpace(strings.ReplaceAll(string(raw), "\x00", " ")); full != "" {
-				command = full
+	}
+}
+
+// runTelemetryProcessHub is the single shared "nvidia-smi pmon" poller
+// backing motionProcessHub — started once at server startup.
+func (s Server) runTelemetryProcessHub(ctx context.Context) {
+	for ctx.Err() == nil {
+		cmd := exec.CommandContext(ctx, "nvidia-smi", "pmon", "-s", "um", "-d", "1")
+		stdout, err := cmd.StdoutPipe()
+		if err != nil || cmd.Start() != nil {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+				continue
 			}
 		}
-		label := "GPU PROCESS"
-		lower := strings.ToLower(command)
-		switch {
-		case strings.Contains(lower, "vllm"):
-			label = "vLLM"
-		case strings.Contains(lower, "worker.py") || strings.Contains(lower, "flux"):
-			label = "FLUX"
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			fields := strings.Fields(scanner.Text())
+			if len(fields) < 12 || strings.HasPrefix(fields[0], "#") || fields[1] == "-" {
+				continue
+			}
+			pid, _ := strconv.Atoi(fields[1])
+			command := strings.Join(fields[11:], " ")
+			if raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+				if full := strings.TrimSpace(strings.ReplaceAll(string(raw), "\x00", " ")); full != "" {
+					command = full
+				}
+			}
+			label := "GPU PROCESS"
+			lower := strings.ToLower(command)
+			switch {
+			case strings.Contains(lower, "vllm"):
+				label = "vLLM"
+			case strings.Contains(lower, "worker.py") || strings.Contains(lower, "flux"):
+				label = "FLUX"
+			}
+			event := map[string]any{
+				"pid": pid, "gpu": fields[0], "sm": telemetryNumber(fields[3]),
+				"memory_utilization": telemetryNumber(fields[4]),
+				"memory_used":        telemetryNumber(fields[9]),
+				"label":              label, "command": command,
+			}
+			motionProcessHub.Lock()
+			for client := range motionProcessHub.clients {
+				select {
+				case client <- event:
+				default:
+				}
+			}
+			motionProcessHub.Unlock()
 		}
-		event := map[string]any{
-			"pid": pid, "gpu": fields[0], "sm": telemetryNumber(fields[3]),
-			"memory_utilization": telemetryNumber(fields[4]),
-			"memory_used":        telemetryNumber(fields[9]),
-			"label":              label, "command": command,
-		}
-		raw, _ := json.Marshal(event)
-		if _, err := fmt.Fprintf(w, "event: process\ndata: %s\n\n", raw); err != nil {
+		_ = cmd.Wait()
+		if ctx.Err() != nil {
 			return
 		}
-		flusher.Flush()
+		time.Sleep(time.Second)
 	}
 }
 
@@ -737,43 +877,98 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 	header.Set("Connection", "keep-alive")
 	header.Set("X-Accel-Buffering", "no")
 
-	send := func() bool {
-		resp, err := s.client.Request(map[string]any{"op": "jobs"})
-		body := map[string]any{"ok": true, "worker_running": true, "jobs": []any{}}
-		if err != nil {
-			body["worker_running"] = false
-			body["worker_error"] = err.Error()
-		} else {
-			s.storeAtlasJobs(resp.Jobs)
-			jobs := s.jobsWithOutputURLs(r, dashboardJobs(resp.Jobs))
+	updates := make(chan *jobsWorkerResponse, 4)
+	motionJobsHub.Lock()
+	motionJobsHub.clients[updates] = struct{}{}
+	latest := motionJobsHub.latest
+	motionJobsHub.Unlock()
+	defer func() {
+		motionJobsHub.Lock()
+		delete(motionJobsHub.clients, updates)
+		motionJobsHub.Unlock()
+	}()
+
+	// Output URLs, receipts, and the model-downloaded check are computed
+	// per client here (cheap: no IPC, no filesystem watch) since they
+	// depend on this request's own Host header — the shared poller above
+	// only dedupes the expensive, identical-for-everyone part (the worker
+	// query and the jobs.jsonl watch).
+	send := func(data *jobsWorkerResponse) bool {
+		body := map[string]any{"ok": true, "worker_running": data.WorkerRunning, "jobs": []any{}}
+		if data.WorkerRunning {
+			jobs := s.jobsWithOutputURLs(r, data.Jobs)
 			applyAtlasReceipts(jobs)
 			body["jobs"] = jobs
-			body["model_loaded"] = resp.Loaded
-			body["backend"] = resp.Backend
-			body["device"] = resp.Device
+			body["model_loaded"] = data.ModelLoaded
+			body["backend"] = data.Backend
+			body["device"] = data.Device
+		} else {
+			body["worker_error"] = data.WorkerError
 		}
 		body["model_downloaded"] = serverModelReady(s.cfg.ModelDir)
-		data, err := json.Marshal(body)
+		raw, err := json.Marshal(body)
 		if err != nil {
 			return false
 		}
-		if _, err := fmt.Fprintf(w, "event: jobs\ndata: %s\n\n", data); err != nil {
+		if _, err := fmt.Fprintf(w, "event: jobs\ndata: %s\n\n", raw); err != nil {
 			return false
 		}
 		flusher.Flush()
 		return true
 	}
 
-	if !send() {
+	if latest != nil && !send(latest) {
 		return
 	}
 	for {
-		if !waitForPathChange(r.Context(), filepath.Join(s.cfg.Root, ".fluxd", "jobs.jsonl")) {
+		select {
+		case <-r.Context().Done():
+			return
+		case data := <-updates:
+			if !send(data) {
+				return
+			}
+		}
+	}
+}
+
+// runJobsHub is the single shared worker poller backing motionJobsHub —
+// one inotify watch on jobs.jsonl, one "op":"jobs" IPC call per actual
+// change, started once at server startup regardless of subscriber count.
+func (s Server) runJobsHub(ctx context.Context) {
+	fetch := func() *jobsWorkerResponse {
+		resp, err := s.client.Request(map[string]any{"op": "jobs"})
+		if err != nil {
+			return &jobsWorkerResponse{WorkerRunning: false, WorkerError: err.Error()}
+		}
+		s.storeAtlasJobs(resp.Jobs)
+		return &jobsWorkerResponse{
+			WorkerRunning: true,
+			Jobs:          dashboardJobs(resp.Jobs),
+			ModelLoaded:   resp.Loaded,
+			Backend:       resp.Backend,
+			Device:        resp.Device,
+		}
+	}
+	publish := func(data *jobsWorkerResponse) {
+		motionJobsHub.Lock()
+		motionJobsHub.latest = data
+		for client := range motionJobsHub.clients {
+			select {
+			case client <- data:
+			default:
+			}
+		}
+		motionJobsHub.Unlock()
+	}
+
+	publish(fetch())
+	jobsFile := filepath.Join(s.cfg.Root, ".fluxd", "jobs.jsonl")
+	for ctx.Err() == nil {
+		if !waitForPathChange(ctx, jobsFile) {
 			return
 		}
-		if !send() {
-			return
-		}
+		publish(fetch())
 	}
 }
 
@@ -845,7 +1040,54 @@ func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
-	send := func() bool {
+
+	updates := make(chan []byte, 4)
+	motionModelHub.Lock()
+	motionModelHub.clients[updates] = struct{}{}
+	latest := motionModelHub.latest
+	motionModelHub.Unlock()
+	defer func() {
+		motionModelHub.Lock()
+		delete(motionModelHub.clients, updates)
+		motionModelHub.Unlock()
+	}()
+
+	send := func(raw []byte) bool {
+		if _, err := fmt.Fprintf(w, "event: model\ndata: %s\n\n", raw); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+	if latest != nil && !send(latest) {
+		return
+	}
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case raw := <-updates:
+			if !send(raw) {
+				return
+			}
+		}
+	}
+}
+
+// motionModelHub fans a single shared worker ping + model-download-state
+// snapshot out to every connected /api/model/events client, instead of each
+// connection running its own inotify watch on model.event AND its own
+// worker "ping" IPC call on every change. Unlike jobs, this payload has no
+// per-client variation (no Host-dependent URLs), so it's broadcast verbatim.
+var motionModelHub = struct {
+	sync.Mutex
+	clients map[chan []byte]struct{}
+	latest  []byte
+}{clients: make(map[chan []byte]struct{})}
+
+// runModelHub is the single shared poller backing motionModelHub.
+func (s Server) runModelHub(ctx context.Context) {
+	fetch := func() []byte {
 		resp, respErr := s.client.Request(map[string]any{"op": "ping"})
 		modelDownloadState.Lock()
 		body := map[string]any{
@@ -862,20 +1104,27 @@ func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		modelDownloadState.Unlock()
 		raw, _ := json.Marshal(body)
-		if _, err := fmt.Fprintf(w, "event: model\ndata: %s\n\n", raw); err != nil {
-			return false
+		return raw
+	}
+	publish := func(raw []byte) {
+		motionModelHub.Lock()
+		motionModelHub.latest = raw
+		for client := range motionModelHub.clients {
+			select {
+			case client <- raw:
+			default:
+			}
 		}
-		flusher.Flush()
-		return true
+		motionModelHub.Unlock()
 	}
-	if !send() {
-		return
-	}
+
+	publish(fetch())
 	statePath := filepath.Join(s.cfg.Root, ".fluxd", "model.event")
-	for waitForPathChange(r.Context(), statePath) {
-		if !send() {
+	for ctx.Err() == nil {
+		if !waitForPathChange(ctx, statePath) {
 			return
 		}
+		publish(fetch())
 	}
 }
 
