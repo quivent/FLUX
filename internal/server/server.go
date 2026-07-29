@@ -494,10 +494,12 @@ func (s Server) health(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := s.workerPing()
 	body := map[string]any{
-		"ok":         true,
-		"backend":    s.cfg.Backend,
-		"model_dir":  s.cfg.ModelDir,
-		"output_dir": s.cfg.OutputDir,
+		"ok":              true,
+		"backend":         s.cfg.Backend,
+		"model_dir":       s.cfg.ModelDir,
+		"output_dir":      s.cfg.OutputDir,
+		"nexus_reachable": nexusReachable(),
+		"piper_reachable": piperReachable(),
 	}
 	if fleetStatus := s.fleetStatusPayload(); fleetStatus != nil {
 		body["fleet"] = fleetStatus
@@ -1660,6 +1662,35 @@ func applyAtlasReceipts(jobs []map[string]any) {
 			job["nexus_accepted"] = accepted
 		}
 	}
+}
+
+// nexusReachable dials NEXUS_ADDR without sending anything, for a cheap
+// health-check signal distinct from actually submitting a job.
+func nexusReachable() bool {
+	address := strings.TrimSpace(os.Getenv("NEXUS_ADDR"))
+	if address == "" {
+		address = "127.0.0.1:9999"
+	}
+	conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+// piperReachable dials the Piper asset-hub Unix socket without subscribing.
+func piperReachable() bool {
+	socketPath := strings.TrimSpace(os.Getenv("PIPER_SOCKET"))
+	if socketPath == "" {
+		socketPath = "/tmp/piper.sock"
+	}
+	conn, err := net.DialTimeout("unix", socketPath, 1*time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 func submitNexusReceipt(id string, draft, plan map[string]any) map[string]any {
