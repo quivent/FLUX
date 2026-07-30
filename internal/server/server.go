@@ -260,13 +260,18 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/visionary/chat", s.visionaryChat)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
+	mux.HandleFunc("/api/telemetry/ws", s.telemetryWS)
 	mux.HandleFunc("/api/telemetry/processes/events", s.telemetryProcessEvents)
+	mux.HandleFunc("/api/telemetry/processes/ws", s.telemetryProcessWS)
 	mux.HandleFunc("/api/assets/events", s.assetEvents)
+	mux.HandleFunc("/api/assets/ws", s.assetWS)
 	mux.HandleFunc("/api/model/download", s.modelDownload)
 	mux.HandleFunc("/api/model/load", s.modelLoad)
 	mux.HandleFunc("/api/model/events", s.modelEvents)
+	mux.HandleFunc("/api/model/ws", s.modelWS)
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
+	mux.HandleFunc("/api/jobs/ws", s.jobsWS)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
 	mux.HandleFunc("/api/job/update", s.updateJob)
 	mux.HandleFunc("/api/jobs/prune", s.pruneJobs)
@@ -405,7 +410,7 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	allowed := map[string]bool{
 		"index.html": true, "app.css": true, "app.js": true,
-		"topbar.css": true,
+		"topbar.css":  true,
 		"optics.html": true, "optics.js": true,
 		"queue.html": true, "queue.js": true,
 		"registry.html": true, "registry.js": true,
@@ -590,6 +595,66 @@ func (s Server) telemetryEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// telemetryWS is the WebSocket twin of telemetryEvents, same motionTelemetryHub
+// subscription -- see jobsWS for why this exists (smaller per-message
+// framing, faster reconnect-storm recovery; fan-out latency itself is tied
+// with SSE since both ride the same broadcast).
+func (s Server) telemetryWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 8)
+	motionTelemetryHub.Lock()
+	motionTelemetryHub.clients[events] = struct{}{}
+	latest := motionTelemetryHub.latest
+	motionTelemetryHub.Unlock()
+	defer func() {
+		motionTelemetryHub.Lock()
+		delete(motionTelemetryHub.clients, events)
+		motionTelemetryHub.Unlock()
+	}()
+
+	send := func(event map[string]any) bool {
+		raw, err := json.Marshal(event)
+		if err != nil {
+			return false
+		}
+		return conn.writeText(raw) == nil
+	}
+	if latest != nil && !send(latest) {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
+}
+
 // runTelemetryHub is the single shared nvidia-smi poller backing
 // motionTelemetryHub — started once at server startup, regardless of how
 // many /api/telemetry/events viewers connect or disconnect.
@@ -670,6 +735,56 @@ func (s Server) telemetryProcessEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// telemetryProcessWS is the WebSocket twin of telemetryProcessEvents.
+func (s Server) telemetryProcessWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 32)
+	motionProcessHub.Lock()
+	motionProcessHub.clients[events] = struct{}{}
+	motionProcessHub.Unlock()
+	defer func() {
+		motionProcessHub.Lock()
+		delete(motionProcessHub.clients, events)
+		motionProcessHub.Unlock()
+	}()
+
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			raw, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			if conn.writeText(raw) != nil {
+				return
+			}
+		}
+	}
+}
+
 // runTelemetryProcessHub is the single shared "nvidia-smi pmon" poller
 // backing motionProcessHub — started once at server startup.
 func (s Server) runTelemetryProcessHub(ctx context.Context) {
@@ -745,6 +860,74 @@ func parseTelemetryLine(line string) (map[string]any, bool) {
 		"power_draw":   telemetryNumber(parts[6]),
 		"power_limit":  telemetryNumber(parts[7]),
 	}, true
+}
+
+// assetWS is the WebSocket twin of assetEvents, including the same
+// job_id filter and replay-of-recent-history behavior on connect.
+func (s Server) assetWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	jobFilter := strings.TrimSpace(r.URL.Query().Get("job_id"))
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 32)
+	motionAssetHub.Lock()
+	motionAssetHub.clients[events] = struct{}{}
+	recent := append([]map[string]any(nil), motionAssetHub.recent...)
+	motionAssetHub.Unlock()
+	defer func() {
+		motionAssetHub.Lock()
+		delete(motionAssetHub.clients, events)
+		motionAssetHub.Unlock()
+	}()
+
+	send := func(event map[string]any) bool {
+		if jobFilter != "" && stringValue(event["job_id"]) != jobFilter {
+			return true
+		}
+		asset, _ := event["asset"].(map[string]any)
+		if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
+			return true
+		}
+		raw, err := json.Marshal(event)
+		if err != nil {
+			return true
+		}
+		return conn.writeText(raw) == nil
+	}
+	for _, event := range recent {
+		if !send(event) {
+			return
+		}
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
 }
 
 func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
@@ -949,6 +1132,83 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// jobsWS is the WebSocket twin of jobsEvents, for multi-hour render jobs
+// where a live process view is the point, not a nice-to-have. Same
+// motionJobsHub subscription, same per-client output-URL/receipt handling;
+// only the wire format differs (WS text frames instead of SSE "event:"
+// framing).
+func (s Server) jobsWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn.readLoop()
+		close(done)
+	}()
+
+	updates := make(chan *jobsWorkerResponse, 4)
+	motionJobsHub.Lock()
+	motionJobsHub.clients[updates] = struct{}{}
+	latest := motionJobsHub.latest
+	motionJobsHub.Unlock()
+	defer func() {
+		motionJobsHub.Lock()
+		delete(motionJobsHub.clients, updates)
+		motionJobsHub.Unlock()
+	}()
+
+	send := func(data *jobsWorkerResponse) bool {
+		body := map[string]any{"ok": true, "worker_running": data.WorkerRunning, "jobs": []any{}}
+		if data.WorkerRunning {
+			jobs := s.jobsWithOutputURLs(r, data.Jobs)
+			applyAtlasReceipts(jobs)
+			body["jobs"] = jobs
+			body["model_loaded"] = data.ModelLoaded
+			body["backend"] = data.Backend
+			body["device"] = data.Device
+		} else {
+			body["worker_error"] = data.WorkerError
+		}
+		body["model_downloaded"] = serverModelReady(s.cfg.ModelDir)
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return false
+		}
+		return conn.writeText(raw) == nil
+	}
+
+	if latest != nil && !send(latest) {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case data := <-updates:
+			if !send(data) {
+				return
+			}
+		}
+	}
+}
+
 // runJobsHub is the single shared worker poller backing motionJobsHub —
 // one inotify watch on jobs.jsonl, one "op":"jobs" IPC call per actual
 // change, started once at server startup regardless of subscriber count.
@@ -1085,6 +1345,56 @@ func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		case raw := <-updates:
 			if !send(raw) {
+				return
+			}
+		}
+	}
+}
+
+// modelWS is the WebSocket twin of modelEvents.
+func (s Server) modelWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	updates := make(chan []byte, 4)
+	motionModelHub.Lock()
+	motionModelHub.clients[updates] = struct{}{}
+	latest := motionModelHub.latest
+	motionModelHub.Unlock()
+	defer func() {
+		motionModelHub.Lock()
+		delete(motionModelHub.clients, updates)
+		motionModelHub.Unlock()
+	}()
+
+	if latest != nil && conn.writeText(latest) != nil {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case raw := <-updates:
+			if conn.writeText(raw) != nil {
 				return
 			}
 		}
