@@ -146,9 +146,12 @@ func setup(cfg config.Config) error {
 	if _, err := exec.LookPath("uv"); err != nil {
 		return fmt.Errorf("uv is not installed or not on PATH")
 	}
+	// Rooted at cfg.Root, not the caller's cwd — 'flux setup' arrives over
+	// SSH from gemstone with cwd=$HOME, and relative paths made it fail
+	// with "File not found: requirements.txt" on the first remote box.
 	steps := [][]string{
-		{"uv", "venv", ".venv", "--python", "python3.13"},
-		{"uv", "pip", "install", "--python", filepath.Join(".venv", "bin", "python"), "-r", "requirements.txt"},
+		{"uv", "venv", filepath.Join(cfg.Root, ".venv"), "--python", "python3.13"},
+		{"uv", "pip", "install", "--python", filepath.Join(cfg.Root, ".venv", "bin", "python"), "-r", filepath.Join(cfg.Root, "requirements.txt")},
 	}
 	for _, step := range steps {
 		ui.Step(strings.Join(step, " "))
