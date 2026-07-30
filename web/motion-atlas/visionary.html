@@ -45,15 +45,26 @@
     var sigil=document.querySelector('.atlasSigil');
     if(!sigil)return;
     try{
-      var es=new EventSource('/api/jobs/events');
-      es.addEventListener('jobs',function(e){
-        try{
-          var data=JSON.parse(e.data);
-          var jobs=(data.jobs||data||[]);
-          var active=jobs.some(function(j){return j.status==='running'||j.status==='queued'});
-          sigil.classList.toggle('active',active);
-        }catch{}
-      });
+      var url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/jobs/ws';
+      var retries=0;
+      (function connect(){
+        var ws=new WebSocket(url);
+        ws.onopen=function(){retries=0};
+        ws.onmessage=function(e){
+          try{
+            var data=JSON.parse(e.data);
+            var jobs=(data.jobs||data||[]);
+            var active=jobs.some(function(j){return j.status==='running'||j.status==='queued'});
+            sigil.classList.toggle('active',active);
+          }catch{}
+        };
+        ws.onerror=function(){ws.close()};
+        ws.onclose=function(){
+          var delay=Math.min(1000*Math.pow(2,retries),10000)+Math.random()*300;
+          retries++;
+          setTimeout(connect,delay);
+        };
+      })();
     }catch{}
   })();
   </script>
