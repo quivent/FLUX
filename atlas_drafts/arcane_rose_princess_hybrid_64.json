@@ -1,0 +1,41 @@
+{
+  "kind": "latent_sphere_map",
+  "id": "spheremap_atlas_arcane_rose_princess_hybrid_64_20260804",
+  "instance_id": "spheremap_atlas_arcane_rose_princess_hybrid_64_20260804",
+  "experiment_id": "flux:socket-atlas-rose-synthesis",
+  "subject": "arcane italian princess with glowing botanical rose in glass garden",
+  "label": "Arcane Rose Princess Hybrid 64",
+  "prompt": "An adult stunning princess with the beauty of an Italian supermodel holding a glowing impossible procedural 3D rose, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, floating crimson velvet rose petals, enchanted glass garden backdrop, elegant regal costume, expressive face, consistent character identity, cinematic character turntable frame, camera yaw orbit around the character and rose, front view, three-quarter view, side profile, back three-quarter view, rotating pose study",
+  "mode": "omega",
+  "traversal": "spherical_outward",
+  "n_rows": 1024,
+  "n_cols": 64,
+  "n_latent": 65536,
+  "size": 512,
+  "steps": 36,
+  "guidance": 4.0,
+  "seed_a": 617538273,
+  "seed_b": 617538283,
+  "seed_c": 617538307,
+  "seed_d": 617538331,
+  "shell_scale": 1.2,
+  "seed_lock": 0.45,
+  "shell_coupling": 0.72,
+  "rates": [
+    0.28,
+    0.12,
+    -0.08,
+    0.09,
+    -0.05,
+    0.04
+  ],
+  "offsets": [
+    0.15,
+    -0.1,
+    0.08,
+    -0.06,
+    0.04,
+    -0.03
+  ],
+  "notes": "Synthesis of Arcane 3D Character modeling and 10,000 Botanical Rose Engine. Renders character holding glowing 3D procedural rose in an enchanted Arcane glass garden at 1.50s/cell using atlas-xframe-cache."
+}
