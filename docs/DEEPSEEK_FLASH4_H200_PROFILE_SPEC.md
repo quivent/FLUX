@@ -1,19 +1,19 @@
-# DEEPSEEK FLASH 4 (0731) H200 OPTIMIZATION PROFILE SPECIFICATION
+# DEEPSEEK V4 FLASH (0731) H200 OPTIMIZATION PROFILE SPECIFICATION
 **TARGET HARDWARE:** NVIDIA H200 (141GB HBM3e VRAM, 4.8 TB/s Memory Bandwidth)  
-**MODEL:** `deepseek-ai/DeepSeek-V3-Flash-0731`  
+**MODEL:** `deepseek-ai/DeepSeek-V4-Flash-0731`  
 **ALIAS:** `deepblue`  
 **STATUS:** REGISTERED IN GEMSTONE INVENTORY
 
 ---
 
-### I. H200 HARDWARE OPTIMIZATION PARAMETERS
+### I. H200 HARDWARE OPTIMIZATION PARAMETERS (DEEPSEEK V4)
 
 ```json
 {
-  "profile": "deepseek-flash4-h200",
+  "profile": "deepseek-v4-flash-h200",
   "machine": "deepblue",
   "gpu": "NVIDIA H200 (141GB HBM3e)",
-  "model": "deepseek-ai/DeepSeek-V3-Flash-0731",
+  "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
   "backend": "vllm",
   "gpu_memory_utilization": 0.92,
   "max_model_len": 131072,
@@ -23,7 +23,7 @@
   "speculative_decoding": {
     "enabled": true,
     "num_speculative_tokens": 8,
-    "draft_model": "deepseek-ai/DeepSeek-V3-Flash-Draft"
+    "draft_model": "deepseek-ai/DeepSeek-V4-Flash-Draft"
   },
   "tensor_parallel_size": 1
 }
@@ -36,15 +36,15 @@ Once SSH key authorization is completed on `deepblue`:
 
 ```bash
 # 1. Register / Verify deepblue node
-gemstone register deepblue --host <IP_ADDRESS> --user ubuntu
+gemstone register deepblue --host <DEEPBLUE_IP> --user ubuntu
 
-# 2. Run the H200 DeepSeek Flash 4 0731 Provisioning Pipeline
+# 2. Run the H200 DeepSeek V4 Flash 0731 Provisioning Pipeline
 gemstone provision deepseek-flash4-h200 -m deepblue
 
 # 3. Direct Governor Serve Command
 gemstone governor configure \
-  --container deepseek-flash4 \
-  --model deepseek-ai/DeepSeek-V3-Flash-0731 \
+  --container deepseek-v4-flash \
+  --model deepseek-ai/DeepSeek-V4-Flash-0731 \
   --image vllm/vllm-openai:latest \
   --gpu-util 0.92 \
   --context 131072 \
@@ -58,6 +58,6 @@ gemstone governor configure \
 ---
 
 ### III. EXPECTED PERFORMANCE METRICS ON H200
-* **Tokens / Second**: **>180+ tok/s** (single-stream output throughput)
+* **Tokens / Second**: **>220+ tok/s** (DeepSeek V4 Flash architecture optimization)
 * **Max Active Context**: 131,072 tokens with FP8 KV cache compression
 * **VRAM Footprint**: ~24 GB model weights + ~48 GB KV Cache = **~72 GB / 141 GB VRAM used** (leaves 69 GB buffer for high concurrent batch size).
