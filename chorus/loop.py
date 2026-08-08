@@ -425,7 +425,7 @@ def main():
         try:
             subprocess.run(
                 [sys.executable, str(pathlib.Path(__file__).parent / "contact.py"),
-                 "--dir", str(out_dir), "--out", str(out_dir / "_contact.jpg"), "--n", "16"],
+                 "--dir", str(out_dir), "--out", str(out_dir / "_sheets" / "contact.jpg"), "--n", "16"],
                 check=False, capture_output=True, timeout=120,
             )
         except (OSError, subprocess.TimeoutExpired):

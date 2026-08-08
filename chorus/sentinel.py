@@ -62,7 +62,7 @@ def sheet_reference(sheet, public_base):
     to stay under the limit.
     """
     if public_base:
-        return f"{public_base.rstrip('/')}/outputs/{sheet.name}"
+        return f"{public_base.rstrip('/')}/outputs/_sheets/{sheet.name}"
     data = sheet.read_bytes()
     if len(data) > 180_000:
         try:
@@ -147,7 +147,7 @@ def steer(verdict, control_path):
 
 def judge_once(args):
     out_dir = pathlib.Path(args.out_dir).expanduser()
-    sheet = out_dir / "_contact.jpg"
+    sheet = out_dir / "_sheets" / "contact.jpg"
     laws = (HERE / "LAWS.md").read_text()
 
     if not build_sheet(out_dir, sheet, args.n):

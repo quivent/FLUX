@@ -23,18 +23,20 @@ ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
 mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
 cd "$REPO"
 
-# The wall is a show, not a log. Every previous run's frames move out of the
-# served directory before this one starts: the gallery was displaying every
-# image ever made -- including the collapsed generations it was rebuilt to
-# escape -- so its average was always worse than its current work. Nothing is
-# deleted; the archive sits one directory over, outside what /outputs serves.
-prior=$(ls "$OUT_DIR"/*.png 2>/dev/null | wc -l | tr -d " ")
-if [ "${prior:-0}" -gt 0 ]; then
-	stamp=$(date -u +%Y%m%dT%H%M%SZ)
-	mkdir -p "$ARCHIVE/$stamp"
-	mv "$OUT_DIR"/*.png "$ARCHIVE/$stamp/" 2>/dev/null || true
-	mv "$OUT_DIR"/creative-drift.jsonl "$ARCHIVE/$stamp/" 2>/dev/null || true
-	echo "archived $prior frame(s) from earlier runs to $ARCHIVE/$stamp"
+# Earlier versions archived the previous run's frames out of the served
+# directory on every start. With eight restarts in an evening that silently
+# emptied the wall each deploy, and the operator asked where their work had
+# gone. The wall is the whole body of work; the gallery already leads with the
+# newest, so old frames sink rather than intrude. Archiving is now explicit:
+#   ARCHIVE_PRIOR=1 bash chorus/up.sh
+if [ "${ARCHIVE_PRIOR:-0}" = "1" ]; then
+	prior=$(ls "$OUT_DIR"/*.png 2>/dev/null | wc -l | tr -d " ")
+	if [ "${prior:-0}" -gt 0 ]; then
+		stamp=$(date -u +%Y%m%dT%H%M%SZ)
+		mkdir -p "$ARCHIVE/$stamp"
+		mv "$OUT_DIR"/*.png "$ARCHIVE/$stamp/" 2>/dev/null || true
+		echo "archived $prior frame(s) to $ARCHIVE/$stamp"
+	fi
 fi
 
 stop_one() { # name
