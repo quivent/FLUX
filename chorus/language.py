@@ -126,6 +126,40 @@ WORLDS = {
     ],
 }
 
+# ---------------------------------------------------------------- details
+# One concrete, camera-visible thing that changes per frame. With the subject
+# fixed and only the camera moving, siblings converged -- four pomegranates a
+# judge could not tell apart. Narrative beats were the wrong fix for that
+# (unrenderable); a different physical fact in the frame is the right one.
+DETAILS = {
+    "figures": ["a dog watching from the edge of the frame", "rain starting to fall",
+                "a cigarette burned down to the filter", "someone else's hand entering frame",
+                "a radio playing on a crate", "a broken chair pushed aside"],
+    "hands": ["flour on the sleeve", "a wedding ring set down beside them",
+              "a cut on one knuckle", "steam rising past the wrist",
+              "a cat's tail crossing the frame"],
+    "creatures": ["a single feather drifting down", "its reflection breaking",
+                  "a fly on the rim of the frame", "wet footprints leading away",
+                  "long grass bending in the wind"],
+    "streets": ["a bicycle propped against the wall", "a dog asleep in the doorway",
+                "a torn poster peeling off brick", "steam venting from a grate",
+                "one shutter half open"],
+    "interiors": ["a coat left over the back of a chair", "one bulb flickering",
+                  "a cup of tea gone cold", "a cat asleep on the counter",
+                  "a window open onto the dark"],
+    "food": ["a knife left beside it", "flies circling", "a spill running off the edge",
+             "a chipped enamel plate", "salt scattered across the surface"],
+    "weather": ["a bicycle blown flat", "an umbrella turned inside out",
+                "birds scattering", "a plastic bag lifted high", "a shutter banging"],
+    "water": ["goggles pushed up on the forehead", "a rope trailing into the water",
+              "gulls wheeling above", "a float bobbing", "oil rainbowing on the surface"],
+    "machines": ["oil pooled beneath it", "a spanner left on the housing",
+                 "a warning label peeling", "sparks jumping", "a gloved hand steadying it"],
+    "botanical": ["an ant crossing it", "a fallen petal beside it",
+                  "condensation on the glass", "a cracked terracotta pot",
+                  "a paper label curling"],
+}
+
 # ---------------------------------------------------------------- moods
 # One fused clause replacing LIGHT + PALETTE + FLAW. Tonal media draw from
 # the mono pool; everything else gets colour — and the colour pool commits
@@ -223,6 +257,8 @@ def variation(rng, seq, index, previous=None, last=3):
     v = dict(seq)
     beats = seq["arc"][1]
     v["framing"] = beats[index % len(beats)]
+    pool = DETAILS.get(seq["world"], [])
+    v["detail"] = pool[index % len(pool)] if pool else ""
     return v
 
 
@@ -237,7 +273,8 @@ def _an(noun):
 def compose(v):
     # Three sentences, 30-40 words: what it is and how it is framed; how the
     # surface is made; what the light and colour are doing. Nothing else.
-    return (f"{_an(v['medium'])} {v['medium']} of {v['subject']}, "
+    detail = f", {v['detail']}" if v.get("detail") else ""
+    return (f"{_an(v['medium'])} {v['medium']} of {v['subject']}{detail}, "
             f"{v['framing']}. {_cap(v['medium_clause'])}. {_cap(v['mood'])}.")
 
 
