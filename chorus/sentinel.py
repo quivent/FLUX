@@ -32,6 +32,12 @@ import urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
+# Every judgement was 524-ing: the governor serves one request at a time with
+# speculative decoding, and a vision call over a contact sheet exceeds the
+# gateway timeout reliably. A second engine on its own H100 answers the same
+# question in time. Try each in turn -- an unjudged round is the failure this
+# file exists to prevent, so it must not depend on one busy engine.
+ENGINES = [e for e in (os.environ.get("CHORUS_SECOND_ENGINE", ""), GOVERNOR) if e]
 
 # Asking for prose gets prose. The judge is pinned to a shape so the verdict is
 # comparable across rounds and can steer the loop without a human reading it.
@@ -91,12 +97,22 @@ def sheet_reference(sheet, public_base):
 
 
 def ask_governor(sheet, laws, timeout, public_base=""):
-    """One multimodal call. Returns the parsed verdict, or None if it could not
-    be obtained -- never a default-pass."""
+    """Ask each engine in turn until one answers. Returns the parsed verdict,
+    or None if none could be obtained -- never a default-pass."""
+    errors = []
+    for engine in ENGINES:
+        verdict, error = _ask_one(engine, sheet, laws, timeout, public_base)
+        if verdict is not None:
+            return verdict, None
+        errors.append(error)
+    return None, "; ".join(errors)
+
+
+def _ask_one(engine, sheet, laws, timeout, public_base=""):
     reference = sheet_reference(sheet, public_base)
     body = {
         "model": "governor",
-        "max_tokens": 700,
+        "max_tokens": 420,
         "messages": [{
             "role": "user",
             "content": [
@@ -111,7 +127,7 @@ def ask_governor(sheet, laws, timeout, public_base=""):
     # Cloudflare fronts the governor and refuses urllib's default agent with a
     # 403, which looks exactly like an auth failure and is not one.
     req = urllib.request.Request(
-        GOVERNOR, json.dumps(body).encode(),
+        engine, json.dumps(body).encode(),
         {"Content-Type": "application/json",
          "Accept": "application/json",
          "User-Agent": "chorus-sentinel/1 (+flux)"}, method="POST")
