@@ -28,6 +28,9 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/api/assets/ws", true},
 		{http.MethodGet, "/api/jobs", true},
 		{http.MethodGet, "/api/jobs/ws", true},
+		// The gallery is unusable without thumbnails; a full-size wall is
+		// hundreds of megabytes.
+		{http.MethodGet, "/api/asset/thumbnail?w=384&src=/outputs/a.png", true},
 
 		// Renders, warmups and cancels all cost GPU time or money.
 		{http.MethodPost, "/api/render", false},

@@ -356,6 +356,9 @@ var readOnlyPaths = []string{
 	"/outputs/",
 	"/api/health",
 	"/api/recent-images",
+	// Without this the gallery falls back to full-size PNGs -- megabytes per
+	// tile, across two proxy hops.
+	"/api/asset/thumbnail",
 	"/api/assets/events",
 	"/api/assets/ws",
 	"/api/jobs",

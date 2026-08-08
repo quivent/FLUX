@@ -139,6 +139,11 @@
     while ($('feed').childElementCount > MAX_FEED) $('feed').lastElementChild.remove();
   }
 
+  // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
+  // two proxy hops. The server thumbnails to 384px and caches, so the grid
+  // costs a few KB per tile and the full PNG loads only when one is opened.
+  const thumb = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
+
   function addCell(url, name, fresh) {
     if (!url || seen.has(url)) return;
     seen.add(url);
@@ -146,7 +151,7 @@
     fig.className = 'cell' + (fresh ? ' fresh' : '');
     fig.style.margin = '0';
     fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
-      + `<img loading="lazy" src="${url}" alt="">`
+      + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
       + `<figcaption>${name || url.split('/').pop()}</figcaption></a>`;
     $('grid').prepend(fig);
     if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
