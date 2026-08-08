@@ -48,6 +48,22 @@ Version 1. Amend by adding the failure that forced the change.
     entries that were all chiaroscuro and six palettes that were all grey,
     making gloom the only reachable output.
 
+11. **Fidelity is not beauty.** A proposal to clean up, sharpen, or raise the
+    fidelity of the output is treated as a suspected regression until proven
+    otherwise. The struggle of the medium outranks the smoothness of the
+    render. *Given by the governor on anchoring commit 68f2a0a*, after the
+    operator's first approval, as the guardrail against drifting back into the
+    perfect void the first generator lived in.
+
+## The anchor
+
+`taste-log.jsonl` holds one kind of entry that outranks every other: an
+`operator_anchor`. The sentinel's scores are calibrated against anchors, never
+the other way round. A round that scores well against the laws but has drifted
+from the last approved state has drifted, whatever its score says.
+
+First anchor: commit `68f2a0a`, "This is beautiful."
+
 ## The gate
 
 A change to the language is not shipped on the strength of the newest frame.
