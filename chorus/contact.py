@@ -17,6 +17,7 @@ instead of the work -- which is exactly what happened.
     python3 chorus/contact.py --n 16
 """
 import argparse
+import json
 import pathlib
 
 from PIL import Image, ImageDraw
@@ -74,6 +75,12 @@ def main():
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out, quality=88)
+    # The judge answers in frame numbers. Without this map those numbers cannot
+    # be resolved back to files, which is why every verdict so far collapsed
+    # into a single hit-rate and the per-image taste data was discarded.
+    (out.parent / "manifest.json").write_text(json.dumps(
+        {"sheet": out.name, "frames": {str(i): p.name for i, p in enumerate(picked, 1)}},
+        indent=2) + "\n")
     print(f"{len(picked)} of {len(frames)} frames -> {out}")
     for i, p in enumerate(picked, 1):
         print(f"  {i:2d} {p.name}")

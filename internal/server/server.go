@@ -3589,6 +3589,13 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 200 {
 		limit = 80
 	}
+	// Without an offset the gallery can only ever show the newest page, so a
+	// long run buries almost all of its own work: 1,088 of 1,184 frames were
+	// unreachable from the wall.
+	offset := intValue(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
 	type recentImage struct {
 		Name     string
 		Path     string
@@ -3605,12 +3612,15 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			}
 			if entry.IsDir() {
 				name := entry.Name()
-				if file != outputDir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+				// "_" marks a working directory, not a collection: contact
+				// sheets and other instruments live there. Listing them puts a
+				// grid of thumbnails on the wall as though it were a work.
+				if file != outputDir && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "node_modules") {
 					return filepath.SkipDir
 				}
 				return nil
 			}
-			if !isImageName(entry.Name()) {
+			if !isImageName(entry.Name()) || strings.HasPrefix(entry.Name(), "_") {
 				return nil
 			}
 			info, _ := entry.Info()
@@ -3679,6 +3689,12 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		unique = append(unique, item)
 	}
 	items = unique
+	total := len(items)
+	if offset >= len(items) {
+		items = nil
+	} else {
+		items = items[offset:]
+	}
 	if len(items) > limit {
 		items = items[:limit]
 	}
@@ -3692,7 +3708,9 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			"modified": item.Modified,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "images": out})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "images": out, "total": total, "offset": offset, "limit": limit,
+	})
 }
 
 func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {

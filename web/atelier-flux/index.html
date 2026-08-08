@@ -113,8 +113,20 @@
     <div class="panel stat"><div class="label">Transport</div><div class="v" id="s-wire" style="font-size:15px">—</div></div>
   </section>
 
-  <div class="bar"><span class="label">Live gallery</span><span class="rule"></span><span class="label num" id="s-shown">0 shown</span></div>
+  <div class="bar">
+    <span class="label">Live gallery</span>
+    <button type="button" class="label" id="order" data-mode="new"
+            style="background:none;border:1px solid var(--hair);border-radius:999px;padding:3px 10px;cursor:pointer;color:var(--dim)">newest first</button>
+    <span class="rule"></span>
+    <span class="label num" id="s-shown">0 shown</span>
+  </div>
   <div class="grid" id="grid"></div>
+  <div style="display:flex;justify-content:center;padding:22px 0">
+    <button type="button" id="more"
+            style="display:none;background:none;border:1px solid var(--hair);border-radius:999px;padding:8px 20px;cursor:pointer;color:var(--dim);font:inherit;font-size:11px;letter-spacing:.24em;text-transform:uppercase">
+      load more
+    </button>
+  </div>
   <div class="empty" id="empty">No renders yet. Assets appear here the moment the worker publishes them.</div>
 
   <div class="bar"><span class="label">Asset feed</span><span class="rule"></span></div>
@@ -122,9 +134,10 @@
 </main>
 
 <script>
-  // Bounded so a long-running node cannot grow the DOM without limit; the
-  // gallery is a live window, not an archive (that is /outputs/).
-  const MAX_CELLS = 96, MAX_FEED = 140;
+  // Paged, not capped. The wall held 1,184 frames while showing 96, so the
+  // body of work was unreachable from the page that exists to show it.
+  const PAGE = 60, MAX_FEED = 140;
+  let offset = 0, total = 0, picks = null;
   const $ = (id) => document.getElementById(id);
   const seen = new Set();
   let live = 0;
@@ -144,7 +157,7 @@
   // costs a few KB per tile and the full PNG loads only when one is opened.
   const thumb = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
 
-  function addCell(url, name, fresh) {
+  function addCell(url, name, fresh, append) {
     if (!url || seen.has(url)) return;
     seen.add(url);
     const fig = document.createElement('figure');
@@ -162,15 +175,12 @@
       img.dataset.retried = '1';
       setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 1200);
     };
-    $('grid').prepend(fig);
+    fig.dataset.name = name || '';
+    append ? $('grid').appendChild(fig) : $('grid').prepend(fig);
     if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
-    while ($('grid').childElementCount > MAX_CELLS) {
-      seen.delete($('grid').lastElementChild.querySelector('a')?.getAttribute('href'));
-      $('grid').lastElementChild.remove();
-    }
     $('empty').style.display = 'none';
-    $('s-assets').textContent = seen.size;
-    $('s-shown').textContent = $('grid').childElementCount + ' shown';
+    $('s-assets').textContent = total || seen.size;
+    $('s-shown').textContent = $('grid').childElementCount + (total ? ' of ' + total : '') + ' shown';
   }
 
   async function poll(path) {
@@ -200,17 +210,48 @@
     } catch { /* the jobs lane is optional; the gallery still stands without it */ }
   }
 
+  // The panel's verdicts, if the sentinel has published any. A frame it kept
+  // is work someone judged worth wall space; ordering by file date buried that
+  // signal entirely.
+  async function loadPicks() {
+    try { picks = await poll('/outputs/picks.json'); } catch { picks = null; }
+    $('order').style.display = picks && (picks.keep || []).length ? '' : 'none';
+  }
+
+  function applyOrder() {
+    const mode = $('order').dataset.mode;
+    $('order').textContent = mode === 'kept' ? 'panel picks first' : 'newest first';
+    if (!picks) return;
+    const keep = new Set(picks.keep || []);
+    const cells = Array.from($('grid').children);
+    if (mode === 'kept') {
+      cells.sort((a, b) => (keep.has(b.dataset.name) ? 1 : 0) - (keep.has(a.dataset.name) ? 1 : 0));
+      cells.forEach((c) => $('grid').appendChild(c));
+    }
+    cells.forEach((c) => { c.style.opacity = (mode === 'kept' && !keep.has(c.dataset.name)) ? '.35' : ''; });
+  }
+
   async function backfill() {
     try {
-      const j = await poll('/api/recent-images?limit=' + MAX_CELLS);
+      const j = await poll('/api/recent-images?limit=' + PAGE + '&offset=' + offset);
+      total = j.total || 0;
+      offset += (j.images || []).length;
+      $('more').style.display = offset < total ? '' : 'none';
       // `path` before `url`: the server builds `url` absolute against its own
       // origin, which behind a gateway is the capability URL. Loading images
       // from that would leak the origin and break the page every time the
       // endpoint rotates. A same-origin path survives both.
-      (j.images || []).reverse().forEach((im) => addCell(im.path || im.url, im.name, false));
-      log('backfill', (j.images || []).length + ' existing renders');
+      (j.images || []).forEach((im) => addCell(im.path || im.url, im.name, false, true));
+      log('backfill', offset + ' of ' + total + ' renders loaded');
+      applyOrder();
     } catch (e) { log('backfill', 'none available'); }
   }
+
+  $('more').onclick = backfill;
+  $('order').onclick = () => {
+    $('order').dataset.mode = $('order').dataset.mode === 'kept' ? 'new' : 'kept';
+    applyOrder();
+  };
 
   // The WebSocket is the branch's asset lane; SSE is the fallback that shipped
   // before it. Falling back rather than failing keeps this page working
@@ -247,7 +288,8 @@
     log('asset', asset.name || url.split('/').pop());
   }
 
-  health(); jobs(); backfill(); stream();
+  health(); jobs(); loadPicks(); backfill(); stream();
+  setInterval(loadPicks, 120000);
   setInterval(health, 15000);
   setInterval(jobs, 5000);
 </script>

@@ -158,6 +158,39 @@ def steer(verdict, control_path):
     return hit_rate
 
 
+def publish_picks(out_dir, sheet, verdict):
+    """Turn frame numbers into a ranking the wall can use.
+
+    The panel was already sitting in the loop; its verdicts just never reached
+    the presentation, so the gallery ordered 1,184 frames by modification time
+    and buried the judged ones. picks.json accumulates across rounds: a frame
+    kept once stays kept, because a later sheet simply may not have sampled it.
+    """
+    try:
+        manifest = json.loads((sheet.parent / "manifest.json").read_text())
+    except (OSError, ValueError):
+        return None
+    frames = manifest.get("frames") or {}
+    picks_path = out_dir / "picks.json"
+    try:
+        picks = json.loads(picks_path.read_text())
+    except (OSError, ValueError):
+        picks = {"keep": [], "cut": []}
+    keep, cut = set(picks.get("keep") or []), set(picks.get("cut") or [])
+    for n in verdict.get("keep") or []:
+        name = frames.get(str(n))
+        if name:
+            keep.add(name)
+            cut.discard(name)
+    for n in verdict.get("cut") or []:
+        name = frames.get(str(n))
+        if name and name not in keep:
+            cut.add(name)
+    picks_path.write_text(json.dumps(
+        {"keep": sorted(keep), "cut": sorted(cut), "updated": time.time()}, indent=2) + "\n")
+    return len(keep)
+
+
 def judge_once(args):
     out_dir = pathlib.Path(args.out_dir).expanduser()
     sheet = out_dir / "_sheets" / "contact.jpg"
@@ -176,6 +209,7 @@ def judge_once(args):
         print(f"NOT JUDGED: {error}", flush=True)
     else:
         hit = steer(verdict, out_dir / "drift-control.json")
+        publish_picks(out_dir, sheet, verdict)
         row.update(judged=True, verdict=verdict, hit_rate=hit)
         keep = verdict.get("keep") or []
         print(f"hit {len(keep)}/{args.n}"
