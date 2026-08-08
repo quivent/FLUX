@@ -19,8 +19,23 @@ RUN="${RUN:-$HOME/.flux-run}"
 ADDR="${ADDR:-0.0.0.0:7861}"
 DRIFT="${DRIFT:-1}"
 
-mkdir -p "$RUN" "$OUT_DIR"
+ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
+mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
 cd "$REPO"
+
+# The wall is a show, not a log. Every previous run's frames move out of the
+# served directory before this one starts: the gallery was displaying every
+# image ever made -- including the collapsed generations it was rebuilt to
+# escape -- so its average was always worse than its current work. Nothing is
+# deleted; the archive sits one directory over, outside what /outputs serves.
+prior=$(ls "$OUT_DIR"/*.png 2>/dev/null | wc -l | tr -d " ")
+if [ "${prior:-0}" -gt 0 ]; then
+	stamp=$(date -u +%Y%m%dT%H%M%SZ)
+	mkdir -p "$ARCHIVE/$stamp"
+	mv "$OUT_DIR"/*.png "$ARCHIVE/$stamp/" 2>/dev/null || true
+	mv "$OUT_DIR"/creative-drift.jsonl "$ARCHIVE/$stamp/" 2>/dev/null || true
+	echo "archived $prior frame(s) from earlier runs to $ARCHIVE/$stamp"
+fi
 
 stop_one() { # name
 	local pidfile="$RUN/$1.pid"
