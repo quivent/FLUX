@@ -49,6 +49,14 @@ MEDIA = [
     ("16mm film still", "grainy colour reversal stock, halated highlights, handheld framing", 2, "photo", False),
     ("stained glass panel", "black leading, saturated transmitted light, flat jewel colour", 3, "craft", False),
     ("paper collage", "torn coloured paper layers, hard cut edges, visible overlaps", 2, "craft", False),
+    ("etching", "fine bitten lines, plate tone, wiped margins", 4, "print", True),
+    ("screenprint", "flat opaque inks, hard stencil edges, one colour off-register", 4, "print", False),
+    ("scratchboard", "white lines scratched out of solid black", 3, "ink", True),
+    ("egg tempera panel", "thin translucent layers, luminous flat colour", 3, "paint", False),
+    ("soft pastel", "chalky broken colour, paper tooth showing", 3, "paint", False),
+    ("fresco fragment", "pigment sunk into plaster, chalky matte, cracked and lost patches", 3, "craft", False),
+    ("glass mosaic", "irregular tesserae, grout lines, colour shifting tile to tile", 2, "craft", False),
+    ("cyanotype", "deep Prussian blue, white silhouettes, brush-coated edges", 3, "photo", True),
 ]
 
 # ---------------------------------------------------------------- subjects
@@ -118,6 +126,33 @@ WORLDS = {
         "a loom mid-weave, warp threads under tension",
         "a pinball machine glowing in a dark arcade",
     ],
+    "music": [
+        "a cellist's bow lifted at the end of a phrase",
+        "a brass band marching through a narrow street",
+        "a piano with its lid open and no one playing",
+        "a singer with her eyes shut, mid-note",
+        "a drum kit abandoned under stage lights",
+    ],
+    "fire": [
+        "a bonfire collapsing into embers",
+        "a welder's arc lighting a dark shop",
+        "candles guttering at the end of a long table",
+        "a struck match at the moment it catches",
+        "a forge with iron glowing orange",
+    ],
+    "thresholds": [
+        "a door left open onto a bright yard",
+        "a curtain lifting in a doorway",
+        "a gate rusted half open",
+        "a train window with the platform sliding past",
+        "a stairwell turning out of sight",
+    ],
+    "sleep": [
+        "a child asleep across two chairs",
+        "a dog dreaming, paws twitching",
+        "an old man asleep in a barber's chair",
+        "someone asleep on a train, head against glass",
+    ],
     "botanical": [
         "a fig cut open",
         "seed heads gone to silver fluff",
@@ -141,6 +176,14 @@ UNIVERSAL_DETAILS = [
 ]
 
 DETAILS = {
+    "music": ["mid-gesture, arm at full extension", "hands blurred with movement",
+              "the instrument alone, the player gone", "seen from behind the performer"],
+    "fire": ["at its brightest, everything else lost", "down to embers",
+             "only the light it throws on a wall", "reflected in someone's face"],
+    "thresholds": ["nothing visible beyond it", "a figure just leaving frame",
+                   "light spilling through from the far side", "closed, from the outside"],
+    "sleep": ["face turned away", "only a hand visible", "seen from across the room",
+              "close enough to see breathing"],
     "figures": ["a dog watching from the edge of the frame", "rain starting to fall",
                 "a cigarette burned down to the filter", "someone else's hand entering frame",
                 "a radio playing on a crate", "a broken chair pushed aside"],
@@ -191,6 +234,12 @@ COLOR_MOODS = [
     "early morning haze, pale mint and cream",
     "night under a single sodium lamp, amber against black",
     "high clear daylight, saturated colour, crisp shadows",
+    "deep green shade, one shaft of hot white sun",
+    "dusty pink dusk, everything softening",
+    "cold blue snow light, one warm window",
+    "firelight only, orange on the near side, black behind",
+    "sun through leaves, dappled gold on shadow",
+    "grey sea light, muted colour, one flash of red",
 ]
 
 # ---------------------------------------------------------------- camera
