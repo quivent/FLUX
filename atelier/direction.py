@@ -86,13 +86,37 @@ def champion_from(gen, key):
         blob = json.loads(run.read_text())
     except Exception:
         return None
-    spec = None
+    card_rec = None
     for c in blob.get("cards", []) or []:
         if c.get("key") == key:
-            spec = {k: v for k, v in c.items() if k != "seconds"}
+            card_rec = c
             break
+    if card_rec is None:
+        return None
+
+    # run.json keeps identity only. The presentation fields (accent, botanical,
+    # rgb, subject) live in the concept population, so rebuild the spec the same
+    # way the fresh-seed path does and overlay this card's identity on top.
+    import sys
+    sys.path.insert(0, str(HOME))
+    import concepts as K
+    con = card_rec.get("concept") or {}
+    spec = None
+    pop = K.load()
+    for c in K.alive(pop):
+        if c.get("slot") == con.get("slot") and c.get("variant") == con.get("variant"):
+            spec = K.as_spec([c])[0]
+            break
+    if spec is None:                       # variant retired since; fall back on slot
+        for c in K.alive(pop):
+            if c.get("slot") == con.get("slot"):
+                spec = K.as_spec([c])[0]
+                break
     if spec is None:
         return None
+    for f in ("product", "subtitle", "family", "character", "role", "quote"):
+        if card_rec.get(f) is not None:
+            spec[f] = card_rec[f]
     art = HOME / "runs" / gen / "art" / f"{key}.png"
     card = HOME / "runs" / gen / "cards" / f"{key}.png"
     if not card.is_file():

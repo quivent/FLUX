@@ -14,6 +14,13 @@ frozen while the files underneath were changing.
     /thumb/<gen>/<key>   small WEBP for the grid (cached on disk)
     /img/<gen>/<key>     the full-size card PNG
     /gen/<gen>.zip       one generation as a download
+    /studio              the Kontext editor
+
+Both pages wear the suite's two themes -- forest and sakura -- which live in
+theme.py, the one source both this app and the control panel are built from.
+Nothing here paints a literal colour, radius, shadow, font or easing: every one
+resolves through a token, so flipping `data-theme` on <html> re-themes the whole
+surface with no reload and no JS.
 """
 import asyncio
 import io
@@ -33,6 +40,8 @@ from fastapi.responses import (
 )
 from PIL import Image
 from pydantic import BaseModel, Field
+
+import theme
 
 RUNS = pathlib.Path("/home/dev/runs")
 STUDIO = pathlib.Path("/home/dev/studio")
@@ -241,6 +250,27 @@ def gen_zip(gen: str):
     )
 
 
+@app.get("/theme.css")
+def theme_css():
+    """The suite's theme layer, from the one file that defines it."""
+    return Response(theme.css(), media_type="text/css",
+                    headers={"Cache-Control": "no-store, max-age=0"})
+
+
+def _shell(tpl, default):
+    """Stamp the shared theme layer, pre-paint boot and flip control into a page.
+
+    `default` is the room this page keeps when the visitor has never chosen and
+    the OS has no preference either -- each app holds its own identity until
+    the operator says otherwise.
+    """
+    return (
+        tpl.replace("__THEME_CSS__", theme.css())
+        .replace("__HEAD_BOOT__", theme.head_boot(default))
+        .replace("__TOGGLE_JS__", theme.toggle_js())
+    )
+
+
 # ---------------------------------------------------------------- studio
 
 
@@ -366,62 +396,77 @@ def studio_img(rid: str, which: str):
 
 @app.get("/studio", response_class=HTMLResponse)
 def studio():
-    return STUDIO_PAGE.replace("__RUNS__", json.dumps(_studio_runs()[:60]))
+    return _shell(STUDIO_PAGE, "forest").replace("__RUNS__", json.dumps(_studio_runs()[:60]))
 
 
 STUDIO_PAGE = r"""<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KOYOMI — Kontext studio</title>
+__HEAD_BOOT__
 <style>
-  :root { color-scheme: dark; }
+__THEME_CSS__
   * { box-sizing: border-box; }
-  body { margin:0; padding:36px 26px 90px; background:#17150f; color:#efe6d6;
-         font:16px/1.6 "Iowan Old Style", Palatino, Georgia, serif; }
+  body { margin:0; padding:36px 26px 90px; background:var(--page-bg); color:var(--text);
+         background-attachment:fixed; font:16px/1.6 var(--sans); }
   header { max-width:1100px; margin:0 auto 26px; text-align:center; }
   h1 { font-size:15px; letter-spacing:.42em; font-weight:500; margin:0 0 8px;
-       text-indent:.42em; color:#d8c9a8; }
-  header a { font-size:12px; color:#8f8570; letter-spacing:.14em; }
+       text-indent:.42em; color:var(--ink); font-family:var(--display); }
+  header a { font-size:12px; color:var(--muted); letter-spacing:.14em; }
   .panel { max-width:1100px; margin:0 auto 34px; }
-  #drop { border:1px dashed #4a4231; background:#1d1a12; padding:44px 20px; text-align:center;
-          color:#8f8570; cursor:pointer; transition:border-color .18s, background .18s; }
-  #drop.over { border-color:#b99b5e; background:#231f15; color:#d8c9a8; }
-  #drop img { max-height:230px; margin-top:14px; border:1px solid #302b1e; }
+  #drop { border:1px dashed var(--dash); background:var(--sink); padding:44px 20px; text-align:center;
+          color:var(--muted); cursor:pointer; border-radius:var(--r-card); box-shadow:var(--soft);
+          transition:border-color .18s var(--spring), background .18s var(--spring); }
+  #drop.over { border-color:var(--pink); background:var(--sink-hi); color:var(--ink); }
+  #drop img { max-height:230px; margin-top:14px; border:1px solid var(--line);
+              border-radius:var(--r-sm); background:var(--plate); }
   .row { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
-  textarea { flex:1 1 420px; min-height:74px; background:#1d1a12; color:#efe6d6;
-             border:1px solid #3a3324; padding:11px 13px; font:inherit; font-size:15px; resize:vertical; }
+  textarea { flex:1 1 420px; min-height:74px; background:var(--sink); color:var(--text);
+             border:1px solid var(--line2); border-radius:var(--r-md);
+             padding:11px 13px; font:inherit; font-size:15px; resize:vertical; }
   .opts { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  label { font-size:12px; color:#6b634f; letter-spacing:.12em; text-transform:uppercase; }
-  input[type=number] { width:86px; background:#1d1a12; color:#efe6d6; border:1px solid #3a3324;
+  label { font-size:12px; color:var(--faint); letter-spacing:.12em; text-transform:uppercase; }
+  input[type=number] { width:86px; background:var(--sink); color:var(--text);
+                       border:1px solid var(--line2); border-radius:var(--r-md);
                        padding:7px 9px; font:inherit; font-size:14px; }
-  button { font:inherit; font-size:14px; background:#b99b5e; color:#17150f; border:0;
-           padding:11px 26px; cursor:pointer; letter-spacing:.1em; }
+  button { font:inherit; font-size:14px; background:var(--pink); color:var(--on-accent); border:0;
+           padding:11px 26px; cursor:pointer; letter-spacing:.1em;
+           border-radius:var(--r-pill); box-shadow:var(--sh-go); }
   button:disabled { opacity:.45; cursor:default; }
-  .status { font-size:13px; color:#8f8570; font-style:italic; margin-top:12px; min-height:22px; }
+  .status { font-size:13px; color:var(--muted); font-style:italic; margin-top:12px; min-height:22px; }
   .pair { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:16px; }
   .pair figure { margin:0; }
-  .pair img { width:100%; border:1px solid #302b1e; display:block; }
-  .pair figcaption { font-size:11px; letter-spacing:.18em; color:#6b634f; text-transform:uppercase;
+  .pair img { width:100%; border:1px solid var(--line); display:block;
+              border-radius:var(--r-sm); background:var(--plate); }
+  .pair figcaption { font-size:11px; letter-spacing:.18em; color:var(--faint); text-transform:uppercase;
                      margin-bottom:7px; }
   .outs { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
   .outs figure { margin:0; cursor:pointer; position:relative; }
-  .outs img { border:1px solid #302b1e; transition:border-color .15s, transform .15s; }
-  .outs figure:hover img { border-color:#b99b5e; transform:translateY(-2px); }
+  .outs img { border:1px solid var(--line); border-radius:var(--r-sm); background:var(--plate);
+              transition:border-color .15s var(--spring), transform .15s var(--spring); }
+  .outs figure:hover img { border-color:var(--pink); transform:translateY(-2px); }
   .outs .tag { position:absolute; left:6px; top:6px; font-size:10px; letter-spacing:.12em;
-               background:rgba(20,18,14,.85); color:#b99b5e; padding:2px 6px; }
-  .chain { font-size:12px; color:#8f8570; font-style:italic; margin-top:8px; }
+               background:var(--tag-bg); color:var(--tag-ink); padding:2px 6px;
+               border-radius:var(--r-pill); font-family:var(--num); }
+  .chain { font-size:12px; color:var(--muted); font-style:italic; margin-top:8px; }
   .hist { max-width:1100px; margin:0 auto; }
-  .hist h2 { font-size:12px; letter-spacing:.24em; color:#8f8570; font-weight:500;
-             text-transform:uppercase; border-bottom:1px solid #302b1e; padding-bottom:8px; }
+  .hist h2 { font-size:12px; letter-spacing:.24em; color:var(--muted); font-weight:500;
+             text-transform:uppercase; border-bottom:1px solid var(--line); padding-bottom:8px;
+             font-family:var(--display); }
   .item { display:grid; grid-template-columns:110px 110px 1fr; gap:14px; align-items:start;
-          padding:14px 0; border-bottom:1px solid #241f16; }
-  .item img { width:100%; border:1px solid #302b1e; display:block; }
-  .item .txt { font-size:14px; color:#d8c9a8; }
-  .item .sub { font-size:12px; color:#6b634f; font-style:italic; }
+          padding:14px 0; border-bottom:1px solid var(--well); }
+  .item img { width:100%; border:1px solid var(--line); display:block;
+              border-radius:var(--r-sm); background:var(--plate); }
+  .item .txt { font-size:14px; color:var(--ink); }
+  .item .sub { font-size:12px; color:var(--faint); font-style:italic; }
 </style>
+</head>
+<body>
 <header>
   <h1>KONTEXT STUDIO</h1>
-  <a href="/">← back to the feed</a>
+  <a href="/">← back to the feed</a><button type="button" id="themetog" class="themetog">theme</button>
 </header>
 
 <div class="panel">
@@ -541,6 +586,9 @@ STUDIO_PAGE = r"""<!doctype html>
   }
   paintHist();
 </script>
+__TOGGLE_JS__
+</body>
+</html>
 """
 
 
@@ -560,70 +608,86 @@ def index():
         "per_page": PER_PAGE,
         "generations": gens[:PER_PAGE],
     }
-    return PAGE.replace("__INITIAL__", json.dumps(initial)).replace("__COLS__", str(COLS))
+    # Shell and COLS first, the inlined JSON last: whatever a manifest happens to
+    # contain can never be re-scanned as a placeholder.
+    return (
+        _shell(PAGE, "forest")
+        .replace("__COLS__", str(COLS))
+        .replace("__INITIAL__", json.dumps(initial))
+    )
 
 
 PAGE = r"""<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KOYOMI — live render feed</title>
+__HEAD_BOOT__
 <style>
-  :root { color-scheme: dark; }
+__THEME_CSS__
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 36px 26px 90px;
-    background: #17150f; color: #efe6d6;
-    font: 16px/1.6 "Iowan Old Style", Palatino, Georgia, serif;
+    background: var(--page-bg); color: var(--text);
+    background-attachment: fixed;
+    font: 16px/1.6 var(--sans);
   }
   header { max-width: 1440px; margin: 0 auto 22px; text-align: center; }
   h1 { font-size: 15px; letter-spacing: .42em; font-weight: 500; margin: 0 0 10px;
-       text-indent: .42em; color: #d8c9a8; }
+       text-indent: .42em; color: var(--ink); font-family: var(--display); }
   .live { display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
-          letter-spacing: .18em; color: #8f8570; text-transform: uppercase; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4b7f4b;
-         box-shadow: 0 0 0 0 rgba(75,127,75,.7); animation: pulse 2s infinite; }
-  .dot.off { background: #6b4a3a; animation: none; }
-  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(75,127,75,0); }
-                     100% { box-shadow: 0 0 0 0 rgba(75,127,75,0); } }
+          letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live);
+         box-shadow: var(--sh-live); animation: pulse 2s infinite; }
+  .dot.off { background: var(--live-off); animation: none; }
+  @keyframes pulse { 70% { box-shadow: var(--sh-live-mid); }
+                     100% { box-shadow: var(--sh-live-end); } }
   .gen { max-width: 1440px; margin: 0 auto 44px; }
   .genhead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
-             border-bottom: 1px solid #302b1e; padding-bottom: 9px; margin-bottom: 20px; }
-  .genhead b { font-size: 15px; letter-spacing: .22em; color: #d8c9a8; font-weight: 500; }
-  .genhead .meta { font-size: 13px; color: #6b634f; font-style: italic; }
-  .genhead .newest { font-size: 10px; letter-spacing: .18em; color: #17150f;
-                     background: #b99b5e; padding: 3px 8px; border-radius: 2px; }
-  .genhead a { margin-left: auto; font-size: 12px; color: #8f8570; letter-spacing: .1em; }
+             border-bottom: 1px solid var(--line); padding-bottom: 9px; margin-bottom: 20px; }
+  .genhead b { font-size: 15px; letter-spacing: .22em; color: var(--ink); font-weight: 500;
+               font-family: var(--display); }
+  .genhead .meta { font-size: 13px; color: var(--faint); font-style: italic; }
+  .genhead .newest { font-size: 10px; letter-spacing: .18em; color: var(--on-accent);
+                     background: var(--pink); padding: 3px 8px; border-radius: var(--r-pill); }
+  .genhead a { margin-left: auto; font-size: 12px; color: var(--muted); letter-spacing: .1em; }
   /* One row is one batch: exactly __COLS__ across, collapsing on narrow screens. */
   .grid { display: grid; gap: 22px; grid-template-columns: repeat(__COLS__, minmax(0, 1fr)); }
   @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
   figure { margin: 0; animation: rise .45s ease both; }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
-  figure a { display: block; border: 1px solid #302b1e; background: #0e0d09;
-             transition: border-color .18s, transform .18s; }
-  figure a:hover { border-color: #6d6244; transform: translateY(-3px); }
+  figure a { display: block; border: 1px solid var(--line); background: var(--plate);
+             border-radius: var(--r-sm); overflow: hidden; box-shadow: var(--cel);
+             transition: border-color .18s var(--spring), transform .18s var(--spring); }
+  figure a:hover { border-color: var(--edge-hover); transform: translateY(-3px); }
   /* Reserve the card's aspect box so the grid doesn't reflow as images arrive. */
   img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
-        background: #0e0d09; }
-  figcaption { margin-top: 8px; font-size: 12px; color: #8f8570;
+        background: var(--plate); }
+  figcaption { margin-top: 8px; font-size: 12px; color: var(--muted);
                display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-  figcaption b { color: #d8c9a8; font-weight: 500; letter-spacing: .09em; }
-  .score { font-size: 11px; letter-spacing: .1em; padding: 2px 7px; border-radius: 2px;
-           background: #241f16; border: 1px solid #3a3324; color: #b99b5e; }
-  .score.keep { color: #8fbf7f; border-color: #3c5236; }
-  .score.reroll { color: #d08a72; border-color: #5b3a2e; }
+  figcaption b { color: var(--ink); font-weight: 500; letter-spacing: .09em; }
+  .score { font-size: 11px; letter-spacing: .1em; padding: 2px 7px; border-radius: var(--r-pill);
+           background: var(--pink-soft); border: 1px solid var(--pink-line); color: var(--pink-ink);
+           font-family: var(--num); }
+  .score.keep { color: var(--good); border-color: var(--good-line); background: var(--good-bg); }
+  .score.reroll { color: var(--bad); border-color: var(--bad-line); background: var(--bad-bg); }
   .pager { max-width: 1440px; margin: 0 auto; display: flex; justify-content: center;
-           gap: 10px; padding-top: 18px; border-top: 1px solid #302b1e; }
-  .pager button { font: inherit; font-size: 13px; background: #201d14; color: #d8c9a8;
-                  border: 1px solid #3a3324; padding: 7px 16px; cursor: pointer; }
+           gap: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .pager button { font: inherit; font-size: 13px; background: var(--panel); color: var(--ink);
+                  border: 1px solid var(--line2); padding: 7px 16px; cursor: pointer;
+                  border-radius: var(--r-pill); }
   .pager button:disabled { opacity: .35; cursor: default; }
-  .pager span { font-size: 13px; color: #6b634f; align-self: center; }
-  .empty { text-align: center; color: #6b634f; font-style: italic; padding: 60px 0; }
+  .pager span { font-size: 13px; color: var(--faint); align-self: center; }
+  .empty { text-align: center; color: var(--faint); font-style: italic; padding: 60px 0; }
 </style>
+</head>
+<body>
 <header>
   <h1>KOYOMI</h1>
   <div class="live"><span class="dot" id="dot"></span><span id="status">live</span></div>
-  <div style="margin-top:10px"><a href="/studio" style="font-size:12px;color:#8f8570;letter-spacing:.14em">KONTEXT STUDIO →</a></div>
+  <div style="margin-top:10px"><a href="/studio" style="font-size:12px;color:var(--muted);letter-spacing:.14em">KONTEXT STUDIO →</a><button type="button" id="themetog" class="themetog">theme</button></div>
 </header>
 <main id="feed"></main>
 <div class="pager">
@@ -703,6 +767,9 @@ PAGE = r"""<!doctype html>
     else document.getElementById('status').textContent = 'live · new work on page 1';
   };
 </script>
+__TOGGLE_JS__
+</body>
+</html>
 """
 
 if __name__ == "__main__":

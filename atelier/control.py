@@ -32,6 +32,8 @@ from fastapi.responses import (
 from pydantic import BaseModel
 
 import direction as DIR
+import duel as DU
+import evolve_queue as EQ
 import tunables as TU
 
 HOME = pathlib.Path("/home/dev")
@@ -234,6 +236,39 @@ def _freshness():
     }
 
 
+# An ack file outlives the process that wrote it, so `applied_pid` alone cannot
+# tell "the worker adopted this" from "a worker that died hours ago once did".
+# Today the panel showed pid 103966's acknowledgement long after it was killed.
+# A pid is only evidence if it is still alive AND still a worker: pids are
+# recycled, so /proc/<pid> existing is necessary but not sufficient.
+WORKER_CMD_HINTS = ("perpetual.py", "blast2.py", "loopd.py", "governord.py")
+
+
+def _worker_pid_alive(pid):
+    """True only if <pid> is a live process whose cmdline is a real worker."""
+    try:
+        n = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if n <= 0:
+        return False
+    try:
+        cmd = pathlib.Path(f"/proc/{n}/cmdline").read_bytes()
+    except OSError:
+        return False
+    cmd = cmd.replace(b"\0", b" ").decode("utf-8", "replace")
+    return any(h in cmd for h in WORKER_CMD_HINTS)
+
+
+def _ack_liveness(ack):
+    """applied_pid_alive / ack_stale for an ack blob. Stale = there IS an
+    acknowledgement on file but nothing alive stands behind it."""
+    pid = ack.get("pid")
+    alive = _worker_pid_alive(pid)
+    has_ack = bool(ack.get("applied_at") or int(ack.get("rev", 0) or 0))
+    return {"applied_pid_alive": alive, "ack_stale": bool(has_ack) and not alive}
+
+
 def _direction_block():
     d = DIR.desired()
     a = DIR.ack()
@@ -247,6 +282,7 @@ def _direction_block():
         "latency_s": a.get("latency_s"),
         "synced": bool(d["rev"]) and d["rev"] == arev,
         "pending": max(0, d["rev"] - arev),
+        **_ack_liveness(a),
     }
 
 
@@ -268,6 +304,7 @@ def _tunables_block():
         "age_s": round(time.time() - a["applied_at"], 1) if a.get("applied_at") else None,
         "synced": bool(d["rev"]) and d["rev"] == arev,
         "pending": max(0, d["rev"] - arev),
+        **_ack_liveness(a),
         "fields": {k: {"lo": v[1], "hi": v[2],
                        "kind": "float" if v[0] is float else "int"}
                    for k, v in TU.FIELDS.items()},
@@ -464,14 +501,10 @@ def put_verdict(v: VerdictIn):
     d = (RUNS / v.gen).resolve()
     if RUNS.resolve() not in d.parents or not d.is_dir():
         raise HTTPException(404, "no such generation")
-    vf = d / "verdicts.json"
-    data = _read(vf, {}) or {}
-    if v.verdict == "clear":
-        data.pop(v.key, None)
-    else:
-        data[v.key] = {"score": None, "verdict": v.verdict,
-                       "note": v.note, "critic": "operator"}
-    vf.write_text(json.dumps(data, indent=2))
+    # duel.write_verdict is THE writer for verdicts.json -- locked and atomic,
+    # and shared with the duel write-through so the two can never disagree about
+    # what the operator said.
+    DU.write_verdict(v.gen, v.key, v.verdict, v.note)
     return {"ok": True, "pending": pending_verdicts()}
 
 
@@ -529,9 +562,17 @@ def direction_catalogue():
     return {"catalogue": DIR.catalogue(), "defaults": DIR.defaults()}
 
 
+# Fields no other endpoint may write. `freeze` is owned by /api/freeze: the panel
+# sends its whole local object on every edit, and its copy does not know about a
+# freeze set out-of-band, so letting it through means any chip click unfreezes.
+DIRECTION_OWNED_ELSEWHERE = {"freeze"}
+
+
 @app.post("/api/direction")
 def set_direction(d: DirectionIn):
-    out = DIR.publish(d.values)
+    vals = {k: v for k, v in (d.values or {}).items()
+            if k not in DIRECTION_OWNED_ELSEWHERE}
+    out = DIR.publish(vals)
     running, pids = loop_running()
     notified = TU.notify(pids) if running else []
     return {"ok": True, "rev": out["rev"], "changed": out["changed"],
@@ -572,6 +613,240 @@ def direction_audit(n: int = Query(12, ge=1, le=200)):
 @app.get("/api/tune/audit")
 def tune_audit(n: int = Query(12, ge=1, le=200)):
     return {"entries": TU.audit_tail(n)}
+
+
+
+# ------------------------------------------------------- card detail + evolve
+
+GEN_SCAN = 150          # newest generations searched for lineage; evolves are new
+
+
+def _gens_newest_first(limit=GEN_SCAN):
+    return sorted([d for d in RUNS.glob("gen-*") if d.is_dir()],
+                  key=lambda p: p.name, reverse=True)[:limit]
+
+
+def _variation_rows(key):
+    """Every variations.jsonl row for one key (the axes it was rendered at)."""
+    f = HOME / "variations.jsonl"
+    rows = []
+    if not f.is_file():
+        return rows
+    for ln in f.read_text().splitlines():
+        if f'"{key}"' not in ln:            # cheap prefilter before json.loads
+            continue
+        try:
+            r = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if r.get("key") == key:
+            rows.append(r)
+    return rows
+
+
+def _recover_prompt(key, axes, record):
+    """Rebuild the prompt a grid card was rendered from. Best effort: the prompt
+    itself is never stored, but treatment + concept determine it exactly."""
+    treat = (axes or {}).get("treatment")
+    if not treat:
+        return None, "no treatment recorded for this key"
+    try:
+        import concepts as K
+        import treatments as T
+    except Exception as e:
+        return None, f"unavailable: {e!r}"
+    if treat not in T.TREATMENTS:
+        return None, f"unknown treatment {treat!r}"
+    stem = key
+    m = re.match(r"^(.+)-" + re.escape(treat) + r"-\d+$", key)
+    if m:
+        stem = m.group(1)
+    slot = ((record or {}).get("concept") or {}).get("slot")
+    variant = ((record or {}).get("concept") or {}).get("variant")
+    try:
+        specs = K.as_spec(K.alive(K.load()))
+    except Exception as e:
+        return None, f"concept pool unreadable: {e!r}"
+    for sp in specs:
+        if sp.get("key") == stem:
+            return T.style_for(treat, sp), "rebuilt from treatments.style_for"
+    for sp in specs:
+        c = sp.get("concept") or {}
+        if c.get("slot") == slot and c.get("variant") == variant:
+            return T.style_for(treat, sp), "rebuilt from the concept pool by slot"
+    return None, "concept no longer in the live pool"
+
+
+def _lineage(gen, key, record):
+    """Pragmatic: keys encode descent. A child of K is named `K-e<n>`, and the
+    concept record carries the breeding parent when there was one."""
+    parent = None
+    m = re.match(r"^(.+)-e\d+$", key)
+    if m:
+        pk = m.group(1)
+        parent = {"key": pk, "gen": None, "via": "key suffix -e<n>"}
+        for d in _gens_newest_first():
+            run = _read(d / "run.json", {}) or {}
+            if any(c.get("key") == pk for c in run.get("cards", []) or []):
+                parent["gen"] = d.name
+                break
+    children = []
+    pfx = key + "-e"
+    for d in _gens_newest_first():
+        run = _read(d / "run.json", {}) or {}
+        for c in run.get("cards", []) or []:
+            k = c.get("key") or ""
+            if k.startswith(pfx):
+                children.append({"gen": d.name, "key": k,
+                                 "label": run.get("label", "")})
+    concept_parent = ((record or {}).get("concept") or {}).get("parent")
+    return {"parent": parent, "children": children,
+            "concept_parent": concept_parent,
+            "scanned_generations": len(_gens_newest_first())}
+
+
+@app.get("/api/card/{gen}/{key}")
+def api_card(gen: str, key: str):
+    """Everything known about one card, gathered from the files that hold it."""
+    d = (RUNS / gen).resolve()
+    if RUNS.resolve() not in d.parents or not d.is_dir():
+        raise HTTPException(404, "no such generation")
+    run = _read(d / "run.json", {}) or {}
+    record = next((c for c in run.get("cards", []) or [] if c.get("key") == key), None)
+    if record is None:
+        raise HTTPException(404, f"no card {key} in {gen}")
+    rows = _variation_rows(key)
+    axes = (rows[-1].get("axes") if rows else {}) or {}
+    prompt, prompt_note = _recover_prompt(key, axes, record)
+    vd = (_read(d / "verdicts.json", {}) or {}).get(key) or {}
+    art = d / "art" / f"{key}.png"
+    return {
+        "gen": gen,
+        "key": key,
+        "record": record,
+        "run": {k: v for k, v in run.items() if k != "cards"},
+        "fitness": _gen_scores(d).get(key),
+        "treatment": axes.get("treatment"),
+        "axes": axes,
+        "variations": rows,
+        "prompt": prompt,
+        "prompt_note": prompt_note,
+        "verdict": {**vd, "human": vd.get("critic") not in
+                    (None, "qwen2.5-vl triage", "smoke-test")} if vd else None,
+        "lineage": _lineage(gen, key, record),
+        "art_url": f"/art/{gen}/{key}" if art.is_file() else None,
+        "card_url": f"/img/{gen}/{key}",
+        "has_art": art.is_file(),
+    }
+
+
+@app.get("/art/{gen}/{key}")
+def art(gen: str, key: str):
+    """The bare render, without the composed plate -- what an edit works from."""
+    p = (RUNS / gen / "art" / f"{key}.png").resolve()
+    if RUNS.resolve() not in p.parents or not p.is_file():
+        raise HTTPException(404, "no such art")
+    return FileResponse(p, media_type="image/png")
+
+
+class EvolveIn(BaseModel):
+    gen: str
+    key: str
+    instruction: str
+    n: int = 1
+    steps: int = 28
+    guidance: float = 2.5
+    seed: int | None = None
+
+
+@app.post("/api/evolve")
+def evolve(e: EvolveIn):
+    """Queue a Kontext edit of one card. Returns immediately -- a render is ~12s
+    and an HTTP handler is the wrong place to hold one. blast2 drains the queue
+    between grid batches, so an operator request preempts the background grid."""
+    if not e.instruction.strip():
+        raise HTTPException(400, "instruction must not be empty")
+    if not 1 <= e.n <= 4:
+        raise HTTPException(400, "n must be 1..4")
+    if not 1 <= e.steps <= 60:
+        raise HTTPException(400, "steps must be 1..60")
+    d = (RUNS / e.gen).resolve()
+    if RUNS.resolve() not in d.parents or not d.is_dir():
+        raise HTTPException(404, "no such generation")
+    record, _ = EQ.card_record(e.gen, e.key)
+    if record is None:
+        raise HTTPException(404, f"no card {e.key} in {e.gen}")
+    src, which = EQ.source_art(e.gen, e.key)
+    if src is None:
+        raise HTTPException(404, f"no pixels on disk for {e.gen}/{e.key}")
+    rid = EQ.submit({
+        "kind": "evolve", "gen": e.gen, "key": e.key,
+        "instruction": e.instruction.strip(), "n": e.n, "steps": e.steps,
+        "guidance": e.guidance, "seed": e.seed,
+        "priority": EQ.PRIORITY_OPERATOR, "by": "operator",
+    })
+    depth = EQ.depth()
+    return {"ok": True, "id": rid, "queued": depth["queued"],
+            "running": depth["running"], "source": which,
+            "expected_keys": [f"{e.key}-e{i}" for i in range(1, e.n + 1)],
+            "worker": "blast2.py (drains between batches)",
+            "worker_alive": proc_alive("blast2.py"),
+            "note": "poll /api/evolve/%s" % rid}
+
+
+@app.get("/api/evolve/recent")
+def evolve_recent(n: int = Query(20, ge=1, le=200)):
+    return {"depth": EQ.depth(), "requests": EQ.recent(n),
+            "worker_alive": proc_alive("blast2.py")}
+
+
+@app.get("/api/evolve/{rid}")
+def evolve_status(rid: str):
+    r = EQ.get(rid)
+    if r is None:
+        raise HTTPException(404, "no such request")
+    res = r.get("result") or {}
+    return {**r, "keys": res.get("keys", []), "cards": res.get("cards", []),
+            "worker_alive": proc_alive("blast2.py")}
+
+
+# ------------------------------------------------------------------- the duel
+#
+# Binary forced choice is the whole point: one question, one click, and the only
+# ground truth on this node. Everything here reads a prebuilt index -- no image
+# is opened, no model is loaded -- because a pair that takes a second to arrive
+# is a pair the operator does not judge.
+
+
+class DuelIn(BaseModel):
+    a: str                 # "gen-0001/key"
+    b: str
+    winner: str            # a | b | skip
+
+
+@app.get("/api/duel/next")
+def duel_next():
+    """The next pair to judge. Cached corpus, no rendering."""
+    pair = DU.next_pair()
+    if pair is None:
+        return {"pair": None,
+                "note": "no unjudged pair available (empty pool or every pair "
+                        "in it has already been judged)"}
+    return {"pair": pair, "question": "which is less generic?"}
+
+
+@app.post("/api/duel")
+def duel_post(d: DuelIn):
+    try:
+        return DU.record(d.a, d.b, d.winner)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/duel/standings")
+def duel_standings():
+    """Per-config ratings, per-metric agreement, and the Peak Specimen Library."""
+    return DU.standings()
 
 
 @app.websocket("/ws")
@@ -626,6 +901,11 @@ def index():
                         "<style>#note-taste{display:none !important}</style></head>", 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-store, max-age=0",
                                        "Pragma": "no-cache"})
+
+
+# The duel corpus is ~2000 cards read from disk. Built here in a daemon
+# thread so the first /api/duel/next does not pay for it.
+DU.warm()
 
 
 if __name__ == "__main__":
