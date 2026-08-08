@@ -234,7 +234,13 @@ def _pick_arc(rng, world):
 
 
 def _mood_for(rng, tonal):
-    return rng.choice(MONO_MOODS if tonal else COLOR_MOODS)
+    # Even a tonal medium gets colour sometimes: a tintype can be toned, a
+    # linocut can be printed in two inks. Without this the mono media -- which
+    # carry the heaviest weights because they make the best surfaces -- turn
+    # the whole wall grey.
+    if tonal and rng.random() < 0.7:
+        return rng.choice(MONO_MOODS)
+    return rng.choice(COLOR_MOODS)
 
 
 def new_sequence(rng):
@@ -247,6 +253,7 @@ def new_sequence(rng):
         "medium": name,
         "medium_clause": clause,
         "family": family,
+        "tonal": tonal,
         "world": world,
         "subject": rng.choice(WORLDS[world]),
         "mood": _mood_for(rng, tonal),
@@ -260,10 +267,15 @@ def paired_sequence(rng, seq):
     family, its own mood. The dialogue is two surfaces disagreeing about one
     thing, not two unrelated pictures."""
     others = [m for m in MEDIA if m[3] != seq["family"]]
+    # If the first voice is monochrome, the answering voice brings colour.
+    # Two tonal media on the same subject is not a dialogue, it is an echo.
+    if seq.get("tonal"):
+        coloured = [m for m in others if not m[4]]
+        others = coloured or others
     name, clause, _w, family, tonal = rng.choices(
         others, weights=[m[2] for m in others], k=1)[0]
     other = dict(seq)
-    other.update(medium=name, medium_clause=clause, family=family,
+    other.update(medium=name, medium_clause=clause, family=family, tonal=tonal,
                  mood=_mood_for(rng, tonal))
     return other
 
