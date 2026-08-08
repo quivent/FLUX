@@ -185,10 +185,10 @@ DETAILS = {
     "sleep": ["face turned away", "only a hand visible", "seen from across the room",
               "close enough to see breathing"],
     "figures": ["a dog watching from the edge of the frame", "rain starting to fall",
-                "a cigarette burned down to the filter", "someone else's hand entering frame",
+                "a coat slipping off one shoulder", "someone else's hand entering frame",
                 "a radio playing on a crate", "a broken chair pushed aside"],
-    "hands": ["flour on the sleeve", "a wedding ring set down beside them",
-              "a cut on one knuckle", "steam rising past the wrist",
+    "hands": ["flour on the sleeve", "a ring set down beside them",
+              "ink staining one fingertip", "steam rising past the wrist",
               "a cat's tail crossing the frame"],
     "creatures": ["absolutely still", "caught at full stretch",
                   "head turned away", "half hidden behind something",
@@ -327,7 +327,7 @@ EXPLORE_RATE = 0.15
 # ever one term.
 CHALLENGER_DETAILS = [
     "made tiny beside something so large it leaves the frame",   # scale disparity
-    "one of a crowd of them going back past counting",           # multiplicity
+    "one of many, ranks of them receding out of the frame",      # multiplicity
     "smeared into one long streak while everything stays sharp",  # duration
 ]
 CHALLENGER_MOODS = [
