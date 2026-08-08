@@ -153,6 +153,15 @@
     fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
       + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
       + `<figcaption>${name || url.split('/').pop()}</figcaption></a>`;
+    // An asset can be announced a beat before its thumbnail is renderable, and
+    // a broken-image glyph on the wall is worse than one fewer tile. Retry once,
+    // then drop it silently rather than leave a hole that looks like a failure.
+    const img = fig.querySelector('img');
+    img.onerror = () => {
+      if (img.dataset.retried) { fig.remove(); seen.delete(url); return; }
+      img.dataset.retried = '1';
+      setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 1200);
+    };
     $('grid').prepend(fig);
     if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
     while ($('grid').childElementCount > MAX_CELLS) {

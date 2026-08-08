@@ -35,6 +35,7 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import flux_paths  # noqa: E402
+import drift_language as lang  # noqa: E402
 
 PIPER_SOCKET = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
 NEXUS_ADDR = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")
@@ -342,19 +343,13 @@ def main():
         receipt = nexus_receipt(job_id)
         picks = load_picks(out_dir)
 
-        # Parents: picked genomes first, else the elite pool, else fresh.
-        picked_elites = [g for g in elites if genome_key(g) in picks] or elites
-        batch = []
+        sequence = lang.new_sequence(rng)
+        batch, prev = [], None
         for i in range(live["batch"]):
-            if not picked_elites:
-                batch.append(new_genome(rng, phase))
-            elif len(picked_elites) > 1 and rng.random() < 0.25:
-                batch.append(crossover(rng, *rng.sample(picked_elites, 2)))
-            else:
-                batch.append(mutate(rng, rng.choice(picked_elites), phase, live["mutation_rate"]))
-        # One slot of pure novelty per generation keeps the pool from inbreeding.
-        if rng.random() < 0.2:
-            batch[-1] = new_genome(rng, phase)
+            v = lang.variation(rng, sequence, i, prev)
+            batch.append(v)
+            prev = v
+        print(f"  concept: {lang.describe(sequence)}", flush=True)
 
         pinned = (raw or {}).get("pinned") or {}
         if isinstance(pinned, dict):
@@ -374,7 +369,7 @@ def main():
         for index, genome in enumerate(batch):
             if stopping["now"]:
                 break
-            prompt = render_prompt(genome)
+            prompt = lang.compose(genome)
             seed = rng.randrange(1, 2**31)
             began = time.time()
             image = pipe(
@@ -385,7 +380,7 @@ def main():
                 guidance_scale=live["guidance"],
                 generator=torch.Generator("cuda").manual_seed(seed),
             ).images[0]
-            name = f"drift-{generation:04d}-{index:02d}-{genome_key(genome)}-seed-{seed}.png"
+            name = f"drift-{generation:04d}-{index:02d}-seed-{seed}.png"
             path = out_dir / name
             # Write beside the target then rename: the page watches this
             # directory, and a partial PNG would surface as a broken tile.
@@ -399,22 +394,19 @@ def main():
             row = {
                 "generation": generation, "index": index, "phase": phase,
                 "job_id": job_id, "receipt": receipt, "seed": seed,
-                "genome": genome, "prompt": prompt, "file": name,
-                "novelty": round(novelty(genome, history), 3),
+                "concept": lang.describe(sequence), "genome": genome, "prompt": prompt, "file": name,
+
                 "seconds": round(time.time() - began, 2),
                 "published": published, "ts": time.time(),
             }
             with ledger.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, sort_keys=True) + "\n")
-            print(f"  {name} {row['seconds']}s novelty={row['novelty']} piper={published}", flush=True)
+            print(f"  {name} {row['seconds']}s piper={published}", flush=True)
 
-            history.append(genome)
-            history[:] = history[-40:]
 
-        # Carry the most novel of this generation forward as parents.
-        batch.sort(key=lambda g: novelty(g, history), reverse=True)
-        elites.extend(batch[: max(1, live["batch"] // 2)])
-        elites[:] = elites[-args.elite:]
+
+        # No elites: a sequence is the unit, and carrying survivors forward is
+        # exactly what collapsed the first generator onto one look.
         if live["sleep"]:
             time.sleep(live["sleep"])
 
