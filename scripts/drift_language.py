@@ -115,17 +115,100 @@ PALETTE = [
 ]
 
 
+# The governor's note, and the single biggest lift: signal the physical
+# struggle of the medium over the perfection of the latent space. Without this
+# the output is a clean render OF a woodcut; with it, it is a woodcut.
+IMPERFECTION = [
+    "visible brush bristles dragged through the pigment",
+    "ink bleeding past its intended edge",
+    "fingerprints pressed into the material",
+    "chemical streaks and uneven development at the edges",
+    "a torn edge and a crease across the surface",
+    "misregistered colour, one plate printed a millimetre off",
+    "dust and hair caught in the emulsion",
+    "the ground showing through where the pigment ran thin",
+    "an overworked passage where the surface has gone dull",
+]
+
+# Not every medium survives every framing. Motion blur over a cluttered macro
+# subject is brown soup whatever the model does, and a fine ink wash cannot
+# hold a crowded frame. These are the pairings observed to fail; excluding
+# them is worth more than adding ten more adjectives.
+GRAMMAR_BANS = {
+    "sumi-e ink wash": {"a crowded frame", "reflected in a cracked mirror", "through a rain-streaked window"},
+    "stop-motion puppet, claymation": {"caught mid-movement", "a crowded frame"},
+    "stained glass panel": {"caught mid-movement", "motion blur", "a quiet detail"},
+    "graphite drawing": {"a crowded frame"},
+    "tintype photograph": {"caught mid-movement"},
+    "technical blueprint": {"caught mid-movement", "a crowded frame"},
+}
+
+# Media that reliably produce a strong graphic image get drawn more often. This
+# is curation, not fairness: an even spread over the space spends most of the
+# night in its weak half.
+MEDIA_WEIGHTS = {
+    "sumi-e ink wash": 5, "woodblock print": 4, "stained glass panel": 4,
+    "risograph print": 4, "cel animation": 4, "gouache illustration": 3,
+    "90s anime film still": 3, "collage of torn paper": 3, "watercolour": 3,
+    "tintype photograph": 3, "graphite drawing": 2, "oil painting, impasto": 2,
+    "stop-motion puppet, claymation": 2, "16mm documentary still": 2,
+    "technical blueprint": 1, "airbrushed 70s paperback cover": 1,
+}
+
+
+# A flaw has to belong to its medium: "brush bristles" on a risograph is not
+# imperfection, it is a wrong word. Grouped by how the surface is actually made.
+FLAWS_BY_FAMILY = {
+    "paint": ["visible brush bristles dragged through the pigment",
+              "the ground showing through where the pigment ran thin",
+              "an overworked passage where the surface has gone dull"],
+    "ink": ["ink bleeding past its intended edge",
+            "a stray splatter across the empty space",
+            "the brush running dry at the end of the stroke"],
+    "print": ["misregistered colour, one plate printed a millimetre off",
+              "ink starved in patches, the paper showing through",
+              "a torn edge and a crease across the surface"],
+    "photo": ["chemical streaks and uneven development at the edges",
+              "dust and hair caught in the emulsion",
+              "light leak bleeding in from one corner"],
+    "hand": ["fingerprints pressed into the material",
+             "a seam left visible where two pieces meet",
+             "a thumbprint smudged into a soft edge"],
+}
+MEDIUM_FAMILY = {
+    "cel animation": "paint", "90s anime film still": "paint",
+    "gouache illustration": "paint", "oil painting, impasto": "paint",
+    "watercolour": "ink", "sumi-e ink wash": "ink", "graphite drawing": "ink",
+    "risograph print": "print", "woodblock print": "print",
+    "collage of torn paper": "print", "technical blueprint": "print",
+    "stained glass panel": "hand", "stop-motion puppet, claymation": "hand",
+    "tintype photograph": "photo", "16mm documentary still": "photo",
+    "airbrushed 70s paperback cover": "paint",
+}
+
+
+def pick_flaw(rng, medium):
+    return rng.choice(FLAWS_BY_FAMILY[MEDIUM_FAMILY.get(medium, "paint")])
+
+
+def allowed_grammars(medium):
+    banned = GRAMMAR_BANS.get(medium, set())
+    keep = [g for g in GRAMMARS if not any(b in g for b in banned)]
+    return keep or GRAMMARS
+
+
 def new_sequence(rng):
     """One committed concept. Everything inside a sequence shares it."""
-    medium, clause = rng.choice(MEDIA)
+    medium, clause = rng.choices(MEDIA, weights=[MEDIA_WEIGHTS.get(m, 2) for m, _ in MEDIA], k=1)[0]
     world = rng.choice(list(WORLDS))
     return {
         "medium": medium,
         "medium_clause": clause,
         "world": world,
-        "grammar": rng.choice(GRAMMARS),
+        "grammar": rng.choice(allowed_grammars(medium)),
         "light": rng.choice(LIGHT),
         "palette": rng.choice(PALETTE),
+        "flaw": pick_flaw(rng, medium),
     }
 
 
@@ -146,7 +229,9 @@ def variation(rng, seq, index, previous=None):
     if rng.random() < 0.5:
         v["light"] = rng.choice(LIGHT)
     if index >= 2 and rng.random() < 0.5:
-        v["grammar"] = rng.choice(GRAMMARS)
+        v["grammar"] = rng.choice(allowed_grammars(seq["medium"]))
+    if rng.random() < 0.4:
+        v["flaw"] = pick_flaw(rng, seq["medium"])
     return v
 
 
@@ -156,7 +241,7 @@ def compose(v):
         m=f"{v['medium']}, {v['medium_clause']}",
         l=v["light"],
         p=v["palette"],
-    )
+    ) + f". {v['flaw']}"
 
 
 def describe(seq):
