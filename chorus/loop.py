@@ -33,9 +33,12 @@ import socket
 import sys
 import time
 
+# The suite imports its own language module and the repo's flux_paths,
+# so both this directory and the repo root go on the path.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import flux_paths  # noqa: E402
-import drift_language as lang  # noqa: E402
+import language as lang  # noqa: E402
 
 PIPER_SOCKET = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
 NEXUS_ADDR = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")

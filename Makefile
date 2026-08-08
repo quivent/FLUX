@@ -23,7 +23,7 @@ VENV_PY := $(VENV)/bin/python
 GMAN_FLUX := scripts/gman-flux.sh
 NODE ?= flux-worker
 
-.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
+.PHONY: chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
 
 help:
 	@echo "Targets:"
@@ -49,6 +49,11 @@ help:
 	@echo "  make muse       Print a creative shot board"
 	@echo "  make history    Show render history"
 	@echo "  make clean-output"
+	@echo ""
+	@echo "Chorus — the resident generating suite (chorus/README.md):"
+	@echo "  make chorus          Bring the suite up on NODE"
+	@echo "  make chorus-status   What is running on NODE, and how fast"
+	@echo "  make chorus-stop     Stop generating; leave the gallery served"
 	@echo ""
 	@echo "Remote H100 worker (givemeanode):"
 	@echo "  make node-all        up, sync, bootstrap, model, verify"
@@ -133,6 +138,18 @@ node-stop:
 
 node-all:
 	NODE="$(NODE)" $(GMAN_FLUX) all
+
+# Chorus runs on the node, so every target is a remote command; the suite has
+# no local mode by design -- the pipeline must stay resident next to the GPU.
+chorus:
+	NODE="$(NODE)" $(GMAN_FLUX) sync
+	gman run "$(NODE)" -- bash -lc 'cd ~/FLUX && bash chorus/up.sh'
+
+chorus-status:
+	gman run "$(NODE)" -- bash -lc 'cd ~/FLUX && cat ~/models/flux-output/drift-status.json 2>/dev/null; ls ~/models/flux-output/*.png | wc -l'
+
+chorus-stop:
+	gman run "$(NODE)" -- bash -lc 'kill $$(cat ~/.flux-run/drift.pid) 2>/dev/null; echo stopped'
 
 go-build:
 	go build -o flux ./cmd/flux

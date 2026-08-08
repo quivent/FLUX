@@ -1,6 +1,6 @@
 #!/bin/bash
-# Bring up the node's full stack: piper broker, nexus authority, HTTP server,
-# and the continuous drift loop.
+# Chorus — bring up the whole suite on a node: piper broker, nexus authority,
+# the HTTP server that fans assets to the gallery, and the generating loop.
 #
 # This exists as a FILE rather than an inline command for a specific reason:
 # `pkill -f piper_local` matches the very shell that is about to launch
@@ -61,7 +61,7 @@ sleep 4
 
 if [ "$DRIFT" = "1" ]; then
 	MODEL_DIR="$MODEL_DIR" OUT_DIR="$OUT_DIR" \
-		start_one drift "$VENV/bin/python" scripts/creative_drift.py \
+		start_one drift "$VENV/bin/python" chorus/loop.py \
 			--out-dir "$OUT_DIR" --model-dir "$MODEL_DIR"
 fi
 
