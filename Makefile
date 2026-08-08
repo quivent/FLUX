@@ -20,7 +20,10 @@ TOKEN ?=
 
 VENV_PY := $(VENV)/bin/python
 
-.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output
+GMAN_FLUX := scripts/gman-flux.sh
+NODE ?= flux-worker
+
+.PHONY: help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
 
 help:
 	@echo "Targets:"
@@ -46,6 +49,17 @@ help:
 	@echo "  make muse       Print a creative shot board"
 	@echo "  make history    Show render history"
 	@echo "  make clean-output"
+	@echo ""
+	@echo "Remote H100 worker (givemeanode):"
+	@echo "  make node-all        up, sync, bootstrap, model, verify"
+	@echo "  make node-up         create or wake NODE"
+	@echo "  make node-sync       put the current branch on NODE"
+	@echo "  make node-bootstrap  install CUDA deps on NODE"
+	@echo "  make node-model      pull FLUX.1-dev onto NODE"
+	@echo "  make node-verify     run check_flux.py on NODE"
+	@echo "  make node-render     render PROMPT on NODE"
+	@echo "  make node-serve      serve from NODE at a public URL"
+	@echo "  make node-status     NODE state; make node-stop parks the disk"
 	@echo ""
 	@echo "Variables:"
 	@echo "  MODEL_DIR=$(MODEL_DIR)"
@@ -87,6 +101,38 @@ generate run:
 		--steps $(STEPS) \
 		--guidance $(GUIDANCE) \
 		$(if $(SEED),--seed $(SEED),)
+
+# The remote worker is persistent: node-stop parks the weights and halts
+# billing, and the next target wakes it. Only node-model costs real time.
+node-up:
+	NODE="$(NODE)" $(GMAN_FLUX) up
+
+node-sync:
+	NODE="$(NODE)" $(GMAN_FLUX) sync
+
+node-bootstrap:
+	NODE="$(NODE)" $(GMAN_FLUX) bootstrap
+
+node-model:
+	NODE="$(NODE)" $(GMAN_FLUX) model
+
+node-verify:
+	NODE="$(NODE)" $(GMAN_FLUX) verify
+
+node-render:
+	NODE="$(NODE)" PROMPT="$(PROMPT)" $(GMAN_FLUX) render
+
+node-serve:
+	NODE="$(NODE)" $(GMAN_FLUX) serve
+
+node-status:
+	NODE="$(NODE)" $(GMAN_FLUX) status
+
+node-stop:
+	NODE="$(NODE)" $(GMAN_FLUX) stop
+
+node-all:
+	NODE="$(NODE)" $(GMAN_FLUX) all
 
 go-build:
 	go build -o flux ./cmd/flux

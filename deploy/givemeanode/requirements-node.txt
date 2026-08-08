@@ -1,0 +1,15 @@
+# FLUX dependencies for a givemeanode H100 node.
+#
+# torch and torchvision are deliberately absent: the pytorch-2.13-cuda12.9
+# image already ships them built against cu129, and reinstalling pulls ~3 GB
+# to arrive at the same place. ffmpeg and libgl1 come from that image too.
+#
+# The darwin-only entries in the root requirements.txt (mlx, coremltools,
+# mflux, aneforge) have no CUDA counterpart and are simply not installed here.
+diffusers
+transformers
+accelerate
+sentencepiece
+protobuf
+safetensors
+para-attn
