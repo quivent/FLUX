@@ -131,6 +131,15 @@ WORLDS = {
 # fixed and only the camera moving, siblings converged -- four pomegranates a
 # judge could not tell apart. Narrative beats were the wrong fix for that
 # (unrenderable); a different physical fact in the frame is the right one.
+UNIVERSAL_DETAILS = [
+    "half hidden, most of it out of sight",
+    "reduced to a silhouette against the light",
+    "only a fragment of it inside the frame",
+    "seen through something in the way",
+    "reflected, the thing itself out of frame",
+    "repeated across the frame, many of them",
+]
+
 DETAILS = {
     "figures": ["a dog watching from the edge of the frame", "rain starting to fall",
                 "a cigarette burned down to the filter", "someone else's hand entering frame",
@@ -138,9 +147,9 @@ DETAILS = {
     "hands": ["flour on the sleeve", "a wedding ring set down beside them",
               "a cut on one knuckle", "steam rising past the wrist",
               "a cat's tail crossing the frame"],
-    "creatures": ["absolutely still, not yet moving", "caught at full stretch",
-                  "head turned sharply away from the camera", "half hidden, mostly obscured",
-                  "only its reflection visible, the animal itself out of frame"],
+    "creatures": ["absolutely still", "caught at full stretch",
+                  "head turned away", "half hidden behind something",
+                  "only its reflection visible, itself out of frame"],
     "streets": ["a bicycle propped against the wall", "a dog asleep in the doorway",
                 "a torn poster peeling off brick", "steam venting from a grate",
                 "one shutter half open"],
@@ -151,9 +160,9 @@ DETAILS = {
              "a chipped enamel plate", "salt scattered across the surface"],
     "weather": ["a bicycle blown flat", "an umbrella turned inside out",
                 "birds scattering", "a plastic bag lifted high", "a shutter banging"],
-    "water": ["fully submerged, seen from below", "only a hand above the surface",
-              "mid-air, not yet in the water", "surfacing, mouth open for breath",
-              "gone, only the ring of ripples left"],
+    "water": ["seen from below, through the surface", "only ripples where it was",
+              "frozen mid-motion, spray suspended", "half above and half below the waterline",
+              "seen through rain on glass"],
     "machines": ["oil pooled beneath it", "a spanner left on the housing",
                  "a warning label peeling", "sparks jumping", "a gloved hand steadying it"],
     "botanical": ["crushed flat", "in silhouette against the light",
@@ -275,8 +284,11 @@ def variation(rng, seq, index, previous=None, last=3):
     if (seq["world"] in _DEPTH_PRONE and "far away" in v["framing"]
             and rng.random() < 0.7):
         v["framing"] = rng.choice(FLAT_WIDE)
-    pool = DETAILS.get(seq["world"], [])
-    v["detail"] = pool[index % len(pool)] if pool else ""
+    # A world is not a subject: "water" holds a diver, a koi and rain on glass,
+    # so a detail assuming anatomy is discarded for most of them -- which is how
+    # siblings collapsed back into pairs. Alternate with a universal pool.
+    pool = UNIVERSAL_DETAILS if index % 2 else (DETAILS.get(seq["world"]) or UNIVERSAL_DETAILS)
+    v["detail"] = pool[index % len(pool)]
     return v
 
 
