@@ -356,7 +356,13 @@ def main():
         batch, prev = [], None
         for i in range(live["batch"]):
             voice = sequence if i % 2 == 0 else counter
-            v = lang.variation(rng, voice, i // 2, prev)
+            # The beat is the frame's own position, not the voice's. With
+            # `i // 2` and a batch of four, both voices walked beats 0 and 1
+            # only: the back half of every camera arc had never rendered, and
+            # the two voices at a given index shared a framing AND a detail,
+            # so the dialogue compared two near-identical pictures. Now the
+            # four frames take beats 0-3 between them and every arc completes.
+            v = lang.variation(rng, voice, i, prev)
             batch.append(v)
             prev = v
         print(f"  A: {lang.describe(sequence)}", flush=True)

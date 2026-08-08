@@ -248,10 +248,10 @@ COLOR_MOODS = [
 # Flat, frontal alternatives to the wide shot. The sentinel named "receding
 # perspective corridor" as the dominant motif twice: a wide framing that does
 # not say how the space is organised gets one-point perspective by default.
-FLAT_WIDE = [
-    "far away and flat-on, the space reading as stacked bands not depth",
-    "far away, seen square against a wall with no vanishing point",
-    "small against a large flat field of one colour",
+OFF_AXIS_WIDE = [
+    "far away, the vanishing point pushed hard into one corner",
+    "far away, the far distance visible only down one side of the frame",
+    "small along the bottom edge under one enormous unbroken face of stone",
 ]
 
 CAMERA_ARCS = [
@@ -287,15 +287,69 @@ def _mood_for(rng, tonal):
     # linocut can be printed in two inks. Without this the mono media -- which
     # carry the heaviest weights because they make the best surfaces -- turn
     # the whole wall grey.
+    if rng.random() < CHALLENGER_RATE:
+        return rng.choice(CHALLENGER_MONO if tonal else CHALLENGER_MOODS)
     if tonal and rng.random() < 0.7:
         return rng.choice(MONO_MOODS)
     return rng.choice(COLOR_MOODS)
 
 
+# --------------------------------------------------------------- the anchor
+# The governor's policy, after praise made the output worse: an approval
+# freezes the approved configuration as the gold standard and explores
+# NARROWLY around it. Widening the vocabulary right after approval raised the
+# entropy of the sampling space and pulled every frame back toward the mean --
+# which is why more words produced more sameness.
+#
+# ANCHORED_MEDIA is the set that was on the wall when the operator said "this
+# is beautiful". Everything added since is exploration, and exploration gets a
+# minority of the run, not half of it.
+ANCHORED_MEDIA = {
+    "90s anime film still", "cel animation still", "sumi-e ink wash",
+    "woodblock print", "risograph print", "linocut print", "gouache painting",
+    "watercolour", "oil painting", "charcoal drawing", "tintype photograph",
+    "16mm film still", "stained glass panel", "paper collage",
+}
+# How often a sequence may reach outside the anchored set. Low on purpose:
+# this is a branch off a known peak, not a fresh search.
+EXPLORE_RATE = 0.15
+
+# --------------------------------------------------------------- challengers
+# The awe council's proposals, held as candidates rather than folded into the
+# pools. Adding eight media straight into MEDIA after an approval moved 36% of
+# all draws onto unproven material and halved realised variety; the lesson is
+# that new material shares a fixed exploration budget instead of enlarging the
+# distribution. These are drawn for a minority of frames and must earn their
+# place on the sentinel's scores before promotion.
+#
+# What they are for, per the council: every frame on the wall contains exactly
+# one scale, one distance and one moment. Awe is a ratio, and there was only
+# ever one term.
+CHALLENGER_DETAILS = [
+    "made tiny beside something so large it leaves the frame",   # scale disparity
+    "one of a crowd of them going back past counting",           # multiplicity
+    "smeared into one long streak while everything stays sharp",  # duration
+]
+CHALLENGER_MOODS = [
+    "one hard shaft from far overhead, everything outside it deep shade",
+]
+CHALLENGER_MONO = [
+    "one small mark low on a vast empty sheet",
+]
+CHALLENGER_RATE = 0.15
+
+
+def _draw_medium(rng, pool=None):
+    pool = pool or MEDIA
+    anchored = [m for m in pool if m[0] in ANCHORED_MEDIA]
+    if anchored and rng.random() > EXPLORE_RATE:
+        pool = anchored
+    return rng.choices(pool, weights=[m[2] for m in pool], k=1)[0]
+
+
 def new_sequence(rng):
     """One committed concept: medium, subject, mood, camera arc."""
-    name, clause, _w, family, tonal = rng.choices(
-        MEDIA, weights=[m[2] for m in MEDIA], k=1)[0]
+    name, clause, _w, family, tonal = _draw_medium(rng)
     world = rng.choice(list(WORLDS))
     arc = _pick_arc(rng, world)
     return {
@@ -321,8 +375,7 @@ def paired_sequence(rng, seq):
     if seq.get("tonal"):
         coloured = [m for m in others if not m[4]]
         others = coloured or others
-    name, clause, _w, family, tonal = rng.choices(
-        others, weights=[m[2] for m in others], k=1)[0]
+    name, clause, _w, family, tonal = _draw_medium(rng, others)
     other = dict(seq)
     other.update(medium=name, medium_clause=clause, family=family, tonal=tonal,
                  mood=_mood_for(rng, tonal))
@@ -343,13 +396,16 @@ def variation(rng, seq, index, previous=None, last=3):
     # Swap the depth-inviting wide shot for a flat one in the worlds that
     # collapse into corridors. Half the time, so the arc still has a far end.
     if (seq["world"] in _DEPTH_PRONE and "far away" in v["framing"]
-            and rng.random() < 0.7):
-        v["framing"] = rng.choice(FLAT_WIDE)
+            and rng.random() < 0.6):
+        v["framing"] = rng.choice(OFF_AXIS_WIDE)
     # A world is not a subject: "water" holds a diver, a koi and rain on glass,
     # so a detail assuming anatomy is discarded for most of them -- which is how
     # siblings collapsed back into pairs. Alternate with a universal pool.
-    pool = UNIVERSAL_DETAILS if index % 2 else (DETAILS.get(seq["world"]) or UNIVERSAL_DETAILS)
-    v["detail"] = pool[index % len(pool)]
+    if rng.random() < CHALLENGER_RATE:
+        v["detail"] = rng.choice(CHALLENGER_DETAILS)
+    else:
+        pool = UNIVERSAL_DETAILS if index % 2 else (DETAILS.get(seq["world"]) or UNIVERSAL_DETAILS)
+        v["detail"] = pool[index % len(pool)]
     return v
 
 

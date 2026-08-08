@@ -55,6 +55,25 @@ Version 1. Amend by adding the failure that forced the change.
     operator's first approval, as the guardrail against drifting back into the
     perfect void the first generator lived in.
 
+12. **Approval freezes the distribution, not the work.** After an operator
+    approval, nothing is added to a sampled pool. New material enters only as a
+    challenger drawn for a small fixed share of frames, and earns a place by
+    out-scoring the anchor over repeated appearances. *Failed by:* eight media,
+    four worlds and six moods added within minutes of "This is beautiful",
+    which moved 36% of all draws onto unproven material and halved realised
+    variety while nominal variety rose.
+
+13. **Rare vocabulary renders as the model's default.** A term the model knows
+    thinly contributes almost nothing to the guidance delta, so the image falls
+    back to the mean. Adding obscure media does not add attractors; it adds
+    doors into the same one. Prefer fewer terms the model renders decisively.
+
+14. **Awe is a ratio.** A frame with one scale, one distance and one moment can
+    be beautiful but cannot be overwhelming. Reachable in a short prompt: scale
+    disparity, multiplicity past counting, duration made visible, and one hard
+    shaft of light. Not reachable: the uncanny, narrative across frames, and
+    any adjective standing in for the thing itself.
+
 ## The anchor
 
 `taste-log.jsonl` holds one kind of entry that outranks every other: an

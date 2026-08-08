@@ -35,12 +35,25 @@ GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 
 # Asking for prose gets prose. The judge is pinned to a shape so the verdict is
 # comparable across rounds and can steer the loop without a human reading it.
+def _law_count():
+    """Derive the range from the file. It was hardcoded to 1-10 while LAWS.md
+    had eleven, so the judge could not cite law 11 -- the governor's guardrail
+    against exactly the post-approval regression that then happened."""
+    try:
+        text = (HERE / "LAWS.md").read_text()
+    except OSError:
+        return 10
+    import re
+    nums = [int(m) for m in re.findall(r"^(\d+)\.\s", text, re.M)]
+    return max(nums) if nums else 10
+
+
 SCHEMA = """Reply with ONLY a JSON object, no prose, no markdown fence:
 {"keep":[<frame numbers worth wall space>],
  "cut":[<frame numbers that are not>],
- "laws_broken":[{"law":<1-10>,"frames":[<n>],"why":"<8 words>"}],
+ "laws_broken":[{"law":<1-LAWMAX>,"frames":[<n>],"why":"<8 words>"}],
  "dominant_motif":"<the composition or subject recurring across unrelated frames, or none>",
- "verdict":"<one sentence a curator would say>"}"""
+ "verdict":"<one sentence a curator would say>"}""".replace("LAWMAX", str(_law_count()))
 
 
 def build_sheet(out_dir, sheet, n):
