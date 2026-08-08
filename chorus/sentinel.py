@@ -69,9 +69,13 @@ def ask_governor(sheet, laws, timeout):
             ],
         }],
     }
+    # Cloudflare fronts the governor and refuses urllib's default agent with a
+    # 403, which looks exactly like an auth failure and is not one.
     req = urllib.request.Request(
         GOVERNOR, json.dumps(body).encode(),
-        {"Content-Type": "application/json"}, method="POST")
+        {"Content-Type": "application/json",
+         "Accept": "application/json",
+         "User-Agent": "chorus-sentinel/1 (+flux)"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.load(resp)
