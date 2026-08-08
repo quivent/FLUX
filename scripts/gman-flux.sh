@@ -7,6 +7,7 @@
 # serves the new code without re-downloading 40 GB of weights.
 #
 #   ./scripts/gman-flux.sh up          create or wake the node
+#   ./scripts/gman-flux.sh authorize   give the node read-only access to the repo
 #   ./scripts/gman-flux.sh sync        put this repo's branch on the node
 #   ./scripts/gman-flux.sh bootstrap   install deps, make directories
 #   ./scripts/gman-flux.sh model       pull FLUX.1-dev via the HF connection
@@ -24,7 +25,8 @@ CHIP="${CHIP:-h100}"
 # ffmpeg and libgl1. cuda-13.3's cu130 wheels have thinner ecosystem coverage.
 IMAGE="${IMAGE:-pytorch-2.13-cuda12.9}"
 SCRATCH_GIB="${SCRATCH_GIB:-100}"
-REPO_URL="${REPO_URL:-https://github.com/quivent/FLUX.git}"
+REPO_URL="${REPO_URL:-git@github.com:quivent/FLUX.git}"
+REPO_SLUG="${REPO_SLUG:-quivent/FLUX}"
 BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)}"
 REPO_DIR="${REPO_DIR:-\$HOME/FLUX}"
 HF_CONNECTION="${HF_CONNECTION:-huggingface}"
@@ -43,6 +45,29 @@ cmd_up() {
 	else
 		gman node create --name "$NODE" --chip "$CHIP" --image "$IMAGE" \
 			--scratch-gib "$SCRATCH_GIB" --max-wait 2h --wait -y
+	fi
+}
+
+# FLUX is a private repo, so the node needs its own credential. It generates
+# a keypair and keeps the private half on its encrypted disk -- nothing is
+# copied from the laptop, and the key we register is read-only and scoped to
+# this one repo, so a compromised node cannot write to anything. The node is
+# persistent, so this is a one-time cost that survives stops.
+cmd_authorize() {
+	pubkey=$(gman run "$NODE" -- bash -lc '
+		set -eu
+		[ -f ~/.ssh/id_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -C "gman-'"$NODE"'" -f ~/.ssh/id_ed25519
+		ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+		sort -u -o ~/.ssh/known_hosts ~/.ssh/known_hosts
+		cat ~/.ssh/id_ed25519.pub' | tail -1)
+	echo "node key: $pubkey"
+	if gh repo deploy-key list --repo "$REPO_SLUG" 2>/dev/null | grep -q "gman-$NODE"; then
+		echo "deploy key gman-$NODE already registered"
+	else
+		printf '%s\n' "$pubkey" > "${TMPDIR:-/tmp}/gman-$NODE.pub"
+		gh repo deploy-key add "${TMPDIR:-/tmp}/gman-$NODE.pub" \
+			--repo "$REPO_SLUG" --title "gman-$NODE"
+		rm -f "${TMPDIR:-/tmp}/gman-$NODE.pub"
 	fi
 }
 
@@ -90,10 +115,11 @@ cmd_status() {
 
 cmd_stop() { gman node stop "$NODE" -y; }
 
-cmd_all() { cmd_up; cmd_sync; cmd_bootstrap; cmd_model; cmd_verify; }
+cmd_all() { cmd_up; cmd_authorize; cmd_sync; cmd_bootstrap; cmd_model; cmd_verify; }
 
 case "${1:-}" in
 	up) cmd_up ;;
+	authorize) cmd_authorize ;;
 	sync) cmd_sync ;;
 	bootstrap) cmd_bootstrap ;;
 	model) cmd_model ;;

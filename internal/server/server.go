@@ -249,6 +249,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
+	mux.HandleFunc("/atelier", s.atelierFlux)
+	mux.HandleFunc("/atelier/", s.atelierFlux)
 	mux.HandleFunc("/motion-atlas", s.motionAtlas)
 	mux.HandleFunc("/motion-atlas/", s.motionAtlas)
 	mux.HandleFunc("/atlas-studio", s.atlasStudio)
@@ -426,6 +428,30 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
+}
+
+// atelierFlux serves the node's front page: the live gallery in Atelier's
+// visual language, fed by this same server's asset and job lanes.
+//
+// It is mounted here rather than under the static lane on purpose --
+// ListenAndServeStatic attaches no API, and the page is nothing without
+// /api/assets/ws and /outputs/ coming from the same origin.
+func (s Server) atelierFlux(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/atelier" {
+		http.Redirect(w, r, "/atelier/", http.StatusTemporaryRedirect)
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/atelier/")
+	if name == "" {
+		name = "index.html"
+	}
+	// The page is deliberately a single self-contained file, so an allowlist of
+	// one is the whole surface: anything else is a path we never meant to serve.
+	if name != "index.html" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", name))
 }
 
 func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {

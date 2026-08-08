@@ -1,0 +1,235 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atelier · FLUX</title>
+<!--
+  Atelier · FLUX — the node's front page.
+
+  Format is FLUX's: it speaks only endpoints internal/server/server.go already
+  serves (/api/health, /api/assets/ws with the /api/assets/events SSE fallback,
+  /api/jobs, /api/recent-images, /outputs/). No build step and no dependencies,
+  because it is served straight off the node's disk by the Go server's static
+  lane -- a page that needed npm would not survive a node stop.
+
+  Style is Atelier's, ported from render/ui rather than reinvented: near-black
+  ground, glass panels on 6% hairlines, cyan/violet/magenta accents, oversize
+  letterspaced micro-labels, tabular numerals. Fonts are a system stack, since
+  the node has no CDN reach and a missing webfont would reflow the whole page.
+-->
+<style>
+  :root {
+    --base: #05060a;
+    --panel: rgba(255, 255, 255, 0.024);
+    --hair: rgba(255, 255, 255, 0.07);
+    --ink: #edf0f7;
+    --dim: #8b93a7;
+    --cyan: #3ad4e8;
+    --violet: #9d7bff;
+    --magenta: #ff5fa2;
+    --ok: #3ddc97;
+    --warn: #ffc46e;
+    --bad: #ff6470;
+    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 620px at 12% -12%, rgba(157, 123, 255, 0.11), transparent 62%),
+      radial-gradient(900px 520px at 108% 8%, rgba(58, 212, 232, 0.09), transparent 58%),
+      var(--base);
+    color: var(--ink);
+    font-family: var(--display);
+    -webkit-font-smoothing: antialiased;
+  }
+  .label { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+  .num { font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; }
+
+  header {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 18px 24px; border-bottom: 1px solid var(--hair);
+    position: sticky; top: 0; z-index: 5;
+    backdrop-filter: blur(14px); background: rgba(5, 6, 10, 0.82);
+  }
+  .word { font-size: 13px; letter-spacing: 0.44em; text-transform: uppercase; }
+  .word b { font-weight: 600; background: linear-gradient(96deg, var(--cyan), var(--violet) 52%, var(--magenta));
+            -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 12px currentColor; }
+  .dot.live { background: var(--ok); color: var(--ok); animation: breathe 2.4s ease-in-out infinite; }
+  .dot.down { background: var(--bad); color: var(--bad); }
+  @keyframes breathe { 50% { opacity: 0.35; } }
+
+  main { padding: 22px 24px 64px; max-width: 1500px; margin: 0 auto; }
+  .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); margin-bottom: 22px; }
+  .stat { padding: 14px 16px; }
+  .stat .v { font-size: 28px; font-weight: 300; letter-spacing: -0.035em; margin-top: 6px; }
+
+  .bar { display: flex; align-items: baseline; gap: 14px; margin: 26px 0 12px; }
+  .rule { flex: 1; height: 1px; background: var(--hair); }
+
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+  .cell {
+    position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--hair);
+    background: #0a0c13; aspect-ratio: 1; display: block;
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(9px) scale(0.985); } }
+  .cell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+  .cell:hover img { transform: scale(1.045); }
+  .cell figcaption {
+    position: absolute; inset: auto 0 0 0; padding: 20px 10px 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.86));
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cell.fresh { border-color: rgba(58, 212, 232, 0.55); box-shadow: 0 0 0 1px rgba(58, 212, 232, 0.2), 0 0 34px rgba(58, 212, 232, 0.14); }
+
+  .feed { max-height: 262px; overflow: auto; padding: 10px 12px; font-family: var(--mono); font-size: 11px; }
+  .feed div { display: flex; gap: 10px; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.035); }
+  .feed .t { color: var(--dim); }
+  .feed .k { color: var(--cyan); }
+
+  .empty { padding: 44px; text-align: center; color: var(--dim); font-size: 13px;
+           border: 1px dashed var(--hair); border-radius: 12px; }
+  a { color: inherit; text-decoration: none; }
+</style>
+
+<header>
+  <div class="word">ATELIER <b>FLUX</b></div>
+  <span class="dot" id="dot"></span>
+  <span class="label" id="health">connecting</span>
+  <span class="label" id="host" style="margin-left:auto"></span>
+</header>
+
+<main>
+  <section class="stats">
+    <div class="panel stat"><div class="label">Assets</div><div class="v num" id="s-assets">0</div></div>
+    <div class="panel stat"><div class="label">Streamed live</div><div class="v num" id="s-live">0</div></div>
+    <div class="panel stat"><div class="label">Jobs running</div><div class="v num" id="s-run">0</div></div>
+    <div class="panel stat"><div class="label">Jobs queued</div><div class="v num" id="s-queue">0</div></div>
+    <div class="panel stat"><div class="label">Transport</div><div class="v" id="s-wire" style="font-size:15px">—</div></div>
+  </section>
+
+  <div class="bar"><span class="label">Live gallery</span><span class="rule"></span><span class="label num" id="s-shown">0 shown</span></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">No renders yet. Assets appear here the moment the worker publishes them.</div>
+
+  <div class="bar"><span class="label">Asset feed</span><span class="rule"></span></div>
+  <div class="panel feed" id="feed"></div>
+</main>
+
+<script>
+  // Bounded so a long-running node cannot grow the DOM without limit; the
+  // gallery is a live window, not an archive (that is /outputs/).
+  const MAX_CELLS = 96, MAX_FEED = 140;
+  const $ = (id) => document.getElementById(id);
+  const seen = new Set();
+  let live = 0;
+
+  document.getElementById('host').textContent = location.host;
+
+  function log(kind, text) {
+    const row = document.createElement('div');
+    row.innerHTML = `<span class="t">${new Date().toTimeString().slice(0, 8)}</span>`
+      + `<span class="k">${kind}</span><span>${text}</span>`;
+    $('feed').prepend(row);
+    while ($('feed').childElementCount > MAX_FEED) $('feed').lastElementChild.remove();
+  }
+
+  function addCell(url, name, fresh) {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    const fig = document.createElement('figure');
+    fig.className = 'cell' + (fresh ? ' fresh' : '');
+    fig.style.margin = '0';
+    fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
+      + `<img loading="lazy" src="${url}" alt="">`
+      + `<figcaption>${name || url.split('/').pop()}</figcaption></a>`;
+    $('grid').prepend(fig);
+    if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
+    while ($('grid').childElementCount > MAX_CELLS) {
+      seen.delete($('grid').lastElementChild.querySelector('a')?.getAttribute('href'));
+      $('grid').lastElementChild.remove();
+    }
+    $('empty').style.display = 'none';
+    $('s-assets').textContent = seen.size;
+    $('s-shown').textContent = $('grid').childElementCount + ' shown';
+  }
+
+  async function poll(path) {
+    const r = await fetch(path, { cache: 'no-store' });
+    if (!r.ok) throw new Error(path + ' -> ' + r.status);
+    return r.json();
+  }
+
+  async function health() {
+    try {
+      await poll('/api/health');
+      $('dot').className = 'dot live';
+      $('health').textContent = 'worker online';
+    } catch {
+      $('dot').className = 'dot down';
+      $('health').textContent = 'worker unreachable';
+    }
+  }
+
+  async function jobs() {
+    try {
+      const j = await poll('/api/jobs');
+      const rows = j.jobs || j.items || [];
+      const st = (x) => String(x.status || x.state || '').toLowerCase();
+      $('s-run').textContent = rows.filter((x) => ['running', 'active'].includes(st(x))).length;
+      $('s-queue').textContent = rows.filter((x) => ['queued', 'pending', 'waiting'].includes(st(x))).length;
+    } catch { /* the jobs lane is optional; the gallery still stands without it */ }
+  }
+
+  async function backfill() {
+    try {
+      const j = await poll('/api/recent-images?limit=' + MAX_CELLS);
+      (j.images || []).reverse().forEach((im) => addCell(im.url, im.name, false));
+      log('backfill', (j.images || []).length + ' existing renders');
+    } catch (e) { log('backfill', 'none available'); }
+  }
+
+  // The WebSocket is the branch's asset lane; SSE is the fallback that shipped
+  // before it. Falling back rather than failing keeps this page working
+  // against an older server binary on the same node.
+  function stream() {
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/assets/ws');
+    let opened = false;
+    ws.onopen = () => { opened = true; $('s-wire').textContent = 'websocket'; log('wire', 'asset websocket open'); };
+    ws.onmessage = (m) => onAsset(m.data);
+    ws.onclose = () => {
+      $('s-wire').textContent = opened ? 'reconnecting' : 'sse';
+      opened ? setTimeout(stream, 2000) : sse();
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  function sse() {
+    const es = new EventSource('/api/assets/events');
+    es.onopen = () => { $('s-wire').textContent = 'sse'; log('wire', 'asset SSE open'); };
+    es.onmessage = (m) => onAsset(m.data);
+    es.onerror = () => { $('s-wire').textContent = 'sse retry'; };
+  }
+
+  function onAsset(raw) {
+    let ev;
+    try { ev = JSON.parse(raw); } catch { return; }
+    if (ev.event && ev.event !== 'ASSET_READY') return;
+    const asset = ev.asset || ev;
+    const url = asset.access_url || asset.url;
+    if (!url) return;
+    live += 1;
+    $('s-live').textContent = live;
+    addCell(url, asset.name, true);
+    log('asset', asset.name || url.split('/').pop());
+  }
+
+  health(); jobs(); backfill(); stream();
+  setInterval(health, 15000);
+  setInterval(jobs, 5000);
+</script>
