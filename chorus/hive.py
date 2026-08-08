@@ -33,15 +33,30 @@ negotiating with it.
 import argparse
 import json
 import math
+import os
 import pathlib
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
+# A second engine on its own H100. The governor serves one request at a time
+# with speculative decoding, so parallel seats starved each other into 524s;
+# splitting them across engines is what lets the panel widen at all.
+ENGINES = [e for e in (GOVERNOR, os.environ.get("CHORUS_SECOND_ENGINE", "")) if e]
 
-EPS_MAX = 0.15        # ceiling on unproven material, as a share of frames
+# The slope of growth is not a constant. Exploration starts low and ratchets
+# up while the wall holds its level, so the loop earns the right to change
+# faster; any regression collapses it to zero in one cycle. Growth that is
+# working accelerates, growth that is not stops -- which is the only safe way
+# to raise a rate on a system whose failures are invisible for ten minutes.
+EPS_FLOOR = 0.10      # exploration when freshly recovered from a regression
+EPS_CEIL = 0.34       # never past a third of frames; the wall stays mostly proven
+EPS_STEP = 0.03       # earned per consecutive healthy cycle
+STREAK_FOR_DOUBLE = 4  # healthy cycles before two promotions may land at once
+EPS_MAX = EPS_CEIL    # ceiling on unproven material, as a share of frames
 MIN_TRIALS = 12       # appearances before a challenger can be judged
 MAX_PROMOTIONS = 1    # per cycle; a wall changes slowly or it is not a wall
 MAX_TRIALING = 6      # candidates alive at once, so each gets real exposure
@@ -86,7 +101,7 @@ def save(path, payload):
     pathlib.Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def ask_seat(seat, sheet_url, timeout=200):
+def ask_seat(seat, sheet_url, timeout=200, engine=None):
     """One short question to one seat. Short because the gateway times out on
     long prompts against a 31B with speculative decoding, and a 524 here would
     silently stall the whole cycle."""
@@ -102,7 +117,7 @@ def ask_seat(seat, sheet_url, timeout=200):
     body = {"model": "governor", "max_tokens": 200,
             "messages": [{"role": "user", "content": content}]}
     req = urllib.request.Request(
-        GOVERNOR, json.dumps(body).encode(),
+        engine or GOVERNOR, json.dumps(body).encode(),
         {"Content-Type": "application/json", "User-Agent": "chorus-hive/1"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -143,7 +158,7 @@ def credit(state, picks):
     return state
 
 
-def settle(state, log):
+def settle(state, log, max_promotions=MAX_PROMOTIONS):
     """Promote what beats the anchor, retire what clearly does not, leave the
     undecided on trial. Indecision is not promotion."""
     baseline = state.get("baseline")
@@ -156,7 +171,7 @@ def settle(state, log):
             continue
         lo = wilson_lower(c["keeps"], c["appearances"])
         hi = 1 - wilson_lower(c["appearances"] - c["keeps"], c["appearances"])
-        if lo > baseline and promoted < MAX_PROMOTIONS:
+        if lo > baseline and promoted < max_promotions:
             c["state"] = "promoted"
             promoted += 1
             log(f"PROMOTED {c['kind']}: {c['phrase']!r} ({c['keeps']}/{c['appearances']}, "
@@ -175,7 +190,8 @@ def cycle(args, log):
 
     if picks:
         state = credit(state, picks)
-        state = settle(state, log)
+        allowed = 2 if int(state.get("streak") or 0) >= STREAK_FOR_DOUBLE else MAX_PROMOTIONS
+        state = settle(state, log, allowed)
 
     # A regression against the anchor stops exploration entirely rather than
     # negotiating with it: the moment of approval is a local maximum, so every
@@ -193,24 +209,47 @@ def cycle(args, log):
                         len(row.get("verdict", {}).get("cut") or [])
         if row.get("judged") and row.get("hit_rate") is not None and judged_frames >= MIN_JUDGED:
             verdicts.append(row["hit_rate"])
+    streak = int(state.get("streak") or 0)
     if len(verdicts) >= 2 and verdicts[-1] < max(verdicts[:-1]) - 0.15:
         state["eps"] = 0.0
-        log(f"REGRESSION {verdicts[-1]:.2f} against {max(verdicts[:-1]):.2f}: exploration halted")
+        state["streak"] = 0
+        log(f"REGRESSION {verdicts[-1]:.2f} against {max(verdicts[:-1]):.2f}: "
+            f"exploration halted, streak reset")
+    elif verdicts:
+        # A cycle counts as healthy when the newest score holds against the best
+        # of the recent past. Holding is enough; it need not improve every time,
+        # or noise alone would keep resetting the ratchet.
+        healthy = len(verdicts) < 2 or verdicts[-1] >= max(verdicts[:-1]) - 0.05
+        streak = streak + 1 if healthy else 0
+        state["streak"] = streak
+        state["eps"] = min(EPS_CEIL, EPS_FLOOR + streak * EPS_STEP)
+        log(f"streak {streak} -> eps {state['eps']:.2f}"
+            f" (hit {verdicts[-1]:.2f}, best {max(verdicts):.2f})")
     else:
-        state["eps"] = EPS_MAX
+        state["eps"] = EPS_FLOOR
 
     trialing = [c for c in state["challengers"] if c["state"] == "trial"]
     if len(trialing) < MAX_TRIALING and state["eps"] > 0:
-        seat = sorted(SEATS)[int(time.time() // 3600) % len(SEATS)]
         sheet_url = f"{args.public_base.rstrip('/')}/outputs/_sheets/contact.jpg" if args.public_base else ""
-        proposal, error = ask_seat(seat, sheet_url)
-        if proposal:
-            proposal.update(state="trial", keeps=0, appearances=0, frames=[],
-                            proposed_at=time.time())
-            state["challengers"].append(proposal)
-            log(f"proposed [{seat}] {proposal['phrase']!r} -- {proposal['why']}")
-        else:
-            log(f"no proposal this cycle ({error})")
+        order = sorted(SEATS)
+        start = int(time.time() // 3600) % len(order)
+        # One seat per engine, in parallel. With a single engine this is the
+        # old behaviour exactly; with two the panel widens without waiting.
+        chosen = [order[(start + i) % len(order)] for i in range(min(len(ENGINES), MAX_TRIALING - len(trialing)))]
+        results = []
+        with ThreadPoolExecutor(max_workers=max(len(chosen), 1)) as pool:
+            futures = {pool.submit(ask_seat, seat, sheet_url, 200, ENGINES[i]): seat
+                       for i, seat in enumerate(chosen)}
+            for fut in as_completed(futures):
+                results.append(fut.result())
+        for proposal, error in results:
+            if proposal:
+                proposal.update(state="trial", keeps=0, appearances=0, frames=[],
+                                proposed_at=time.time())
+                state["challengers"].append(proposal)
+                log(f"proposed [{proposal['seat']}] {proposal['phrase']!r} -- {proposal['why']}")
+            else:
+                log(f"no proposal ({error})")
 
     save(state_path, state)
     active = [c["phrase"] for c in state["challengers"] if c["state"] in ("trial", "promoted")]

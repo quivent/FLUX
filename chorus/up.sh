@@ -63,7 +63,7 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in sentinel drift serve nexus piper; do stop_one "$svc"; done
+for svc in hive sentinel drift serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -88,12 +88,21 @@ if [ "${SENTINEL:-1}" = "1" ]; then
 	start_one sentinel "$VENV/bin/python" chorus/sentinel.py --out-dir "$OUT_DIR" --interval 600
 fi
 
+# The hive proposes, trials and promotes language changes on evidence. It runs
+# on a slower clock than the sentinel: judgement is cheap, changing the
+# language is not.
+if [ "${HIVE:-1}" = "1" ]; then
+	CHORUS_SECOND_ENGINE="${CHORUS_SECOND_ENGINE:-}" \
+		start_one hive "$VENV/bin/python" chorus/hive.py \
+			--out-dir "$OUT_DIR" --public-base "${CHORUS_PUBLIC_BASE:-}" --interval 1800
+fi
+
 sleep 2
 echo "--- health ---"
 curl -sS -o /dev/null -w 'atelier %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/atelier/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve drift sentinel; do
+for svc in piper nexus serve drift sentinel hive; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
