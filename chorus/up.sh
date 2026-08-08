@@ -115,6 +115,10 @@ for svc in piper nexus serve drift sentinel hive r2sync; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
+	elif pgrep -f "chorus/$svc.py" >/dev/null 2>&1; then
+		# Started outside this script, so there is no pid file. Reporting DOWN
+		# for a running service invites someone to start a second copy.
+		printf '%-8s up   (external)\n' "$svc"
 	else
 		printf '%-8s DOWN\n' "$svc"
 	fi

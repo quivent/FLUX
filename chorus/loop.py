@@ -481,18 +481,23 @@ def main():
 
         # No elites: a sequence is the unit, and carrying survivors forward is
         # exactly what collapsed the first generator onto one look.
-        # Regenerate the contact sheet every generation. Judging a change by
-        # the newest frame is how six rounds of "this is better" got shipped
-        # against a wall that was not better; an even sample across the whole
-        # run has to exist by default, not on request.
-        try:
-            subprocess.run(
-                [sys.executable, str(pathlib.Path(__file__).parent / "contact.py"),
-                 "--dir", str(out_dir), "--out", str(out_dir / "_sheets" / "contact.jpg"), "--n", "16"],
-                check=False, capture_output=True, timeout=120,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+        # A sheet has to exist by default rather than on request -- judging a
+        # change by the newest frame is how six rounds of "this is better"
+        # shipped against a wall that was not. But rebuilding it every
+        # generation cost thirteen seconds of a thirty-four second cycle once
+        # the archive was restored, because it globbed and sorted every frame
+        # ever made. Every third generation, over the recent window only, is
+        # still fresher than the judge's ten minute clock.
+        if generation % 3 == 0:
+            try:
+                subprocess.run(
+                    [sys.executable, str(pathlib.Path(__file__).parent / "contact.py"),
+                     "--dir", str(out_dir), "--out", str(out_dir / "_sheets" / "contact.jpg"),
+                     "--n", "16", "--recent", "80"],
+                    check=False, capture_output=True, timeout=120,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
 
         if live["sleep"]:
             time.sleep(live["sleep"])
