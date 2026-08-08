@@ -2088,6 +2088,7 @@ func serve(cfg config.Config, args []string) error {
 	token := fs.String("token", "", "HTTP bearer token")
 	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
+	publicReadOnly := fs.Bool("public-read-only", false, "serve only the gallery and safe GETs; refuse everything else")
 	open := fs.Bool("open", false, "open the dashboard in the default browser")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -2107,13 +2108,16 @@ func serve(cfg config.Config, args []string) error {
 	ui.KV("api", "/api/health /api/jobs /api/render /api/warm /api/stop")
 	ui.KV("worker", "starts on first render or POST /api/warm")
 	ui.KV("model", cfg.ModelDir)
+	if *publicReadOnly {
+		ui.KV("public", "read-only: /atelier /outputs /api/health /api/recent-images /api/assets /api/jobs")
+	}
 	ui.KV("client", fmt.Sprintf("flux remote status --url http://%s", *addr))
 	if *open {
 		server.OpenBrowser("http://" + *addr)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken})
+	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken, PublicReadOnly: *publicReadOnly})
 }
 
 func serveOscillihue(cfg config.Config, args []string) error {

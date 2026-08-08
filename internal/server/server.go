@@ -39,6 +39,11 @@ import (
 type Options struct {
 	Addr  string
 	Token string
+	// PublicReadOnly serves the gallery to the open internet: safe GETs on an
+	// allowlist, everything else refused. Set it whenever the listener is
+	// reachable without a token, which is the only way a browser can open the
+	// page at all.
+	PublicReadOnly bool
 }
 
 type Server struct {
@@ -317,7 +322,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
-		Handler:           withAuth(withLocalHeaders(mux), opt.Token),
+		Handler:           withAuth(withReadOnly(withLocalHeaders(mux), opt.PublicReadOnly), opt.Token),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -338,6 +343,57 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 		}
 		return err
 	}
+}
+
+// readOnlyPaths are the only things a public listener answers. An allowlist
+// rather than a blocklist of mutating verbs: a GET can still be expensive or
+// revealing (/api/warm loads the model, the governor proxies bill someone
+// else's key), and a blocklist silently opens every route added later.
+//
+// Prefixes, matched against the cleaned path.
+var readOnlyPaths = []string{
+	"/atelier",
+	"/outputs/",
+	"/api/health",
+	"/api/recent-images",
+	"/api/assets/events",
+	"/api/assets/ws",
+	"/api/jobs",
+}
+
+func readOnlyAllowed(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	// /api/jobs is a listing, but /api/jobs/<id>/cancel would not be; only the
+	// exact listing path and the websocket beneath it are safe.
+	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/jobs") && path != "/api/jobs" && path != "/api/jobs/ws" {
+		return false
+	}
+	for _, p := range readOnlyPaths {
+		if path == p || strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return path == "/" || path == "/favicon.ico"
+}
+
+// withReadOnly refuses anything outside the gallery when the listener is
+// public. It sits inside withAuth so a token-bearing operator is unaffected
+// only when no public flag is set -- the flag is the deliberate choice to
+// serve strangers, so it applies to every request on that listener.
+func withReadOnly(next http.Handler, enabled bool) http.Handler {
+	if !enabled {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !readOnlyAllowed(r) {
+			writeError(w, http.StatusForbidden, "this listener is public and read-only")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func withAuth(next http.Handler, token string) http.Handler {
