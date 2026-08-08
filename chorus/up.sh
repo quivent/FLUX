@@ -61,7 +61,7 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in drift serve nexus piper; do stop_one "$svc"; done
+for svc in sentinel drift serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -80,12 +80,18 @@ if [ "$DRIFT" = "1" ]; then
 			--out-dir "$OUT_DIR" --model-dir "$MODEL_DIR"
 fi
 
+# The gate runs beside the loop, not on request. An unjudged run is the
+# failure mode this whole suite was rebuilt to escape.
+if [ "${SENTINEL:-1}" = "1" ]; then
+	start_one sentinel "$VENV/bin/python" chorus/sentinel.py --out-dir "$OUT_DIR" --interval 600
+fi
+
 sleep 2
 echo "--- health ---"
 curl -sS -o /dev/null -w 'atelier %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/atelier/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve drift; do
+for svc in piper nexus serve drift sentinel; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
