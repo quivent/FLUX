@@ -1,428 +1,257 @@
 #!/usr/bin/env python3
-"""drift_language — the part that decides what to make.
+"""drift_language, third rewrite — the short-prompt version.
 
-Split out of creative_drift because the first generator's failure was entirely
-here: one template, one aesthetic, mutation that restyled but never reinvented.
-Twenty images in, every frame was a solitary structure centred in a cold empty
-landscape. The model was never the problem.
+The second generator failed by addition. Every prompt carried a medium, an
+abstract emotional charge, a narrative beat, a framing, a posture, a light
+recipe, a palette recipe and a surface flaw — sixty to eighty words of
+competing instructions. FLUX satisfied none of them strongly and averaged
+toward murk: the wall filled with underlit brown-grey pictures. The two best
+frames of the night came from the two shortest prompts.
 
-Three things changed.
+Three rules now.
 
-FRAMING IS A VARIABLE. There is no single template. A grammar decides whether
-you are two inches from a face or a mile above a city, and it reorders the
-whole sentence. Composition cannot vary while one slot order is compulsory.
+ONE SENTENCE OF SUBJECT. The subject phrase carries the story and the feeling
+as concrete visible fact — "a street musician playing trumpet to nobody in
+the rain" needs no charge, no beat, no posture caption. If the emotion is not
+in what the camera can see, it is not in the prompt.
 
-MEDIUM IS A VARIABLE. Cel animation, ink wash, gouache, tintype, claymation --
-each carries its own light, edge quality and palette logic, written into the
-style itself rather than bolted on. This is the axis that moves an image
-furthest for the fewest words.
+ONE MOOD, NOT THREE RECIPES. Light + palette + flaw collapsed into a single
+fused clause, and the pool spans bright, airy and colourful as well as dark.
+The old LIGHT list was eight flavours of chiaroscuro and the old PALETTE six
+flavours of grey; together they guaranteed a gallery of gloom.
 
-A SEQUENCE IS A UNIT. Each sequence commits to one concept -- medium, world,
-grammar, palette -- and renders variations inside it. Consecutive images are
-siblings; consecutive sequences are strangers. The old loop inverted this:
-it mutated forever and so never went anywhere.
+THE STORY IS A CAMERA MOVE. Four beats of narrative caption ("the mistake",
+"the room afterwards, emptied") are unrenderable; four steps of camera are
+not. A sequence walks one arc — approach, retreat, orbit, descend — and the
+delta between siblings is visible without being explained.
 
-There is no "cinematic, highly detailed" here. It is the slop suffix that makes
-every model's output converge, and dropping it is most of the battle.
+Total budget: 30–40 words. Every word is something a camera could verify.
 """
 import random
 
 # ---------------------------------------------------------------- media
-# Each entry is a whole rendering language, not an adjective. The trailing
-# clause does the work a generic quality tag pretends to.
+# (name, surface clause, weight, family, tonal)
+# The clause is the medium's physicality — flaw and surface folded in, kept
+# under a dozen words. Weights follow what actually looked good on the wall:
+# the anime still and the ink wash carried the night; oil went to mud.
 MEDIA = [
-    ("cel animation", "flat cel shading, confident ink outlines, limited palette, painted background"),
-    ("90s anime film still", "hand-painted backgrounds, soft film grain, warm analogue colour"),
-    ("gouache illustration", "opaque matte pigment, visible brush edges, paper tooth"),
-    ("sumi-e ink wash", "wet black ink bleeding into raw absorbent washi fibre, variable density following the grain, enormous empty space, one decisive stroke"),
-    ("oil painting, impasto", "thick loaded brushwork, palette-knife ridges, glazed shadows"),
-    ("risograph print", "two-colour misregistration, halftone dots, ink sitting on top of coarse newsprint and granulating into the low fibre"),
-    ("stained glass panel", "leaded black cames, saturated transmitted light, flat jewel colour"),
-    ("woodblock print", "carved flat planes, overlapping ink boundaries on hand-pressed mulberry paper, ink lying on the surface as a raised skin that skips the high tooth"),
-    ("stop-motion puppet, claymation", "fingerprints in the clay, shallow macro focus, tiny practical lights"),
-    ("graphite drawing", "soft pencil shading, smudged tone, white paper showing through"),
-    ("watercolour", "blooming wet edges, pigment granulating into the tooth, every highlight left as untouched paper"),
-    ("tintype photograph", "wet plate collodion, silver halation, shallow field, chemical edge flaws"),
-    ("16mm documentary still", "grainy reversal stock, halated highlights, handheld framing"),
-    ("collage of torn paper", "layered cut edges, mixed printed textures, visible glue"),
+    ("90s anime film still", "hand-painted background, soft film grain, warm analogue colour", 5, "screen", False),
+    ("cel animation still", "flat colour, confident ink outlines, painted background", 4, "screen", False),
+    ("sumi-e ink wash", "wet black ink blooming into absorbent paper, one decisive stroke, vast empty space", 5, "ink", True),
+    ("woodblock print", "carved flat colour planes, bold outlines, visible paper grain", 4, "print", False),
+    ("risograph print", "two inks slightly misregistered, coarse halftone, flat graphic shapes", 4, "print", False),
+    ("linocut print", "bold white lines gouged through solid black ink", 3, "print", True),
+    ("gouache painting", "opaque matte pigment, ragged brush edges, simplified shapes", 3, "paint", False),
+    ("watercolour", "wet blooming edges, granulating pigment, highlights left as bare paper", 3, "paint", False),
+    ("oil painting", "thick impasto strokes, palette-knife ridges, wet-into-wet colour", 2, "paint", False),
+    ("charcoal drawing", "rough black strokes, smudged tone, paper showing through", 2, "ink", True),
+    ("tintype photograph", "silver halation, shallow focus, hand-poured chemical edges", 3, "photo", True),
+    ("16mm film still", "grainy colour reversal stock, halated highlights, handheld framing", 2, "photo", False),
+    ("stained glass panel", "black leading, saturated transmitted light, flat jewel colour", 3, "craft", False),
+    ("paper collage", "torn coloured paper layers, hard cut edges, visible overlaps", 2, "craft", False),
 ]
 
-# ---------------------------------------------------------------- worlds
-# Deliberately not "a lonely structure in a landscape". Faces, hands, crowds,
-# food, cloth, weather -- the categories the first pass had no words for.
+# ---------------------------------------------------------------- subjects
+# Each subject is a complete miniature scene: an action plus one telling
+# detail. This line does the work CHARGES, ARCS and POSTURE_ARCS used to
+# fail at, because it is made of things that show up in pixels.
 WORLDS = {
-    "faces": ["an old fisherman", "a girl mid-laugh", "a tired surgeon", "twin sisters",
-              "a street musician", "a boy with a chipped tooth", "a woman with grey braids"],
-    "hands": ["hands kneading dough", "hands tying a fishing fly", "hands folding paper",
-              "a hand catching rain", "hands passing a cup", "a potter's hands on the wheel"],
-    "creatures": ["a heron mid-strike", "a sleeping fox", "a horse shaking off water",
-                  "a moth on a windowpane", "an octopus changing colour", "a pack of dogs running"],
-    "crowds": ["a night market", "a crowded tram at rush hour", "a wedding procession",
-               "a fish auction", "swimmers at a public pool", "a protest in the rain"],
-    "interiors": ["a barber's shop at closing", "a cluttered watchmaker's bench",
-                  "a laundromat at 2am", "a grandmother's kitchen", "a hotel corridor",
-                  "a library reading room"],
-    "food": ["a split pomegranate", "noodles lifted from broth", "a burnt loaf",
-             "oysters on ice", "a melting ice cream", "peppers drying on a string"],
-    "textiles": ["a wind-filled sheet on a line", "a frayed silk kimono",
-                 "woven baskets stacked", "a knitted sweater unravelling", "embroidered cuffs"],
-    "weather": ["a dust storm arriving", "the first snow on a city street",
-                "heat shimmer over asphalt", "fog rolling through a valley",
-                "a squall over harbour water"],
-    "machines": ["a printing press mid-run", "a bicycle drivetrain", "a loom in motion",
-                 "an engine block on a bench", "a pinball machine's underside"],
-    "botanical": ["a fig cut open", "seed heads gone to fluff", "roots in a glass jar",
-                  "moss on a north wall", "a flowering cactus"],
-    "water": ["a diver breaking the surface", "koi under lily pads", "a canal lock filling",
-              "rain on a car windscreen", "waves against a breakwater"],
-    "ritual": ["a tea ceremony", "candles floated on a river", "bread broken at a table",
-               "a barber's straight razor", "a boat being blessed"],
+    "figures": [
+        "an old fisherman coiling rope on a dock, cigarette clamped in his teeth",
+        "a girl laughing so hard she has to grip the table",
+        "a barber sweeping hair across the floor of his empty shop",
+        "a night-shift nurse asleep upright on the last bus",
+        "a street musician playing trumpet to nobody in the rain",
+        "a woman with grey braids shelling peas into a steel bowl",
+    ],
+    "hands": [
+        "flour-dusted hands folding dough over itself",
+        "a potter's hands closing around wet clay on the wheel",
+        "hands striking a match, cupped against the wind",
+        "hands threading a needle by lamplight",
+        "a child's hands releasing a paper boat onto dark water",
+    ],
+    "creatures": [
+        "a heron frozen mid-strike over dark water",
+        "a fox asleep in a patch of sun",
+        "a horse shaking off water in a bright spray",
+        "a moth resting on a lit windowpane at night",
+        "a black cat crossing an empty road",
+    ],
+    "streets": [
+        "a night market under strings of paper lanterns",
+        "an empty tram stop in the rain",
+        "laundry strung between buildings, filled by wind",
+        "a pyramid of oranges on a fruit stall under a striped awning",
+        "a narrow staircase alley climbing between shuttered houses",
+    ],
+    "interiors": [
+        "a laundromat at 2am, one dryer still turning",
+        "a watchmaker's bench crowded with tiny tools",
+        "a grandmother's kitchen mid-morning, steam rising from a pot",
+        "an empty theatre with one work light on the stage",
+        "a swimming pool at night, lit only from underwater",
+    ],
+    "food": [
+        "a split pomegranate spilling seeds",
+        "noodles lifted steaming from broth",
+        "peppers drying on a string against a whitewashed wall",
+        "a whole fish on ice, eye still bright",
+        "a burnt loaf cooling on a windowsill",
+    ],
+    "weather": [
+        "a dust storm swallowing the end of a street",
+        "the first snow falling past a streetlamp",
+        "fog erasing all but the nearest trees",
+        "a squall crossing harbour water",
+        "heat shimmer over an empty road",
+    ],
+    "water": [
+        "a diver breaking the surface in a ring of spray",
+        "koi crowding under lily pads",
+        "rain running down a window, the street beyond dissolved",
+        "waves shattering against a black breakwater",
+    ],
+    "machines": [
+        "a bicycle drivetrain in motion, chain a silver blur",
+        "a printing press mid-run, fresh sheets flying",
+        "a loom mid-weave, warp threads under tension",
+        "a pinball machine glowing in a dark arcade",
+    ],
+    "botanical": [
+        "a fig cut open",
+        "seed heads gone to silver fluff",
+        "moss swallowing a stone wall",
+        "a flowering cactus on a windowsill",
+    ],
 }
 
-# ---------------------------------------------------------------- grammars
-# Framing only. The medium, light and palette are no longer interleaved here:
-# the sentence has to be able to open with what the image is ABOUT, and a
-# template that starts with an inventory of materials can never do that.
-GRAMMARS = [
-    "in extreme close-up, {s}",
-    "{s}, shot from directly overhead",
-    "{s} small in a vast empty frame",
-    "{s}, shoulders up, looking just past the lens",
-    "{s}, caught mid-movement",
-    "{s} seen through a rain-streaked window",
-    "{s}, reflected in a cracked mirror",
-    "{s} among many overlapping bodies",
-    "{s} in silhouette against a bright ground",
-    "{s} from below, towering",
-    "{s} cropped tight, cut by the frame edge",
-    "{s} pushed low and far left, two thirds of the frame given to empty ground above",
-    "{s} cut by the right edge, only part of it inside the frame, the rest continuing past it",
-    "{s} seen past a large dark shape crossing the near foreground, one corner of the frame blocked",
+# ---------------------------------------------------------------- moods
+# One fused clause replacing LIGHT + PALETTE + FLAW. Tonal media draw from
+# the mono pool; everything else gets colour — and the colour pool commits
+# to bright and saturated as often as dark, on purpose.
+MONO_MOODS = [
+    "dense black against untouched white, the subject holding one side of the frame",
+    "pale grey washes, the darkest mark saved for one small place",
+    "deep shadow swallowing half the frame, one bright edge",
+    "morning mist, forms dissolving at their edges",
+    "hard low light raking across the surface, long shadows",
 ]
 
-# The governor: describe the intent of the lens, not the subject. A charge is
-# what the frame is about; the model renders it as distortion and light rather
-# than as a neutral depiction. This is the layer that separates a competent
-# picture of a thing from a picture that means something.
-CHARGES = [
-    "the desperate tension of a secret exchange",
-    "the exhaustion at the end of an eighteen-hour shift",
-    "the tenderness of a gesture nobody was meant to see",
-    "the moment authority stops being obeyed",
-    "grief that has not yet been admitted",
-    "the swagger of someone who knows they are being watched",
-    "a joke landing badly",
-    "the relief of putting something heavy down",
-    "the arrogance of a thing built to outlast its makers",
-    "the embarrassment of being caught needing help",
-    "reverence performed for an audience",
-    "the panic under a calm surface",
+COLOR_MOODS = [
+    "late golden sun and long shadows, warm ochre and dust",
+    "flat overcast light, quiet greys, one red accent",
+    "hard noon glare, bleached pale ground, a wedge of deep shadow",
+    "blue evening, one window glowing amber",
+    "just after rain, wet surfaces doubling every light",
+    "early morning haze, pale mint and cream",
+    "night under a single sodium lamp, amber against black",
+    "high clear daylight, saturated colour, crisp shadows",
 ]
 
-# A sequence is a story, not four attempts at one image. The art is in the
-# delta between frames. Each arc is four beats that must happen in order.
-ARCS = [
-    ("approach", ["long before it happens, everything still ordinary",
-                  "the first sign that something is wrong",
-                  "the instant it breaks",
-                  "the room afterwards, emptied"]),
-    ("closeness", ["watched from across the street",
-                   "close enough to hear, still unnoticed",
-                   "close enough to touch",
-                   "too close; the spell broken"]),
-    ("labour", ["the work begun, hands clean",
-                "deep in it, no longer careful",
-                "the mistake",
-                "the thing finished, imperfect, set down"]),
-    ("weather", ["the light going strange",
-                 "the first of it arriving",
-                 "the full force, nothing else visible",
-                 "the stillness after, everything changed"]),
-    ("ceremony", ["preparation, nobody present yet",
-                  "the gathering, self-conscious",
-                  "the act itself",
-                  "dispersal, the ordinary returning"]),
+# ---------------------------------------------------------------- camera
+# The narrative arc, made of framings instead of captions. Frame 1 to frame 4
+# is a move the eye can follow on the wall without reading anything.
+CAMERA_ARCS = [
+    ("approach", ["far away, small in a wide empty frame",
+                  "at middle distance, off-centre",
+                  "close, filling most of the frame",
+                  "in extreme close-up, cropped by the frame edge"]),
+    ("retreat", ["in extreme close-up, cropped by the frame edge",
+                 "close, filling most of the frame",
+                 "at middle distance, off-centre",
+                 "far away, small in a wide empty frame"]),
+    ("orbit", ["seen from the front, dead centre",
+               "seen from the side, in profile",
+               "seen from behind",
+               "seen from directly above"]),
+    ("descend", ["seen from high above, the ground a flat pattern",
+                 "at eye level, off-centre",
+                 "from low, looking up",
+                 "at ground level, the subject towering overhead"]),
 ]
 
-# Light and palette are drawn independently of any diurnal arc, because the
-# first pass's arc quietly locked every image into the same cold blue.
-LIGHT = [
-    "one hard light low and to the left, the right half falling to unlit black",
-    "a narrow shaft through a gap, everything outside the shaft unlit",
-    "lit only by a small source held in frame, falloff to black within arm's reach",
-    "steep light from almost directly above, eye sockets and undersides crushed",
-    "a single source behind the subject, the front left in shadow",
-    "raking light across the surface at a shallow angle, every ridge throwing a shadow",
-    "one lit edge, the rest of the form disappearing into the ground",
-    "light from a doorway off frame, a hard-edged wedge across the floor",
-]
-
-PALETTE = [
-    "near-black throughout, one small passage of unmixed vermilion",
-    "chalk white and soot black, colour only where the light lands",
-    "drab olive and grey, a single saturated accent no larger than a hand",
-    "warm grey base, one cold blue note held back for the darkest corner",
-    "bone and ash across the whole field, a bruise of purple in one place only",
-    "sun-bleached neutrals, a single ochre object carrying all the colour",
-]
+# Orbit only makes sense around something with a front and a back.
+_ORBIT_WORLDS = {"figures", "creatures", "machines", "interiors"}
 
 
-# The governor's note, and the single biggest lift: signal the physical
-# struggle of the medium over the perfection of the latent space. Without this
-# the output is a clean render OF a woodcut; with it, it is a woodcut.
-IMPERFECTION = [
-    "visible brush bristles dragged through the pigment",
-    "ink bleeding past its intended edge",
-    "fingerprints pressed into the material",
-    "chemical streaks and uneven development at the edges",
-    "a torn edge and a crease across the surface",
-    "misregistered colour, one plate printed a millimetre off",
-    "dust and hair caught in the emulsion",
-    "the ground showing through where the pigment ran thin",
-    "an overworked passage where the surface has gone dull",
-]
-
-# Not every medium survives every framing. Motion blur over a cluttered macro
-# subject is brown soup whatever the model does, and a fine ink wash cannot
-# hold a crowded frame. These are the pairings observed to fail; excluding
-# them is worth more than adding ten more adjectives.
-GRAMMAR_BANS = {
-    "sumi-e ink wash": {"a crowded frame", "reflected in a cracked mirror", "through a rain-streaked window"},
-    "stop-motion puppet, claymation": {"caught mid-movement", "a crowded frame"},
-    "stained glass panel": {"caught mid-movement", "motion blur", "near foreground"},
-    "graphite drawing": {"a crowded frame"},
-    "tintype photograph": {"caught mid-movement"},
-}
-
-# Media that reliably produce a strong graphic image get drawn more often. This
-# is curation, not fairness: an even spread over the space spends most of the
-# night in its weak half.
-MEDIA_WEIGHTS = {
-    "sumi-e ink wash": 5, "woodblock print": 4, "stained glass panel": 4,
-    "risograph print": 4, "cel animation": 4, "gouache illustration": 3,
-    "90s anime film still": 3, "collage of torn paper": 3, "watercolour": 3,
-    "tintype photograph": 3, "graphite drawing": 2, "oil painting, impasto": 2,
-    "stop-motion puppet, claymation": 2, "16mm documentary still": 2,
-    "technical blueprint": 1, "airbrushed 70s paperback cover": 1,
-}
-
-
-# A flaw has to belong to its medium: "brush bristles" on a risograph is not
-# imperfection, it is a wrong word. Grouped by how the surface is actually made.
-FLAWS_BY_FAMILY = {
-    "paint": ["visible brush bristles dragged through the pigment",
-              "the ground showing through where the pigment ran thin",
-              "an overworked passage where the surface has gone dull"],
-    "ink": ["every highlight is bare paper left in reserve, never white pigment added",
-            "ink bleeding past its intended edge",
-            "a stray splatter across the empty space",
-            "the brush running dry at the end of the stroke"],
-    "print": ["every highlight is bare unprinted paper left in reserve, never white pigment added; no specular dots anywhere",
-              "the sheet is larger than the image: a bitten plate edge with a visible platemark, ink smeared past it, laid-paper fibre continuing out to the raw torn margin",
-              "misregistered colour, one plate printed a millimetre off",
-              "ink starved in patches, the paper showing through",
-              "a torn edge and a crease across the surface"],
-    "photo": ["emulsion poured by hand: comet-tail pour streaks, bare black plate at the sheet corners, the coating stopping short of one edge",
-              "chemical streaks and uneven development at the edges",
-              "dust and hair caught in the emulsion",
-              "light leak bleeding in from one corner"],
-    "hand": ["a mould parting line up the cheek and armature seams under the paint, dust settled on the set floor, unmistakably miniature",
-             "fingerprints pressed into the material",
-             "a seam left visible where two pieces meet",
-             "a thumbprint smudged into a soft edge"],
-}
-MEDIUM_FAMILY = {
-    "cel animation": "paint", "90s anime film still": "paint",
-    "gouache illustration": "paint", "oil painting, impasto": "paint",
-    "watercolour": "ink", "sumi-e ink wash": "ink", "graphite drawing": "ink",
-    "risograph print": "print", "woodblock print": "print",
-    "collage of torn paper": "print", "technical blueprint": "print",
-    "stained glass panel": "hand", "stop-motion puppet, claymation": "hand",
-    "tintype photograph": "photo", "16mm documentary still": "photo",
-    "airbrushed 70s paperback cover": "paint",
-}
-
-
-def pick_flaw(rng, medium):
-    return rng.choice(FLAWS_BY_FAMILY[MEDIUM_FAMILY.get(medium, "paint")])
-
-
-def allowed_grammars(medium, world=None):
-    banned = set(GRAMMAR_BANS.get(medium, set()))
-    # "Among many overlapping bodies" needs bodies; over a cactus it is just a
-    # word the model has to reconcile, and it reconciles it badly.
-    if world is not None and world not in HUMAN_WORLDS:
-        # A machine has no shoulders and no body to overlap; the model
-        # reconciles the mismatch by inventing a person, or by ignoring it.
-        banned.add("overlapping bodies")
-        banned.add("shoulders up")
-    keep = [g for g in GRAMMARS if not any(b in g for b in banned)]
-    return keep or GRAMMARS
-
-
-# A charge has to be possible for its world. "The desperate tension of a secret
-# exchange" over a sleeping fox is not evocative, it is a category error, and
-# the model renders the confusion faithfully.
-HUMAN_WORLDS = {"faces", "hands", "crowds", "ritual", "interiors"}
-OBJECT_CHARGES = [
-    "the arrogance of a thing built to outlast its makers",
-    "the dignity of something worn out by use",
-    "the violence held in a stopped machine",
-    "abundance about to spoil",
-    "the indifference of weather to anyone watching",
-    "a small thing insisting on being noticed",
-]
-WORLD_ARCS = {
-    "weather": "weather", "machines": "labour", "hands": "labour",
-    "ritual": "ceremony", "crowds": "ceremony", "food": "labour",
-    "faces": "closeness", "interiors": "approach", "creatures": "closeness",
-    "botanical": "weather", "water": "weather", "textiles": "labour",
-}
-
-
-# The governor: frame 1 and frame 4 must differ in the subject's state, or the
-# delta is incidental. A posture progression makes the arc visible in the body
-# rather than only in the caption.
-POSTURE_ARCS = [
-    ("tighten", ["loose, unaware", "attention caught, stilling",
-                 "braced, committed", "held rigid at the limit"]),
-    ("release", ["braced, holding everything in", "the first give",
-                 "letting go, off balance", "loosened, the weight set down"]),
-]
-
-# Two media are in dialogue when they disagree about how a surface is made.
-# Pairing within a family (two paints, two prints) reads as indecision.
-def contrasting_medium(rng, medium):
-    family = MEDIUM_FAMILY.get(medium, "paint")
-    others = [(m, c) for m, c in MEDIA if MEDIUM_FAMILY.get(m, "paint") != family]
-    weights = [MEDIA_WEIGHTS.get(m, 2) for m, _ in others]
-    return rng.choices(others, weights=weights, k=1)[0]
-
-
-def pick_charge(rng, world):
-    return rng.choice(CHARGES if world in HUMAN_WORLDS else OBJECT_CHARGES)
-
-
-def pick_arc(rng, world):
-    want = WORLD_ARCS.get(world)
-    for name, beats in ARCS:
-        if name == want:
-            return (name, beats)
-    return rng.choice(ARCS)
-
-
-def new_sequence(rng):
-    """One committed concept. Everything inside a sequence shares it."""
-    medium, clause = rng.choices(MEDIA, weights=[MEDIA_WEIGHTS.get(m, 2) for m, _ in MEDIA], k=1)[0]
-    world = rng.choice(list(WORLDS))
-    arc = pick_arc(rng, world)
-    arc_name = arc[0]
-    return {
-        "medium": medium,
-        "medium_clause": clause,
-        "world": world,
-        "grammar": rng.choice(allowed_grammars(medium, world)),
-        "charge": pick_charge(rng, world),
-        "arc": arc,
-        # One story means one subject: the arc is carried by the beats and the
-        # framing, not by swapping what we are looking at every frame.
-        "subject": rng.choice(WORLDS[world]),
-        # The body must agree with the story: a beat that disperses cannot land
-        # on a posture that tightens, or the frame argues with its own caption.
-        "posture_arc": next(pa for pa in POSTURE_ARCS
-                            if pa[0] == ("tighten" if arc_name == "closeness" else "release")),
-        "light": rng.choice(LIGHT),
-        "palette": rng.choice(PALETTE),
-        "flaw": pick_flaw(rng, medium),
-    }
-
-
-# Framings that cut the subject. A posture clause describes a whole body, so
-# appending one to a crop tells the model to crop and then re-assert what it
-# just cropped away -- the two instructions cancel and the frame recentres.
-CROPPING = ("extreme close-up", "cropped tight", "cut by the right edge", "near foreground")
-WIDE = ("small in a vast empty frame", "two thirds of the frame given to empty ground")
-
-
-def _framing_for(rng, seq, index, last):
-    """Frame 1 opens wide, frame 4 closes in: the curator's narrative delta
-    made visible as a camera move rather than only as a caption. Middle frames
-    re-roll freely, because sharing a framing across the first two frames was
-    putting near-identical pairs on the wall."""
-    pool = allowed_grammars(seq["medium"], seq["world"])
-    if index == 0:
-        wide = [g for g in pool if any(w in g for w in WIDE)]
-        if wide:
-            return rng.choice(wide)
-    if index == last:
-        close = [g for g in pool if any(c in g for c in CROPPING)]
-        if close:
-            return rng.choice(close)
+def _pick_arc(rng, world):
+    pool = [a for a in CAMERA_ARCS if a[0] != "orbit" or world in _ORBIT_WORLDS]
     return rng.choice(pool)
 
 
-def variation(rng, seq, index, previous=None, last=3):
-    """A sibling within the sequence.
-
-    Medium, world and palette are the sequence's identity and never move here:
-    letting palette drift per frame was the first draft's mistake, and it made
-    a "sequence" just four unrelated images again. What moves is the subject,
-    the light, and -- once the concept is established -- the framing.
-
-    The subject is drawn excluding the previous one, because rng.choice over a
-    six-item pool repeats often enough to look like a stuck loop.
-    """
-    v = dict(seq)
-    if rng.random() < 0.5:
-        v["light"] = rng.choice(LIGHT)
-    v["grammar"] = _framing_for(rng, seq, index, last)
-    if rng.random() < 0.4:
-        v["flaw"] = pick_flaw(rng, seq["medium"])
-    beats = seq["arc"][1]
-    v["beat"] = beats[index % len(beats)]
-    postures = seq["posture_arc"][1]
-    v["posture"] = postures[index % len(postures)]
-    if any(c in v["grammar"] for c in CROPPING):
-        v["posture"] = ""
-    return v
+def _mood_for(rng, tonal):
+    return rng.choice(MONO_MOODS if tonal else COLOR_MOODS)
 
 
-def compose(v):
-    # Intent first, subject second, materials last. The order is the point:
-    # what the picture is about has to reach the model before the inventory.
-    return (
-        f"{v['medium']} capturing {v['charge']}. "
-        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}"
-        f"{', ' + v['posture'] if v['posture'] else ''}. "
-        f"{v['medium_clause']}. {v['light']}, {v['palette']}. {v['flaw']}"
-    )
+def new_sequence(rng):
+    """One committed concept: medium, subject, mood, camera arc."""
+    name, clause, _w, family, tonal = rng.choices(
+        MEDIA, weights=[m[2] for m in MEDIA], k=1)[0]
+    world = rng.choice(list(WORLDS))
+    arc = _pick_arc(rng, world)
+    return {
+        "medium": name,
+        "medium_clause": clause,
+        "family": family,
+        "world": world,
+        "subject": rng.choice(WORLDS[world]),
+        "mood": _mood_for(rng, tonal),
+        "arc": arc,
+        "framing": arc[1][0],
+    }
 
 
 def paired_sequence(rng, seq):
-    """The counter-voice: same subject and charge, a medium from another family.
-
-    Not an independent second sequence -- that is just more images. The dialogue
-    only exists if both halves are about the same thing.
-    """
-    medium, clause = contrasting_medium(rng, seq["medium"])
+    """The counter-voice: same subject and camera arc, a medium from another
+    family, its own mood. The dialogue is two surfaces disagreeing about one
+    thing, not two unrelated pictures."""
+    others = [m for m in MEDIA if m[3] != seq["family"]]
+    name, clause, _w, family, tonal = rng.choices(
+        others, weights=[m[2] for m in others], k=1)[0]
     other = dict(seq)
-    other["medium"] = medium
-    other["medium_clause"] = clause
-    other["grammar"] = rng.choice(allowed_grammars(medium, seq["world"]))
-    other["flaw"] = pick_flaw(rng, medium)
-    other["palette"] = rng.choice(PALETTE)
+    other.update(medium=name, medium_clause=clause, family=family,
+                 mood=_mood_for(rng, tonal))
     return other
 
 
+def variation(rng, seq, index, previous=None, last=3):
+    """A sibling: everything held, only the camera moves along the arc.
+    The per-frame seed supplies the rest of the difference. `previous` is
+    accepted for API compatibility and unused — with the subject fixed for
+    the whole sequence there is nothing to avoid repeating."""
+    v = dict(seq)
+    beats = seq["arc"][1]
+    v["framing"] = beats[index % len(beats)]
+    return v
+
+
+def _cap(s):
+    return s[0].upper() + s[1:]
+
+
+def _an(noun):
+    return "An" if noun[0].lower() in "aeiou" else "A"
+
+
+def compose(v):
+    # Three sentences, 30-40 words: what it is and how it is framed; how the
+    # surface is made; what the light and colour are doing. Nothing else.
+    return (f"{_an(v['medium'])} {v['medium']} of {v['subject']}, "
+            f"{v['framing']}. {_cap(v['medium_clause'])}. {_cap(v['mood'])}.")
+
+
 def describe(seq):
-    return f"{seq['medium']} / {seq['world']} / {seq['arc'][0]} / {seq['charge']}"
+    return f"{seq['medium']} / {seq['world']} / {seq['arc'][0]} / {seq['mood']}"
 
 
 if __name__ == "__main__":
-    # Eyeball the spread: three sequences, three variations each.
-    rng = random.Random(11)
-    for _ in range(3):
+    rng = random.Random(7)
+    for _ in range(4):
         seq = new_sequence(rng)
+        pair = paired_sequence(rng, seq)
         print(f"\n=== {describe(seq)}")
-        for i in range(3):
-            print("  -", compose(variation(rng, seq, i)))
+        for i in range(4):
+            src = seq if i % 2 == 0 else pair
+            p = compose(variation(rng, src, i))
+            print(f"  [{len(p.split())}w] {p}")

@@ -30,6 +30,7 @@ import pathlib
 import random
 import signal
 import socket
+import subprocess
 import sys
 import time
 
@@ -417,6 +418,19 @@ def main():
 
         # No elites: a sequence is the unit, and carrying survivors forward is
         # exactly what collapsed the first generator onto one look.
+        # Regenerate the contact sheet every generation. Judging a change by
+        # the newest frame is how six rounds of "this is better" got shipped
+        # against a wall that was not better; an even sample across the whole
+        # run has to exist by default, not on request.
+        try:
+            subprocess.run(
+                [sys.executable, str(pathlib.Path(__file__).parent / "contact.py"),
+                 "--dir", str(out_dir), "--out", str(out_dir / "_contact.jpg"), "--n", "16"],
+                check=False, capture_output=True, timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
         if live["sleep"]:
             time.sleep(live["sleep"])
 
