@@ -22,6 +22,7 @@ unjudged generation must never look like an approved one.
 import argparse
 import base64
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -51,10 +52,35 @@ def build_sheet(out_dir, sheet, n):
     return sheet.exists()
 
 
-def ask_governor(sheet, laws, timeout):
+def sheet_reference(sheet, public_base):
+    """How the judge gets the picture.
+
+    Prefer a URL: the node already serves the sheet, and Cloudflare's WAF
+    refuses the ~500KB POST that inlining the bytes produces -- a 403 that
+    reads exactly like an auth failure and cost an hour to tell apart from one.
+    Base64 stays as the fallback for a node with no public endpoint, downscaled
+    to stay under the limit.
+    """
+    if public_base:
+        return f"{public_base.rstrip('/')}/outputs/{sheet.name}"
+    data = sheet.read_bytes()
+    if len(data) > 180_000:
+        try:
+            from PIL import Image
+            im = Image.open(sheet)
+            im.thumbnail((768, 768))
+            small = sheet.with_name("_contact_small.jpg")
+            im.save(small, quality=60)
+            data = small.read_bytes()
+        except Exception:
+            pass
+    return "data:image/jpeg;base64," + base64.b64encode(data).decode()
+
+
+def ask_governor(sheet, laws, timeout, public_base=""):
     """One multimodal call. Returns the parsed verdict, or None if it could not
     be obtained -- never a default-pass."""
-    b64 = base64.b64encode(sheet.read_bytes()).decode()
+    reference = sheet_reference(sheet, public_base)
     body = {
         "model": "governor",
         "max_tokens": 700,
@@ -65,7 +91,7 @@ def ask_governor(sheet, laws, timeout):
                     "You are the eye-gate for a live generative art wall. This is a contact "
                     "sheet of one run, sampled evenly, numbered left to right and top to "
                     "bottom.\n\nJudge it against these laws:\n\n" + laws + "\n\n" + SCHEMA},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                {"type": "image_url", "image_url": {"url": reference}},
             ],
         }],
     }
@@ -128,7 +154,7 @@ def judge_once(args):
         print("no frames to judge yet", flush=True)
         return None
 
-    verdict, error = ask_governor(sheet, laws, args.timeout)
+    verdict, error = ask_governor(sheet, laws, args.timeout, args.public_base)
     row = {"ts": time.time(), "frames": args.n, "sheet": str(sheet)}
     if verdict is None:
         # Recorded as a miss, not a pass. An unjudged round must never be
@@ -156,6 +182,9 @@ def main():
     ap.add_argument("--n", type=int, default=16)
     ap.add_argument("--interval", type=float, default=600)
     ap.add_argument("--timeout", type=float, default=240)
+    ap.add_argument("--public-base", default=os.environ.get("CHORUS_PUBLIC_BASE", ""),
+                    help="public https base for this node, so the judge fetches the sheet "
+                         "instead of receiving it inline")
     ap.add_argument("--once", action="store_true")
     args = ap.parse_args()
 
