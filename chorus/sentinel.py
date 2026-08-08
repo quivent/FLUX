@@ -39,6 +39,10 @@ GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 # file exists to prevent, so it must not depend on one busy engine.
 ENGINES = [e for e in (os.environ.get("CHORUS_SECOND_ENGINE", ""), GOVERNOR) if e]
 
+# How far back a judgement reaches. Wide enough that a lucky generation cannot
+# carry a round, narrow enough that the score tracks the language now running.
+RECENT_WINDOW = 80
+
 # Asking for prose gets prose. The judge is pinned to a shape so the verdict is
 # comparable across rounds and can steer the loop without a human reading it.
 def _law_count():
@@ -62,10 +66,20 @@ SCHEMA = """Reply with ONLY a JSON object, no prose, no markdown fence:
  "verdict":"<one sentence a curator would say>"}""".replace("LAWMAX", str(_law_count()))
 
 
-def build_sheet(out_dir, sheet, n):
+def build_sheet(out_dir, sheet, n, recent=RECENT_WINDOW):
+    """Judge the current run, not the archive.
+
+    The wall holds every frame ever made, which is right -- it is the body of
+    work. But contact.py samples evenly across whatever it is given, so once
+    the archive was restored the gate began grading four hours of superseded
+    output and reporting it as today's score. It cited "substitutable satellite
+    dishes" from the first broken generator. A gate that measures history
+    cannot steer the present.
+    """
     subprocess.run(
         [sys.executable, str(HERE / "contact.py"),
-         "--dir", str(out_dir), "--out", str(sheet), "--n", str(n)],
+         "--dir", str(out_dir), "--out", str(sheet), "--n", str(n),
+         "--recent", str(recent)],
         check=False, capture_output=True, timeout=180,
     )
     return sheet.exists()
@@ -212,7 +226,7 @@ def judge_once(args):
     sheet = out_dir / "_sheets" / "contact.jpg"
     laws = (HERE / "LAWS.md").read_text()
 
-    if not build_sheet(out_dir, sheet, args.n):
+    if not build_sheet(out_dir, sheet, args.n, args.recent):
         print("no frames to judge yet", flush=True)
         return None
 
@@ -248,6 +262,8 @@ def main():
     ap.add_argument("--public-base", default=os.environ.get("CHORUS_PUBLIC_BASE", ""),
                     help="public https base for this node, so the judge fetches the sheet "
                          "instead of receiving it inline")
+    ap.add_argument("--recent", type=int, default=RECENT_WINDOW,
+                    help="judge only the newest N frames; 0 grades the whole archive")
     ap.add_argument("--once", action="store_true")
     args = ap.parse_args()
 
