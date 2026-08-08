@@ -182,8 +182,14 @@ def steer(verdict, control_path):
         control = json.loads(pathlib.Path(control_path).read_text())
     except (OSError, ValueError):
         control = {}
-    # A wall that is mostly failing should not race to produce more of it.
-    control["sleep"] = 20 if hit_rate < 0.34 else 0
+    # Originally: a failing wall should not race to produce more of it. That
+    # reasoning was wrong. The throttle cost a third of the duty cycle on an
+    # H100 that bills by the minute, and it slowed down the only process that
+    # generates the evidence needed to stop failing. Frames are cheap and the
+    # wall is paged and ranked now, so a weak frame costs storage, not
+    # attention. Pause only when the wall is failing almost completely, which
+    # means something is broken rather than merely unrefined.
+    control["sleep"] = 10 if hit_rate < 0.10 else 0
     pathlib.Path(control_path).write_text(json.dumps(control, indent=2, sort_keys=True) + "\n")
     return hit_rate
 

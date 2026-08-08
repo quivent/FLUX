@@ -27,11 +27,13 @@ import hashlib
 import json
 import os
 import pathlib
+import queue
 import random
 import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 
 # The suite imports its own language module and the repo's flux_paths,
@@ -45,6 +47,45 @@ import language as lang  # noqa: E402
 # Share of generations that carry one authored frame. Low: the grammar is the
 # proven arm and the author is the challenger, not the replacement.
 AUTHOR_RATE = float(os.environ.get("CHORUS_AUTHOR_RATE", "0.25"))
+
+
+class AuthorAhead:
+    """Keep authored prompts ready so the GPU never waits on a language model.
+
+    The author was called inline: one generation in four stopped rendering and
+    blocked on a 31B with a 200 second timeout before sampling a single pixel.
+    Over three hours the H100 spent twenty-six minutes actually sampling, and
+    this was part of why.
+
+    One background thread keeps a couple of prompts in hand. If the queue is
+    empty the loop renders from the grammar and moves on -- a slow author costs
+    a challenger frame, never a stalled GPU.
+    """
+
+    def __init__(self, out_dir, depth=2):
+        self.out_dir = str(out_dir)
+        self.queue = queue.Queue(maxsize=depth)
+        self.errors = 0
+        threading.Thread(target=self._fill, daemon=True).start()
+
+    def _fill(self):
+        while True:
+            try:
+                result, error = author.author(self.out_dir)
+                if result:
+                    self.queue.put(result)          # blocks until a slot frees
+                else:
+                    self.errors += 1
+                    time.sleep(30)
+            except Exception:
+                self.errors += 1
+                time.sleep(30)
+
+    def take(self):
+        try:
+            return self.queue.get_nowait()
+        except queue.Empty:
+            return None
 PIPER_SOCKET = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
 NEXUS_ADDR = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")
 
@@ -330,6 +371,7 @@ def main():
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
 
+    author_ahead = AuthorAhead(out_dir)
     started_at = time.time()
     history, elites = [], []
     generation = 0
@@ -373,13 +415,9 @@ def main():
         # composer that reasons shares the exploration budget rather than
         # replacing the grammar. It is judged on the same sheet, by the same
         # panel, and earns its share or does not.
-        authored = None
-        if rng.random() < AUTHOR_RATE:
-            authored, author_error = author.author(str(out_dir))
-            if authored:
-                print(f"  authored: {authored['intent']}", flush=True)
-            else:
-                print(f"  authored: none ({author_error})", flush=True)
+        authored = author_ahead.take() if rng.random() < AUTHOR_RATE else None
+        if authored:
+            print(f"  authored: {authored['intent']}", flush=True)
 
         print(f"  A: {lang.describe(sequence)}", flush=True)
         print(f"  B: {lang.describe(counter)}", flush=True)
