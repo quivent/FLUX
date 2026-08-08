@@ -390,7 +390,9 @@ def main():
             # Write beside the target then rename: the page watches this
             # directory, and a partial PNG would surface as a broken tile.
             tmp = path.with_suffix(".png.part")
-            image.save(tmp)
+            # PIL infers the encoder from the suffix, and ".part" means nothing
+            # to it, so the format has to be named for the atomic write to work.
+            image.save(tmp, format="PNG")
             tmp.rename(path)
 
             published = publish_piper(job_id, path, index, len(batch), seed)
