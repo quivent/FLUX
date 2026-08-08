@@ -34,19 +34,17 @@ MEDIA = [
     ("cel animation", "flat cel shading, confident ink outlines, limited palette, painted background"),
     ("90s anime film still", "hand-painted backgrounds, soft film grain, warm analogue colour"),
     ("gouache illustration", "opaque matte pigment, visible brush edges, paper tooth"),
-    ("sumi-e ink wash", "wet black ink on rice paper, enormous empty space, one decisive stroke"),
+    ("sumi-e ink wash", "wet black ink bleeding into raw absorbent washi fibre, variable density following the grain, enormous empty space, one decisive stroke"),
     ("oil painting, impasto", "thick loaded brushwork, palette-knife ridges, glazed shadows"),
-    ("risograph print", "two-colour misregistration, halftone dots, coarse newsprint"),
+    ("risograph print", "two-colour misregistration, halftone dots, ink sitting on top of coarse newsprint and granulating into the low fibre"),
     ("stained glass panel", "leaded black cames, saturated transmitted light, flat jewel colour"),
-    ("woodblock print", "carved flat planes, visible grain, hand-registered colour"),
+    ("woodblock print", "carved flat planes, overlapping ink boundaries on hand-pressed mulberry paper, ink lying on the surface as a raised skin that skips the high tooth"),
     ("stop-motion puppet, claymation", "fingerprints in the clay, shallow macro focus, tiny practical lights"),
     ("graphite drawing", "soft pencil shading, smudged tone, white paper showing through"),
-    ("watercolour", "blooming wet edges, granulating pigment, untouched white paper"),
-    ("technical blueprint", "cyanotype blue, fine white linework, annotated dimensions"),
+    ("watercolour", "blooming wet edges, pigment granulating into the tooth, every highlight left as untouched paper"),
     ("tintype photograph", "wet plate collodion, silver halation, shallow field, chemical edge flaws"),
     ("16mm documentary still", "grainy reversal stock, halated highlights, handheld framing"),
     ("collage of torn paper", "layered cut edges, mixed printed textures, visible glue"),
-    ("airbrushed 70s paperback cover", "soft gradients, chrome highlights, high-contrast drama"),
 ]
 
 # ---------------------------------------------------------------- worlds
@@ -97,7 +95,9 @@ GRAMMARS = [
     "{s} in silhouette against a bright ground",
     "{s} from below, towering",
     "{s} cropped tight, cut by the frame edge",
-    "a quiet detail at the edge of {s}",
+    "{s} pushed low and far left, two thirds of the frame given to empty ground above",
+    "{s} cut by the right edge, only part of it inside the frame, the rest continuing past it",
+    "{s} seen past a large dark shape crossing the near foreground, one corner of the frame blocked",
 ]
 
 # The governor: describe the intent of the lens, not the subject. A charge is
@@ -147,16 +147,23 @@ ARCS = [
 # Light and palette are drawn independently of any diurnal arc, because the
 # first pass's arc quietly locked every image into the same cold blue.
 LIGHT = [
-    "hard side light, deep shadow", "flat overcast light", "warm lamplight from below",
-    "backlit, rim glow", "dappled light through leaves", "harsh direct flash",
-    "candlelight", "green fluorescent tube light", "golden late afternoon sun",
-    "grey pre-dawn light", "light through coloured glass", "single bare bulb",
+    "one hard light low and to the left, the right half falling to unlit black",
+    "a narrow shaft through a gap, everything outside the shaft unlit",
+    "lit only by a small source held in frame, falloff to black within arm's reach",
+    "steep light from almost directly above, eye sockets and undersides crushed",
+    "a single source behind the subject, the front left in shadow",
+    "raking light across the surface at a shallow angle, every ridge throwing a shadow",
+    "one lit edge, the rest of the form disappearing into the ground",
+    "light from a doorway off frame, a hard-edged wedge across the floor",
 ]
+
 PALETTE = [
-    "ochre, oxblood and cream", "acid green against black", "warm greys and dusty pink",
-    "cobalt and marigold", "sepia and bone", "hot magenta and cyan",
-    "earth reds and umber", "pale mint and coral", "deep purple and gold",
-    "high-contrast black and white", "faded pastel primaries", "rust, teal and sand",
+    "near-black throughout, one small passage of unmixed vermilion",
+    "chalk white and soot black, colour only where the light lands",
+    "drab olive and grey, a single saturated accent no larger than a hand",
+    "warm grey base, one cold blue note held back for the darkest corner",
+    "bone and ash across the whole field, a bruise of purple in one place only",
+    "sun-bleached neutrals, a single ochre object carrying all the colour",
 ]
 
 
@@ -182,10 +189,9 @@ IMPERFECTION = [
 GRAMMAR_BANS = {
     "sumi-e ink wash": {"a crowded frame", "reflected in a cracked mirror", "through a rain-streaked window"},
     "stop-motion puppet, claymation": {"caught mid-movement", "a crowded frame"},
-    "stained glass panel": {"caught mid-movement", "motion blur", "a quiet detail"},
+    "stained glass panel": {"caught mid-movement", "motion blur", "near foreground"},
     "graphite drawing": {"a crowded frame"},
     "tintype photograph": {"caught mid-movement"},
-    "technical blueprint": {"caught mid-movement", "a crowded frame"},
 }
 
 # Media that reliably produce a strong graphic image get drawn more often. This
@@ -207,16 +213,21 @@ FLAWS_BY_FAMILY = {
     "paint": ["visible brush bristles dragged through the pigment",
               "the ground showing through where the pigment ran thin",
               "an overworked passage where the surface has gone dull"],
-    "ink": ["ink bleeding past its intended edge",
+    "ink": ["every highlight is bare paper left in reserve, never white pigment added",
+            "ink bleeding past its intended edge",
             "a stray splatter across the empty space",
             "the brush running dry at the end of the stroke"],
-    "print": ["misregistered colour, one plate printed a millimetre off",
+    "print": ["every highlight is bare unprinted paper left in reserve, never white pigment added; no specular dots anywhere",
+              "the sheet is larger than the image: a bitten plate edge with a visible platemark, ink smeared past it, laid-paper fibre continuing out to the raw torn margin",
+              "misregistered colour, one plate printed a millimetre off",
               "ink starved in patches, the paper showing through",
               "a torn edge and a crease across the surface"],
-    "photo": ["chemical streaks and uneven development at the edges",
+    "photo": ["emulsion poured by hand: comet-tail pour streaks, bare black plate at the sheet corners, the coating stopping short of one edge",
+              "chemical streaks and uneven development at the edges",
               "dust and hair caught in the emulsion",
               "light leak bleeding in from one corner"],
-    "hand": ["fingerprints pressed into the material",
+    "hand": ["a mould parting line up the cheek and armature seams under the paint, dust settled on the set floor, unmistakably miniature",
+             "fingerprints pressed into the material",
              "a seam left visible where two pieces meet",
              "a thumbprint smudged into a soft edge"],
 }
@@ -241,7 +252,10 @@ def allowed_grammars(medium, world=None):
     # "Among many overlapping bodies" needs bodies; over a cactus it is just a
     # word the model has to reconcile, and it reconciles it badly.
     if world is not None and world not in HUMAN_WORLDS:
+        # A machine has no shoulders and no body to overlap; the model
+        # reconciles the mismatch by inventing a person, or by ignoring it.
         banned.add("overlapping bodies")
+        banned.add("shoulders up")
     keep = [g for g in GRAMMARS if not any(b in g for b in banned)]
     return keep or GRAMMARS
 
@@ -323,7 +337,31 @@ def new_sequence(rng):
     }
 
 
-def variation(rng, seq, index, previous=None):
+# Framings that cut the subject. A posture clause describes a whole body, so
+# appending one to a crop tells the model to crop and then re-assert what it
+# just cropped away -- the two instructions cancel and the frame recentres.
+CROPPING = ("extreme close-up", "cropped tight", "cut by the right edge", "near foreground")
+WIDE = ("small in a vast empty frame", "two thirds of the frame given to empty ground")
+
+
+def _framing_for(rng, seq, index, last):
+    """Frame 1 opens wide, frame 4 closes in: the curator's narrative delta
+    made visible as a camera move rather than only as a caption. Middle frames
+    re-roll freely, because sharing a framing across the first two frames was
+    putting near-identical pairs on the wall."""
+    pool = allowed_grammars(seq["medium"], seq["world"])
+    if index == 0:
+        wide = [g for g in pool if any(w in g for w in WIDE)]
+        if wide:
+            return rng.choice(wide)
+    if index == last:
+        close = [g for g in pool if any(c in g for c in CROPPING)]
+        if close:
+            return rng.choice(close)
+    return rng.choice(pool)
+
+
+def variation(rng, seq, index, previous=None, last=3):
     """A sibling within the sequence.
 
     Medium, world and palette are the sequence's identity and never move here:
@@ -337,14 +375,15 @@ def variation(rng, seq, index, previous=None):
     v = dict(seq)
     if rng.random() < 0.5:
         v["light"] = rng.choice(LIGHT)
-    if index >= 2 and rng.random() < 0.5:
-        v["grammar"] = rng.choice(allowed_grammars(seq["medium"], seq["world"]))
+    v["grammar"] = _framing_for(rng, seq, index, last)
     if rng.random() < 0.4:
         v["flaw"] = pick_flaw(rng, seq["medium"])
     beats = seq["arc"][1]
     v["beat"] = beats[index % len(beats)]
     postures = seq["posture_arc"][1]
     v["posture"] = postures[index % len(postures)]
+    if any(c in v["grammar"] for c in CROPPING):
+        v["posture"] = ""
     return v
 
 
@@ -353,7 +392,8 @@ def compose(v):
     # what the picture is about has to reach the model before the inventory.
     return (
         f"{v['medium']} capturing {v['charge']}. "
-        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}, {v['posture']}. "
+        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}"
+        f"{', ' + v['posture'] if v['posture'] else ''}. "
         f"{v['medium_clause']}. {v['light']}, {v['palette']}. {v['flaw']}"
     )
 
