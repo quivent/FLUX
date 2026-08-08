@@ -82,21 +82,66 @@ WORLDS = {
 }
 
 # ---------------------------------------------------------------- grammars
-# The sentence itself changes. `{s}` is the subject, `{m}` the medium and its
-# clause, `{l}` light, `{p}` palette. Distance, angle and tense all move.
+# Framing only. The medium, light and palette are no longer interleaved here:
+# the sentence has to be able to open with what the image is ABOUT, and a
+# template that starts with an inventory of materials can never do that.
 GRAMMARS = [
-    "extreme close-up, {s}. {m}. {l}, {p}",
-    "{s}, shot from directly overhead, flat lay. {m}. {l}, {p}",
-    "wide shot, {s} small in the frame, vast negative space. {m}. {l}, {p}",
-    "portrait of {s}, shoulders up, looking just past the camera. {m}. {l}, {p}",
-    "{s}, caught mid-movement, motion blur. {m}. {l}, {p}",
-    "{s} seen through a rain-streaked window. {m}. {l}, {p}",
-    "{s}, reflected in a cracked mirror. {m}. {l}, {p}",
-    "a crowded frame, {s} among many overlapping shapes. {m}. {l}, {p}",
-    "{s} in silhouette against a bright ground. {m}. {l}, {p}",
-    "low angle, {s} towering over the viewer. {m}. {l}, {p}",
-    "{s}, cropped tight and off-centre, edges cut by the frame. {m}. {l}, {p}",
-    "a quiet detail at the edge of {s}. {m}. {l}, {p}",
+    "in extreme close-up, {s}",
+    "{s}, shot from directly overhead",
+    "{s} small in a vast empty frame",
+    "{s}, shoulders up, looking just past the lens",
+    "{s}, caught mid-movement",
+    "{s} seen through a rain-streaked window",
+    "{s}, reflected in a cracked mirror",
+    "{s} among many overlapping bodies",
+    "{s} in silhouette against a bright ground",
+    "{s} from below, towering",
+    "{s} cropped tight, cut by the frame edge",
+    "a quiet detail at the edge of {s}",
+]
+
+# The governor: describe the intent of the lens, not the subject. A charge is
+# what the frame is about; the model renders it as distortion and light rather
+# than as a neutral depiction. This is the layer that separates a competent
+# picture of a thing from a picture that means something.
+CHARGES = [
+    "the desperate tension of a secret exchange",
+    "the exhaustion at the end of an eighteen-hour shift",
+    "the tenderness of a gesture nobody was meant to see",
+    "the moment authority stops being obeyed",
+    "grief that has not yet been admitted",
+    "the swagger of someone who knows they are being watched",
+    "a joke landing badly",
+    "the relief of putting something heavy down",
+    "the arrogance of a thing built to outlast its makers",
+    "the embarrassment of being caught needing help",
+    "reverence performed for an audience",
+    "the panic under a calm surface",
+]
+
+# A sequence is a story, not four attempts at one image. The art is in the
+# delta between frames. Each arc is four beats that must happen in order.
+ARCS = [
+    ("approach", ["long before it happens, everything still ordinary",
+                  "the first sign that something is wrong",
+                  "the instant it breaks",
+                  "the room afterwards, emptied"]),
+    ("closeness", ["watched from across the street",
+                   "close enough to hear, still unnoticed",
+                   "close enough to touch",
+                   "too close; the spell broken"]),
+    ("labour", ["the work begun, hands clean",
+                "deep in it, no longer careful",
+                "the mistake",
+                "the thing finished, imperfect, set down"]),
+    ("weather", ["the light going strange",
+                 "the first of it arriving",
+                 "the full force, nothing else visible",
+                 "the stillness after, everything changed"]),
+    ("ceremony", ["preparation, nobody present yet",
+                  "the gathering, self-conscious",
+                  "the act itself",
+                  "dispersal, the ordinary returning"]),
 ]
 
 # Light and palette are drawn independently of any diurnal arc, because the
@@ -191,10 +236,46 @@ def pick_flaw(rng, medium):
     return rng.choice(FLAWS_BY_FAMILY[MEDIUM_FAMILY.get(medium, "paint")])
 
 
-def allowed_grammars(medium):
-    banned = GRAMMAR_BANS.get(medium, set())
+def allowed_grammars(medium, world=None):
+    banned = set(GRAMMAR_BANS.get(medium, set()))
+    # "Among many overlapping bodies" needs bodies; over a cactus it is just a
+    # word the model has to reconcile, and it reconciles it badly.
+    if world is not None and world not in HUMAN_WORLDS:
+        banned.add("overlapping bodies")
     keep = [g for g in GRAMMARS if not any(b in g for b in banned)]
     return keep or GRAMMARS
+
+
+# A charge has to be possible for its world. "The desperate tension of a secret
+# exchange" over a sleeping fox is not evocative, it is a category error, and
+# the model renders the confusion faithfully.
+HUMAN_WORLDS = {"faces", "hands", "crowds", "ritual", "interiors"}
+OBJECT_CHARGES = [
+    "the arrogance of a thing built to outlast its makers",
+    "the dignity of something worn out by use",
+    "the violence held in a stopped machine",
+    "abundance about to spoil",
+    "the indifference of weather to anyone watching",
+    "a small thing insisting on being noticed",
+]
+WORLD_ARCS = {
+    "weather": "weather", "machines": "labour", "hands": "labour",
+    "ritual": "ceremony", "crowds": "ceremony", "food": "labour",
+    "faces": "closeness", "interiors": "approach", "creatures": "closeness",
+    "botanical": "weather", "water": "weather", "textiles": "labour",
+}
+
+
+def pick_charge(rng, world):
+    return rng.choice(CHARGES if world in HUMAN_WORLDS else OBJECT_CHARGES)
+
+
+def pick_arc(rng, world):
+    want = WORLD_ARCS.get(world)
+    for name, beats in ARCS:
+        if name == want:
+            return (name, beats)
+    return rng.choice(ARCS)
 
 
 def new_sequence(rng):
@@ -205,7 +286,12 @@ def new_sequence(rng):
         "medium": medium,
         "medium_clause": clause,
         "world": world,
-        "grammar": rng.choice(allowed_grammars(medium)),
+        "grammar": rng.choice(allowed_grammars(medium, world)),
+        "charge": pick_charge(rng, world),
+        "arc": pick_arc(rng, world),
+        # One story means one subject: the arc is carried by the beats and the
+        # framing, not by swapping what we are looking at every frame.
+        "subject": rng.choice(WORLDS[world]),
         "light": rng.choice(LIGHT),
         "palette": rng.choice(PALETTE),
         "flaw": pick_flaw(rng, medium),
@@ -224,28 +310,29 @@ def variation(rng, seq, index, previous=None):
     six-item pool repeats often enough to look like a stuck loop.
     """
     v = dict(seq)
-    pool = [s for s in WORLDS[seq["world"]] if s != (previous or {}).get("subject")]
-    v["subject"] = rng.choice(pool or WORLDS[seq["world"]])
     if rng.random() < 0.5:
         v["light"] = rng.choice(LIGHT)
     if index >= 2 and rng.random() < 0.5:
-        v["grammar"] = rng.choice(allowed_grammars(seq["medium"]))
+        v["grammar"] = rng.choice(allowed_grammars(seq["medium"], seq["world"]))
     if rng.random() < 0.4:
         v["flaw"] = pick_flaw(rng, seq["medium"])
+    beats = seq["arc"][1]
+    v["beat"] = beats[index % len(beats)]
     return v
 
 
 def compose(v):
-    return v["grammar"].format(
-        s=v["subject"],
-        m=f"{v['medium']}, {v['medium_clause']}",
-        l=v["light"],
-        p=v["palette"],
-    ) + f". {v['flaw']}"
+    # Intent first, subject second, materials last. The order is the point:
+    # what the picture is about has to reach the model before the inventory.
+    return (
+        f"{v['medium']} capturing {v['charge']}. "
+        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}. "
+        f"{v['medium_clause']}. {v['light']}, {v['palette']}. {v['flaw']}"
+    )
 
 
 def describe(seq):
-    return f"{seq['medium']} / {seq['world']} / {seq['palette']}"
+    return f"{seq['medium']} / {seq['world']} / {seq['arc'][0]} / {seq['charge']}"
 
 
 if __name__ == "__main__":
