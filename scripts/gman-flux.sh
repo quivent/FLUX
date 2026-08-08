@@ -86,10 +86,13 @@ cmd_sync() {
 
 cmd_bootstrap() { on_node "chmod +x $REPO_DIR/deploy/givemeanode/bootstrap.sh && REPO_DIR=$REPO_DIR $REPO_DIR/deploy/givemeanode/bootstrap.sh"; }
 
-# ~40 GB of BF16 weights: detached, because this outlives a sync call.
+# ~54 GB of BF16 weights. The import unpacks a repo's contents FLAT into dest,
+# so dest is the model directory itself: importing into $MODEL_ROOT would strew
+# model_index.json and transformer/ across the models root and leave
+# flux_paths.default_model_dir with nothing it recognises.
 cmd_model() {
 	gman import "$NODE" --connection "$HF_CONNECTION" --source "$HF_REPO" \
-		--dest "$MODEL_ROOT" --wait
+		--dest "$MODEL_ROOT/FLUX.1-dev" --wait
 }
 
 cmd_verify() { on_node "cd $REPO_DIR && python3 check_flux.py"; }

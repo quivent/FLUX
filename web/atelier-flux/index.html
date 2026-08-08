@@ -189,7 +189,11 @@
   async function backfill() {
     try {
       const j = await poll('/api/recent-images?limit=' + MAX_CELLS);
-      (j.images || []).reverse().forEach((im) => addCell(im.url, im.name, false));
+      // `path` before `url`: the server builds `url` absolute against its own
+      // origin, which behind a gateway is the capability URL. Loading images
+      // from that would leak the origin and break the page every time the
+      // endpoint rotates. A same-origin path survives both.
+      (j.images || []).reverse().forEach((im) => addCell(im.path || im.url, im.name, false));
       log('backfill', (j.images || []).length + ' existing renders');
     } catch (e) { log('backfill', 'none available'); }
   }

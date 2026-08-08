@@ -12,6 +12,7 @@ set -eu
 REPO_DIR="${REPO_DIR:-$HOME/FLUX}"
 MODEL_ROOT="${MODEL_ROOT:-$HOME/models}"
 OUT_DIR="${OUT_DIR:-$HOME/models/flux-output}"
+VENV="${VENV:-$HOME/.venv}"
 
 say() { printf '\n== %s\n' "$1"; }
 
@@ -27,8 +28,14 @@ if torch.cuda.is_available():
 PY
 
 say "flux dependencies"
-pip install --no-input --quiet -r "$REPO_DIR/deploy/givemeanode/requirements-node.txt"
-python3 - <<'PY'
+# The image's Python is externally managed (PEP 668), so a plain pip install is
+# refused. A venv with --system-site-packages is the way through that keeps the
+# image's torch: --break-system-packages would work too, but installing over a
+# distro-managed interpreter on a box we intend to snapshot is how a node stops
+# being reproducible.
+[ -x "$VENV/bin/python" ] || python3 -m venv --system-site-packages "$VENV"
+"$VENV/bin/pip" install --no-input --quiet -r "$REPO_DIR/deploy/givemeanode/requirements-node.txt"
+"$VENV/bin/python" - <<'PY'
 import diffusers, transformers, accelerate
 print("diffusers", diffusers.__version__)
 print("transformers", transformers.__version__)
@@ -41,7 +48,7 @@ printf 'models: %s\noutput: %s\n' "$MODEL_ROOT" "$OUT_DIR"
 
 say "resolved paths"
 cd "$REPO_DIR"
-MODEL_DIR="${MODEL_DIR:-}" OUT_DIR="$OUT_DIR" python3 - <<'PY'
+MODEL_DIR="${MODEL_DIR:-}" OUT_DIR="$OUT_DIR" "$VENV/bin/python" - <<'PY'
 import flux_paths
 model = flux_paths.default_model_dir()
 print("model dir:", model)
