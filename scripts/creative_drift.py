@@ -343,13 +343,20 @@ def main():
         receipt = nexus_receipt(job_id)
         picks = load_picks(out_dir)
 
+        # Two voices on one subject, interleaved so the wall reads as a
+        # dialogue rather than as two unrelated runs. Same pipeline: the GPU is
+        # already saturated during sampling, so a second process would buy
+        # contention, not throughput.
         sequence = lang.new_sequence(rng)
+        counter = lang.paired_sequence(rng, sequence)
         batch, prev = [], None
         for i in range(live["batch"]):
-            v = lang.variation(rng, sequence, i, prev)
+            voice = sequence if i % 2 == 0 else counter
+            v = lang.variation(rng, voice, i // 2, prev)
             batch.append(v)
             prev = v
-        print(f"  concept: {lang.describe(sequence)}", flush=True)
+        print(f"  A: {lang.describe(sequence)}", flush=True)
+        print(f"  B: {lang.describe(counter)}", flush=True)
 
         pinned = (raw or {}).get("pinned") or {}
         if isinstance(pinned, dict):
@@ -394,7 +401,7 @@ def main():
             row = {
                 "generation": generation, "index": index, "phase": phase,
                 "job_id": job_id, "receipt": receipt, "seed": seed,
-                "concept": lang.describe(sequence), "genome": genome, "prompt": prompt, "file": name,
+                "concept": lang.describe(genome), "genome": genome, "prompt": prompt, "file": name,
 
                 "seconds": round(time.time() - began, 2),
                 "published": published, "ts": time.time(),

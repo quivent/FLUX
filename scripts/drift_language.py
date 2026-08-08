@@ -266,6 +266,25 @@ WORLD_ARCS = {
 }
 
 
+# The governor: frame 1 and frame 4 must differ in the subject's state, or the
+# delta is incidental. A posture progression makes the arc visible in the body
+# rather than only in the caption.
+POSTURE_ARCS = [
+    ("tighten", ["loose, unaware", "attention caught, stilling",
+                 "braced, committed", "held rigid at the limit"]),
+    ("release", ["braced, holding everything in", "the first give",
+                 "letting go, off balance", "loosened, the weight set down"]),
+]
+
+# Two media are in dialogue when they disagree about how a surface is made.
+# Pairing within a family (two paints, two prints) reads as indecision.
+def contrasting_medium(rng, medium):
+    family = MEDIUM_FAMILY.get(medium, "paint")
+    others = [(m, c) for m, c in MEDIA if MEDIUM_FAMILY.get(m, "paint") != family]
+    weights = [MEDIA_WEIGHTS.get(m, 2) for m, _ in others]
+    return rng.choices(others, weights=weights, k=1)[0]
+
+
 def pick_charge(rng, world):
     return rng.choice(CHARGES if world in HUMAN_WORLDS else OBJECT_CHARGES)
 
@@ -282,16 +301,22 @@ def new_sequence(rng):
     """One committed concept. Everything inside a sequence shares it."""
     medium, clause = rng.choices(MEDIA, weights=[MEDIA_WEIGHTS.get(m, 2) for m, _ in MEDIA], k=1)[0]
     world = rng.choice(list(WORLDS))
+    arc = pick_arc(rng, world)
+    arc_name = arc[0]
     return {
         "medium": medium,
         "medium_clause": clause,
         "world": world,
         "grammar": rng.choice(allowed_grammars(medium, world)),
         "charge": pick_charge(rng, world),
-        "arc": pick_arc(rng, world),
+        "arc": arc,
         # One story means one subject: the arc is carried by the beats and the
         # framing, not by swapping what we are looking at every frame.
         "subject": rng.choice(WORLDS[world]),
+        # The body must agree with the story: a beat that disperses cannot land
+        # on a posture that tightens, or the frame argues with its own caption.
+        "posture_arc": next(pa for pa in POSTURE_ARCS
+                            if pa[0] == ("tighten" if arc_name == "closeness" else "release")),
         "light": rng.choice(LIGHT),
         "palette": rng.choice(PALETTE),
         "flaw": pick_flaw(rng, medium),
@@ -318,6 +343,8 @@ def variation(rng, seq, index, previous=None):
         v["flaw"] = pick_flaw(rng, seq["medium"])
     beats = seq["arc"][1]
     v["beat"] = beats[index % len(beats)]
+    postures = seq["posture_arc"][1]
+    v["posture"] = postures[index % len(postures)]
     return v
 
 
@@ -326,9 +353,25 @@ def compose(v):
     # what the picture is about has to reach the model before the inventory.
     return (
         f"{v['medium']} capturing {v['charge']}. "
-        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}. "
+        f"{v['beat'].capitalize()}: {v['grammar'].format(s=v['subject'])}, {v['posture']}. "
         f"{v['medium_clause']}. {v['light']}, {v['palette']}. {v['flaw']}"
     )
+
+
+def paired_sequence(rng, seq):
+    """The counter-voice: same subject and charge, a medium from another family.
+
+    Not an independent second sequence -- that is just more images. The dialogue
+    only exists if both halves are about the same thing.
+    """
+    medium, clause = contrasting_medium(rng, seq["medium"])
+    other = dict(seq)
+    other["medium"] = medium
+    other["medium_clause"] = clause
+    other["grammar"] = rng.choice(allowed_grammars(medium, seq["world"]))
+    other["flaw"] = pick_flaw(rng, medium)
+    other["palette"] = rng.choice(PALETTE)
+    return other
 
 
 def describe(seq):
