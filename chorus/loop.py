@@ -39,8 +39,12 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import flux_paths  # noqa: E402
+import author  # noqa: E402
 import language as lang  # noqa: E402
 
+# Share of generations that carry one authored frame. Low: the grammar is the
+# proven arm and the author is the challenger, not the replacement.
+AUTHOR_RATE = float(os.environ.get("CHORUS_AUTHOR_RATE", "0.25"))
 PIPER_SOCKET = os.environ.get("PIPER_SOCKET", "/tmp/piper.sock")
 NEXUS_ADDR = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")
 
@@ -365,6 +369,18 @@ def main():
             v = lang.variation(rng, voice, i, prev)
             batch.append(v)
             prev = v
+        # One authored frame per generation at most, per protocol rule 10: the
+        # composer that reasons shares the exploration budget rather than
+        # replacing the grammar. It is judged on the same sheet, by the same
+        # panel, and earns its share or does not.
+        authored = None
+        if rng.random() < AUTHOR_RATE:
+            authored, author_error = author.author(str(out_dir))
+            if authored:
+                print(f"  authored: {authored['intent']}", flush=True)
+            else:
+                print(f"  authored: none ({author_error})", flush=True)
+
         print(f"  A: {lang.describe(sequence)}", flush=True)
         print(f"  B: {lang.describe(counter)}", flush=True)
 
@@ -387,6 +403,8 @@ def main():
             if stopping["now"]:
                 break
             prompt = lang.compose(genome)
+            if authored and index == 0:
+                prompt = authored["prompt"]
             seed = rng.randrange(1, 2**31)
             began = time.time()
             image = pipe(
@@ -412,6 +430,7 @@ def main():
                 "generation": generation, "index": index, "phase": phase,
                 "job_id": job_id, "receipt": receipt, "seed": seed,
                 "concept": lang.describe(genome), "genome": genome, "prompt": prompt, "file": name,
+                "authored": bool(authored and index == 0),
 
                 "seconds": round(time.time() - began, 2),
                 "published": published, "ts": time.time(),
