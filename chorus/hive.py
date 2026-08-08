@@ -61,6 +61,7 @@ MIN_TRIALS = 12       # appearances before a challenger can be judged
 MAX_PROMOTIONS = 1    # per cycle; a wall changes slowly or it is not a wall
 MAX_TRIALING = 6      # candidates alive at once, so each gets real exposure
 MIN_JUDGED = 8        # frames a sheet must carry before its score counts
+WINDOW = 80           # the judgement window scores must share to be comparable
 
 # The seats. Rotating them keeps proposals from converging on one obsession,
 # which is what a single critic asked repeatedly always produces.
@@ -207,7 +208,11 @@ def cycle(args, log):
         # the regression brake against a healthy run.
         judged_frames = len(row.get("verdict", {}).get("keep") or []) + \
                         len(row.get("verdict", {}).get("cut") or [])
-        if row.get("judged") and row.get("hit_rate") is not None and judged_frames >= MIN_JUDGED:
+        # Protocol rule 7: only compare scores measured over the same window.
+        # Archive-wide scores and current-run scores are different quantities,
+        # and mixing them is what tripped the brake against a healthy run.
+        if (row.get("judged") and row.get("hit_rate") is not None
+                and judged_frames >= MIN_JUDGED and row.get("window") == WINDOW):
             verdicts.append(row["hit_rate"])
     streak = int(state.get("streak") or 0)
     if len(verdicts) >= 2 and verdicts[-1] < max(verdicts[:-1]) - 0.15:

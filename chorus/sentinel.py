@@ -231,7 +231,7 @@ def judge_once(args):
         return None
 
     verdict, error = ask_governor(sheet, laws, args.timeout, args.public_base)
-    row = {"ts": time.time(), "frames": args.n, "sheet": str(sheet)}
+    row = {"ts": time.time(), "frames": args.n, "window": args.recent, "sheet": str(sheet)}
     if verdict is None:
         # Recorded as a miss, not a pass. An unjudged round must never be
         # mistaken later for an approved one.
