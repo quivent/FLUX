@@ -63,7 +63,7 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in hive sentinel drift serve nexus piper; do stop_one "$svc"; done
+for svc in r2sync hive sentinel drift serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -97,12 +97,21 @@ if [ "${HIVE:-1}" = "1" ]; then
 			--out-dir "$OUT_DIR" --public-base "${CHORUS_PUBLIC_BASE:-}" --interval 1800
 fi
 
+# Stream frames off the node as they land. The volume is one crypto-erase from
+# taking the whole run with it, and a batch job is a thing that has not run yet.
+# Credentials come from the environment; a command line would be recorded.
+if [ "${R2SYNC:-1}" = "1" ] && [ -n "${R2_ACCESS_KEY_ID:-}" ]; then
+	start_one r2sync "$VENV/bin/python" chorus/r2sync.py --out-dir "$OUT_DIR" --interval 15
+elif [ "${R2SYNC:-1}" = "1" ]; then
+	echo "r2sync  skipped (no R2_ACCESS_KEY_ID in the environment)"
+fi
+
 sleep 2
 echo "--- health ---"
 curl -sS -o /dev/null -w 'atelier %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/atelier/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve drift sentinel hive; do
+for svc in piper nexus serve drift sentinel hive r2sync; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
