@@ -186,6 +186,15 @@ COLOR_MOODS = [
 # ---------------------------------------------------------------- camera
 # The narrative arc, made of framings instead of captions. Frame 1 to frame 4
 # is a move the eye can follow on the wall without reading anything.
+# Flat, frontal alternatives to the wide shot. The sentinel named "receding
+# perspective corridor" as the dominant motif twice: a wide framing that does
+# not say how the space is organised gets one-point perspective by default.
+FLAT_WIDE = [
+    "far away and flat-on, the space reading as stacked bands not depth",
+    "far away, seen square against a wall with no vanishing point",
+    "small against a large flat field of one colour",
+]
+
 CAMERA_ARCS = [
     ("approach", ["far away, small in a wide empty frame",
                   "at middle distance, off-centre",
@@ -249,6 +258,9 @@ def paired_sequence(rng, seq):
     return other
 
 
+_DEPTH_PRONE = {"streets", "interiors"}
+
+
 def variation(rng, seq, index, previous=None, last=3):
     """A sibling: everything held, only the camera moves along the arc.
     The per-frame seed supplies the rest of the difference. `previous` is
@@ -257,6 +269,11 @@ def variation(rng, seq, index, previous=None, last=3):
     v = dict(seq)
     beats = seq["arc"][1]
     v["framing"] = beats[index % len(beats)]
+    # Swap the depth-inviting wide shot for a flat one in the worlds that
+    # collapse into corridors. Half the time, so the arc still has a far end.
+    if (seq["world"] in _DEPTH_PRONE and "far away" in v["framing"]
+            and rng.random() < 0.7):
+        v["framing"] = rng.choice(FLAT_WIDE)
     pool = DETAILS.get(seq["world"], [])
     v["detail"] = pool[index % len(pool)] if pool else ""
     return v
