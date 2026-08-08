@@ -45,6 +45,7 @@ EPS_MAX = 0.15        # ceiling on unproven material, as a share of frames
 MIN_TRIALS = 12       # appearances before a challenger can be judged
 MAX_PROMOTIONS = 1    # per cycle; a wall changes slowly or it is not a wall
 MAX_TRIALING = 6      # candidates alive at once, so each gets real exposure
+MIN_JUDGED = 8        # frames a sheet must carry before its score counts
 
 # The seats. Rotating them keeps proposals from converging on one obsession,
 # which is what a single critic asked repeatedly always produces.
@@ -185,7 +186,12 @@ def cycle(args, log):
             row = json.loads(line)
         except ValueError:
             continue
-        if row.get("judged") and row.get("hit_rate") is not None:
+        # A verdict on a nearly empty run is not evidence. Restarts produce
+        # sheets of one or two frames, and one of those scored 0.00 and tripped
+        # the regression brake against a healthy run.
+        judged_frames = len(row.get("verdict", {}).get("keep") or []) + \
+                        len(row.get("verdict", {}).get("cut") or [])
+        if row.get("judged") and row.get("hit_rate") is not None and judged_frames >= MIN_JUDGED:
             verdicts.append(row["hit_rate"])
     if len(verdicts) >= 2 and verdicts[-1] < max(verdicts[:-1]) - 0.15:
         state["eps"] = 0.0
