@@ -41,6 +41,25 @@ HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 ENGINES = [e for e in (os.environ.get("CHORUS_SECOND_ENGINE", ""), GOVERNOR) if e]
 
+# Tension, not objects. The governor's own diagnosis of why he collapsed:
+# "Stop naming the nouns. Start naming the conflict. Force me to synthesize the
+# imagery from an abstract emotion rather than a grocery list." A seed is a
+# situation with a contradiction in it, never a subject.
+TENSIONS = [
+    "the feeling of a sudden departure",
+    "the geometry of a betrayal",
+    "something ending while everyone keeps working",
+    "a kindness that arrives far too late",
+    "the moment before anyone admits what happened",
+    "order imposed on something that resists it",
+    "a celebration nobody is enjoying",
+    "the weight of a thing nobody will name",
+    "proof of a presence that has gone",
+    "intimacy observed from too far away",
+    "a repair that made it worse",
+    "the last warm thing in a cold place",
+]
+
 BRIEF = """You compose prompts for FLUX.1-dev, which renders one still image per prompt.
 
 Write ONE prompt. Hard rules, each learned the expensive way:
@@ -54,6 +73,9 @@ Write ONE prompt. Hard rules, each learned the expensive way:
 - One accent of colour against a restrained ground, not a wash over everything.
 - Everything must be something a camera could verify. No adjectives standing in
   for the thing itself: not "haunting", not "profound", not "awe-inspiring".
+- Compliance is the enemy of the arresting frame. A frame may be asymmetrical,
+  uncomfortable or wrong on purpose. Discord is permitted; safety is not
+  interesting and scores nothing.
 
 Reply with ONLY a JSON object:
 {"prompt":"<the prompt>","intent":"<what you are going for, 10 words>"}"""
@@ -101,9 +123,39 @@ def recent_examples(out_dir, n=6):
     return kept, cutt
 
 
+def recent_motifs(out_dir, n=12):
+    """What the composer has lately repeated, so it can be forbidden.
+
+    Negative constraints, per the governor: "Ban the bottom left composition.
+    Ban the pewter plate. Ban the cracked motif." A collapse is only visible in
+    aggregate, and the composer cannot see its own aggregate.
+    """
+    out = pathlib.Path(out_dir)
+    mine = []
+    ledger = out / "creative-drift.jsonl"
+    if ledger.exists():
+        for line in ledger.read_text().splitlines()[-2000:]:
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if row.get("authored") and row.get("prompt"):
+                mine.append(row["prompt"])
+    words = {}
+    for p in mine[-n:]:
+        for w in set(p.lower().replace(",", " ").split()):
+            if len(w) > 4:
+                words[w] = words.get(w, 0) + 1
+    # A word in a third or more of recent output is a rut, not a preference.
+    threshold = max(2, len(mine[-n:]) // 3)
+    return sorted(w for w, c in words.items() if c >= threshold)[:14]
+
+
 def author(out_dir, timeout=200):
     laws = read_laws()
     kept, cut = recent_examples(out_dir)
+    banned = recent_motifs(out_dir)
+    tension = random.choice(TENSIONS)
     parts = [BRIEF]
     if laws:
         # The laws carry their own failure history in the file: each says what
@@ -111,15 +163,24 @@ def author(out_dir, timeout=200):
         # is just a constraint to route around.
         parts.append("These laws govern this wall. Each records the failure that "
                      "forced it -- read the failures, not only the rules:\n\n" + laws)
+    # Winners are shown as EXHAUSTED, never as models. Shown as models they
+    # turned the composer into a mirror of the past -- twenty prompts that
+    # converged on a cracked still life, bottom left, every time. The fix is
+    # its own: "stop giving me the answer key."
     if kept:
-        parts.append("Prompts whose frames STOPPED someone -- aim here, not at mere "
-                     "correctness:\n" + "\n".join("- " + p for p in kept))
+        parts.append("These already exist. They are used up. Do not write anything "
+                     "adjacent to them -- not the same subject, not the same "
+                     "composition, not the same palette:\n"
+                     + "\n".join("- " + p for p in kept))
     if cut:
-        parts.append("Prompts whose frames the panel CUT. Do not repeat their mistakes:\n"
-                     + "\n".join("- " + p for p in cut))
-    parts.append("Now write one prompt. Not one that breaks no rule -- the rules only "
-                 "prevent failure, and a frame can satisfy every one of them and be "
-                 "dead. Write the one someone would stop walking to look at.")
+        parts.append("These failed:\n" + "\n".join("- " + p for p in cut))
+    if banned:
+        parts.append("BANNED, because your own recent prompts collapsed onto them:\n"
+                     + "\n".join("- " + b for b in banned))
+    parts.append(f"Your seed is a tension, not a subject: {tension}.\n\n"
+                 "Find the image that carries it. Do not name the emotion in the "
+                 "prompt -- render it as a physical fact a camera could see. Then "
+                 "write one prompt for that image.")
 
     body = {"model": "governor", "max_tokens": 320,
             "messages": [{"role": "user", "content": "\n\n".join(parts)}]}
