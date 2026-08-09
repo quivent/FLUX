@@ -337,6 +337,16 @@ CHALLENGER_MONO = [
     "one small mark low on a vast empty sheet",
 ]
 CHALLENGER_RATE = 0.15
+# Law 14 was broken on every frame of a sheet: one scale, one distance, one
+# moment throughout. A device answering a universal failure cannot stay a rare
+# challenger, so scale disparity is drawn far more often than the rest.
+SCALE_RATE = 0.45
+SCALE_DEVICES = [
+    "made tiny beside something so large it leaves the frame",
+    "dwarfed by a single mass filling most of the frame",
+    "a hand's width of subject against a wall of stone behind it",
+    "close enough to touch, with something vast out of focus beyond",
+]
 
 
 def _draw_medium(rng, pool=None):
@@ -401,7 +411,9 @@ def variation(rng, seq, index, previous=None, last=3):
     # A world is not a subject: "water" holds a diver, a koi and rain on glass,
     # so a detail assuming anatomy is discarded for most of them -- which is how
     # siblings collapsed back into pairs. Alternate with a universal pool.
-    if rng.random() < CHALLENGER_RATE:
+    if rng.random() < SCALE_RATE:
+        v["detail"] = rng.choice(SCALE_DEVICES)
+    elif rng.random() < CHALLENGER_RATE:
         v["detail"] = rng.choice(CHALLENGER_DETAILS)
     else:
         pool = UNIVERSAL_DETAILS if index % 2 else (DETAILS.get(seq["world"]) or UNIVERSAL_DETAILS)
