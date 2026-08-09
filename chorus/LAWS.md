@@ -74,6 +74,22 @@ Version 1. Amend by adding the failure that forced the change.
     shaft of light. Not reachable: the uncanny, narrative across frames, and
     any adjective standing in for the thing itself.
 
+## The one law that is not a prohibition
+
+Laws 1-14 all forbid something. Compliance with them measures the absence of
+faults and nothing more, so a frame that breaks no law and stirs nobody scores
+perfectly -- which is a machine for manufacturing competence, and competence is
+what the operator kept calling awful.
+
+**15. A frame must be worth stopping for.** Not free of faults: worth a second
+of someone's attention. The sentinel is asked, separately from law compliance,
+which frames arrest and which are dead-but-lawful, and the hive promotes on
+what arrests rather than on what complies. Most sheets have no arresting frame,
+and reporting none is the honest answer.
+
+*Failed by:* fourteen laws, every one a prohibition, and an entire apparatus in
+which nothing ever asked whether an image was beautiful.
+
 ## The anchor
 
 `taste-log.jsonl` holds one kind of entry that outranks every other: an

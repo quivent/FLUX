@@ -89,7 +89,14 @@ def recent_examples(out_dir, n=6):
                 continue
             if row.get("file") and row.get("prompt"):
                 prompts[row["file"]] = row["prompt"]
-    kept = [prompts[f] for f in list(keep) if f in prompts][-n:]
+    # Arresting frames first. A prompt that produced a merely compliant frame
+    # teaches the composer to be compliant, which is the trap: the laws already
+    # enforce compliance, and imitating it just makes the wall more reliably
+    # unremarkable.
+    arrest = [f for f in (picks.get("arresting") or []) if f in prompts]
+    kept = [prompts[f] for f in arrest][-n:]
+    if len(kept) < n:
+        kept += [prompts[f] for f in list(keep) if f in prompts and f not in arrest][-(n - len(kept)):]
     cutt = [prompts[f] for f in list(cut) if f in prompts][-n:]
     return kept, cutt
 
@@ -105,11 +112,14 @@ def author(out_dir, timeout=200):
         parts.append("These laws govern this wall. Each records the failure that "
                      "forced it -- read the failures, not only the rules:\n\n" + laws)
     if kept:
-        parts.append("Prompts whose frames the panel KEPT:\n" + "\n".join("- " + p for p in kept))
+        parts.append("Prompts whose frames STOPPED someone -- aim here, not at mere "
+                     "correctness:\n" + "\n".join("- " + p for p in kept))
     if cut:
         parts.append("Prompts whose frames the panel CUT. Do not repeat their mistakes:\n"
                      + "\n".join("- " + p for p in cut))
-    parts.append("Now write one prompt that this panel would keep.")
+    parts.append("Now write one prompt. Not one that breaks no rule -- the rules only "
+                 "prevent failure, and a frame can satisfy every one of them and be "
+                 "dead. Write the one someone would stop walking to look at.")
 
     body = {"model": "governor", "max_tokens": 320,
             "messages": [{"role": "user", "content": "\n\n".join(parts)}]}

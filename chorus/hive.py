@@ -142,10 +142,19 @@ def ask_seat(seat, sheet_url, timeout=200, engine=None):
 
 
 def credit(state, picks):
+    """Attribute outcomes to challengers.
+
+    Weighted toward `arresting` rather than `keep`. A challenger that raises
+    compliance is not worth promoting -- the laws already handle compliance,
+    and optimising it further just makes the wall more reliably unremarkable.
+    What is worth adopting is whatever made someone stop walking.
+    """
     """Attribute the sentinel's keeps and cuts to whichever challenger was in
     the frame. The ledger records which frames carried which candidate."""
     keep = set(picks.get("keep") or [])
     cut = set(picks.get("cut") or [])
+    arresting = set(picks.get("arresting") or [])
+    keep |= arresting  # arresting frames always count as kept
     for c in state["challengers"]:
         if c["state"] != "trial":
             continue

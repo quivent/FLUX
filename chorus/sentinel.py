@@ -58,12 +58,26 @@ def _law_count():
     return max(nums) if nums else 10
 
 
+# Every law is a prohibition, so law-compliance measures the absence of faults
+# and nothing else: a frame that breaks no law and stirs nobody scores
+# perfectly. That is a machine for manufacturing competence, and competence is
+# exactly what the operator kept calling awful. `arresting` is the only
+# affirmative question in the system -- asked separately, because a frame can
+# be flawless and dead, or flawed and the one you cannot look away from.
 SCHEMA = """Reply with ONLY a JSON object, no prose, no markdown fence:
 {"keep":[<frame numbers worth wall space>],
  "cut":[<frame numbers that are not>],
+ "arresting":[{"frame":<n>,"why":"<what stops you, 10 words, concrete>"}],
+ "dead":[<frames that break no rule and are still lifeless>],
  "laws_broken":[{"law":<1-LAWMAX>,"frames":[<n>],"why":"<8 words>"}],
  "dominant_motif":"<the composition or subject recurring across unrelated frames, or none>",
- "verdict":"<one sentence a curator would say>"}""".replace("LAWMAX", str(_law_count()))
+ "verdict":"<one sentence a curator would say>"}
+
+`arresting` is not `keep`. Keep asks whether a frame is good enough to hang.
+Arresting asks whether you would stop walking. Most sheets have none, and
+saying none is the honest answer -- do not promote a competent frame into it.
+`dead` is the opposite and matters as much: name the frames that satisfy every
+rule and are still not worth a second of anyone's attention.""".replace("LAWMAX", str(_law_count()))
 
 
 def build_sheet(out_dir, sheet, n, recent=RECENT_WINDOW):
@@ -213,6 +227,12 @@ def publish_picks(out_dir, sheet, verdict):
     except (OSError, ValueError):
         picks = {"keep": [], "cut": []}
     keep, cut = set(picks.get("keep") or []), set(picks.get("cut") or [])
+    arrest = set(picks.get("arresting") or [])
+    for a in verdict.get("arresting") or []:
+        name = frames.get(str(a.get("frame")))
+        if name:
+            arrest.add(name)
+            keep.add(name)
     for n in verdict.get("keep") or []:
         name = frames.get(str(n))
         if name:
@@ -223,7 +243,8 @@ def publish_picks(out_dir, sheet, verdict):
         if name and name not in keep:
             cut.add(name)
     picks_path.write_text(json.dumps(
-        {"keep": sorted(keep), "cut": sorted(cut), "updated": time.time()}, indent=2) + "\n")
+        {"keep": sorted(keep), "cut": sorted(cut), "arresting": sorted(arrest),
+         "updated": time.time()}, indent=2) + "\n")
     return len(keep)
 
 
@@ -248,9 +269,14 @@ def judge_once(args):
         publish_picks(out_dir, sheet, verdict)
         row.update(judged=True, verdict=verdict, hit_rate=hit)
         keep = verdict.get("keep") or []
-        print(f"hit {len(keep)}/{args.n}"
+        arresting = verdict.get("arresting") or []
+        dead = verdict.get("dead") or []
+        row["arresting_rate"] = len(arresting) / max(args.n, 1)
+        print(f"hit {len(keep)}/{args.n}  arresting {len(arresting)}  dead {len(dead)}"
               f"  motif={verdict.get('dominant_motif')!r}"
               f"  {verdict.get('verdict','')}", flush=True)
+        for a in arresting:
+            print(f"    ARRESTING frame {a.get('frame')}: {a.get('why')}", flush=True)
         for broken in verdict.get("laws_broken") or []:
             print(f"    law {broken.get('law')} frames {broken.get('frames')}: {broken.get('why')}",
                   flush=True)
