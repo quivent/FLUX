@@ -63,7 +63,7 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in r2sync hive sentinel drift serve nexus piper; do stop_one "$svc"; done
+for svc in watchdog r2sync hive sentinel drift serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -106,12 +106,34 @@ elif [ "${R2SYNC:-1}" = "1" ]; then
 	echo "r2sync  skipped (no R2_ACCESS_KEY_ID in the environment)"
 fi
 
+# A watch that dies unnoticed is not a watch. Nothing here was checking that
+# the checkers were alive: the sentinel 524'd for forty minutes and the only
+# reason anyone found out was a human reading a log by hand. This restarts a
+# dead service and records the death, so absence stops looking like health.
+if [ "${WATCHDOG:-1}" = "1" ]; then
+	start_one watchdog bash -c '
+		while true; do
+			for svc in piper nexus serve drift sentinel hive; do
+				pidfile="'"$RUN"'/$svc.pid"
+				[ -f "$pidfile" ] || continue
+				pid=$(cat "$pidfile" 2>/dev/null || echo)
+				if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+					echo "$(date -u +%H:%M:%S) $svc died; restarting stack" \
+						>> "$HOME/watchdog.log"
+					ARCHIVE_PRIOR=0 bash "$HOME/FLUX/chorus/up.sh" >> "$HOME/watchdog.log" 2>&1
+					break
+				fi
+			done
+			sleep 60
+		done'
+fi
+
 sleep 2
 echo "--- health ---"
 curl -sS -o /dev/null -w 'atelier %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/atelier/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve drift sentinel hive r2sync; do
+for svc in piper nexus serve drift sentinel hive r2sync watchdog; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
