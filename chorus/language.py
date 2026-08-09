@@ -65,7 +65,7 @@ MEDIA = [
 # fail at, because it is made of things that show up in pixels.
 WORLDS = {
     "figures": [
-        "an old fisherman coiling rope on a dock, cigarette clamped in his teeth",
+        "an old fisherman coiling rope on a dock, squinting into the wind",
         "a girl laughing so hard she has to grip the table",
         "a barber sweeping hair across the floor of his empty shop",
         "a night-shift nurse asleep upright on the last bus",
@@ -326,7 +326,7 @@ EXPLORE_RATE = 0.15
 # one scale, one distance and one moment. Awe is a ratio, and there was only
 # ever one term.
 CHALLENGER_DETAILS = [
-    "made tiny beside something so large it leaves the frame",   # scale disparity
+    "tiny beside something too large to fit the frame",   # scale disparity
     "one of many, ranks of them receding out of the frame",      # multiplicity
     "smeared into one long streak while everything stays sharp",  # duration
 ]
@@ -342,10 +342,10 @@ CHALLENGER_RATE = 0.15
 # challenger, so scale disparity is drawn far more often than the rest.
 SCALE_RATE = 0.45
 SCALE_DEVICES = [
-    "made tiny beside something so large it leaves the frame",
-    "dwarfed by a single mass filling most of the frame",
-    "a hand's width of subject against a wall of stone behind it",
-    "close enough to touch, with something vast out of focus beyond",
+    "tiny beside something too large to fit the frame",
+    "dwarfed by one mass filling the frame",
+    "a hand's width against a wall of stone",
+    "close, with something vast blurred far behind",
 ]
 
 
