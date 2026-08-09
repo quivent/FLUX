@@ -100,6 +100,27 @@ a frame it already kept:
  "language_commit": "68f2a0a"}
 ```
 
+## Reading a verdict
+
+**Partial failure is a tuning problem. Universal failure is a missing
+mechanism.**
+
+When a fault appears on some instances, change the weights. When it appears on
+every one, stop tuning: the machine has no way to produce the thing whose
+absence you are measuring, and no rate applied to a device that does not exist
+will move it.
+
+The case that taught it: a judge broke law 14 -- awe is a ratio -- on all
+sixteen frames of a sheet. Not eleven, not fourteen. Sixteen. The grammar
+composes one subject, at one distance, in one moment; nothing in it could ever
+place two scales in a frame, so the ratio was unreachable at any setting. A
+device answering it was sitting at 13% and could never have mattered. The rate
+of a thing is only worth arguing about once the thing can happen at all.
+
+The corollary for reading any score: a number that moves is a tuning signal, a
+number pinned at zero across every instance is a design signal, and treating
+the second as the first wastes every cycle spent on it.
+
 ## What raising the hive's ability actually means
 
 Not a bigger model. In order of leverage:
