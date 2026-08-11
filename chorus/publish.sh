@@ -44,5 +44,5 @@ exec "$GEMSTONE" domains gateway publish \
 	--node "$NODE" --port "$PORT" \
 	--host "$HOST" --script "$SCRIPT" \
 	--token-file "$TOKEN_FILE" \
-	--open --verify-path /atelier/ \
+	--open --verify-path /gallery/ \
 	--origin-url "$url"

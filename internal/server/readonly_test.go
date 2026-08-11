@@ -21,6 +21,9 @@ func TestReadOnlyGate(t *testing.T) {
 		path   string
 		allow  bool
 	}{
+		{http.MethodGet, "/", true},
+		{http.MethodGet, "/app", true},
+		{http.MethodGet, "/gallery/", true},
 		{http.MethodGet, "/atelier/", true},
 		{http.MethodGet, "/outputs/atlas/x.png", true},
 		{http.MethodGet, "/api/health", true},

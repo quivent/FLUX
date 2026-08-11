@@ -53,7 +53,7 @@ than any log.
 
 In order, because each step rules out everything above it:
 
-1. **Is the wall serving?** `curl -o /dev/null -w '%{http_code}' https://tea.influx.vision/atelier/`
+1. **Is the wall serving?** `curl -o /dev/null -w '%{http_code}' https://tea.influx.vision/gallery/`
    Not 200 → the endpoint, not the art. Go to the fuse table.
 2. **Is the node running?** `get_node('flux-worker')`. Stopped or queued explains
    everything downstream; nothing else is worth checking first.

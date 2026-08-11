@@ -7,7 +7,7 @@ subject** — the same charge and the same story beats, in media from different
 families — interleaved, so the gallery reads as a dialogue rather than a feed.
 
 ```
-chorus/loop.py --> piper --> flux serve --> /api/assets/ws --> /atelier/
+chorus/loop.py --> piper --> flux serve --> /api/assets/ws --> /gallery/
 ```
 
 ## What it is for

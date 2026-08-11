@@ -48,6 +48,50 @@ import language as lang  # noqa: E402
 # proven arm and the author is the challenger, not the replacement.
 AUTHOR_RATE = float(os.environ.get("CHORUS_AUTHOR_RATE", "0.25"))
 
+# Titles are part of the work, not storage plumbing. Keep the lineage suffix
+# machine-readable, but let the visible stem carry the same restrained,
+# material vocabulary as the images. This is deterministic from the prompt and
+# seed so a restart never renames an existing idea.
+TITLE_MOTIFS = {
+    "figures": ("last gesture", "quiet witness", "passing face", "work of hands"),
+    "hands": ("held breath", "small ritual", "trace of touch", "patient hand"),
+    "creatures": ("wild stillness", "watchful distance", "soft animal", "sudden wing"),
+    "streets": ("empty crossing", "lantern street", "weathered passage", "late tram"),
+    "interiors": ("room remembering", "work light", "open window", "chair left warm"),
+    "food": ("broken feast", "salt and rind", "red seed", "kitchen offering"),
+    "weather": ("turning weather", "first snow", "wind at the door", "vanishing road"),
+    "water": ("dark water", "surface breaking", "silver current", "after the wave"),
+    "machines": ("tender machine", "wheel in motion", "bright mechanism", "useful noise"),
+    "music": ("last phrase", "room after music", "lifted bow", "brass in rain"),
+    "fire": ("ember hour", "match held close", "orange edge", "fire going quiet"),
+    "thresholds": ("door left open", "far side", "light through", "turning stair"),
+    "sleep": ("borrowed sleep", "dreaming animal", "night carriage", "breathing room"),
+    "botanical": ("green persistence", "silver seed", "moss returning", "flower at noon"),
+}
+TITLE_WEATHER = (
+    "first light", "rain", "blue hour", "green leaves", "morning",
+    "firelight", "white ground", "dusk", "one red mark", "deep shade",
+)
+TITLE_FORMS = (
+    "{motif} / {weather}",
+    "study for {motif}",
+    "{motif} after {weather}",
+    "{weather}, {motif}",
+    "the hour of {motif}",
+    "{motif}, nearly gone",
+)
+
+
+def artwork_filename(genome, generation, index, seed):
+    material = f"{lang.compose(genome)}|{seed}".encode()
+    digest = hashlib.sha256(material).digest()
+    motifs = TITLE_MOTIFS.get(genome.get("world"), ("quiet object", "held light", "near distance"))
+    motif = motifs[digest[0] % len(motifs)]
+    weather = TITLE_WEATHER[digest[1] % len(TITLE_WEATHER)]
+    title = TITLE_FORMS[digest[2] % len(TITLE_FORMS)].format(motif=motif, weather=weather)
+    slug = "-".join(title.replace("/", " ").replace(",", " ").split())
+    return f"{slug}--g{generation:04d}-{index:02d}-s{seed}.png"
+
 
 class AuthorAhead:
     """Keep authored prompts ready so the GPU never waits on a language model.
@@ -453,7 +497,7 @@ def main():
                 guidance_scale=live["guidance"],
                 generator=torch.Generator("cuda").manual_seed(seed),
             ).images[0]
-            name = f"drift-{generation:04d}-{index:02d}-seed-{seed}.png"
+            name = artwork_filename(genome, generation, index, seed)
             path = out_dir / name
             # Write beside the target then rename: the page watches this
             # directory, and a partial PNG would surface as a broken tile.

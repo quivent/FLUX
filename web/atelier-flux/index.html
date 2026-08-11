@@ -1,9 +1,9 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Atelier · FLUX</title>
+<title>Tea Gallery</title>
 <!--
-  Atelier · FLUX — the node's front page.
+  Tea Gallery — the node's living collection.
 
   Format is FLUX's: it speaks only endpoints internal/server/server.go already
   serves (/api/health, /api/assets/ws with the /api/assets/events SSE fallback,
@@ -11,7 +11,7 @@
   because it is served straight off the node's disk by the Go server's static
   lane -- a page that needed npm would not survive a node stop.
 
-  Style is Atelier's, ported from render/ui rather than reinvented: near-black
+  Style is the production app's, ported from render/ui rather than reinvented: near-black
   ground, glass panels on 6% hairlines, cyan/violet/magenta accents, oversize
   letterspaced micro-labels, tabular numerals. Fonts are a system stack, since
   the node has no CDN reach and a missing webfont would reflow the whole page.
@@ -98,7 +98,7 @@
 </style>
 
 <header>
-  <div class="word">ATELIER <b>FLUX</b></div>
+  <a class="word" href="/">TEA <b>GALLERY</b></a>
   <span class="dot" id="dot"></span>
   <span class="label" id="health">connecting</span>
   <span class="label" id="host" style="margin-left:auto"></span>
@@ -136,8 +136,9 @@
 <script>
   // Paged, not capped. The wall held 1,184 frames while showing 96, so the
   // body of work was unreachable from the page that exists to show it.
-  const PAGE = 60, MAX_FEED = 140;
+  const PAGE = 18, MAX_FEED = 140, REVEAL_MS = 70;
   let offset = 0, total = 0, picks = null;
+  let fetching = false;
   const $ = (id) => document.getElementById(id);
   const seen = new Set();
   let live = 0;
@@ -157,6 +158,22 @@
   // costs a few KB per tile and the full PNG loads only when one is opened.
   const thumb = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
 
+  const LEGACY_TITLES = [
+    'After the Last Light', 'A Room Remembering Rain', 'Gold Beneath Leaves',
+    'The Quiet Witness', 'Before the Weather Turns', 'One Red Mark',
+    'Fire Going Quiet', 'A Door Left Open', 'Blue Hour, Passing',
+    'Study for a Tender Machine', 'The Far Side of Morning', 'Dark Water Holding Light',
+  ];
+
+  function displayName(name, url) {
+    const raw = String(name || url.split('/').pop() || '').replace(/\.png$/i, '');
+    const titled = raw.match(/^(.*?)--g\d{4}-\d{2}-s\d+$/);
+    if (titled) return titled[1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    let hash = 2166136261;
+    for (const ch of raw) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+    return LEGACY_TITLES[(hash >>> 0) % LEGACY_TITLES.length];
+  }
+
   function addCell(url, name, fresh, append) {
     if (!url || seen.has(url)) return;
     seen.add(url);
@@ -165,7 +182,7 @@
     fig.style.margin = '0';
     fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
       + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
-      + `<figcaption>${name || url.split('/').pop()}</figcaption></a>`;
+      + `<figcaption>${displayName(name, url)}</figcaption></a>`;
     // An asset can be announced a beat before its thumbnail is renderable, and
     // a broken-image glyph on the wall is worse than one fewer tile. Retry once,
     // then drop it silently rather than leave a hole that looks like a failure.
@@ -187,6 +204,13 @@
     const r = await fetch(path, { cache: 'no-store' });
     if (!r.ok) throw new Error(path + ' -> ' + r.status);
     return r.json();
+  }
+
+  async function revealSequentially(images) {
+    for (const im of images) {
+      addCell(im.path || im.url, im.name, false, true);
+      await new Promise((resolve) => setTimeout(resolve, REVEAL_MS));
+    }
   }
 
   async function health() {
@@ -232,6 +256,9 @@
   }
 
   async function backfill() {
+    if (fetching) return;
+    fetching = true;
+    $('more').textContent = 'loading';
     try {
       const j = await poll('/api/recent-images?limit=' + PAGE + '&offset=' + offset);
       total = j.total || 0;
@@ -241,13 +268,20 @@
       // origin, which behind a gateway is the capability URL. Loading images
       // from that would leak the origin and break the page every time the
       // endpoint rotates. A same-origin path survives both.
-      (j.images || []).forEach((im) => addCell(im.path || im.url, im.name, false, true));
+      await revealSequentially(j.images || []);
       log('backfill', offset + ' of ' + total + ' renders loaded');
       applyOrder();
     } catch (e) { log('backfill', 'none available'); }
+    finally {
+      fetching = false;
+      $('more').textContent = 'load more';
+    }
   }
 
   $('more').onclick = backfill;
+  new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting) && $('more').style.display !== 'none') backfill();
+  }, { rootMargin: '500px 0px' }).observe($('more'));
   $('order').onclick = () => {
     $('order').dataset.mode = $('order').dataset.mode === 'kept' ? 'new' : 'kept';
     applyOrder();

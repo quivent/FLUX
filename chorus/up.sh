@@ -18,6 +18,10 @@ OUT_DIR="${OUT_DIR:-$HOME/models/flux-output}"
 RUN="${RUN:-$HOME/.flux-run}"
 ADDR="${ADDR:-0.0.0.0:7861}"
 DRIFT="${DRIFT:-1}"
+GEMMA_BIN="${GEMMA_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
+GEMMA_MODEL="${GEMMA_MODEL:-$HOME/models/gemma-4-31B-q4/gemma-4-31B_q4_0-it.gguf}"
+GEMMA_MMPROJ="${GEMMA_MMPROJ:-$HOME/models/gemma-4-31B-q4/gemma-4-31B-it-mmproj.gguf}"
+GEMMA_PORT="${GEMMA_PORT:-8080}"
 
 ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
 mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
@@ -63,7 +67,7 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in watchdog r2sync hive sentinel drift serve nexus piper; do stop_one "$svc"; done
+for svc in watchdog r2sync hive sentinel drift gemma serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -75,6 +79,32 @@ sleep 2
 MODEL_DIR="$MODEL_DIR" OUT_DIR="$OUT_DIR" PATH="$VENV/bin:$PATH" \
 	start_one serve ./flux serve -addr "$ADDR" -backend cuda -unsafe-no-auth -public-read-only
 sleep 4
+
+# Gemma 4 is the local eye. Q4 keeps the full 31B vision model near one quarter
+# of an H100 while FLUX retains the larger share. Reasoning is disabled here:
+# the gate consumes strict JSON, and spending its response budget on a hidden
+# monologue left otherwise sound judgements with an empty final answer.
+gemma_ready=0
+if [ "${GEMMA:-1}" = "1" ] && [ -x "$GEMMA_BIN" ] && [ -f "$GEMMA_MODEL" ] && [ -f "$GEMMA_MMPROJ" ]; then
+	start_one gemma "$GEMMA_BIN" \
+		-m "$GEMMA_MODEL" -mm "$GEMMA_MMPROJ" \
+		--host 127.0.0.1 --port "$GEMMA_PORT" -ngl 99 -c 4096 -np 1 -fa on \
+		--reasoning off --reasoning-format none
+	for _ in $(seq 1 45); do
+		if curl -fsS --max-time 2 "http://127.0.0.1:$GEMMA_PORT/health" >/dev/null 2>&1; then
+			gemma_ready=1
+			break
+		fi
+		sleep 1
+	done
+	if [ "$gemma_ready" != "1" ]; then echo "gemma   started but not ready"; fi
+elif [ "${GEMMA:-1}" = "1" ]; then
+	echo "gemma   skipped (binary or model missing)"
+fi
+
+if [ "$gemma_ready" = "1" ]; then
+	export CHORUS_SECOND_ENGINE="${CHORUS_SECOND_ENGINE:-http://127.0.0.1:$GEMMA_PORT/v1/chat/completions}"
+fi
 
 if [ "$DRIFT" = "1" ]; then
 	MODEL_DIR="$MODEL_DIR" OUT_DIR="$OUT_DIR" \
@@ -113,7 +143,7 @@ fi
 if [ "${WATCHDOG:-1}" = "1" ]; then
 	start_one watchdog bash -c '
 		while true; do
-			for svc in piper nexus serve drift sentinel hive; do
+			for svc in piper nexus serve gemma drift sentinel hive; do
 				pidfile="'"$RUN"'/$svc.pid"
 				[ -f "$pidfile" ] || continue
 				pid=$(cat "$pidfile" 2>/dev/null || echo)
@@ -130,10 +160,11 @@ fi
 
 sleep 2
 echo "--- health ---"
-curl -sS -o /dev/null -w 'atelier %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/atelier/" || true
+curl -sS -o /dev/null -w 'landing %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/" || true
+curl -sS -o /dev/null -w 'gallery %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/gallery/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve drift sentinel hive r2sync watchdog; do
+for svc in piper nexus serve gemma drift sentinel hive r2sync watchdog; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"

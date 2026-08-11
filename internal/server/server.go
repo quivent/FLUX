@@ -254,8 +254,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
-	mux.HandleFunc("/atelier", s.atelierFlux)
-	mux.HandleFunc("/atelier/", s.atelierFlux)
+	mux.HandleFunc("/app", s.app)
+	mux.HandleFunc("/app/", s.app)
+	mux.HandleFunc("/atelier", s.legacyAtelier)
+	mux.HandleFunc("/atelier/", s.legacyAtelier)
 	mux.HandleFunc("/motion-atlas", s.motionAtlas)
 	mux.HandleFunc("/motion-atlas/", s.motionAtlas)
 	mux.HandleFunc("/atlas-studio", s.atlasStudio)
@@ -352,6 +354,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 //
 // Prefixes, matched against the cleaned path.
 var readOnlyPaths = []string{
+	"/app",
+	"/gallery",
 	"/atelier",
 	"/outputs/",
 	"/api/health",
@@ -447,6 +451,21 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
 		return
 	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "tea", "index.html"))
+}
+
+// app keeps the production console available without asking a public landing
+// page to also explain a working machine. The public listener still applies
+// its read-only gate, so exposing the shell does not expose GPU mutations.
+func (s Server) app(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/app/" {
+		http.Redirect(w, r, "/app", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/app" {
+		http.NotFound(w, r)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(indexHTML(s.cfg)))
 }
@@ -489,18 +508,18 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
 }
 
-// atelierFlux serves the node's front page: the live gallery in Atelier's
-// visual language, fed by this same server's asset and job lanes.
+// galleryFlux serves the live body of work, fed by this same server's asset
+// and job lanes.
 //
 // It is mounted here rather than under the static lane on purpose --
 // ListenAndServeStatic attaches no API, and the page is nothing without
 // /api/assets/ws and /outputs/ coming from the same origin.
-func (s Server) atelierFlux(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/atelier" {
-		http.Redirect(w, r, "/atelier/", http.StatusTemporaryRedirect)
+func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/gallery" {
+		http.Redirect(w, r, "/gallery/", http.StatusPermanentRedirect)
 		return
 	}
-	name := strings.TrimPrefix(r.URL.Path, "/atelier/")
+	name := strings.TrimPrefix(r.URL.Path, "/gallery/")
 	if name == "" {
 		name = "index.html"
 	}
@@ -511,6 +530,14 @@ func (s Server) atelierFlux(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", name))
+}
+
+// legacyAtelier preserves links shared while the wall still carried its
+// working name. The redirect is permanent; no second copy of the gallery is
+// allowed to drift behind the canonical one.
+func (s Server) legacyAtelier(w http.ResponseWriter, r *http.Request) {
+	suffix := strings.TrimPrefix(r.URL.Path, "/atelier")
+	http.Redirect(w, r, "/gallery"+suffix, http.StatusPermanentRedirect)
 }
 
 func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {
@@ -3760,10 +3787,7 @@ func (s Server) gallery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/gallery" || r.URL.Path == "/gallery/" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		page := galleryIndexHTML()
-		page = strings.ReplaceAll(page, "{{STUDIO_URL}}", html.EscapeString(publicStudioURL(r)))
-		_, _ = w.Write([]byte(page))
+		s.galleryFlux(w, r)
 		return
 	}
 	rel, ok := s.cleanOutputRel(strings.TrimPrefix(r.URL.Path, "/gallery/"))
