@@ -1,5 +1,29 @@
 # FLUX.1-dev BF16 Local Runner
 
+<pre style="background: #1C0A0E; color: #FB7185; border: 1px solid #881337; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.25; overflow-x: auto;">
+<span style="color: #FB7185; font-weight: bold;"> ╔═════════════════════════════════════════════════════════════════════════════════════════╗</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║                                                                                         ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   ███████╗██╗     ██╗   ██╗██╗  ██╗    ██████╗ ███████╗██╗   ██╗                        ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   ██╔════╝██║     ██║   ██║╚██╗██╔╝    ██╔══██╗██╔════╝██║   ██║                        ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   █████╗  ██║     ██║   ██║ ╚███╔╝     ██║  ██║█████╗  ██║   ██║                        ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   ██╔══╝  ██║     ██║   ██║ ██╔██╗     ██║  ██║██╔══╝  ╚██╗ ██╔╝                        ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   ██║     ███████╗╚██████╔╝██╔╝ ██╗    ██████╔╝███████╗ ╚████╔╝                         ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   ╚═╝     ╚══════╝ ╚═════╝ ╚═╝  ╚═╝    ╚═════╝ ╚══════╝  ╚═══╝                          ║</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #FBBF24; font-weight: bold;"> ║         ───  F L U I D  D I F F U S I O N  I N F E R E N C E  ───                       ║</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #FB7185; font-weight: bold;"> ╠═════════════════════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   [MODEL SPEC]             </span><span style="color: #E2E8F0;">FLUX.1-dev BF16 Local Runner (Native Diffusers)             </span><span style="color: #FB7185;">║</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   [LATENT TRANSFORM]       </span><span style="color: #E2E8F0;">Gaussian Latent Noise z_0  ──► Rectified Flow Velocity v_t    </span><span style="color: #FB7185;">║</span>
+<span style="color: #E2E8F0;"> ║                                                       ──► Synthesized Image Buffer I    </span><span style="color: #FB7185;">║</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #F43F5E; font-weight: bold;"> ║   [HARDWARE TARGET]        </span><span style="color: #FBBF24; font-weight: bold;">NVIDIA GH200 Grace Hopper (Direct Local Inference)           </span><span style="color: #FB7185;">║</span>
+<span style="color: #FB7185;"> ║                                                                                         ║</span>
+<span style="color: #FB7185; font-weight: bold;"> ╚═════════════════════════════════════════════════════════════════════════════════════════╝</span>
+</pre>
+
 This is a minimal Python runner for the local BF16 Diffusers-format model at:
 
 ```text
