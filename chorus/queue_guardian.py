@@ -33,7 +33,13 @@ def stop_runner(pid):
     try:
         os.killpg(pid, signal.SIGTERM)
     except ProcessLookupError:
-        return
+        # A runner launched by up.sh initially shares that shell's process
+        # group, so there may be no group whose id equals the runner pid. The
+        # runner forwards TERM to its isolated GPU child; signal it directly.
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            return
     except OSError:
         try:
             os.kill(pid, signal.SIGTERM)
