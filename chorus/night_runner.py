@@ -5,9 +5,33 @@ import json
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import time
+
+
+active_child = None
+
+
+def stop_active_child(signum, _frame):
+    """A stack restart must never leave a GPU renderer orphaned."""
+    child = active_child
+    if child is not None and child.poll() is None:
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    raise SystemExit(128 + signum)
+
+
+def run_child(command, env):
+    global active_child
+    active_child = subprocess.Popen(command, env=env, start_new_session=True)
+    try:
+        return active_child.wait()
+    finally:
+        active_child = None
 
 
 def atomic_json(path, value):
@@ -77,6 +101,8 @@ def main():
     ap.add_argument("--manifest", default=str(pathlib.Path(__file__).with_name("night-run.json")))
     ap.add_argument("--python", default=sys.executable)
     args = ap.parse_args()
+    signal.signal(signal.SIGTERM, stop_active_child)
+    signal.signal(signal.SIGINT, stop_active_child)
     manifest_path = pathlib.Path(args.manifest).resolve()
     spec = json.loads(manifest_path.read_text())
     root = manifest_path.parent.parent
@@ -98,14 +124,14 @@ def main():
                    "--model-dir", spec["model_dir"], "--out-dir", spec["out_dir"],
                    "--step-range", spec["step_range"], "--size", str(spec["size"]),
                    "--guidance", str(spec["guidance"]), "--seed", str(job["seed"])]
-        result = subprocess.run(command, env={**dict(os.environ),
-                                "FLUX_QUEUE_STATE": str(queue_path),
-                                "FLUX_QUEUE_JOB": job_id}, check=False)
-        if result.returncode:
+        returncode = run_child(command, {**dict(os.environ),
+                               "FLUX_QUEUE_STATE": str(queue_path),
+                               "FLUX_QUEUE_JOB": job_id})
+        if returncode:
             state.update({"status": "failed", "failed_job": job_id,
-                          "exit_code": result.returncode, "updated": time.time()})
+                          "exit_code": returncode, "updated": time.time()})
             atomic_json(state_path, state)
-            return result.returncode
+            return returncode
     state.update({"status": "prelude_done", "completed_jobs": len(jobs),
                   "prelude_finished": time.time(), "updated": time.time()})
     atomic_json(state_path, state)
@@ -140,13 +166,13 @@ def main():
                    "--style-hold-generations", str(job.get("style_hold_generations", defaults["style_hold_generations"])),
                    "--phase-hours", str(job.get("phase_hours", defaults["phase_hours"])),
                    "--seed", str(job["seed"])]
-        result = subprocess.run(command, env={**dict(os.environ),
-                                "FLUX_OUTPUT_ROOT": str(out),
-                                "FLUX_QUEUE_STATE": str(queue_path),
-                                "FLUX_QUEUE_JOB": job_slug}, check=False)
-        if result.returncode:
+        returncode = run_child(command, {**dict(os.environ),
+                               "FLUX_OUTPUT_ROOT": str(out),
+                               "FLUX_QUEUE_STATE": str(queue_path),
+                               "FLUX_QUEUE_JOB": job_slug})
+        if returncode:
             atomic_json(queue_path, queue_snapshot(catalog, out, job_slug, "failed"))
-            return result.returncode
+            return returncode
     state.update({"status": "done", "finished": time.time(), "updated": time.time()})
     atomic_json(state_path, state)
     atomic_json(queue_path, queue_snapshot(catalog, out, status="done"))
