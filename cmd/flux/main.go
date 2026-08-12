@@ -825,6 +825,9 @@ func atlasBell(cfg config.Config, args []string) error {
 	if protocolName == "late-fork" || protocolName == "geometry-fork" {
 		return atlasBellLateFork(cfg, args[1:])
 	}
+	if protocolName == "step-sweep" || protocolName == "schedule-sweep" {
+		return atlasBellStepSweep(cfg, args[1:])
+	}
 	if protocolName == "control" {
 		return atlasBellControl(cfg, args[1:])
 	}
@@ -888,6 +891,63 @@ func atlasBell(cfg config.Config, args []string) error {
 		return err
 	}
 	return invoke("cache-reuse", bellProtocols["cache"])
+}
+
+func atlasBellStepSweep(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("atlas bell step-sweep", flag.ContinueOnError)
+	promptText := fs.String("prompt", "", "open FLUX prompt (required)")
+	stepRange := fs.String("step-range", "21:28", "inclusive range (21:28) or comma list")
+	seed := fs.Int("seed", 1935692473, "fixed initial latent seed")
+	guidance := fs.Float64("guidance", 3.6, "fixed FLUX guidance")
+	id := fs.String("id", "", "durable study id")
+	detach := fs.Bool("detach", false, "run under ~/.flux-run and return immediately")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if strings.TrimSpace(*promptText) == "" {
+		return errors.New("atlas bell step-sweep requires --prompt")
+	}
+	jobID := strings.TrimSpace(*id)
+	if jobID == "" {
+		jobID = "bell-step-sweep-" + time.Now().UTC().Format("20060102-150405")
+	}
+	cmdArgs := []string{filepath.Join(cfg.Root, "chorus", "step_sweep.py"),
+		"--prompt", *promptText, "--id", jobID, "--model-dir", cfg.ModelDir,
+		"--out-dir", cfg.OutputDir, "--step-range", *stepRange, "--size", "512",
+		"--guidance", strconv.FormatFloat(*guidance, 'f', -1, 64), "--seed", strconv.Itoa(*seed)}
+	ui.Header("Bell step sweep", "same latent, adjacent denoise depths")
+	ui.KV("job", jobID)
+	ui.KV("schedule", *stepRange)
+	if !*detach {
+		_, err := runner.Stream(context.Background(), nil, cfg.Python, cmdArgs...)
+		return err
+	}
+	runDir := filepath.Join(atelierHome(), ".flux-run")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return err
+	}
+	logPath, pidPath := filepath.Join(runDir, jobID+".log"), filepath.Join(runDir, jobID+".pid")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(cfg.Python, cmdArgs...)
+	cmd.Stdout, cmd.Stderr, cmd.SysProcAttr = logFile, logFile, &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
+		return err
+	}
+	pid := cmd.Process.Pid
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(pid)+"\n"), 0o644); err != nil {
+		_ = cmd.Process.Kill()
+		_ = logFile.Close()
+		return err
+	}
+	_ = cmd.Process.Release()
+	_ = logFile.Close()
+	ui.KV("state", ui.State("running")+" "+ui.Soft(fmt.Sprintf("pid %d", pid)))
+	ui.KV("log", logPath)
+	return nil
 }
 
 func atlasBellLateFork(cfg config.Config, args []string) error {
