@@ -74,3 +74,28 @@ func TestGalleryLoadsContinuouslyOnScroll(t *testing.T) {
 		t.Error("manual load-more control returned to the public gallery")
 	}
 }
+
+func TestMotionWorkAlwaysMovesAndKeepsArrivalGrid(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "atelier-flux", "movement.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(page)
+	for _, token := range []string{
+		`autoplay muted loop playsinline`,
+		`bell-learns-the-wind.mp4`,
+		`setInterval(`,
+		`id="sequence-grid"`,
+		`Chronological · no selection or rearrangement`,
+		`sort((a,b)=>a.index-b.index)`,
+	} {
+		if !strings.Contains(source, token) {
+			t.Errorf("motion work contract missing %q", token)
+		}
+	}
+	for _, token := range []string{`type="range"`, `onclick=`} {
+		if strings.Contains(source, token) {
+			t.Errorf("motion work returned an interactive slider/control: %q", token)
+		}
+	}
+}
