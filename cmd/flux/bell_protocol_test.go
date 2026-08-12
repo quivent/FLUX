@@ -79,7 +79,7 @@ func TestAdjacentStepSweepHoldsInitialLatentConstant(t *testing.T) {
 	}
 	source := string(raw)
 	for _, token := range []string{`default="21:28"`, `"variable": "total_denoise_steps"`,
-		`latents=base.clone()`, `"flow_p95_px"`, `"edge_xor"`} {
+		`latents=base.clone()`, `"phase_shift_px"`, `"edge_xor"`} {
 		if !strings.Contains(source, token) {
 			t.Errorf("adjacent step sweep missing %q", token)
 		}

@@ -8,10 +8,11 @@ pixel change, edge change, and apparent optical-flow displacement.
 import argparse
 import gc
 import json
+import os
 import pathlib
+import socket
 import time
 
-import cv2
 import numpy as np
 import torch
 from diffusers import FluxPipeline
@@ -22,6 +23,21 @@ def atomic_json(path, value):
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
     tmp.replace(path)
+
+
+def publish(job_id, path, index, total, out_dir):
+    relative = path.resolve().relative_to(out_dir.resolve()).as_posix()
+    payload = {"type": "asset.publish", "job_id": job_id, "asset": {
+        "id": f"{job_id}:{index}", "name": path.name, "path": str(path),
+        "media_type": "image/png", "index": index, "cell_index": index,
+        "total": total, "access_url": "/outputs/" + relative}}
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+            conn.settimeout(3); conn.connect(os.environ.get("PIPER_SOCKET", "/tmp/piper.sock"))
+            conn.sendall((json.dumps(payload) + "\n").encode()); conn.shutdown(socket.SHUT_WR)
+            return bool(json.loads(conn.recv(4096)).get("ok"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
 
 
 def parse_steps(spec):
@@ -35,18 +51,28 @@ def compare(a, b):
     aa = np.asarray(a.convert("RGB"), dtype=np.uint8)
     bb = np.asarray(b.convert("RGB"), dtype=np.uint8)
     delta = aa.astype(np.float32) - bb.astype(np.float32)
-    gray_a = cv2.cvtColor(aa, cv2.COLOR_RGB2GRAY)
-    gray_b = cv2.cvtColor(bb, cv2.COLOR_RGB2GRAY)
-    edge_a = cv2.Canny(gray_a, 70, 150)
-    edge_b = cv2.Canny(gray_b, 70, 150)
-    flow = cv2.calcOpticalFlowFarneback(gray_a, gray_b, None, .5, 3, 21, 3, 5, 1.2, 0)
-    magnitude = np.linalg.norm(flow, axis=2)
+    gray_a = np.dot(aa[..., :3], [0.299, 0.587, 0.114]).astype(np.float32) / 255
+    gray_b = np.dot(bb[..., :3], [0.299, 0.587, 0.114]).astype(np.float32) / 255
+    edge_a = np.hypot(*np.gradient(gray_a)) > 0.08
+    edge_b = np.hypot(*np.gradient(gray_b)) > 0.08
+    # Phase correlation estimates whole-frame geometric displacement without
+    # an OpenCV runtime dependency. It is deterministic and subpixel-free by
+    # design: this study asks where schedule depth moves structure at all.
+    fa, fb = np.fft.fft2(gray_a), np.fft.fft2(gray_b)
+    cross = fa * np.conj(fb)
+    cross /= np.maximum(np.abs(cross), 1e-9)
+    peak = np.unravel_index(np.argmax(np.abs(np.fft.ifft2(cross))), gray_a.shape)
+    dy, dx = (int(peak[0]), int(peak[1]))
+    if dy > gray_a.shape[0] // 2:
+        dy -= gray_a.shape[0]
+    if dx > gray_a.shape[1] // 2:
+        dx -= gray_a.shape[1]
     return {
         "rgb_rms": round(float(np.sqrt(np.mean(delta * delta))) / 255, 6),
         "pixels_over_8": round(float(np.mean(np.max(np.abs(delta), axis=2) > 8)), 6),
-        "edge_xor": round(float(np.mean((edge_a > 0) != (edge_b > 0))), 6),
-        "flow_mean_px": round(float(np.mean(magnitude)), 5),
-        "flow_p95_px": round(float(np.percentile(magnitude, 95)), 5),
+        "edge_xor": round(float(np.mean(edge_a != edge_b)), 6),
+        "phase_dx_px": dx, "phase_dy_px": dy,
+        "phase_shift_px": round(float(np.hypot(dx, dy)), 5),
     }
 
 
@@ -119,7 +145,9 @@ def main():
             num_inference_steps=total_steps, guidance_scale=args.guidance,
             latents=base.clone()).images[0]
         seconds = time.perf_counter() - began
-        image.save(sphere / f"steps-{total_steps:03d}.png")
+        image_path = sphere / f"{args.id}-steps-{total_steps:03d}.png"
+        image.save(image_path)
+        publish(args.id, image_path, len(rows), len(steps), out)
         rows.append((total_steps, image)); timings.append({"steps": total_steps, "seconds": seconds})
         manifest.update({"rendered": len(rows), "timings": timings, "updated": time.time()})
         atomic_json(manifest_path, manifest)
