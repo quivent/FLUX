@@ -124,11 +124,9 @@ def main():
     prompt_embeds, pooled = pipe.encode_prompt(
         prompt=args.prompt, device="cuda", num_images_per_prompt=1,
         max_sequence_length=512)[:2]
-    if pipe.text_encoder is not None:
-        pipe.text_encoder.to("cpu")
-    if pipe.text_encoder_2 is not None:
-        pipe.text_encoder_2.to("cpu")
-    gc.collect(); torch.cuda.empty_cache()
+    # Keep the encoders on CUDA for the Diffusers pipeline call: its execution
+    # device is inferred from resident modules. Batch one at 512px fits; moving
+    # them here would incorrectly make the denoiser input CPU-resident.
     generator = torch.Generator("cpu").manual_seed(args.seed)
     base = pipe.prepare_latents(
         1, pipe.transformer.config.in_channels // 4, args.size, args.size,
