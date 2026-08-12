@@ -50,6 +50,10 @@ not a fan-out.
 score over the whole archive and a score over the current run are different
 quantities and must never be compared as one series.
 
+A movement verdict uses one 24-frame visual-language cohort. Mixing several
+style epochs into one sheet makes a coherent generator look random and makes
+causal attribution impossible.
+
 **8. Every judgement resolves to an artifact.** A verdict in frame numbers is
 useless without the manifest mapping numbers to files. If a signal cannot be
 attributed, it cannot promote anything, and it will be silently discarded.
@@ -61,6 +65,28 @@ proposals will always find them good.
 **10. New material shares a budget; it never enlarges the distribution.**
 Adding to a weighted pool takes probability mass from everything already
 proven. Growth is rationed and earned, never granted.
+
+**11. Survival is not succession.** `keep` means an individual work remains in
+the collection. A change earns succession only when it produces an arresting
+frame on a sheet whose movement progressed, while preserving the anchor's
+retention floor. A lenient archive must not become a lenient steering system.
+
+**12. Change one declared axis at a time.** The hive may adjust the creative
+system, but every adjustment names its axis, carries evidence, and remains
+reversible. A stalled movement lengthens commitment to one visual language;
+it does not simultaneously replace subject, medium, light, and composition.
+
+The eye reports one primary `failure_axis`. `coherence` lengthens the style
+hold. `surface` or `light` issues a versioned one-axis directive to Drift. The
+other axes remain evidence until a dedicated reversible actuator exists.
+The active visual language, its age, and the last applied directive are written
+to `drift-status.json` and resumed after a daemon restart; operational recovery
+must never masquerade as creative evolution.
+
+**13. Operator feedback outranks model evidence.** Durable feedback is supplied
+to proposal seats as context. An explicit operator promotion or retirement is
+applied before statistical settlement and recorded on the candidate. Neither
+Gemma nor Hive may overwrite an operator anchor.
 
 ## The message shapes
 
@@ -88,9 +114,17 @@ a frame it already kept:
 `hive → challengers.json` — every candidate with its evidence:
 
 ```json
-{"eps": 0.16, "streak": 2, "baseline": 0.31,
+{"eps": 0.16, "streak": 2, "baseline": 0.31, "change_baseline": 0.04,
  "challengers": [{"phrase": "", "kind": "detail", "seat": "materials",
-                  "state": "trial|promoted|retired", "keeps": 0, "appearances": 0}]}
+                  "state": "trial|promoted|retired", "keeps": 0,
+                  "change_wins": 0, "appearances": 0}]}
+```
+
+`operator → operator-feedback.jsonl` — durable prose or a direct decision:
+
+```json
+{"id":"human-001", "ts":0, "instruction":"Preserve beauty; be harsher on change."}
+{"id":"human-002", "ts":0, "action":"retire", "challenger_id":"abc123", "instruction":"Lost the material voice."}
 ```
 
 `operator → taste-log.jsonl` — outranks everything above:

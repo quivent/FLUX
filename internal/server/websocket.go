@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -86,7 +87,24 @@ func originAllowed(r *http.Request) bool {
 	case "localhost", "127.0.0.1", "::1":
 		return true
 	}
-	return parsed.Host == r.Host
+	// Some capability gateways intentionally discard the browser-facing Host
+	// before the request reaches the workload. Those deployments must declare
+	// their public origins explicitly rather than weakening the check globally.
+	for _, allowed := range strings.Split(os.Getenv("FLUX_WS_ORIGINS"), ",") {
+		if strings.TrimRight(strings.TrimSpace(allowed), "/") == strings.TrimRight(origin, "/") {
+			return true
+		}
+	}
+	if parsed.Host == r.Host {
+		return true
+	}
+	// Reverse proxies terminate TLS and commonly replace Host with the private
+	// upstream capability while preserving the browser-facing authority in
+	// X-Forwarded-Host. Without honoring that authority, a legitimate gallery
+	// opened at tea.influx.vision is rejected as cross-origin even though the
+	// browser is connecting back to the page's own origin.
+	forwardedHost := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0])
+	return forwardedHost != "" && parsed.Host == forwardedHost
 }
 
 func upgradeWebSocket(w http.ResponseWriter, r *http.Request) (*wsConn, error) {

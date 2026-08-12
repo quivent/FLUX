@@ -186,36 +186,62 @@ func TestWriteDeadlineUnblocksStalledClient(t *testing.T) {
 // their render jobs off localhost -- and nothing else in the stack catches it,
 // because the browser never blocks a WS handshake the way it blocks EventSource.
 func TestOriginAllowed(t *testing.T) {
+	t.Setenv("FLUX_WS_ORIGINS", "")
 	cases := []struct {
-		name    string
-		origin  string
-		host    string
-		allowed bool
+		name          string
+		origin        string
+		host          string
+		forwardedHost string
+		allowed       bool
 	}{
-		{"no origin (CLI/curl/python)", "", "127.0.0.1:7861", true},
-		{"same origin", "http://127.0.0.1:7861", "127.0.0.1:7861", true},
-		{"localhost alias", "http://localhost:7861", "127.0.0.1:7861", true},
-		{"vite dev server, other local port", "http://localhost:5173", "127.0.0.1:7861", true},
-		{"ipv6 loopback", "http://[::1]:5173", "127.0.0.1:7861", true},
-		{"same origin behind a domain", "https://code.influx.vision", "code.influx.vision", true},
-		{"foreign origin", "https://evil.example", "127.0.0.1:7861", false},
-		{"foreign origin with port", "http://attacker.test:8080", "127.0.0.1:7861", false},
-		{"sandboxed iframe null origin", "null", "127.0.0.1:7861", false},
-		{"lookalike subdomain", "https://127.0.0.1.evil.example", "127.0.0.1:7861", false},
-		{"different domain than host", "https://other.example", "code.influx.vision", false},
+		{"no origin (CLI/curl/python)", "", "127.0.0.1:7861", "", true},
+		{"same origin", "http://127.0.0.1:7861", "127.0.0.1:7861", "", true},
+		{"localhost alias", "http://localhost:7861", "127.0.0.1:7861", "", true},
+		{"vite dev server, other local port", "http://localhost:5173", "127.0.0.1:7861", "", true},
+		{"ipv6 loopback", "http://[::1]:5173", "127.0.0.1:7861", "", true},
+		{"same origin behind a domain", "https://code.influx.vision", "code.influx.vision", "", true},
+		{"public origin through proxy", "https://tea.influx.vision", "private.internal:7861", "tea.influx.vision", true},
+		{"first forwarded authority", "https://tea.influx.vision", "private.internal:7861", "tea.influx.vision, edge.internal", true},
+		{"foreign origin", "https://evil.example", "127.0.0.1:7861", "", false},
+		{"foreign origin with port", "http://attacker.test:8080", "127.0.0.1:7861", "", false},
+		{"sandboxed iframe null origin", "null", "127.0.0.1:7861", "", false},
+		{"lookalike subdomain", "https://127.0.0.1.evil.example", "127.0.0.1:7861", "", false},
+		{"different domain than host", "https://other.example", "code.influx.vision", "", false},
+		{"different domain than forwarded host", "https://evil.example", "private.internal:7861", "tea.influx.vision", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/api/jobs/ws", nil)
 			r.Host = tc.host
+			if tc.forwardedHost != "" {
+				r.Header.Set("X-Forwarded-Host", tc.forwardedHost)
+			}
 			if tc.origin != "" {
 				r.Header.Set("Origin", tc.origin)
 			}
 			if got := originAllowed(r); got != tc.allowed {
-				t.Fatalf("originAllowed(origin=%q, host=%q) = %v, want %v",
-					tc.origin, tc.host, got, tc.allowed)
+				t.Fatalf("originAllowed(origin=%q, host=%q, forwarded=%q) = %v, want %v",
+					tc.origin, tc.host, tc.forwardedHost, got, tc.allowed)
 			}
 		})
+	}
+}
+
+func TestOriginAllowedFromExplicitPublicContract(t *testing.T) {
+	t.Setenv("FLUX_WS_ORIGINS", "https://tea.influx.vision, https://gallery.example/")
+	for _, origin := range []string{"https://tea.influx.vision", "https://gallery.example"} {
+		r := httptest.NewRequest(http.MethodGet, "/api/assets/ws", nil)
+		r.Host = "private-capability.internal:7861"
+		r.Header.Set("Origin", origin)
+		if !originAllowed(r) {
+			t.Fatalf("explicit public origin %q was rejected", origin)
+		}
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/assets/ws", nil)
+	r.Host = "private-capability.internal:7861"
+	r.Header.Set("Origin", "https://evil.example")
+	if originAllowed(r) {
+		t.Fatal("undeclared foreign origin was accepted")
 	}
 }
 

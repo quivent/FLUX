@@ -297,6 +297,36 @@
     document.getElementById('status-dot').classList.add('live');
     document.getElementById('status-text').textContent = 'The garden is producing';
   }).catch(() => { document.getElementById('status-text').textContent = 'The garden is resting'; });
+
+  // Warm the exact thumbnails the gallery will ask for. The visitor can read
+  // the landing while those images cross the gateway, so entering the garden
+  // feels like opening a room rather than waiting for a web request.
+  const galleryPreloads = [];
+  let galleryWarmCount = 0;
+  const thumbnail = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
+  const galleryWarm = fetch('/api/recent-images?limit=6', {cache: 'no-store'})
+    .then((r) => r.ok ? r.json() : Promise.reject(new Error('gallery unavailable')))
+    .then((data) => Promise.all((data.images || []).slice(0, 6).map((item) => new Promise((resolve) => {
+      const image = new Image();
+      galleryPreloads.push(image);
+      image.onload = () => { galleryWarmCount += 1; resolve(); };
+      image.onerror = resolve;
+      image.src = thumbnail(item.path || item.url);
+    }))))
+    .catch(() => {});
+
+  document.querySelectorAll('a[href="/gallery/"]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || galleryWarmCount >= 3) return;
+      event.preventDefault();
+      const original = link.textContent;
+      link.textContent = 'Opening the gallery';
+      Promise.race([galleryWarm, new Promise((resolve) => setTimeout(resolve, 1200))]).then(() => {
+        link.textContent = original;
+        location.assign('/gallery/');
+      });
+    });
+  });
 </script>
 </body>
 </html>

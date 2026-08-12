@@ -80,6 +80,26 @@ survive a knob turn. Values are clamped rather than rejected: a typo'd
 
 `drift-status.json` reports the live settings and the current concept.
 
+## Durable stream
+
+`r2sync.py` treats R2—not its local ledger—as truth. It reconciles the remote
+frame prefix at startup and every ten minutes, repairs deleted remote objects,
+streams every artistic ledger and contact-sheet manifest, snapshots the active
+protocol source, and publishes `chorus/state/r2-status.json` plus
+`chorus/state/archive-manifest.json` as coverage receipts.
+
+The final-flush primitive is repeatable and fails closed:
+
+```sh
+~/.venv/bin/python chorus/r2sync.py \
+  --out-dir ~/models/flux-output --once --verify
+```
+
+Exit zero means every settled local frame is present in a freshly listed R2
+inventory and every discovered state/protocol file uploaded. `SIGTERM` performs
+the same final verified sweep, so `chorus/up.sh` stops Drift before R2 and waits
+for the receipt before restarting the suite.
+
 ## What it does not have
 
 Taste. Nothing here judges whether an image is good. The old "novelty" metric

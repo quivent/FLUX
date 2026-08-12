@@ -29,6 +29,8 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/api/health", true},
 		{http.MethodGet, "/api/recent-images", true},
 		{http.MethodGet, "/api/assets/ws", true},
+		{http.MethodGet, "/api/telemetry/events", true},
+		{http.MethodGet, "/api/telemetry/ws", true},
 		{http.MethodGet, "/api/jobs", true},
 		{http.MethodGet, "/api/jobs/ws", true},
 		// The gallery is unusable without thumbnails; a full-size wall is

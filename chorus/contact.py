@@ -20,8 +20,6 @@ import argparse
 import json
 import pathlib
 
-from PIL import Image, ImageDraw
-
 DEFAULT_OUT = pathlib.Path.home() / "models" / "flux-output" / "_sheets" / "contact.jpg"
 
 
@@ -33,7 +31,13 @@ def sample(paths, n):
     return [paths[round(i * step)] for i in range(n)]
 
 
+def find_frames(root):
+    return sorted(pathlib.Path(root).glob("*.png"), key=lambda p: p.stat().st_mtime)
+
+
 def main():
+    from PIL import Image, ImageDraw
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default=str(pathlib.Path.home() / "models" / "flux-output"))
     ap.add_argument("--out", default=str(DEFAULT_OUT))
@@ -45,7 +49,10 @@ def main():
     args = ap.parse_args()
 
     root = pathlib.Path(args.dir)
-    frames = sorted(root.glob("drift-*.png"), key=lambda p: p.stat().st_mtime)
+    # Artwork names became titles once the gallery became a body of work
+    # ("borrowed-sleep--g0024-...png"). Restricting this to the old drift-*
+    # plumbing names left Sentinel repeatedly judging a stale pre-title wall.
+    frames = find_frames(root)
     if args.recent:
         frames = frames[-args.recent:]
     if not frames:

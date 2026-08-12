@@ -41,7 +41,10 @@ ENGINES = [e for e in (os.environ.get("CHORUS_SECOND_ENGINE", ""), GOVERNOR) if 
 
 # How far back a judgement reaches. Wide enough that a lucky generation cannot
 # carry a round, narrow enough that the score tracks the language now running.
-RECENT_WINDOW = 80
+# One movement cohort. At four frames per generation and a visual-language hold
+# of roughly ten generations, 24 frames are broad enough to resist one lucky
+# image without blending several different style epochs into a "random set".
+RECENT_WINDOW = 24
 
 # Asking for prose gets prose. The judge is pinned to a shape so the verdict is
 # comparable across rounds and can steer the loop without a human reading it.
@@ -70,6 +73,7 @@ SCHEMA = """Reply with ONLY a JSON object, no prose, no markdown fence:
  "arresting":[{"frame":<n>,"why":"<what stops you, 10 words, concrete>"}],
  "dead":[<frames that break no rule and are still lifeless>],
  "laws_broken":[{"law":<1-LAWMAX>,"frames":[<n>],"why":"<8 words>"}],
+ "movement":{"progressing":<true|false>,"failure_axis":"none|coherence|surface|light|composition|subject","repeated_frames":[<n>],"why":"<10 words>"},
  "dominant_motif":"<the composition or subject recurring across unrelated frames, or none>",
  "verdict":"<one sentence a curator would say>"}
 
@@ -78,6 +82,32 @@ Arresting asks whether you would stop walking. Most sheets have none, and
 saying none is the honest answer -- do not promote a competent frame into it.
 `dead` is the opposite and matters as much: name the frames that satisfy every
 rule and are still not worth a second of anyone's attention.""".replace("LAWMAX", str(_law_count()))
+
+# One-axis calibration. Gemma was correctly detecting stalled movement, then
+# using that run-level criticism to cut individual frames which remained worth
+# retaining. Preserve its strict material eye; separate archival value from
+# novelty so repetition affects prominence, not existence.
+CALIBRATION = """Decision boundary:
+- KEEP means retain in the collection. A coherent, beautiful, or useful
+  variation belongs in keep even when it does not advance the movement.
+- KEEP IS NOT APPROVAL OF A GENERATOR CHANGE. It is deliberately lenient about
+  survival and must never be read as permission to steer future work.
+- ARRESTING is the higher bar for prominence. Repetition or familiarity may
+  keep a frame from arresting without making it a cut.
+- CUT only a frame that fails as an individual image: incoherent construction,
+  unusable value, broken material logic, severe artifact, or no visual value.
+  Bland is not automatically broken. Competent is not automatically disposable.
+- Laws 6, 7, 8, and 10 grade the MOVEMENT across the sheet. Report those faults
+  in movement, dominant_motif, and laws_broken. They may not, by themselves,
+  place an otherwise worthwhile individual frame in cut.
+- Set movement.progressing true only when this sheet preserves the approved
+  anchor's distinctive beauty AND develops it coherently. Mere variety,
+  technical competence, unrelated good pictures, or a new style is false.
+- When movement fails, name its single primary failure_axis. `coherence` means
+  the pictures do not form a movement; `surface` means their material voice
+  drifted; the other axis names are literal. Use `none` only when progressing.
+- Put every numbered frame in exactly one of keep or cut. Arresting should be a
+  subset of keep. Dead may still be kept as evidence or a useful variation."""
 
 
 def build_sheet(out_dir, sheet, n, recent=RECENT_WINDOW):
@@ -99,7 +129,7 @@ def build_sheet(out_dir, sheet, n, recent=RECENT_WINDOW):
     return sheet.exists()
 
 
-def sheet_reference(sheet, public_base):
+def sheet_reference(sheet, public_base=""):
     """How the judge gets the picture.
 
     Prefer a URL: the node already serves the sheet, and Cloudflare's WAF
@@ -116,7 +146,7 @@ def sheet_reference(sheet, public_base):
             from PIL import Image
             im = Image.open(sheet)
             im.thumbnail((768, 768))
-            small = sheet.with_name("_contact_small.jpg")
+            small = sheet.with_name(f"_{sheet.stem}_small.jpg")
             im.save(small, quality=60)
             data = small.read_bytes()
         except Exception:
@@ -124,32 +154,59 @@ def sheet_reference(sheet, public_base):
     return "data:image/jpeg;base64," + base64.b64encode(data).decode()
 
 
-def ask_governor(sheet, laws, timeout, public_base=""):
+def approved_anchor(out_dir):
+    """Return the newest operator-approved visual anchor that still exists."""
+    log = pathlib.Path(out_dir) / "taste-log.jsonl"
+    lines = log.read_text().splitlines() if log.exists() else []
+    for line in reversed(lines):
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if row.get("kind") != "operator_anchor":
+            continue
+        path = pathlib.Path(row.get("sheet") or "").expanduser()
+        if path.is_file():
+            return path
+    return None
+
+
+def ask_governor(sheet, laws, timeout, public_base="", anchor=None):
     """Ask each engine in turn until one answers. Returns the parsed verdict,
     or None if none could be obtained -- never a default-pass."""
     errors = []
     for engine in ENGINES:
-        verdict, error = _ask_one(engine, sheet, laws, timeout, public_base)
+        verdict, error = _ask_one(engine, sheet, laws, timeout, public_base, anchor)
         if verdict is not None:
             return verdict, None
         errors.append(error)
     return None, "; ".join(errors)
 
 
-def _ask_one(engine, sheet, laws, timeout, public_base=""):
+def _ask_one(engine, sheet, laws, timeout, public_base="", anchor=None):
     reference = sheet_reference(sheet, public_base)
+    content = [
+        {"type": "text", "text":
+            "You are the eye-gate for a live generative art wall. The first image is "
+            "the current contact sheet, sampled evenly and numbered left to right, "
+            "top to bottom.\n\nJudge it against these laws:\n\n" + laws + "\n\n" +
+            CALIBRATION + "\n\n" + SCHEMA},
+        {"type": "image_url", "image_url": {"url": reference}},
+    ]
+    if anchor:
+        content.extend([
+            {"type": "text", "text":
+                "The next image is the operator-approved beauty anchor. Do not grade its "
+                "numbered cells. Use it only to decide whether the current movement preserves "
+                "its distinctive beauty while genuinely developing it."},
+            {"type": "image_url", "image_url": {"url": sheet_reference(anchor)}},
+        ])
     body = {
         "model": "governor",
         "max_tokens": 420,
         "messages": [{
             "role": "user",
-            "content": [
-                {"type": "text", "text":
-                    "You are the eye-gate for a live generative art wall. This is a contact "
-                    "sheet of one run, sampled evenly, numbered left to right and top to "
-                    "bottom.\n\nJudge it against these laws:\n\n" + laws + "\n\n" + SCHEMA},
-                {"type": "image_url", "image_url": {"url": reference}},
-            ],
+            "content": content,
         }],
     }
     # Cloudflare fronts the governor and refuses urllib's default agent with a
@@ -201,14 +258,25 @@ def steer(verdict, control_path):
     # H100 that bills by the minute, and it slowed down the only process that
     # generates the evidence needed to stop failing. Frames are cheap and the
     # wall is paged and ranked now, so a weak frame costs storage, not
-    # attention. Pause only when the wall is failing almost completely, which
-    # means something is broken rather than merely unrefined.
-    control["sleep"] = 10 if hit_rate < 0.10 else 0
+    # attention.
+    # Taste may redirect the language, but it must not turn a severe opinion
+    # into an idle H100. More frames are the evidence needed to decide whether
+    # the judgement was a real regression or one critic having a hard round.
+    control["sleep"] = 0
     pathlib.Path(control_path).write_text(json.dumps(control, indent=2, sort_keys=True) + "\n")
     return hit_rate
 
 
-def publish_picks(out_dir, sheet, verdict):
+def blanket_rejection(verdict, frame_count):
+    keep = verdict.get("keep") or []
+    cut = verdict.get("cut") or []
+    # Below one work in four, the useful information is the critique and the
+    # few positives—not a bulk classification of everything else as waste.
+    return (len(keep) / max(frame_count, 1) < 0.25
+            and len(cut) >= max(8, int(frame_count * 0.70)))
+
+
+def publish_picks(out_dir, sheet, verdict, record_cuts=True):
     """Turn frame numbers into a ranking the wall can use.
 
     The panel was already sitting in the loop; its verdicts just never reached
@@ -238,14 +306,89 @@ def publish_picks(out_dir, sheet, verdict):
         if name:
             keep.add(name)
             cut.discard(name)
-    for n in verdict.get("cut") or []:
-        name = frames.get(str(n))
-        if name and name not in keep:
-            cut.add(name)
+    if record_cuts:
+        for n in verdict.get("cut") or []:
+            name = frames.get(str(n))
+            if name and name not in keep:
+                cut.add(name)
     picks_path.write_text(json.dumps(
         {"keep": sorted(keep), "cut": sorted(cut), "arresting": sorted(arrest),
          "updated": time.time()}, indent=2) + "\n")
     return len(keep)
+
+
+def publish_panel_decisions(out_dir):
+    """Materialise the panel's latest decision per image for human review."""
+    decisions = {}
+    log_path = pathlib.Path(out_dir) / "taste-log.jsonl"
+    lines = log_path.read_text().splitlines()[-40:] if log_path.exists() else []
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not row.get("judged") or not row.get("sampled_frames"):
+            continue
+        verdict = row.get("verdict") or {}
+        frames = row["sampled_frames"]
+        count = int(row.get("frames") or len(frames) or 16)
+        advisory = row.get("blanket_rejection")
+        if advisory is None:
+            advisory = blanket_rejection(verdict, count)
+        keep = {int(n) for n in (verdict.get("keep") or [])}
+        cut = {int(n) for n in (verdict.get("cut") or [])}
+        arresting = {int(a.get("frame")): a.get("why", "")
+                     for a in (verdict.get("arresting") or []) if a.get("frame")}
+        laws = {}
+        for broken in verdict.get("laws_broken") or []:
+            for number in broken.get("frames") or []:
+                try:
+                    key = int(number)
+                except (TypeError, ValueError):
+                    continue
+                laws.setdefault(key, []).append(
+                    f"Law {broken.get('law')} · {broken.get('why', '')}")
+        for raw_number, name in frames.items():
+            try:
+                number = int(raw_number)
+            except (TypeError, ValueError):
+                continue
+            # Human removals live outside the served output directory. Keep
+            # their historical verdict in taste-log, but never resurrect a
+            # removed work into the active review surface.
+            if not (pathlib.Path(out_dir) / name).exists():
+                continue
+            if number in arresting:
+                decision = "arresting"
+            elif number in keep:
+                decision = "keep"
+            elif number in cut:
+                decision = "advisory_cut" if advisory else "cut"
+            else:
+                decision = "unmarked"
+            reasons = list(laws.get(number) or [])
+            if arresting.get(number):
+                reasons.insert(0, arresting[number])
+            decisions[name] = {
+                "name": name,
+                "path": "/outputs/" + name,
+                "decision": decision,
+                "reasons": reasons,
+                "verdict": verdict.get("verdict", ""),
+                "dominant_motif": verdict.get("dominant_motif", "none"),
+                "advisory": bool(advisory),
+                "judged_at": row.get("ts"),
+            }
+    order = {"arresting": 0, "keep": 1, "advisory_cut": 2, "cut": 3, "unmarked": 4}
+    items = sorted(decisions.values(),
+                   key=lambda item: (order.get(item["decision"], 9), -(item.get("judged_at") or 0)))
+    payload = {"updated": time.time(), "items": items,
+               "counts": {key: sum(i["decision"] == key for i in items) for key in order}}
+    target = pathlib.Path(out_dir) / "panel-decisions.json"
+    temporary = target.with_suffix(".json.part")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    temporary.replace(target)
+    return payload
 
 
 def judge_once(args):
@@ -257,22 +400,36 @@ def judge_once(args):
         print("no frames to judge yet", flush=True)
         return None
 
-    verdict, error = ask_governor(sheet, laws, args.timeout, args.public_base)
+    anchor = approved_anchor(out_dir)
+    verdict, error = ask_governor(sheet, laws, args.timeout, args.public_base, anchor)
     row = {"ts": time.time(), "frames": args.n, "window": args.recent, "sheet": str(sheet)}
+    if anchor:
+        row["operator_anchor"] = str(anchor)
+    try:
+        manifest = json.loads((sheet.parent / "manifest.json").read_text())
+        row["sampled_frames"] = manifest.get("frames") or {}
+    except (OSError, ValueError):
+        row["sampled_frames"] = {}
     if verdict is None:
         # Recorded as a miss, not a pass. An unjudged round must never be
         # mistaken later for an approved one.
         row.update(judged=False, error=error)
         print(f"NOT JUDGED: {error}", flush=True)
     else:
+        harsh = blanket_rejection(verdict, args.n)
         hit = steer(verdict, out_dir / "drift-control.json")
-        publish_picks(out_dir, sheet, verdict)
-        row.update(judged=True, verdict=verdict, hit_rate=hit)
+        # A blanket rejection is criticism, not curation. Preserve its laws and
+        # sentence for learning, but do not let one severe pass classify the
+        # whole sheet as disposable.
+        publish_picks(out_dir, sheet, verdict, record_cuts=not harsh)
+        row.update(judged=True, verdict=verdict, hit_rate=hit,
+                   blanket_rejection=harsh)
         keep = verdict.get("keep") or []
         arresting = verdict.get("arresting") or []
         dead = verdict.get("dead") or []
         row["arresting_rate"] = len(arresting) / max(args.n, 1)
-        print(f"hit {len(keep)}/{args.n}  arresting {len(arresting)}  dead {len(dead)}"
+        prefix = "ADVISORY blanket rejection · " if harsh else ""
+        print(f"{prefix}hit {len(keep)}/{args.n}  arresting {len(arresting)}  dead {len(dead)}"
               f"  motif={verdict.get('dominant_motif')!r}"
               f"  {verdict.get('verdict','')}", flush=True)
         for a in arresting:
@@ -282,6 +439,26 @@ def judge_once(args):
                   flush=True)
     with (out_dir / "taste-log.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(row, sort_keys=True) + "\n")
+    publish_panel_decisions(out_dir)
+    # The gallery needs the panel's sentence, not its entire research ledger.
+    # Publish one small atomic snapshot so a reader never catches half JSON.
+    taste = {"updated": row["ts"], "judged": row.get("judged", False)}
+    if verdict is not None:
+        taste.update(
+            verdict=verdict.get("verdict", ""),
+            dominant_motif=verdict.get("dominant_motif", "none"),
+            keep=len(verdict.get("keep") or []),
+            arresting=len(verdict.get("arresting") or []),
+            dead=len(verdict.get("dead") or []),
+            advisory=row.get("blanket_rejection", False),
+            movement=verdict.get("movement") or {},
+        )
+    else:
+        taste["error"] = error
+    target = out_dir / "taste-status.json"
+    temporary = target.with_suffix(".json.part")
+    temporary.write_text(json.dumps(taste, indent=2, sort_keys=True) + "\n")
+    temporary.replace(target)
     return row
 
 

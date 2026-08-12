@@ -42,11 +42,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import flux_paths  # noqa: E402
 import author  # noqa: E402
+import era  # noqa: E402
 import language as lang  # noqa: E402
 
 # Share of generations that carry one authored frame. Low: the grammar is the
 # proven arm and the author is the challenger, not the replacement.
 AUTHOR_RATE = float(os.environ.get("CHORUS_AUTHOR_RATE", "0.25"))
+PROMOTED_RATE = float(os.environ.get("CHORUS_PROMOTED_RATE", "0.25"))
 
 # Titles are part of the work, not storage plumbing. Keep the lineage suffix
 # machine-readable, but let the visible stem carry the same restrained,
@@ -82,15 +84,67 @@ TITLE_FORMS = (
 )
 
 
-def artwork_filename(genome, generation, index, seed):
+def artwork_filename(genome, generation, index, seed, era_spec=None):
     material = f"{lang.compose(genome)}|{seed}".encode()
     digest = hashlib.sha256(material).digest()
-    motifs = TITLE_MOTIFS.get(genome.get("world"), ("quiet object", "held light", "near distance"))
+    motifs = (era.title_motifs(era_spec) if era_spec else ()) or TITLE_MOTIFS.get(
+        genome.get("world"), ("quiet object", "held light", "near distance"))
     motif = motifs[digest[0] % len(motifs)]
     weather = TITLE_WEATHER[digest[1] % len(TITLE_WEATHER)]
     title = TITLE_FORMS[digest[2] % len(TITLE_FORMS)].format(motif=motif, weather=weather)
     slug = "-".join(title.replace("/", " ").replace(",", " ").split())
     return f"{slug}--g{generation:04d}-{index:02d}-s{seed}.png"
+
+
+def challenger_id(candidate):
+    """Stable across Hive restarts and old state written before IDs existed."""
+    if candidate.get("id"):
+        return str(candidate["id"])
+    material = "|".join(str(candidate.get(k, "")) for k in ("seat", "kind", "phrase"))
+    return hashlib.sha256(material.encode()).hexdigest()[:12]
+
+
+def load_hive_state(out_dir):
+    try:
+        state = json.loads((pathlib.Path(out_dir) / "challengers.json").read_text())
+        return state if isinstance(state, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def apply_hive_candidate(genome, candidate):
+    """Place one proposal in the exact prompt slot it claims to improve."""
+    kind = candidate.get("kind")
+    slot = {"detail": "detail", "mood": "mood", "framing": "framing"}.get(kind)
+    phrase = str(candidate.get("phrase") or "").strip()
+    if not slot or not phrase:
+        return False
+    genome[slot] = phrase
+    return True
+
+
+def choose_hive_arm(rng, genome, state):
+    """Draw from a fixed trial budget; promoted language joins the anchor.
+
+    The return value is written beside the frame. Hive can therefore compare
+    a candidate with contemporaneous anchor frames rather than guessing from
+    an archive-wide score.
+    """
+    candidates = state.get("challengers") or []
+    trials = [c for c in candidates if c.get("state") == "trial"]
+    promoted = [c for c in candidates if c.get("state") == "promoted"]
+    eps = max(0.0, min(float(state.get("eps") or 0.0), 0.5))
+    roll = rng.random()
+    if trials and roll < eps:
+        candidate = rng.choice(trials)
+        if apply_hive_candidate(genome, candidate):
+            return {"arm": "trial", "challenger_id": challenger_id(candidate),
+                    "phrase": candidate.get("phrase"), "kind": candidate.get("kind")}
+    if promoted and roll < eps + (1.0 - eps) * PROMOTED_RATE:
+        candidate = rng.choice(promoted)
+        if apply_hive_candidate(genome, candidate):
+            return {"arm": "anchor", "adopted_id": challenger_id(candidate)}
+    return {"arm": "anchor"}
 
 
 class AuthorAhead:
@@ -307,11 +361,13 @@ CONTROLLABLE = {
     "guidance": (0.0, 12.0),
     "batch": (1, 16),
     "mutation_rate": (0.0, 1.0),
+    "latent_max_cosine": (-0.75, 0.95),
+    "style_hold_generations": (1, 24),
     "phase_hours": (0.01, 48.0),
     "sleep": (0.0, 3600.0),
 }
 # Free-form steering: pinned overrides a slot outright, phase forces the arc.
-PASSTHROUGH = {"phase", "pinned", "paused"}
+PASSTHROUGH = {"phase", "pinned", "paused", "style_directive", "era"}
 
 
 def clamp(name, value):
@@ -319,6 +375,36 @@ def clamp(name, value):
     if isinstance(lo, int) and isinstance(hi, int):
         return max(lo, min(hi, int(value)))
     return max(lo, min(hi, float(value)))
+
+
+def separate_latent(latent, previous, max_cosine=-0.20):
+    """Push adjacent noise tensors apart by a measured angular distance.
+
+    Independent Gaussian latents are almost orthogonal already, but the batch
+    was allowed to land on either side of zero similarity while its prompts
+    held the same subject. Keep the fresh tensor's norm and orthogonal content,
+    then cap its cosine against the immediately previous frame. The result is
+    still a high-dimensional noise sample, but never a near neighbour.
+    """
+    if previous is None or latent.numel() != previous.numel():
+        return latent, None
+    current = latent.float().reshape(-1)
+    prior = previous.float().reshape(-1)
+    current_norm = current.norm().clamp_min(1e-12)
+    prior_norm = prior.norm().clamp_min(1e-12)
+    cosine = float((current @ prior / (current_norm * prior_norm)).item())
+    target = float(max_cosine)
+    if cosine <= target:
+        return latent, cosine
+    prior_unit = prior / prior_norm
+    orthogonal = current - (current @ prior_unit) * prior_unit
+    orthogonal_norm = orthogonal.norm().clamp_min(1e-12)
+    target = max(-0.95, min(0.95, target))
+    moved = current_norm * (
+        target * prior_unit
+        + (1.0 - target * target) ** 0.5 * (orthogonal / orthogonal_norm)
+    )
+    return moved.reshape_as(latent).to(dtype=latent.dtype), target
 
 
 def load_control(path, defaults):
@@ -358,6 +444,23 @@ def write_control_template(path, defaults):
     p.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n")
 
 
+def resume_movement(status_path):
+    """Restore the aesthetic state so a daemon restart is not a creative reset."""
+    try:
+        status = json.loads(pathlib.Path(status_path).read_text())
+    except (OSError, ValueError):
+        return None, 0, None
+    style = status.get("movement_style")
+    required = {"medium", "medium_clause", "family", "tonal", "mood"}
+    if not isinstance(style, dict) or not required.issubset(style):
+        style = None
+    try:
+        age = max(0, int(status.get("style_age") or 0))
+    except (TypeError, ValueError):
+        age = 0
+    return style, age, status.get("style_directive")
+
+
 def load_picks(out_dir):
     """Human signal, if the gallery left any. Absent is the normal case."""
     path = pathlib.Path(out_dir) / "picks.json"
@@ -378,6 +481,10 @@ def main():
     ap.add_argument("--guidance", type=float, default=3.5)
     ap.add_argument("--phase-hours", type=float, default=2.0, help="hours per phase of the arc")
     ap.add_argument("--mutation-rate", type=float, default=0.35)
+    ap.add_argument("--latent-max-cosine", type=float, default=-0.20,
+                    help="maximum cosine similarity between adjacent noise tensors")
+    ap.add_argument("--style-hold-generations", type=int, default=10,
+                    help="generations sharing one visual language before a one-axis change")
     ap.add_argument("--elite", type=int, default=8, help="genomes kept as parents")
     ap.add_argument("--seed", type=int, default=0, help="0 = clock-seeded")
     ap.add_argument("--max-generations", type=int, default=0, help="0 = forever")
@@ -419,6 +526,13 @@ def main():
     started_at = time.time()
     history, elites = [], []
     generation = 0
+    recent_worlds = []
+    previous_latent = None
+    movement_style, style_age, last_style_directive = resume_movement(status_path)
+    active_era_id = None
+    if movement_style:
+        print(f"resumed movement: {movement_style['medium']} / {movement_style['mood']} "
+              f"(age {style_age})", flush=True)
 
     while not stopping["now"]:
         generation += 1
@@ -433,38 +547,70 @@ def main():
             continue
         forced = (raw or {}).get("phase", "auto")
         phase = forced if forced in PHASES else phase_for(started_at, live["phase_hours"])
+        try:
+            era_spec = era.load((raw or {}).get("era"), pathlib.Path(__file__).parent.parent)
+        except (OSError, ValueError) as exc:
+            print(f"era refused: {exc}", flush=True)
+            era_spec = None
+        era_id = era_spec.get("id") if era_spec else None
+        if era_id != active_era_id:
+            active_era_id = era_id
+            if era_spec:
+                movement_style = era.new_style(rng, era_spec)
+                style_age = 0
+                print(f"era began: {era_spec['title']} — {era_spec['proposition']}", flush=True)
         job_id = f"drift-{int(time.time())}-{generation:04d}"
         receipt = nexus_receipt(job_id)
         picks = load_picks(out_dir)
 
-        # Two voices on one subject, interleaved so the wall reads as a
-        # dialogue rather than as two unrelated runs. Same pipeline: the GPU is
-        # already saturated during sampling, so a second process would buy
-        # contention, not throughput.
-        sequence = lang.new_sequence(rng)
-        counter = lang.paired_sequence(rng, sequence)
-        batch, prev = [], None
+        # Four distinct semantic worlds per landing. The old A/B dialogue held
+        # each subject for two frames, which merely moved duplicates one cell
+        # apart. Preserve the material vocabulary, but make every neighbouring
+        # prompt begin from another subject family; carry the last three worlds
+        # across generation boundaries so the seam cannot repeat either.
+        # Variety in subject does not require resetting every aesthetic axis.
+        # Hold a visual language long enough to form a movement, then mutate
+        # only its surface or its light. This keeps the large semantic spacing
+        # without turning the wall into an unrelated prompt sampler.
+        directive = (raw or {}).get("style_directive") or {}
+        directive_id = directive.get("id") if isinstance(directive, dict) else None
+        directive_axis = directive.get("axis") if isinstance(directive, dict) else None
+        if movement_style is None:
+            movement_style = lang.new_style(rng)
+            style_age = 0
+        elif (directive_id and directive_id != last_style_directive
+              and directive_axis in ("surface", "light")):
+            movement_style = lang.evolve_style(rng, movement_style, directive_axis)
+            style_age = 0
+            last_style_directive = directive_id
+            print(f"movement directive {directive_id}: mutate {directive_axis}", flush=True)
+        elif style_age >= live["style_hold_generations"]:
+            movement_style = lang.evolve_style(rng, movement_style)
+            style_age = 0
+        batch, sequences = [], []
         for i in range(live["batch"]):
-            voice = sequence if i % 2 == 0 else counter
-            # The beat is the frame's own position, not the voice's. With
-            # `i // 2` and a batch of four, both voices walked beats 0 and 1
-            # only: the back half of every camera arc had never rendered, and
-            # the two voices at a given index shared a framing AND a detail,
-            # so the dialogue compared two near-identical pictures. Now the
-            # four frames take beats 0-3 between them and every arc completes.
-            v = lang.variation(rng, voice, i, prev)
+            avoided = set(recent_worlds[-3:]) | {g["world"] for g in batch}
+            sequence = lang.new_sequence(rng, avoid_world=avoided, style=movement_style)
+            if era_spec:
+                sequence = era.apply_sequence(rng, sequence, era_spec)
+            v = lang.variation(rng, sequence, i)
+            if era_spec:
+                v = era.apply_variation(v, era_spec, i)
             batch.append(v)
-            prev = v
+            sequences.append(sequence)
+        recent_worlds.extend(g["world"] for g in batch)
+        style_age += 1
         # One authored frame per generation at most, per protocol rule 10: the
         # composer that reasons shares the exploration budget rather than
         # replacing the grammar. It is judged on the same sheet, by the same
         # panel, and earns its share or does not.
-        authored = author_ahead.take() if rng.random() < AUTHOR_RATE else None
+        allow_author = not era_spec or bool(era_spec.get("allow_author", True))
+        authored = author_ahead.take() if allow_author and rng.random() < AUTHOR_RATE else None
         if authored:
             print(f"  authored: {authored['intent']}", flush=True)
 
-        print(f"  A: {lang.describe(sequence)}", flush=True)
-        print(f"  B: {lang.describe(counter)}", flush=True)
+        for index, sequence in enumerate(sequences):
+            print(f"  {index + 1}: {lang.describe(sequence)}", flush=True)
 
         pinned = (raw or {}).get("pinned") or {}
         if isinstance(pinned, dict):
@@ -473,12 +619,24 @@ def main():
                     if slot in POOLS and isinstance(value, str) and value:
                         genome[slot] = value
 
+        hive_state = load_hive_state(out_dir)
+        assignments = []
+        for index, genome in enumerate(batch):
+            if authored and index == 0:
+                assignments.append({"arm": "author"})
+            else:
+                assignments.append(choose_hive_arm(rng, genome, hive_state))
+
         print(f"gen {generation} phase={phase} steps={live['steps']} "
               f"{live['width']}x{live['height']} batch={live['batch']} "
               f"receipt={receipt or 'none'}", flush=True)
         status_path.write_text(json.dumps({
             "generation": generation, "phase": phase, "settings": live,
-            "pinned": pinned, "receipt": receipt, "updated": time.time(),
+            "pinned": pinned, "receipt": receipt, "movement_style": movement_style,
+            "era_id": era_id, "era_title": era_spec.get("title") if era_spec else None,
+            "collection": era_spec.get("collection") if era_spec else None,
+            "style_age": style_age, "style_directive": last_style_directive,
+            "updated": time.time(),
         }, indent=2, sort_keys=True) + "\n")
 
         for index, genome in enumerate(batch):
@@ -489,15 +647,24 @@ def main():
                 prompt = authored["prompt"]
             seed = rng.randrange(1, 2**31)
             began = time.time()
+            generator = torch.Generator("cuda").manual_seed(seed)
+            latent, _latent_ids = pipe.prepare_latents(
+                1, pipe.transformer.config.in_channels // 4,
+                live["height"], live["width"], torch.bfloat16,
+                pipe._execution_device, generator,
+            )
+            latent, latent_cosine = separate_latent(
+                latent, previous_latent, live["latent_max_cosine"])
+            previous_latent = latent.detach()
             image = pipe(
                 prompt=prompt,
                 width=live["width"],
                 height=live["height"],
                 num_inference_steps=live["steps"],
                 guidance_scale=live["guidance"],
-                generator=torch.Generator("cuda").manual_seed(seed),
+                latents=latent,
             ).images[0]
-            name = artwork_filename(genome, generation, index, seed)
+            name = artwork_filename(genome, generation, index, seed, era_spec)
             path = out_dir / name
             # Write beside the target then rename: the page watches this
             # directory, and a partial PNG would surface as a broken tile.
@@ -513,12 +680,20 @@ def main():
                 "job_id": job_id, "receipt": receipt, "seed": seed,
                 "concept": lang.describe(genome), "genome": genome, "prompt": prompt, "file": name,
                 "authored": bool(authored and index == 0),
+                "hive": assignments[index],
+                "era_id": era_id,
+                "era_title": era_spec.get("title") if era_spec else None,
+                "collection": era_spec.get("collection") if era_spec else None,
+                "latent_cosine_to_previous": latent_cosine,
 
                 "seconds": round(time.time() - began, 2),
                 "published": published, "ts": time.time(),
             }
             with ledger.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, sort_keys=True) + "\n")
+            with (out_dir / "trial-ledger.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"file": name, "ts": row["ts"], **assignments[index]},
+                                   sort_keys=True) + "\n")
             print(f"  {name} {row['seconds']}s piper={published}", flush=True)
 
 
@@ -530,14 +705,14 @@ def main():
         # shipped against a wall that was not. But rebuilding it every
         # generation cost thirteen seconds of a thirty-four second cycle once
         # the archive was restored, because it globbed and sorted every frame
-        # ever made. Every third generation, over the recent window only, is
-        # still fresher than the judge's ten minute clock.
+        # ever made. Every third generation, over one 24-frame movement cohort,
+        # is fresher than the eye's three-minute clock without mixing epochs.
         if generation % 3 == 0:
             try:
                 subprocess.run(
                     [sys.executable, str(pathlib.Path(__file__).parent / "contact.py"),
                      "--dir", str(out_dir), "--out", str(out_dir / "_sheets" / "contact.jpg"),
-                     "--n", "16", "--recent", "80"],
+                     "--n", "16", "--recent", "24"],
                     check=False, capture_output=True, timeout=120,
                 )
             except (OSError, subprocess.TimeoutExpired):

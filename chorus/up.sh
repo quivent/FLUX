@@ -22,6 +22,23 @@ GEMMA_BIN="${GEMMA_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
 GEMMA_MODEL="${GEMMA_MODEL:-$HOME/models/gemma-4-31B-q4/gemma-4-31B_q4_0-it.gguf}"
 GEMMA_MMPROJ="${GEMMA_MMPROJ:-$HOME/models/gemma-4-31B-q4/gemma-4-31B-it-mmproj.gguf}"
 GEMMA_PORT="${GEMMA_PORT:-8080}"
+R2_ENV="${R2_ENV:-$HOME/.flux-r2.env}"
+# The public gateway terminates TLS and does not preserve Tea's Host all the
+# way to the workload. Keep the browser's websocket origin explicit so the
+# server can distinguish the real gallery from a foreign page without opening
+# the socket cross-origin.
+FLUX_WS_ORIGINS="${FLUX_WS_ORIGINS:-${CHORUS_PUBLIC_BASE:-https://tea.influx.vision}}"
+export FLUX_WS_ORIGINS
+
+# Durable delivery must survive a shell ending and a stack restart. Keep the
+# credential envelope outside the repository, mode 0600, and load it into the
+# process environment before deciding whether the R2 lane exists.
+if [ -f "$R2_ENV" ]; then
+	set -a
+	# shellcheck disable=SC1090
+	. "$R2_ENV"
+	set +a
+fi
 
 ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
 mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
@@ -51,7 +68,11 @@ stop_one() { # name
 	# Signal by recorded pid only. A pattern kill here would match this script.
 	if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
 		kill "$pid" 2>/dev/null || true
-		for _ in 1 2 3 4 5 6 7 8 9 10; do
+		local waits=10
+		# r2sync treats TERM as a final-flush request. Give the remote inventory
+		# and state receipt enough time to settle before escalating to KILL.
+		if [ "$1" = "r2sync" ]; then waits=60; fi
+		for _ in $(seq 1 "$waits"); do
 			kill -0 "$pid" 2>/dev/null || break
 			sleep 0.5
 		done
@@ -67,7 +88,9 @@ start_one() { # name, command...
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
 
-for svc in watchdog r2sync hive sentinel drift gemma serve nexus piper; do stop_one "$svc"; done
+# Quiesce producers before the durability lane. This ordering means a stack
+# restart is itself a tested final flush, not a race between Drift and R2.
+for svc in watchdog hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -115,7 +138,7 @@ fi
 # The gate runs beside the loop, not on request. An unjudged run is the
 # failure mode this whole suite was rebuilt to escape.
 if [ "${SENTINEL:-1}" = "1" ]; then
-	start_one sentinel "$VENV/bin/python" chorus/sentinel.py --out-dir "$OUT_DIR" --interval 600
+	start_one sentinel "$VENV/bin/python" chorus/sentinel.py --out-dir "$OUT_DIR" --interval 180
 fi
 
 # The hive proposes, trials and promotes language changes on evidence. It runs
@@ -124,26 +147,27 @@ fi
 if [ "${HIVE:-1}" = "1" ]; then
 	CHORUS_SECOND_ENGINE="${CHORUS_SECOND_ENGINE:-}" \
 		start_one hive "$VENV/bin/python" chorus/hive.py \
-			--out-dir "$OUT_DIR" --public-base "${CHORUS_PUBLIC_BASE:-}" --interval 1800
+			--out-dir "$OUT_DIR" --public-base "${CHORUS_PUBLIC_BASE:-}" --interval 180
 fi
 
 # Stream frames off the node as they land. The volume is one crypto-erase from
 # taking the whole run with it, and a batch job is a thing that has not run yet.
 # Credentials come from the environment; a command line would be recorded.
 if [ "${R2SYNC:-1}" = "1" ] && [ -n "${R2_ACCESS_KEY_ID:-}" ]; then
-	start_one r2sync "$VENV/bin/python" chorus/r2sync.py --out-dir "$OUT_DIR" --interval 15
+	start_one r2sync "$VENV/bin/python" chorus/r2sync.py \
+		--out-dir "$OUT_DIR" --interval 15 --verify-interval 600
 elif [ "${R2SYNC:-1}" = "1" ]; then
 	echo "r2sync  skipped (no R2_ACCESS_KEY_ID in the environment)"
 fi
 
-# A watch that dies unnoticed is not a watch. Nothing here was checking that
-# the checkers were alive: the sentinel 524'd for forty minutes and the only
-# reason anyone found out was a human reading a log by hand. This restarts a
-# dead service and records the death, so absence stops looking like health.
+# Hive owns the living system: it checks the visionary semantically, watches
+# Drift and Sentinel freshness, and restarts the suite when any lane stops.
+# This tiny outer fuse watches only Hive itself; a supervisor cannot resurrect
+# itself after a Python crash.
 if [ "${WATCHDOG:-1}" = "1" ]; then
 	start_one watchdog bash -c '
 		while true; do
-			for svc in piper nexus serve gemma drift sentinel hive; do
+			for svc in hive; do
 				pidfile="'"$RUN"'/$svc.pid"
 				[ -f "$pidfile" ] || continue
 				pid=$(cat "$pidfile" 2>/dev/null || echo)

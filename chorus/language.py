@@ -84,7 +84,7 @@ WORLDS = {
         "a fox asleep in a patch of sun",
         "a horse shaking off water in a bright spray",
         "a moth resting on a lit windowpane at night",
-        "a black cat crossing an empty road",
+        "a hare standing upright in windblown grass",
     ],
     "streets": [
         "a night market under strings of paper lanterns",
@@ -357,28 +357,50 @@ def _draw_medium(rng, pool=None):
     return rng.choices(pool, weights=[m[2] for m in pool], k=1)[0]
 
 
-def new_sequence(rng):
-    """One committed concept: medium, subject, mood, camera arc."""
+def new_style(rng):
+    """One coherent visual language, separable from the thing it depicts."""
     name, clause, _w, family, tonal = _draw_medium(rng)
-    world = rng.choice(list(WORLDS))
+    return {"medium": name, "medium_clause": clause, "family": family,
+            "tonal": tonal, "mood": _mood_for(rng, tonal)}
+
+
+def evolve_style(rng, style, axis=None):
+    """Move one aesthetic axis at a time so change retains a lineage."""
+    evolved = dict(style)
+    if axis == "surface" or (axis is None and rng.random() < 0.5):
+        name, clause, _w, family, tonal = _draw_medium(rng)
+        evolved.update(medium=name, medium_clause=clause, family=family, tonal=tonal)
+        # A tonal surface cannot inherit a colour-dependent light recipe.
+        if tonal != style.get("tonal"):
+            evolved["mood"] = _mood_for(rng, tonal)
+    elif axis in (None, "light"):
+        evolved["mood"] = _mood_for(rng, bool(style.get("tonal")))
+    return evolved
+
+
+def new_sequence(rng, avoid_world=None, style=None):
+    """One committed concept: medium, subject, mood, camera arc."""
+    style = dict(style or new_style(rng))
+    avoided = {avoid_world} if isinstance(avoid_world, str) else set(avoid_world or ())
+    worlds = [world for world in WORLDS if world not in avoided] or list(WORLDS)
+    world = rng.choice(worlds)
     arc = _pick_arc(rng, world)
     return {
-        "medium": name,
-        "medium_clause": clause,
-        "family": family,
-        "tonal": tonal,
+        **style,
         "world": world,
         "subject": rng.choice(WORLDS[world]),
-        "mood": _mood_for(rng, tonal),
         "arc": arc,
         "framing": arc[1][0],
     }
 
 
 def paired_sequence(rng, seq):
-    """The counter-voice: same subject and camera arc, a medium from another
-    family, its own mood. The dialogue is two surfaces disagreeing about one
-    thing, not two unrelated pictures."""
+    """A counter-voice separated in subject as well as surface.
+
+    Holding one subject across both voices made four adjacent cells resolve to
+    the same scene despite independent random latents. The dialogue now keeps
+    the proven material vocabulary while moving to another visual world.
+    """
     others = [m for m in MEDIA if m[3] != seq["family"]]
     # If the first voice is monochrome, the answering voice brings colour.
     # Two tonal media on the same subject is not a dialogue, it is an echo.
@@ -386,9 +408,13 @@ def paired_sequence(rng, seq):
         coloured = [m for m in others if not m[4]]
         others = coloured or others
     name, clause, _w, family, tonal = _draw_medium(rng, others)
+    worlds = [world for world in WORLDS if world != seq["world"]]
+    world = rng.choice(worlds)
+    arc = _pick_arc(rng, world)
     other = dict(seq)
     other.update(medium=name, medium_clause=clause, family=family, tonal=tonal,
-                 mood=_mood_for(rng, tonal))
+                 mood=_mood_for(rng, tonal), world=world,
+                 subject=rng.choice(WORLDS[world]), arc=arc, framing=arc[1][0])
     return other
 
 

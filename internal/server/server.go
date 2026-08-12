@@ -365,6 +365,8 @@ var readOnlyPaths = []string{
 	"/api/asset/thumbnail",
 	"/api/assets/events",
 	"/api/assets/ws",
+	"/api/telemetry/events",
+	"/api/telemetry/ws",
 	"/api/jobs",
 }
 
@@ -1018,7 +1020,12 @@ func (s Server) assetWS(w http.ResponseWriter, r *http.Request) {
 		return conn.writeText(raw) == nil
 	}
 	for _, event := range recent {
-		if !send(event) {
+		replay := make(map[string]any, len(event)+1)
+		for key, value := range event {
+			replay[key] = value
+		}
+		replay["replay"] = true
+		if !send(replay) {
 			return
 		}
 	}
@@ -1083,7 +1090,12 @@ func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	for _, event := range recent {
-		if !send(event) {
+		replay := make(map[string]any, len(event)+1)
+		for key, value := range event {
+			replay[key] = value
+		}
+		replay["replay"] = true
+		if !send(replay) {
 			return
 		}
 	}
