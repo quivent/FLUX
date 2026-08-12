@@ -101,7 +101,8 @@ start_one() { # name, command...
 
 # Quiesce producers before the durability lane. This ordering means a stack
 # restart is itself a tested final flush, not a race between Drift and R2.
-for svc in watchdog queue-auditor queue-supervisor constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
+if [ "${SKIP_WATCHDOG_STOP:-0}" != "1" ]; then stop_one watchdog; fi
+for svc in queue-auditor queue-supervisor constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -191,22 +192,22 @@ if [ "${NIGHT_RUN:-1}" = "1" ] && [ -f "$REPO/chorus/night-run.json" ]; then
 		--python "$VENV/bin/python"
 fi
 
-# Hive owns the living system: it checks the visionary semantically, watches
-# Drift and Sentinel freshness, and restarts the suite when any lane stops.
-# This tiny outer fuse watches only Hive itself; a supervisor cannot resurrect
-# itself after a Python crash.
+# Hive owns semantic health. This outer fuse watches the essential local
+# processes and replaces itself with a clean stack restart if one exits. The
+# replacement deliberately does not signal the watchdog that is executing it;
+# the new stack starts a fresh watchdog before this process exits.
 if [ "${WATCHDOG:-1}" = "1" ]; then
 	start_one watchdog bash -c '
 		while true; do
-			for svc in hive; do
+			for svc in piper nexus serve sentinel hive r2sync constellation; do
 				pidfile="'"$RUN"'/$svc.pid"
 				[ -f "$pidfile" ] || continue
 				pid=$(cat "$pidfile" 2>/dev/null || echo)
 				if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
 					echo "$(date -u +%H:%M:%S) $svc died; restarting stack" \
 						>> "$HOME/watchdog.log"
-					ARCHIVE_PRIOR=0 bash "$HOME/FLUX/chorus/up.sh" >> "$HOME/watchdog.log" 2>&1
-					break
+					exec env ARCHIVE_PRIOR=0 SKIP_WATCHDOG_STOP=1 \
+						bash "$HOME/FLUX/chorus/up.sh" >> "$HOME/watchdog.log" 2>&1
 				fi
 			done
 			sleep 60
