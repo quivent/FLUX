@@ -136,6 +136,15 @@ def main():
     pipe.set_progress_bar_config(disable=True)
     prompt_embeds, pooled, text_ids = pipe.encode_prompt(
         prompt=args.prompt, device="cuda", num_images_per_prompt=1, max_sequence_length=512)
+    # The late-fork loop consumes only the encoded conditioning. Keep the
+    # denoiser/VAE on CUDA and park both prompt encoders before the four-way
+    # suffix so batch memory measures the motion experiment, not idle language
+    # weights.
+    if pipe.text_encoder is not None:
+        pipe.text_encoder.to("cpu")
+    if pipe.text_encoder_2 is not None:
+        pipe.text_encoder_2.to("cpu")
+    gc.collect(); torch.cuda.empty_cache()
     configure_cache(pipe, args.adapter, args.cache_threshold)
     generator = torch.Generator("cpu").manual_seed(args.seed)
     base, image_ids = pipe.prepare_latents(
