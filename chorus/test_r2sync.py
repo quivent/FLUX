@@ -55,6 +55,28 @@ class R2StreamTest(unittest.TestCase):
         s3 = FakeS3(keys)
         self.assertEqual(len(r2sync.remote_frame_names(s3, "bucket")), 1005)
 
+    def test_atlas_cells_and_manifest_are_durable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            out, protocol = root / "out", root / "chorus"
+            sphere = out / "atlas" / "bell.sphere"
+            sphere.mkdir(parents=True)
+            protocol.mkdir()
+            (sphere / "cell_00000.png").write_bytes(b"cell")
+            (sphere / "manifest.json").write_text("{}")
+            s3 = FakeS3()
+
+            receipt, remote, _ = r2sync.sweep(
+                s3, "bucket", out, set(), out / "_sheets/r2-ledger.json",
+                lambda _message: None, settle_seconds=0, remote_verified=True,
+                protocol_dir=protocol)
+
+            keys = {row[2] for row in s3.uploads}
+            self.assertIn("atlas/bell.sphere/cell_00000.png", remote)
+            self.assertIn("chorus/frames/atlas/bell.sphere/cell_00000.png", keys)
+            self.assertIn("chorus/state/atlas/bell.sphere/manifest.json", keys)
+            self.assertEqual(receipt["frames"]["missing_settled"], 0)
+
     def test_complete_artistic_state_is_streamed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

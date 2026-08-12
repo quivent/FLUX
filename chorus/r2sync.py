@@ -116,12 +116,18 @@ def remote_frame_names(s3, bucket, prefix=PREFIX):
 def settled_frames(out_dir, settle_seconds=2.0, now=None):
     now = time.time() if now is None else now
     settled, young = {}, {}
-    for path in pathlib.Path(out_dir).glob("*.png"):
+    root = pathlib.Path(out_dir)
+    paths = list(root.glob("*.png"))
+    atlas = root / "atlas"
+    if atlas.is_dir():
+        paths.extend(atlas.rglob("*.png"))
+    for path in paths:
         try:
             age = now - path.stat().st_mtime
         except OSError:
             continue
-        (settled if age >= settle_seconds else young)[path.name] = path
+        relative = path.relative_to(root).as_posix()
+        (settled if age >= settle_seconds else young)[relative] = path
     return settled, young
 
 
@@ -138,6 +144,12 @@ def state_sources(out_dir, protocol_dir=HERE):
         for path in sorted(sheets.iterdir()):
             if path.is_file() and path.suffix.lower() in SHEET_SUFFIXES:
                 sources[f"state/sheets/{path.name}"] = path
+    atlas = out_dir / "atlas"
+    if atlas.is_dir():
+        for path in sorted(atlas.rglob("manifest.json")):
+            if path.is_file():
+                relative = path.relative_to(atlas).as_posix()
+                sources[f"state/atlas/{relative}"] = path
     for path in sorted(protocol_dir.iterdir() if protocol_dir.is_dir() else []):
         if path.is_file() and path.suffix.lower() in PROTOCOL_SUFFIXES:
             sources[f"state/protocol/{path.name}"] = path
