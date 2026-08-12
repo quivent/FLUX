@@ -46,6 +46,9 @@
             -webkit-background-clip: text; background-clip: text; color: transparent; }
   .collection-mark { margin-left: auto; color: var(--dim); font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
   .collection-mark strong { color: var(--ink); font-size: 12px; font-weight: 500; }
+  .room-nav { display: flex; align-items: center; gap: 17px; font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+  .room-nav a { color: var(--dim); }
+  .room-nav a[aria-current="page"] { color: var(--ink); }
 
   main { padding: 22px 24px 64px; max-width: 1500px; margin: 0 auto; }
 
@@ -97,6 +100,7 @@
 
 <header>
   <a class="word" href="/">TEA <b>GALLERY</b></a>
+  <nav class="room-nav" aria-label="Gallery rooms"><a href="/gallery/" aria-current="page">Images</a><a href="/movement">Movement</a></nav>
   <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
 </header>
 

@@ -312,6 +312,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas/", s.atlas)
 	mux.HandleFunc("/gallery", s.gallery)
 	mux.HandleFunc("/gallery/", s.gallery)
+	mux.HandleFunc("/movement", s.movement)
+	mux.HandleFunc("/movement/", s.movement)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
 	s.restoreAtlasReceipts()
@@ -356,6 +358,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
+	"/movement",
 	"/atelier",
 	"/outputs/",
 	"/api/health",
@@ -532,6 +535,21 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", name))
+}
+
+// movement is the public viewing room for authored FLUX latent paths.  It is
+// intentionally separate from motion-atlas: the latter is an instrument for
+// operating the renderer, while this page presents the resulting work.
+func (s Server) movement(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/movement/" {
+		http.Redirect(w, r, "/movement", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/movement" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "movement.html"))
 }
 
 // legacyAtelier preserves links shared while the wall still carried its
@@ -3635,6 +3653,8 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	if offset < 0 {
 		offset = 0
 	}
+	scope := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
+	movementOnly := scope == "movement"
 	type recentImage struct {
 		Name     string
 		Path     string
@@ -3651,6 +3671,17 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			}
 			if entry.IsDir() {
 				name := entry.Name()
+				rel, _ := filepath.Rel(outputDir, file)
+				inAtlas := rel == "atlas" || strings.HasPrefix(filepath.ToSlash(rel), "atlas/")
+				// Atlas cells are sequential states, not independent still works.
+				// Keep them off the Images of Beauty wall; the Movement room asks
+				// for them explicitly and preserves their order there.
+				if movementOnly && file != outputDir && !inAtlas {
+					return filepath.SkipDir
+				}
+				if !movementOnly && inAtlas {
+					return filepath.SkipDir
+				}
 				// "_" marks a working directory, not a collection: contact
 				// sheets and other instruments live there. Listing them puts a
 				// grid of thumbnails on the wall as though it were a work.
@@ -3661,6 +3692,12 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			}
 			if !isImageName(entry.Name()) || strings.HasPrefix(entry.Name(), "_") {
 				return nil
+			}
+			if movementOnly {
+				rel, relErr := filepath.Rel(outputDir, file)
+				if relErr != nil || !strings.HasPrefix(filepath.ToSlash(rel), "atlas/") {
+					return nil
+				}
 			}
 			info, _ := entry.Info()
 			rel, err := filepath.Rel(outputDir, file)
@@ -3678,7 +3715,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	stateRoot, err := filepath.Abs(filepath.Join(s.cfg.Root, ".fluxd"))
-	if err == nil {
+	if err == nil && !movementOnly {
 		for _, root := range []string{"uploads", "references", "blends"} {
 			dir := filepath.Join(stateRoot, root)
 			_ = filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
