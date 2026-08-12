@@ -48,3 +48,23 @@ func TestDirectionalTournamentHasDirectorAndFourLiteralDirections(t *testing.T) 
 		}
 	}
 }
+
+func TestLateGeometryForkSharesEarlyTrajectory(t *testing.T) {
+	path := filepath.Join("..", "..", "chorus", "late_fork.py")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	for _, token := range []string{
+		`default="18,22,25,26"`,
+		`for timestep in timesteps[:fork_after]:`,
+		`branches = fork_latents(latent, args.strength, args.seed + fork_after)`,
+		`for timestep in timesteps[fork_after:]:`,
+		`"trajectory_shared": shared`,
+	} {
+		if !strings.Contains(source, token) {
+			t.Errorf("late geometry protocol missing %q", token)
+		}
+	}
+}
