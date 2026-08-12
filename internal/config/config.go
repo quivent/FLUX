@@ -39,9 +39,19 @@ func Load() Config {
 	modelDir := resolveModelDir(home)
 	outputDir := resolveOutputDir(home)
 	backend := getenv("FLUX_BACKEND", "auto")
-	venvPython := filepath.Join(root, ".venv", "bin", "python")
-	python := getenv("FLUX_PYTHON", venvPython)
-	if _, err := os.Stat(python); err != nil {
+	python := getenv("FLUX_PYTHON", "")
+	if python == "" {
+		for _, candidate := range []string{
+			filepath.Join(root, ".venv", "bin", "python"),
+			filepath.Join(home, ".venv", "bin", "python"),
+		} {
+			if _, err := os.Stat(candidate); err == nil {
+				python = candidate
+				break
+			}
+		}
+	}
+	if python == "" {
 		python = getenv("PYTHON", "python3")
 	}
 	return Config{
@@ -94,6 +104,14 @@ func resolveOutputDir(home string) string {
 	}
 	if _, err := os.Stat("/runs"); err == nil {
 		return "/runs/flux-output"
+	}
+	for _, candidate := range []string{
+		filepath.Join(home, "models", "flux-output"),
+		filepath.Join(home, "Models", "flux-output"),
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
 	}
 	return filepath.Join(home, "Models", "flux-output")
 }
