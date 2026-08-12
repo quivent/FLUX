@@ -55,6 +55,15 @@ ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
 mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
 cd "$REPO"
 
+# Provider holds, the local watchdog and a human recovery can all notice the
+# same outage. Serialize the idempotent restart so they cannot each launch a
+# complete producer stack at once. Background services explicitly close this
+# descriptor in start_one, so the lock belongs only to this finite bootstrap.
+exec 9>"$RUN/up.lock"
+if command -v flock >/dev/null 2>&1; then
+	flock -w 90 9 || { echo "another stack recovery did not settle within 90s" >&2; exit 1; }
+fi
+
 # Earlier versions archived the previous run's frames out of the served
 # directory on every start. With eight restarts in an evening that silently
 # emptied the wall each deploy, and the operator asked where their work had
@@ -94,7 +103,7 @@ stop_one() { # name
 
 start_one() { # name, command...
 	local name="$1"; shift
-	nohup "$@" > "$HOME/$name.log" 2>&1 &
+	( exec 9>&-; exec nohup "$@" ) > "$HOME/$name.log" 2>&1 &
 	echo $! > "$RUN/$name.pid"
 	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
 }
