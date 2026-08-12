@@ -287,13 +287,14 @@ def main():
            for generator in generators]
     flat = [item.flatten() for item in raw]
     radius = float(flat[0].norm())
-    basis = []
+    basis_cpu = []
     for vector in flat:
-        for prior in basis:
+        for prior in basis_cpu:
             vector = vector - torch.dot(vector, prior) * prior
-        basis.append((vector / vector.norm()).to("cuda"))
+        basis_cpu.append(vector / vector.norm())
+    basis = [vector.to("cuda") for vector in basis_cpu]
     shape = raw[0].shape
-    del raw, flat; gc.collect(); torch.cuda.empty_cache()
+    del raw, flat, basis_cpu; gc.collect(); torch.cuda.empty_cache()
 
     parent_coeff = normalize(state["parent"]); heading = project_tangent(state["heading"], parent_coeff)
     parent_path = work / "parent.png"
