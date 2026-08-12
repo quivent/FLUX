@@ -77,6 +77,44 @@ def decode(pipe, latents, size):
     return pipe.image_processor.postprocess(pixels, output_type="pil")
 
 
+def finish_suffix(pipe, branches_cpu, fork_after, steps, mu, prompt_embeds, pooled,
+                  text_ids, image_ids, guidance, requested_microbatch):
+    """Finish identical suffixes with the largest microbatch that fits.
+
+    Scheduling changes only memory occupancy: every branch begins at the same
+    fork latent and receives the same timestep sequence it would in batch four.
+    """
+    finished = []
+    used = []
+    start = 0
+    microbatch = min(requested_microbatch, len(branches_cpu))
+    while start < len(branches_cpu):
+        take = min(microbatch, len(branches_cpu) - start)
+        try:
+            timesteps, _ = retrieve_timesteps(pipe.scheduler, steps, "cuda", mu=mu)
+            pipe.scheduler.set_begin_index(fork_after)
+            chunk = branches_cpu[start:start + take].to("cuda")
+            chunk_prompt = prompt_embeds.repeat(take, 1, 1)
+            chunk_pooled = pooled.repeat(take, 1)
+            chunk_guidance = torch.full((take,), guidance, device="cuda", dtype=torch.float32)
+            for timestep in timesteps[fork_after:]:
+                chunk = transformer_step(pipe, chunk, timestep, chunk_prompt, chunk_pooled,
+                                         text_ids, image_ids, chunk_guidance)
+            finished.append(chunk.detach().cpu())
+            used.append(take)
+            start += take
+            del chunk, chunk_prompt, chunk_pooled, chunk_guidance
+            gc.collect(); torch.cuda.empty_cache()
+        except torch.OutOfMemoryError:
+            gc.collect(); torch.cuda.empty_cache()
+            if take == 1:
+                raise
+            microbatch = max(1, take // 2)
+            print(json.dumps({"memory_adaptation": "reduce_suffix_microbatch",
+                              "from": take, "to": microbatch, "fork_after": fork_after}), flush=True)
+    return torch.cat(finished), used
+
+
 def contact(images, fork_after, shared, path):
     tile = 512
     sheet = Image.new("RGB", (tile * 2, tile * 2), "#f5f1eb")
@@ -110,6 +148,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1935692473)
     ap.add_argument("--adapter", choices=("none", "first-block-cache"), default="none")
     ap.add_argument("--cache-threshold", type=float, default=0.08)
+    ap.add_argument("--branch-microbatch", type=int, default=2)
     args = ap.parse_args()
     if args.size != 512:
         raise SystemExit("late-fork study is locked to 512x512")
@@ -118,6 +157,8 @@ def main():
         raise SystemExit("every fork step must be in [1, steps-1]")
     if not 0.001 <= args.strength <= 0.8:
         raise SystemExit("strength must be in [0.001,0.8] radians")
+    if args.branch_microbatch < 1 or args.branch_microbatch > 4:
+        raise SystemExit("branch microbatch must be in [1,4]")
 
     out = pathlib.Path(args.out_dir).expanduser()
     sphere = out / "atlas" / f"{args.id}.sphere"
@@ -128,6 +169,7 @@ def main():
         "prompt": args.prompt, "precision": "bf16", "size": args.size,
         "steps": args.steps, "fork_steps": forks, "strength": args.strength,
         "adapter": args.adapter, "cache_threshold": args.cache_threshold,
+        "branch_microbatch": args.branch_microbatch,
         "directions": list(DIRECTIONS), "status": "loading", "started": time.time(),
         "hypothesis": "late directional forks move geometry while the high-impact early trajectory remains shared",
     }
@@ -151,10 +193,7 @@ def main():
         1, pipe.transformer.config.in_channels // 4, args.size, args.size,
         torch.bfloat16, "cuda", generator)
     base = base.detach()
-    branch_prompt = prompt_embeds.repeat(4, 1, 1)
-    branch_pooled = pooled.repeat(4, 1)
     guidance_one = torch.full((1,), args.guidance, device="cuda", dtype=torch.float32)
-    guidance_four = torch.full((4,), args.guidance, device="cuda", dtype=torch.float32)
     results = []
     manifest["status"] = "running"; atomic_json(manifest_path, manifest)
 
@@ -172,14 +211,17 @@ def main():
             latent = transformer_step(pipe, latent, timestep, prompt_embeds, pooled,
                                       text_ids, image_ids, guidance_one)
         trunk_seconds = time.perf_counter() - trunk_started
-        branches = fork_latents(latent, args.strength, args.seed + fork_after)
+        branches_cpu = fork_latents(latent, args.strength, args.seed + fork_after).detach().cpu()
+        del latent; gc.collect(); torch.cuda.empty_cache()
         branch_started = time.perf_counter()
-        for timestep in timesteps[fork_after:]:
-            branches = transformer_step(pipe, branches, timestep, branch_prompt, branch_pooled,
-                                        text_ids, image_ids, guidance_four)
+        branches_cpu, used_microbatches = finish_suffix(
+            pipe, branches_cpu, fork_after, args.steps, mu, prompt_embeds, pooled,
+            text_ids, image_ids, args.guidance, args.branch_microbatch)
         branch_seconds = time.perf_counter() - branch_started
         decode_started = time.perf_counter()
-        images = decode(pipe, branches, args.size)
+        images = []
+        for branch in branches_cpu:
+            images.extend(decode(pipe, branch.unsqueeze(0).to("cuda"), args.size))
         decode_seconds = time.perf_counter() - decode_started
         target = sphere / f"fork-{fork_after:02d}"
         target.mkdir(exist_ok=True)
@@ -194,6 +236,7 @@ def main():
         row = {
             "fork_after": fork_after, "remaining_steps": args.steps - fork_after,
             "trajectory_shared": shared, "independent_compute_saved": compute_saved,
+            "suffix_microbatches": used_microbatches,
             "trunk_seconds": trunk_seconds, "branch_seconds": branch_seconds,
             "decode_seconds": decode_seconds, "total_seconds": trunk_seconds + branch_seconds + decode_seconds,
         }
@@ -201,7 +244,7 @@ def main():
         manifest["results"] = results; manifest["updated"] = time.time()
         atomic_json(manifest_path, manifest)
         print(json.dumps(row, sort_keys=True), flush=True)
-        del latent, branches, images; gc.collect(); torch.cuda.empty_cache()
+        del branches_cpu, images; gc.collect(); torch.cuda.empty_cache()
 
     manifest["status"] = "done"; manifest["finished"] = time.time()
     atomic_json(manifest_path, manifest)

@@ -59,10 +59,11 @@ func TestLateGeometryForkSharesEarlyTrajectory(t *testing.T) {
 	for _, token := range []string{
 		`default="18,22,25,26"`,
 		`for timestep in timesteps[:fork_after]:`,
-		`branches = fork_latents(latent, args.strength, args.seed + fork_after)`,
+		`branches_cpu = fork_latents(latent, args.strength, args.seed + fork_after)`,
 		`for timestep in timesteps[fork_after:]:`,
 		`"trajectory_shared": shared`,
 		`pipe.text_encoder_2.to("cpu")`,
+		`"memory_adaptation": "reduce_suffix_microbatch"`,
 	} {
 		if !strings.Contains(source, token) {
 			t.Errorf("late geometry protocol missing %q", token)

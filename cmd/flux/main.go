@@ -900,6 +900,7 @@ func atlasBellLateFork(cfg config.Config, args []string) error {
 	guidance := fs.Float64("guidance", 3.6, "FLUX guidance strength")
 	adapter := fs.String("adapter", "none", "none or first-block-cache")
 	cacheThreshold := fs.Float64("cache-threshold", 0.08, "first-block-cache residual threshold")
+	branchMicrobatch := fs.Int("branch-microbatch", 2, "suffix candidates per CUDA pass; halves automatically on OOM")
 	id := fs.String("id", "", "durable study id")
 	detach := fs.Bool("detach", false, "run under ~/.flux-run and return immediately")
 	if err := fs.Parse(args); err != nil {
@@ -916,6 +917,9 @@ func atlasBellLateFork(cfg config.Config, args []string) error {
 	}
 	if *adapter != "none" && *adapter != "first-block-cache" {
 		return errors.New("--adapter must be none or first-block-cache")
+	}
+	if *branchMicrobatch < 1 || *branchMicrobatch > 4 {
+		return errors.New("--branch-microbatch must be in [1,4]")
 	}
 	jobID := strings.TrimSpace(*id)
 	if jobID == "" {
@@ -935,6 +939,7 @@ func atlasBellLateFork(cfg config.Config, args []string) error {
 		"--seed", strconv.Itoa(*seed),
 		"--adapter", *adapter,
 		"--cache-threshold", strconv.FormatFloat(*cacheThreshold, 'f', -1, 64),
+		"--branch-microbatch", strconv.Itoa(*branchMicrobatch),
 	}
 	ui.Header("Bell late geometry", "shared early trajectory, guided late suffix")
 	ui.KV("job", jobID)
