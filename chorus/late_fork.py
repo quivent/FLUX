@@ -7,6 +7,7 @@ and VAE, and record both trajectory reuse and observed render cost.
 """
 import argparse
 import gc
+import hashlib
 import json
 import math
 import pathlib
@@ -16,6 +17,7 @@ import torch
 from diffusers import FluxPipeline
 from diffusers.pipelines.flux.pipeline_flux import calculate_shift, retrieve_timesteps
 from PIL import Image, ImageDraw
+from safetensors.torch import load_file, save_file
 
 DIRECTIONS = ("north", "south", "east", "west")
 
@@ -198,23 +200,51 @@ def main():
     guidance_one = torch.full((1,), args.guidance, device="cuda", dtype=torch.float32)
     results = []
     manifest["status"] = "running"; atomic_json(manifest_path, manifest)
-
-    for fork_after in forks:
-        image_seq_len = base.shape[1]
-        mu = calculate_shift(image_seq_len, pipe.scheduler.config.get("base_image_seq_len", 256),
-                             pipe.scheduler.config.get("max_image_seq_len", 4096),
-                             pipe.scheduler.config.get("base_shift", 0.5),
-                             pipe.scheduler.config.get("max_shift", 1.15))
+    image_seq_len = base.shape[1]
+    mu = calculate_shift(image_seq_len, pipe.scheduler.config.get("base_image_seq_len", 256),
+                         pipe.scheduler.config.get("max_image_seq_len", 4096),
+                         pipe.scheduler.config.get("base_shift", 0.5),
+                         pipe.scheduler.config.get("max_shift", 1.15))
+    cache_dir = sphere / "_cache"; cache_dir.mkdir(exist_ok=True)
+    cache_facts = {"prompt": args.prompt, "seed": args.seed, "steps": args.steps,
+                   "size": args.size, "guidance": args.guidance,
+                   "model_dir": str(pathlib.Path(args.model_dir).resolve())}
+    cache_key = hashlib.sha256(json.dumps(cache_facts, sort_keys=True).encode()).hexdigest()
+    cache_manifest_path = cache_dir / "manifest.json"
+    checkpoint_paths = {step: cache_dir / f"latent-step-{step:03d}.safetensors" for step in forks}
+    prior_cache = json.loads(cache_manifest_path.read_text()) if cache_manifest_path.exists() else {}
+    cache_hit = prior_cache.get("key") == cache_key and all(path.exists() for path in checkpoint_paths.values())
+    checkpoints = {}
+    trunk_started = time.perf_counter()
+    if cache_hit:
+        for step, path in checkpoint_paths.items():
+            checkpoints[step] = load_file(path)["latent"]
+    else:
         timesteps, _ = retrieve_timesteps(pipe.scheduler, args.steps, "cuda", mu=mu)
         pipe.scheduler.set_begin_index(0)
         latent = base.clone()
-        trunk_started = time.perf_counter()
-        for timestep in timesteps[:fork_after]:
+        for index, timestep in enumerate(timesteps[:max(forks)], start=1):
             latent = transformer_step(pipe, latent, timestep, prompt_embeds, pooled,
                                       text_ids, image_ids, guidance_one)
-        trunk_seconds = time.perf_counter() - trunk_started
-        branches_cpu = fork_latents(latent, args.strength, args.seed + fork_after).detach().cpu()
-        del latent; gc.collect(); torch.cuda.empty_cache()
+            if index in checkpoint_paths:
+                checkpoint = latent.detach().cpu().contiguous()
+                checkpoints[index] = checkpoint
+                save_file({"latent": checkpoint}, checkpoint_paths[index])
+        atomic_json(cache_manifest_path, {"key": cache_key, "facts": cache_facts,
+                                          "checkpoints": [path.name for path in checkpoint_paths.values()],
+                                          "created": time.time(), "schema": "flux.exact-trunk-cache.v1"})
+        del latent
+    trunk_seconds = time.perf_counter() - trunk_started
+    manifest["exact_trunk_cache"] = {"key": cache_key, "hit": cache_hit,
+                                     "build_or_load_seconds": trunk_seconds,
+                                     "checkpoints": forks}
+    atomic_json(manifest_path, manifest)
+    gc.collect(); torch.cuda.empty_cache()
+
+    for fork_after in forks:
+        branches_cpu = fork_latents(checkpoints[fork_after].to("cuda"), args.strength,
+                                    args.seed + fork_after).detach().cpu()
+        gc.collect(); torch.cuda.empty_cache()
         branch_started = time.perf_counter()
         branches_cpu, used_microbatches = finish_suffix(
             pipe, branches_cpu, fork_after, args.steps, mu, prompt_embeds, pooled,
@@ -239,8 +269,8 @@ def main():
             "fork_after": fork_after, "remaining_steps": args.steps - fork_after,
             "trajectory_shared": shared, "independent_compute_saved": compute_saved,
             "suffix_microbatches": used_microbatches,
-            "trunk_seconds": trunk_seconds, "branch_seconds": branch_seconds,
-            "decode_seconds": decode_seconds, "total_seconds": trunk_seconds + branch_seconds + decode_seconds,
+            "exact_trunk_cache_hit": cache_hit, "branch_seconds": branch_seconds,
+            "decode_seconds": decode_seconds, "total_seconds": branch_seconds + decode_seconds,
         }
         results.append(row)
         manifest["results"] = results; manifest["updated"] = time.time()

@@ -307,6 +307,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/collection/picks", s.collectionPicks)
 	mux.HandleFunc("/api/collection/delete", s.deleteCollection)
 	mux.HandleFunc("/api/recent-images", s.recentImages)
+	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
+	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
 	mux.HandleFunc("/api/gallery/events/", s.galleryEvents)
 	mux.HandleFunc("/atlas/", s.atlas)
@@ -314,6 +316,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/movement", s.movement)
 	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/sentinel", s.sentinelPage)
+	mux.HandleFunc("/sentinel/", s.sentinelPage)
 	mux.HandleFunc("/exhibition", s.exhibition)
 	mux.HandleFunc("/exhibition/", s.exhibition)
 	mux.HandleFunc("/staged/", s.staged)
@@ -361,11 +365,13 @@ var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
 	"/movement",
+	"/sentinel",
 	"/exhibition",
 	"/atelier",
 	"/outputs/",
 	"/api/health",
 	"/api/recent-images",
+	"/api/sentinel",
 	// Without this the gallery falls back to full-size PNGs -- megabytes per
 	// tile, across two proxy hops.
 	"/api/asset/thumbnail",
@@ -552,6 +558,65 @@ func (s Server) movement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "movement.html"))
+}
+
+func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/sentinel/" {
+		http.Redirect(w, r, "/sentinel", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/sentinel" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "sentinel.html"))
+}
+
+func (s Server) sentinelState() ([]byte, error) {
+	return os.ReadFile(filepath.Join(s.cfg.OutputDir, "sentinel-state.json"))
+}
+
+func (s Server) sentinelSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	raw, err := s.sentinelState()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"schema": "flux.sentinel.v1", "actors": []any{},
+			"summary": map[string]any{"healthy": 0, "total": 20, "failing": 0, "degraded": 0},
+			"status":  "starting"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(raw)
+}
+
+func (s Server) sentinelEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "event streaming unsupported")
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	path := filepath.Join(s.cfg.OutputDir, "sentinel-state.json")
+	for {
+		raw, err := s.sentinelState()
+		if err == nil {
+			_, _ = fmt.Fprintf(w, "event: sentinel\ndata: %s\n\n", raw)
+			flusher.Flush()
+		}
+		if !waitForPathChange(r.Context(), path) {
+			return
+		}
+	}
 }
 
 func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {

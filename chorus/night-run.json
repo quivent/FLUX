@@ -1,0 +1,34 @@
+{
+  "schema": "flux.autonomous-run.v1",
+  "name": "beauty-motion-step-study",
+  "model_dir": "/home/dev/models/FLUX.1-dev",
+  "out_dir": "/home/dev/models/flux-output",
+  "step_range": "21:52",
+  "size": 512,
+  "guidance": 3.6,
+  "replicates": 4,
+  "jobs": [
+    {
+      "family": "bell",
+      "seed": 1935692473,
+      "prompt": "A small weathered brass temple bell suspended from a cherry blossom branch on a luminous white ground, a vermilion thread, pale petals in wind, mineral pigment and paper grain, exact stable objects, no people, no text"
+    },
+    {
+      "family": "tidal-observatory",
+      "seed": 1935692473,
+      "prompt": "An empty tidal observatory at the edge of a dark ocean before dawn, curved concrete instruments catching silver fog, long horizon, restrained architectural photograph translated into layered printmaking, no people, no text"
+    },
+    {
+      "family": "deepsea-garden",
+      "seed": 1935692473,
+      "prompt": "A mostly white garden below a black-blue sea where pale botanical life and a weathered tea machine remember one another through touch, repair and time, salt-lit porcelain, cherry blossom translucency, fragile but never decorative, mechanical but never sterile, material truth, no people, no text"
+    }
+  ],
+  "beauty_protocol": {
+    "north_star": "A mostly white garden where botanical life and used machinery remember one another through touch, weather, repair, tea, and time.",
+    "preserve": ["soul", "material truth", "fragility", "earned beauty"],
+    "demand": ["meaningful change", "non-repetition", "visible progression"],
+    "reject": ["generic prettiness", "adjacent motif repetition", "cats", "roads"],
+    "principle": "fragile but never decorative; mechanical but never sterile"
+  }
+}

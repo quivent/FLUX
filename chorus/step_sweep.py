@@ -118,36 +118,49 @@ def main():
         "variable": "total_denoise_steps", "status": "loading", "started": time.time(),
     }
     atomic_json(manifest_path, manifest)
-    pipe = FluxPipeline.from_pretrained(args.model_dir, torch_dtype=torch.bfloat16,
-                                        local_files_only=True).to("cuda")
-    pipe.set_progress_bar_config(disable=True)
-    prompt_embeds, pooled = pipe.encode_prompt(
-        prompt=args.prompt, device="cuda", num_images_per_prompt=1,
-        max_sequence_length=512)[:2]
-    # Keep the encoders on CUDA for the Diffusers pipeline call: its execution
-    # device is inferred from resident modules. Batch one at 512px fits; moving
-    # them here would incorrectly make the denoiser input CPU-resident.
-    generator = torch.Generator("cpu").manual_seed(args.seed)
-    base = pipe.prepare_latents(
-        1, pipe.transformer.config.in_channels // 4, args.size, args.size,
-        torch.bfloat16, "cuda", generator)[0].detach()
+    image_paths = {value: sphere / f"{args.id}-steps-{value:03d}.png" for value in steps}
+    missing = [value for value in steps if not image_paths[value].exists()]
+    pipe = prompt_embeds = pooled = base = None
+    if missing:
+        pipe = FluxPipeline.from_pretrained(args.model_dir, torch_dtype=torch.bfloat16,
+                                            local_files_only=True).to("cuda")
+        pipe.set_progress_bar_config(disable=True)
+        prompt_embeds, pooled = pipe.encode_prompt(
+            prompt=args.prompt, device="cuda", num_images_per_prompt=1,
+            max_sequence_length=512)[:2]
+        # Keep the encoders on CUDA for the Diffusers pipeline call: its execution
+        # device is inferred from resident modules. Batch one at 512px fits; moving
+        # them here would incorrectly make the denoiser input CPU-resident.
+        generator = torch.Generator("cpu").manual_seed(args.seed)
+        base = pipe.prepare_latents(
+            1, pipe.transformer.config.in_channels // 4, args.size, args.size,
+            torch.bfloat16, "cuda", generator)[0].detach()
 
     rows = []
     timings = []
     manifest["status"] = "running"; atomic_json(manifest_path, manifest)
     for total_steps in steps:
-        began = time.perf_counter()
-        image = pipe(
-            prompt=None, prompt_embeds=prompt_embeds,
-            pooled_prompt_embeds=pooled, width=args.size, height=args.size,
-            num_inference_steps=total_steps, guidance_scale=args.guidance,
-            latents=base.clone()).images[0]
-        seconds = time.perf_counter() - began
-        image_path = sphere / f"{args.id}-steps-{total_steps:03d}.png"
-        image.save(image_path)
-        publish(args.id, image_path, len(rows), len(steps), out)
-        rows.append((total_steps, image)); timings.append({"steps": total_steps, "seconds": seconds})
-        manifest.update({"rendered": len(rows), "timings": timings, "updated": time.time()})
+        image_path = image_paths[total_steps]
+        if image_path.exists():
+            with Image.open(image_path) as existing:
+                image = existing.convert("RGB")
+            seconds = 0.0
+            resumed = True
+        else:
+            began = time.perf_counter()
+            image = pipe(
+                prompt=None, prompt_embeds=prompt_embeds,
+                pooled_prompt_embeds=pooled, width=args.size, height=args.size,
+                num_inference_steps=total_steps, guidance_scale=args.guidance,
+                latents=base.clone()).images[0]
+            seconds = time.perf_counter() - began
+            image.save(image_path)
+            publish(args.id, image_path, len(rows), len(steps), out)
+            resumed = False
+        rows.append((total_steps, image)); timings.append({"steps": total_steps, "seconds": seconds,
+                                                           "resumed": resumed})
+        manifest.update({"rendered": len(rows), "timings": timings, "updated": time.time(),
+                         "resumed_outputs": sum(item.get("resumed", False) for item in timings)})
         atomic_json(manifest_path, manifest)
         print(json.dumps(timings[-1]), flush=True)
 

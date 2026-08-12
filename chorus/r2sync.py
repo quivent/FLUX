@@ -150,6 +150,13 @@ def state_sources(out_dir, protocol_dir=HERE):
             if path.is_file():
                 relative = path.relative_to(atlas).as_posix()
                 sources[f"state/atlas/{relative}"] = path
+        # Exact FLUX trunk checkpoints are small (~128 KiB at 512px) and turn
+        # a late-fork restart into a suffix-only render. They are state, not
+        # gallery frames, and must survive the node disk.
+        for path in sorted(atlas.rglob("_cache/*.safetensors")):
+            if path.is_file():
+                relative = path.relative_to(atlas).as_posix()
+                sources[f"state/atlas/{relative}"] = path
     for path in sorted(protocol_dir.iterdir() if protocol_dir.is_dir() else []):
         if path.is_file() and path.suffix.lower() in PROTOCOL_SUFFIXES:
             sources[f"state/protocol/{path.name}"] = path

@@ -58,16 +58,35 @@ func TestLateGeometryForkSharesEarlyTrajectory(t *testing.T) {
 	source := string(raw)
 	for _, token := range []string{
 		`default="18,22,25,26"`,
-		`for timestep in timesteps[:fork_after]:`,
-		`branches_cpu = fork_latents(latent, args.strength, args.seed + fork_after)`,
+		`for index, timestep in enumerate(timesteps[:max(forks)], start=1):`,
+		`branches_cpu = fork_latents(checkpoints[fork_after].to("cuda"), args.strength,`,
 		`for timestep in timesteps[fork_after:]:`,
 		`"trajectory_shared": shared`,
 		`pipe.text_encoder_2.to("cpu")`,
 		`"memory_adaptation": "reduce_suffix_microbatch"`,
 		`@torch.inference_mode()`,
+		`"schema": "flux.exact-trunk-cache.v1"`,
+		`save_file({"latent": checkpoint}, checkpoint_paths[index])`,
 	} {
 		if !strings.Contains(source, token) {
 			t.Errorf("late geometry protocol missing %q", token)
+		}
+	}
+}
+
+func TestNightStudyIsDurableAndBeautyBound(t *testing.T) {
+	for _, name := range []string{"night-run.json", "night_runner.py", "gemini_coder.py", "constellation.py"} {
+		if _, err := os.Stat(filepath.Join("..", "..", "chorus", name)); err != nil {
+			t.Fatalf("missing autonomous production component %s: %v", name, err)
+		}
+	}
+	raw, err := os.ReadFile(filepath.Join("..", "..", "chorus", "step_sweep.py"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{`if image_path.exists():`, `"resumed_outputs"`} {
+		if !strings.Contains(string(raw), token) {
+			t.Errorf("resumable step study missing %q", token)
 		}
 	}
 }
