@@ -77,7 +77,9 @@ Second-pass features:
 - `atlas motion`: install prerequisites and open the dedicated Motion Atlas Sphere web suite
   paths, geometry, quality, traversal, and cross-frame cache settings.
 - `serve`: local HTTP API and dashboard backed by the Unix socket worker.
-- `gallery`: Atelier-style live gallery backed by the same server and event streams.
+- `gallery`: museum-style live gallery backed by the same server and event streams.
+- `apps/rosarium`: recovered Rosarium museum, FLUX production lineage,
+  motion works, and local catalog of 7,218 available works.
 - `render --async`: queue jobs on the worker.
 - `jobs`: inspect queued, running, finished, or failed jobs.
 - `install`: symlink `flux` into `~/.local/bin/flux`.

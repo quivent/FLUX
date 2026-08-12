@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090809">
+  <title>The Arcane Collection — Rosarium</title>
+  <meta name="description" content="The Arcane Princess and Sovereign collection at Rosarium: portraiture, regalia, and imagined rooms rendered through FLUX.">
+  <meta property="og:title" content="The Arcane Collection — Rosarium">
+  <meta property="og:description" content="Portraiture, regalia, and imagined rooms from the Rosarium archive.">
+  <meta property="og:image" content="/renders/arcane_princess_haute_couture.png">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&amp;family=Italiana&amp;family=Manrope:wght@300;400;500&amp;family=Pinyon+Script&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/rosarium.css">
+</head>
+<body class="collection-page">
+  <nav class="museum-nav" aria-label="Main museum navigation">
+    <a href="/" class="museum-logo">Rosarium</a>
+    <div class="nav-items">
+      <a href="/" class="nav-item">Gallery</a>
+      <a href="/arcane.html" class="nav-item" aria-current="page">Arcane Princesses</a>
+      <a href="/motion.html" class="nav-item">Motion</a>
+      <a href="/rotunda.html" class="nav-item">Rotunda</a>
+    </div>
+  </nav>
+
+  <header class="collection-hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Portraits · Regalia · Imagined Rooms</p>
+      <h1 class="collection-title">The Arcane Collection</h1>
+      <p class="collection-lede">
+        A procession of sovereign figures, luminous crowns, and rooms made ceremonial
+        by light. The princess is less a character than a recurring atmosphere.
+      </p>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <img src="/renders/arcane_princess_haute_couture.png" alt="">
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="archive-title">
+      <div class="collection-bar">
+        <div>
+          <h2 class="collection-heading" id="archive-title">The Sovereign Vault</h2>
+          <p class="collection-count" id="collection-count">Preparing the collection</p>
+        </div>
+        <div class="filter-bar" id="filter-bar" aria-label="Filter the Arcane collection"></div>
+      </div>
+      <div class="archive-grid" id="grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Artwork detail">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close artwork detail">×</button>
+    <button class="lightbox-nav" id="lightbox-prev" aria-label="Previous artwork">‹</button>
+    <figure class="lightbox-figure">
+      <img class="lightbox-img" id="lightbox-img" src="" alt="">
+      <figcaption class="lightbox-caption">
+        <span class="lightbox-title" id="lightbox-title"></span>
+        <span class="lightbox-count" id="lightbox-count"></span>
+      </figcaption>
+    </figure>
+    <button class="lightbox-nav" id="lightbox-next" aria-label="Next artwork">›</button>
+  </div>
+
+  <footer class="museum-footer">
+    <span>Rosarium · FLUX</span>
+    <a href="/rotunda.html">Continue to the Rotunda</a>
+  </footer>
+
+  <script>
+    (() => {
+      const grid = document.getElementById('grid');
+      const filterBar = document.getElementById('filter-bar');
+      const count = document.getElementById('collection-count');
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImg = document.getElementById('lightbox-img');
+      const lightboxTitle = document.getElementById('lightbox-title');
+      const lightboxCount = document.getElementById('lightbox-count');
+      let collection = [];
+      let view = [];
+      let currentIndex = 0;
+
+      const cleanName = raw => raw.replace(/^.*?__/, '');
+      const titleFor = raw => cleanName(raw)
+        .replace(/\.(png|jpe?g|webp|gif)$/i, '')
+        .replace(/^(max|hyper)_gpu\d+_\d+_/, '')
+        .replace(/_/g, ' ')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+      const thumbFor = item => '/thumbs/' + item.name.replace(/\.png$/i, '.webp');
+      const fullFor = item => '/renders/' + cleanName(item.name).replace(/\.webp$/i, '.png');
+
+      function categoryFor(item) {
+        const name = item.name.toLowerCase();
+        if (name.includes('sovereign')) return 'Sovereign';
+        if (name.includes('throne') || name.includes('coronation')) return 'Throne Rooms';
+        return 'Studies';
+      }
+
+      function render(items) {
+        view = items;
+        grid.innerHTML = '';
+        count.textContent = items.length + (items.length === 1 ? ' work on view' : ' works on view');
+
+        if (!items.length) {
+          grid.innerHTML = '<p class="empty-state">No works are held in this room.</p>';
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        items.forEach((item, index) => {
+          const card = document.createElement('button');
+          card.className = 'art-card';
+          card.type = 'button';
+          card.dataset.slug = item.slug;
+          card.setAttribute('aria-label', 'Open ' + titleFor(item.name));
+
+          const img = document.createElement('img');
+          img.src = thumbFor(item);
+          img.alt = titleFor(item.name);
+          img.loading = index < 5 ? 'eager' : 'lazy';
+          img.decoding = 'async';
+          img.onerror = () => {
+            img.onerror = null;
+            card.hidden = true;
+          };
+
+          const caption = document.createElement('span');
+          caption.className = 'art-caption';
+          caption.innerHTML = '<span class="art-title">' + titleFor(item.name) + '</span><span class="art-number">' + String(index + 1).padStart(2, '0') + '</span>';
+
+          card.append(img, caption);
+          card.addEventListener('click', () => openLightbox(index));
+          fragment.appendChild(card);
+        });
+        grid.appendChild(fragment);
+      }
+
+      function openLightbox(index, updateHash = true) {
+        if (!view.length) return;
+        currentIndex = (index + view.length) % view.length;
+        const item = view[currentIndex];
+        lightboxImg.onerror = () => {
+          lightboxImg.onerror = null;
+          lightboxImg.src = thumbFor(item);
+        };
+        lightboxImg.src = fullFor(item);
+        lightboxImg.alt = titleFor(item.name);
+        lightboxTitle.textContent = titleFor(item.name);
+        lightboxCount.textContent = String(currentIndex + 1).padStart(2, '0') + ' / ' + String(view.length).padStart(2, '0');
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (updateHash && item.slug) history.replaceState(null, '', '#' + item.slug);
+      }
+
+      function closeLightbox(clearHash = true) {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+        if (clearHash) history.replaceState(null, '', window.location.pathname);
+      }
+
+      function buildFilters() {
+        const filters = [
+          ['All works', () => true],
+          ['Sovereign', item => categoryFor(item) === 'Sovereign'],
+          ['Throne rooms', item => categoryFor(item) === 'Throne Rooms'],
+          ['Studies', item => categoryFor(item) === 'Studies']
+        ];
+
+        filters.forEach(([label, predicate], index) => {
+          const button = document.createElement('button');
+          button.className = 'filter-btn' + (index === 0 ? ' active' : '');
+          button.type = 'button';
+          button.textContent = label;
+          button.addEventListener('click', () => {
+            filterBar.querySelectorAll('button').forEach(item => item.classList.remove('active'));
+            button.classList.add('active');
+            render(collection.filter(predicate));
+          });
+          filterBar.appendChild(button);
+        });
+      }
+
+      document.getElementById('lightbox-close').addEventListener('click', () => closeLightbox());
+      document.getElementById('lightbox-prev').addEventListener('click', () => openLightbox(currentIndex - 1));
+      document.getElementById('lightbox-next').addEventListener('click', () => openLightbox(currentIndex + 1));
+      lightbox.addEventListener('click', event => {
+        if (event.target === lightbox) closeLightbox();
+      });
+      window.addEventListener('keydown', event => {
+        if (!lightbox.classList.contains('active')) return;
+        if (event.key === 'Escape') closeLightbox();
+        if (event.key === 'ArrowLeft') openLightbox(currentIndex - 1);
+        if (event.key === 'ArrowRight') openLightbox(currentIndex + 1);
+      });
+
+      fetch('/manifest.json')
+        .then(response => {
+          if (!response.ok) throw new Error('The collection could not be opened.');
+          return response.json();
+        })
+        .then(manifest => {
+          const stream = manifest.streams.find(item => item.id === 'arcane_princess');
+          collection = (stream?.items || []).filter(item => item.name !== 'princessa.jpg');
+          buildFilters();
+          render(collection);
+
+          const slug = window.location.hash.slice(1);
+          const deepLinkIndex = collection.findIndex(item => item.slug === slug);
+          if (deepLinkIndex >= 0) openLightbox(deepLinkIndex, false);
+        })
+        .catch(() => {
+          count.textContent = 'Collection unavailable';
+          grid.innerHTML = '<p class="empty-state">The vault is resting. Please return shortly.</p>';
+        });
+    })();
+  </script>
+</body>
+</html>

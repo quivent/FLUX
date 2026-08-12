@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atelier Oceanica — The Grand Museum & Visual Vault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #020305;
+            --bg-card: rgba(12, 15, 22, 0.75);
+            --border-glow: rgba(0, 240, 255, 0.2);
+            --accent-cyan: #00f0ff;
+            --accent-gold: #ffd700;
+            --accent-pink: #ff2a75;
+            --text-main: #ffffff;
+            --text-sub: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-void);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* GRAND MUSEUM NAVBAR */
+        .museum-nav {
+            padding: 1.5rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            background: rgba(2, 3, 5, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .museum-logo {
+            font-family: 'Cinzel', serif;
+            font-size: 1.6rem;
+            letter-spacing: 4px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 40%, var(--accent-gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-items {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .nav-item {
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            color: var(--text-sub);
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .nav-item:hover, .nav-item.active { color: var(--accent-gold); }
+
+        .btn-enter-museum {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-cyan));
+            color: #000;
+            padding: 0.7rem 1.8rem;
+            border-radius: 30px;
+            font-weight: 800;
+            text-decoration: none;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+
+        .btn-enter-museum:hover { transform: translateY(-2px); }
+
+        /* MUSEUM ENTRANCE HERO */
+        .hero-entrance {
+            position: relative;
+            height: 85vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        #hero-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        .hero-box {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 950px;
+            padding: 0 2rem;
+        }
+
+        .hero-tag {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            letter-spacing: 4px;
+            color: var(--accent-gold);
+            margin-bottom: 1.2rem;
+            text-transform: uppercase;
+        }
+
+        .hero-title {
+            font-family: 'Cinzel', serif;
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #ffffff 30%, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-sub {
+            font-size: 1.15rem;
+            color: var(--text-sub);
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        .btn-museum-main {
+            font-family: 'Cinzel', serif;
+            font-size: 0.95rem;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+            color: #fff;
+            padding: 1.1rem 2.8rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            box-shadow: 0 10px 40px rgba(0, 240, 255, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .btn-museum-main:hover { transform: translateY(-4px); }
+
+        .btn-museum-sec {
+            font-family: 'Cinzel', serif;
+            font-size: 0.95rem;
+            letter-spacing: 3px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 1.1rem 2.8rem;
+            border-radius: 12px;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+        }
+
+        /* SECTION HEADINGS */
+        .section-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+
+        .sec-tag {
+            font-family: 'Cinzel', serif;
+            font-size: 0.8rem;
+            letter-spacing: 3px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            margin-bottom: 0.6rem;
+        }
+
+        .sec-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5rem;
+            letter-spacing: 4px;
+            font-weight: 600;
+        }
+
+        /* CURATED COLLECTIONS WINGS */
+        .collections-section {
+            max-width: 1600px;
+            margin: 6rem auto;
+            padding: 0 3rem;
+        }
+
+        .collections-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.2rem;
+        }
+
+        .collection-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: transform 0.4s ease, border-color 0.4s ease;
+            cursor: pointer;
+        }
+
+        .collection-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-gold);
+        }
+
+        .col-img-box {
+            height: 260px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+
+        .col-img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .collection-card:hover .col-img { transform: scale(1.08); }
+
+        .col-content {
+            padding: 1.8rem;
+        }
+
+        .col-wing {
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            color: var(--accent-gold);
+            margin-bottom: 0.4rem;
+        }
+
+        .col-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+
+        .col-desc {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            line-height: 1.5;
+            margin-bottom: 1.2rem;
+        }
+
+        .col-footer {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 1rem;
+        }
+
+        /* MAIN GALLERY MUSEUM VAULT */
+        .museum-vault-section {
+            max-width: 1650px;
+            margin: 6rem auto;
+            padding: 0 3rem 8rem;
+        }
+
+        .vault-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            background: var(--bg-card);
+            padding: 1.2rem 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .art-card {
+            background: var(--bg-card);
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: transform 0.4s ease, border-color 0.4s ease;
+        }
+
+        .art-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-cyan);
+        }
+
+        .art-img-box {
+            height: 380px;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .art-img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .art-card:hover .art-img { transform: scale(1.06); }
+
+        .art-body {
+            padding: 1.5rem;
+        }
+
+        .art-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .art-meta {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--accent-cyan);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 0.8rem;
+            margin-top: 0.8rem;
+        }
+
+        /* LIGHTBOX MODAL */
+        .lightbox-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(2, 3, 5, 0.96);
+            backdrop-filter: blur(30px);
+            display: none;
+            justify-content: center; align-items: center;
+            z-index: 3000;
+            padding: 3rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- MUSEUM NAVBAR -->
+    <nav class="museum-nav">
+        <div class="museum-logo">💎 ATELIER OCEANICA</div>
+        <div class="nav-items">
+            <a href="#entrance" class="nav-item active">Museum Entrance</a>
+            <a href="#collections" class="nav-item">Exhibitions Wing</a>
+            <a href="#vault" class="nav-item">Grand Vault</a>
+            <a href="#vault" class="btn-enter-museum">ENTER THE MUSEUM</a>
+        </div>
+    </nav>
+
+    <!-- ENTRANCE HERO -->
+    <section class="hero-entrance" id="entrance">
+        <canvas id="hero-canvas"></canvas>
+        <div class="hero-box">
+            <div class="hero-tag">🏛️ Sovereign 3D Visual Artistry</div>
+            <h1 class="hero-title">The Grand Museum & Visual Vault</h1>
+            <p class="hero-sub">Welcome to Atelier Oceanica—a sovereign 3D render estate powered by 9 NVIDIA Blackwell GPUs (880.8 GB VRAM) continuously synthesizing Arcane art in 3D Spherical Coordinates \((r, \theta, \phi)\).</p>
+            <div class="hero-actions">
+                <a href="#vault" class="btn-museum-main">Enter Visual Vault</a>
+                <a href="#collections" class="btn-museum-sec">View Exhibition Wings</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- EXHIBITION WINGS & COLLECTIONS LIST -->
+    <section class="collections-section" id="collections">
+        <div class="section-header">
+            <div class="sec-tag">Curated Collections</div>
+            <h2 class="sec-title">Museum Exhibition Wings</h2>
+        </div>
+
+        <div class="collections-grid">
+            <!-- WING 1: GARDEN OF EDEN -->
+            <div class="collection-card" onclick="filterVault('gpu_2')">
+                <div class="col-img-box">
+                    <img src="/renders/garden_of_eden_master.gif" class="col-img" alt="Garden of Eden">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING I • GARDEN OF EDEN</div>
+                    <div class="col-name">Arcane Eden & Living Water</div>
+                    <div class="col-desc">Crystalline rivers of living water, bioluminescent crimson flora, and trees of life stitched into 24-frame continuous motion loops.</div>
+                    <div class="col-footer">
+                        <span>24-FRAME LOOP</span>
+                        <span>GPU 2 & GPU 6</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WING 2: LIVING COUTURE -->
+            <div class="collection-card" onclick="filterVault('gpu_0')">
+                <div class="col-img-box">
+                    <img src="/renders/gpu_0_frame_0050.png" class="col-img" alt="Living Couture" onerror="this.src='/renders/garden_of_eden_master.gif'">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING II • LIVING COUTURE</div>
+                    <div class="col-name">Liquid Silk & Fiber Wearables</div>
+                    <div class="col-desc">Parametric bioluminescent garments, liquid mercury gowns, and zero-gravity fiber-optic silk lattices.</div>
+                    <div class="col-footer">
+                        <span>HAUTE COUTURE</span>
+                        <span>GPU 0 & GPU 4</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WING 3: SPATIAL CATHEDRALS -->
+            <div class="collection-card" onclick="filterVault('gpu_1')">
+                <div class="col-img-box">
+                    <img src="/renders/gpu_1_frame_0050.png" class="col-img" alt="Spatial Cathedrals" onerror="this.src='/renders/garden_of_eden_master.gif'">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING III • SPATIAL CATHEDRALS</div>
+                    <div class="col-name">Non-Euclidean Sanctuaries</div>
+                    <div class="col-desc">Floating obsidian monoliths, iridescent glass pillars, and quantum light sanctuaries in deep space.</div>
+                    <div class="col-footer">
+                        <span>SPATIAL 3D</span>
+                        <span>GPU 1 & GPU 5</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WING 4: PARAMETRIC TEXTURES -->
+            <div class="collection-card" onclick="filterVault('gpu_3')">
+                <div class="col-img-box">
+                    <img src="/renders/gpu_3_frame_0050.png" class="col-img" alt="Parametric Textures" onerror="this.src='/renders/garden_of_eden_master.gif'">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING IV • HAPTIC MEMBRANES</div>
+                    <div class="col-name">Parametric Dragon-Scale Armor</div>
+                    <div class="col-desc">Holographic scale lattices, sub-surface scattering silicone membranes, and liquid chrome capillaries.</div>
+                    <div class="col-footer">
+                        <span>HAPTIC PBR</span>
+                        <span>GPU 3 & GPU 7</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WING 5: THE MANSION 8K SUITE -->
+            <div class="collection-card" onclick="filterVault('mansion')">
+                <div class="col-img-box">
+                    <img src="/renders/mansion_gpu_8_frame_0050.png" class="col-img" alt="The Mansion 8K" onerror="this.src='/renders/garden_of_eden_master.gif'">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING V • THE MANSION 8K</div>
+                    <div class="col-name">High-Density Master Suite</div>
+                    <div class="col-desc">Ultra-high-resolution 8K character and environmental master renders synthesized on Node 9 (1.5 Terabytes RAM).</div>
+                    <div class="col-footer">
+                        <span>8K MASTER</span>
+                        <span>GPU 8 (1.5TB RAM)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WING 6: 3D SPHERICAL MANIFOLD -->
+            <div class="collection-card" onclick="filterVault('all')">
+                <div class="col-img-box">
+                    <img src="/renders/garden_of_eden_master.gif" class="col-img" alt="Complete Vault">
+                </div>
+                <div class="col-content">
+                    <div class="col-wing">WING VI • COMPLETE ESTATE</div>
+                    <div class="col-name">3D Spherical Manifold Vault</div>
+                    <div class="col-desc">Explore all 4,114+ works continuously sorted by 3D spherical coordinates \((r, \theta, \phi)\).</div>
+                    <div class="col-footer">
+                        <span>4,114+ WORKS</span>
+                        <span>ALL 9 GPUs</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GRAND MUSEUM VAULT (PAGINATED GALLERY) -->
+    <section class="museum-vault-section" id="vault">
+        <div class="section-header">
+            <div class="sec-tag">Grand Visual Vault</div>
+            <h2 class="sec-title">Full Museum Collection</h2>
+        </div>
+
+        <div class="vault-controls">
+            <div style="font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--accent-gold);" id="vault-info">Showing 1–24 of 4,114 Works</div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <button id="btn-prev" onclick="changePage(-1)" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.5rem 1.4rem; border-radius: 20px; font-family: 'Cinzel', serif; cursor: pointer;">Prev</button>
+                <span id="page-num" style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--accent-cyan);">Page 1 of 171</span>
+                <button id="btn-next" onclick="changePage(1)" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.5rem 1.4rem; border-radius: 20px; font-family: 'Cinzel', serif; cursor: pointer;">Next</button>
+            </div>
+        </div>
+
+        <div class="gallery-grid" id="gallery-grid"></div>
+    </section>
+
+    <!-- LIGHTBOX MODAL -->
+    <div class="lightbox-modal" id="lightbox" onclick="closeLightbox()">
+        <img src="" id="lightbox-img" style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 16px; box-shadow: 0 30px 90px rgba(0,0,0,0.9);" alt="High Res Frame">
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // THREE.JS IMMERSIVE HERO SPHERE
+        function initHero3D() {
+            const canvas = document.getElementById('hero-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(50, window.innerWidth / (window.innerHeight * 0.85), 0.1, 1000);
+            camera.position.z = 4.5;
+
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
+
+            const count = 3000;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            const cols = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                const u = Math.random();
+                const v = Math.random();
+                const theta = u * Math.PI * 2;
+                const phi = Math.acos(2 * v - 1);
+                const r = 2.0;
+
+                pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                pos[i * 3 + 2] = r * Math.cos(phi);
+
+                cols[i * 3] = 0.9;
+                cols[i * 3 + 1] = 0.7;
+                cols[i * 3 + 2] = 0.1;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+            const mat = new THREE.PointsMaterial({ size: 0.03, vertexColors: true, transparent: true, opacity: 0.6 });
+            const sphere = new THREE.Points(geo, mat);
+            scene.add(sphere);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                sphere.rotation.y += 0.0015;
+                sphere.rotation.x += 0.0006;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / (window.innerHeight * 0.85);
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
+            });
+        }
+        initHero3D();
+
+        // GALLERY VAULT API SYNC
+        let allAssets = [];
+        let activeFilter = 'all';
+        let currentPage = 1;
+        const perPage = 24;
+
+        async function fetchInventory() {
+            try {
+                const res = await fetch('/api/inventory');
+                const data = await res.json();
+                allAssets = data.latest_frames;
+                renderVault();
+            } catch(e) { console.error('Inventory error:', e); }
+        }
+
+        function calculate3DSpherical(item) {
+            let gpuId = 0;
+            if (item.filename.includes("gpu_0")) gpuId = 0;
+            else if (item.filename.includes("gpu_1")) gpuId = 1;
+            else if (item.filename.includes("gpu_2")) gpuId = 2;
+            else if (item.filename.includes("gpu_3")) gpuId = 3;
+            else if (item.filename.includes("gpu_4")) gpuId = 4;
+            else if (item.filename.includes("gpu_5")) gpuId = 5;
+            else if (item.filename.includes("gpu_6")) gpuId = 6;
+            else if (item.filename.includes("gpu_7")) gpuId = 7;
+            else if (item.filename.includes("mansion")) gpuId = 8;
+
+            const frameNum = parseInt(item.filename.match(/\d+/) || [0])[0];
+            const theta = (gpuId / 9.0) * Math.PI * 2.0;
+            const phi = ((frameNum % 100) / 100.0) * Math.PI;
+            const r = 1.0;
+
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+
+            const t = Date.now() * 0.0003;
+            const dist = Math.sqrt(Math.pow(x - Math.cos(t), 2) + Math.pow(y - Math.sin(t), 2) + Math.pow(z, 2));
+
+            return { r: r.toFixed(1), thetaDeg: Math.round((theta * 180)/Math.PI), phiDeg: Math.round((phi * 180)/Math.PI), dist };
+        }
+
+        function renderVault() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+
+            let filtered = allAssets.filter(item => {
+                if (activeFilter === 'all') return true;
+                return item.filename.includes(activeFilter);
+            });
+
+            filtered.forEach(item => item.sph = calculate3DSpherical(item));
+            filtered.sort((a, b) => a.sph.dist - b.sph.dist);
+
+            const total = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(total / perPage));
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const start = (currentPage - 1) * perPage;
+            const end = Math.min(total, start + perPage);
+            const pageItems = filtered.slice(start, end);
+
+            document.getElementById('vault-info').innerText = total > 0 ? `Showing Works ${start + 1}–${end} of ${total.toLocaleString()}` : `No Works Found`;
+            document.getElementById('page-num').innerText = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('btn-prev').disabled = (currentPage === 1);
+            document.getElementById('btn-next').disabled = (currentPage === totalPages);
+
+            pageItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'art-card';
+                card.onclick = () => openLightbox(item.url);
+                card.innerHTML = `
+                    <div class="art-img-box">
+                        <img src="${item.url}" class="art-img" loading="lazy" alt="${item.filename}">
+                    </div>
+                    <div class="art-body">
+                        <div class="art-title">${item.filename}</div>
+                        <div class="art-meta">
+                            <span>SPHERICAL (r:${item.sph.r}, θ:${item.sph.thetaDeg}°, φ:${item.sph.phiDeg}°)</span>
+                            <span>SIM: ${((1 - item.sph.dist / 3.0) * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterVault(cat) {
+            activeFilter = cat;
+            currentPage = 1;
+            renderVault();
+            document.getElementById('vault').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function changePage(dir) {
+            currentPage += dir;
+            renderVault();
+        }
+
+        function openLightbox(url) {
+            document.getElementById('lightbox-img').src = url;
+            document.getElementById('lightbox').style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').style.display = 'none';
+        }
+
+        fetchInventory();
+        setInterval(fetchInventory, 1500);
+    </script>
+</body>
+</html>

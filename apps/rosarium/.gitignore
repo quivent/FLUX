@@ -1,0 +1,5 @@
+# The recovered visual estate remains local/cold-storage backed.
+/public/thumbs/
+/public/renders/
+/public/arcane_princess_haute_couture.png
+/archive/*.tar.gz
