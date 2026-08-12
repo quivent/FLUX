@@ -64,6 +64,7 @@ func TestLateGeometryForkSharesEarlyTrajectory(t *testing.T) {
 		`"trajectory_shared": shared`,
 		`pipe.text_encoder_2.to("cpu")`,
 		`"memory_adaptation": "reduce_suffix_microbatch"`,
+		`@torch.inference_mode()`,
 	} {
 		if !strings.Contains(source, token) {
 			t.Errorf("late geometry protocol missing %q", token)

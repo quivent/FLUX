@@ -26,6 +26,7 @@ def atomic_json(path, value):
     tmp.replace(path)
 
 
+@torch.inference_mode()
 def transformer_step(pipe, latents, timestep, prompt_embeds, pooled, text_ids, image_ids, guidance):
     t = timestep.expand(latents.shape[0]).to(latents.dtype)
     with pipe.transformer.cache_context("cond"):
@@ -70,6 +71,7 @@ def fork_latents(parent, strength, seed):
     ])
 
 
+@torch.inference_mode()
 def decode(pipe, latents, size):
     unpacked = pipe._unpack_latents(latents, size, size, pipe.vae_scale_factor)
     unpacked = (unpacked / pipe.vae.config.scaling_factor) + pipe.vae.config.shift_factor
