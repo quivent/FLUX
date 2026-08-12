@@ -517,14 +517,15 @@ def main():
     def move_prompt_encoders(device):
         """Keep FLUX conditioning exact while reclaiming encoder VRAM.
 
-        T5-XXL and CLIP-L are restored for each generation's prompt batch,
-        then parked on CPU. Their CUDA embeddings remain valid for denoising.
+        T5-XXL is restored for each generation's prompt batch, then parked on
+        CPU. CLIP-L remains as the pipeline's CUDA device anchor. The encoded
+        CUDA conditioning tensors remain valid for denoising.
         """
         nonlocal prompt_encoders_device
         if prompt_encoders_device == device:
             return
         moved = []
-        for name in ("text_encoder", "text_encoder_2"):
+        for name in ("text_encoder_2",):
             module = getattr(pipe, name, None)
             if module is not None:
                 module.to(device)
@@ -692,7 +693,7 @@ def main():
             latent, _latent_ids = pipe.prepare_latents(
                 1, pipe.transformer.config.in_channels // 4,
                 live["height"], live["width"], torch.bfloat16,
-                pipe._execution_device, generator,
+                "cuda", generator,
             )
             latent, latent_cosine = separate_latent(
                 latent, previous_latent, live["latent_max_cosine"])

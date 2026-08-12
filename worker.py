@@ -540,10 +540,11 @@ class Worker:
         """Move only FLUX's prompt encoders, leaving the denoiser resident.
 
         FLUX consumes the embeddings, not the encoder modules, during denoising.
-        Keeping T5-XXL and CLIP-L on the GPU after encode_prompt wastes roughly
-        10 GiB on the H100.  This is residency swapping only: the encoders and
-        their BF16 weights remain unchanged and are restored before every new
-        prompt is encoded.
+        Keeping T5-XXL on the GPU after encode_prompt wastes roughly 9.5 GiB
+        on the H100. CLIP-L stays resident: Diffusers uses the first pipeline
+        module as its execution-device anchor, and moving both encoders makes
+        an otherwise CUDA pipeline report CPU. This is residency swapping
+        only; T5's BF16 weights are unchanged and restored before each encode.
         """
         if self.pipe is None:
             return
@@ -551,7 +552,7 @@ class Worker:
         if self.prompt_encoders_device == target:
             return
         moved = []
-        for name in ("text_encoder", "text_encoder_2"):
+        for name in ("text_encoder_2",):
             module = getattr(self.pipe, name, None)
             if module is not None:
                 module.to(target)
@@ -574,7 +575,7 @@ class Worker:
             )[:2]
         finally:
             # The returned CUDA tensors keep the conditioning alive. The two
-            # encoder modules themselves are no longer part of the render.
+            # T5 itself is no longer part of the render.
             self._move_prompt_encoders("cpu")
 
     def _discard_pipe_adapter(self):
