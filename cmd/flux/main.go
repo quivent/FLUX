@@ -828,6 +828,9 @@ func atlasBell(cfg config.Config, args []string) error {
 	if protocolName == "step-sweep" || protocolName == "schedule-sweep" {
 		return atlasBellStepSweep(cfg, args[1:])
 	}
+	if protocolName == "continuity" || protocolName == "repair" {
+		return atlasBellContinuity(cfg, args[1:])
+	}
 	if protocolName == "control" {
 		return atlasBellControl(cfg, args[1:])
 	}
@@ -891,6 +894,39 @@ func atlasBell(cfg config.Config, args []string) error {
 		return err
 	}
 	return invoke("cache-reuse", bellProtocols["cache"])
+}
+
+func atlasBellContinuity(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("atlas bell continuity", flag.ContinueOnError)
+	sphereID := fs.String("sphere", "garden-bell-learns-the-wind-001", "connected atlas sphere id")
+	promptText := fs.String("prompt", "", "replacement prompt (required)")
+	loop := fs.Bool("loop", false, "measure last-to-first continuity")
+	submit := fs.Bool("submit", false, "submit marked replacement candidates to img2img")
+	stillRatio := fs.Float64("still-ratio", 0.38, "fraction of median motion marking unnatural stillness")
+	gapRatio := fs.Float64("gap-ratio", 2.35, "multiple of median motion marking a gap")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if strings.TrimSpace(*promptText) == "" {
+		return errors.New("atlas bell continuity requires --prompt")
+	}
+	sphere := filepath.Join(cfg.OutputDir, "atlas", strings.TrimSuffix(*sphereID, ".sphere")+".sphere")
+	cmdArgs := []string{filepath.Join(cfg.Root, "chorus", "continuity.py"),
+		"--sphere", sphere, "--out-dir", cfg.OutputDir, "--prompt", *promptText,
+		"--still-ratio", strconv.FormatFloat(*stillRatio, 'f', -1, 64),
+		"--gap-ratio", strconv.FormatFloat(*gapRatio, 'f', -1, 64),
+		"--socket", filepath.Join(cfg.Root, ".fluxd", "img2img.sock")}
+	if *loop {
+		cmdArgs = append(cmdArgs, "--loop")
+	}
+	if *submit {
+		cmdArgs = append(cmdArgs, "--submit")
+	}
+	ui.Header("Bell continuity", "mark first, replace non-destructively, require council acceptance")
+	ui.KV("sphere", *sphereID)
+	ui.KV("submit", fmt.Sprint(*submit))
+	_, err := runner.Stream(context.Background(), nil, cfg.Python, cmdArgs...)
+	return err
 }
 
 func atlasBellStepSweep(cfg config.Config, args []string) error {

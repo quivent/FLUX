@@ -85,3 +85,17 @@ func TestAdjacentStepSweepHoldsInitialLatentConstant(t *testing.T) {
 		}
 	}
 }
+
+func TestContinuityRepairNeverOverwritesOriginals(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "chorus", "continuity.py"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	for _, token := range []string{`reason = "still"`, `else "gap"`, `"replacement-queue.jsonl"`,
+		`"Gemma council required; originals remain authoritative"`, `Image.blend(a, b, 0.5)`} {
+		if !strings.Contains(source, token) {
+			t.Errorf("continuity repair missing %q", token)
+		}
+	}
+}
