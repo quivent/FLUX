@@ -23,12 +23,21 @@ GEMMA_MODEL="${GEMMA_MODEL:-$HOME/models/gemma-4-31B-q4/gemma-4-31B_q4_0-it.gguf
 GEMMA_MMPROJ="${GEMMA_MMPROJ:-$HOME/models/gemma-4-31B-q4/gemma-4-31B-it-mmproj.gguf}"
 GEMMA_PORT="${GEMMA_PORT:-8080}"
 R2_ENV="${R2_ENV:-$HOME/.flux-r2.env}"
+GOVERNOR_TOKEN_FILE="${GOVERNOR_TOKEN_FILE:-$HOME/.governor-token}"
 # The public gateway terminates TLS and does not preserve Tea's Host all the
 # way to the workload. Keep the browser's websocket origin explicit so the
 # server can distinguish the real gallery from a foreign page without opening
 # the socket cross-origin.
 FLUX_WS_ORIGINS="${FLUX_WS_ORIGINS:-${CHORUS_PUBLIC_BASE:-https://tea.influx.vision}}"
 export FLUX_WS_ORIGINS
+
+# The vision endpoint is public infrastructure but inference is not anonymous.
+# Load its bearer from a mode-0600 operator file; never place it in the repo or
+# a recorded command line.
+if [ -f "$GOVERNOR_TOKEN_FILE" ]; then
+	export CHORUS_GOVERNOR_TOKEN
+	CHORUS_GOVERNOR_TOKEN=$(cat "$GOVERNOR_TOKEN_FILE")
+fi
 
 # Durable delivery must survive a shell ending and a stack restart. Keep the
 # credential envelope outside the repository, mode 0600, and load it into the

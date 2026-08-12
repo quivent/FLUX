@@ -30,6 +30,8 @@ import time
 import urllib.error
 import urllib.request
 
+import governor
+
 HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 # Every judgement was 524-ing: the governor serves one request at a time with
@@ -213,9 +215,8 @@ def _ask_one(engine, sheet, laws, timeout, public_base="", anchor=None):
     # 403, which looks exactly like an auth failure and is not one.
     req = urllib.request.Request(
         engine, json.dumps(body).encode(),
-        {"Content-Type": "application/json",
-         "Accept": "application/json",
-         "User-Agent": "chorus-sentinel/1 (+flux)"}, method="POST")
+        {**governor.headers("chorus-sentinel/1 (+flux)"),
+         "Accept": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.load(resp)

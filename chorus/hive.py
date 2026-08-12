@@ -45,6 +45,8 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import governor
+
 HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 # A second engine on its own H100. The governor serves one request at a time
@@ -146,7 +148,7 @@ def ask_seat(seat, sheet_url, timeout=200, engine=None, feedback=""):
             "messages": [{"role": "user", "content": content}]}
     req = urllib.request.Request(
         engine or GOVERNOR, json.dumps(body).encode(),
-        {"Content-Type": "application/json", "User-Agent": "chorus-hive/1"}, method="POST")
+        governor.headers("chorus-hive/1"), method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             text = json.load(resp)["choices"][0]["message"]["content"]

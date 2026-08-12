@@ -37,6 +37,8 @@ import time
 import urllib.error
 import urllib.request
 
+import governor
+
 HERE = pathlib.Path(__file__).resolve().parent
 GOVERNOR = "https://governor.influx.vision/v1/chat/completions"
 ENGINES = [e for e in (os.environ.get("CHORUS_SECOND_ENGINE", ""), GOVERNOR) if e]
@@ -188,7 +190,7 @@ def author(out_dir, timeout=200):
     for engine in ENGINES:
         req = urllib.request.Request(
             engine, json.dumps(body).encode(),
-            {"Content-Type": "application/json", "User-Agent": "chorus-author/1"},
+            governor.headers("chorus-author/1"),
             method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
