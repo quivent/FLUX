@@ -25,6 +25,8 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/app", true},
 		{http.MethodGet, "/gallery/", true},
 		{http.MethodGet, "/movement", true},
+		{http.MethodGet, "/exhibition", true},
+		{http.MethodGet, "/exhibition/stallion-atlas-exhibition.mp4", true},
 		{http.MethodGet, "/atelier/", true},
 		{http.MethodGet, "/outputs/atlas/x.png", true},
 		{http.MethodGet, "/api/health", true},

@@ -314,6 +314,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/movement", s.movement)
 	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/exhibition", s.exhibition)
+	mux.HandleFunc("/exhibition/", s.exhibition)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
 	s.restoreAtlasReceipts()
@@ -359,6 +361,7 @@ var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
 	"/movement",
+	"/exhibition",
 	"/atelier",
 	"/outputs/",
 	"/api/health",
@@ -537,9 +540,8 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", name))
 }
 
-// movement is the public viewing room for authored FLUX latent paths.  It is
-// intentionally separate from motion-atlas: the latter is an instrument for
-// operating the renderer, while this page presents the resulting work.
+// movement presents one live authored path. The exhibition is a second,
+// collection-level surface that places it beside the Stallion atlas.
 func (s Server) movement(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/movement/" {
 		http.Redirect(w, r, "/movement", http.StatusPermanentRedirect)
@@ -550,6 +552,28 @@ func (s Server) movement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "movement.html"))
+}
+
+func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/exhibition/" {
+		http.Redirect(w, r, "/exhibition", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path == "/exhibition" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "exhibition.html"))
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/exhibition/")
+	allowed := map[string]bool{
+		"stallion-atlas-exhibition.mp4": true,
+		"stallion-atlas-poster.jpg":     true,
+		"stallion-atlas-contact.jpg":    true,
+	}
+	if !allowed[name] {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "assets", name))
 }
 
 // legacyAtelier preserves links shared while the wall still carried its
