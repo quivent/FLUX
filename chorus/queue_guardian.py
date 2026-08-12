@@ -11,9 +11,12 @@ import time
 
 
 def atomic_json(path, value):
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
-    tmp.replace(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def alive(pidfile):
@@ -78,7 +81,8 @@ def supervisor(args):
             log = (run_dir / "night-run.log").open("a")
             child = subprocess.Popen([args.python, str(root / "chorus" / "night_runner.py"),
                                       "--manifest", str(root / "chorus" / "night-run.json"),
-                                      "--python", args.python], cwd=root, start_new_session=True,
+                                      "--python", args.python, "--run-dir", str(run_dir)],
+                                     cwd=root, start_new_session=True,
                                      stdout=log, stderr=subprocess.STDOUT)
             log.close(); pidfile.write_text(str(child.pid) + "\n")
         time.sleep(11)

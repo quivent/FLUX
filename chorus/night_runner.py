@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Drain the step prelude and 48-study beauty queue without overwrites."""
 import argparse
+import fcntl
 import json
 import os
 import pathlib
 import re
 import signal
+import socket
 import subprocess
 import sys
 import time
 
 
 active_child = None
+producer_lock = None
 
 
 def stop_active_child(signum, _frame):
@@ -35,9 +38,45 @@ def run_child(command, env):
 
 
 def atomic_json(path, value):
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
-    tmp.replace(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def acquire_producer_lock(run_dir):
+    """Enforce Nexus' one-owner decision locally for this runner's lifetime."""
+    global producer_lock
+    run_dir.mkdir(parents=True, exist_ok=True)
+    handle = (run_dir / "producer.lock").open("a+")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        return False
+    handle.seek(0); handle.truncate()
+    handle.write(f"{os.getpid()}\n"); handle.flush()
+    producer_lock = handle
+    return True
+
+
+def nexus_receipt(job_id, kind):
+    """Fail closed unless Nexus admits this named execution."""
+    address = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")
+    host, port = address.rsplit(":", 1)
+    request = {"type": "submit", "job": {
+        "id": job_id, "kind": kind, "execution_owner": "night-runner",
+    }}
+    with socket.create_connection((host, int(port)), timeout=5) as conn:
+        conn.sendall((json.dumps(request) + "\n").encode())
+        conn.shutdown(socket.SHUT_WR)
+        response = json.loads(conn.makefile().readline())
+    if not all((response.get("ok"), response.get("accepted"),
+                response.get("verified"), response.get("receipt_id"))):
+        raise RuntimeError(f"Nexus refused {job_id}: {response}")
+    return response
 
 
 def slug(value):
@@ -100,10 +139,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default=str(pathlib.Path(__file__).with_name("night-run.json")))
     ap.add_argument("--python", default=sys.executable)
+    ap.add_argument("--run-dir", default=str(pathlib.Path.home() / ".flux-run"))
     args = ap.parse_args()
     signal.signal(signal.SIGTERM, stop_active_child)
     signal.signal(signal.SIGINT, stop_active_child)
     manifest_path = pathlib.Path(args.manifest).resolve()
+    if not acquire_producer_lock(pathlib.Path(args.run_dir).expanduser()):
+        print("Nexus production lease already held; refusing a second queue runner", file=sys.stderr)
+        return 75
     spec = json.loads(manifest_path.read_text())
     root = manifest_path.parent.parent
     out = pathlib.Path(spec["out_dir"])
@@ -118,6 +161,8 @@ def main():
         atomic_json(queue_path, prelude_snapshot(spec, out, job_id))
         state.update({"current_job": job_id, "job_index": index,
                       "completed_jobs": index, "updated": time.time()})
+        receipt = nexus_receipt(job_id, "flux.adjacent_step_geometry")
+        state["nexus_receipt"] = receipt["receipt_id"]
         atomic_json(state_path, state)
         command = [args.python, str(root / "chorus" / "step_sweep.py"),
                    "--prompt", job["prompt"], "--id", job_id,
@@ -146,6 +191,8 @@ def main():
         job_out = collections / job_slug; job_out.mkdir(parents=True, exist_ok=True)
         if ledger_generations(job_out / "creative-drift.jsonl") >= target:
             continue
+        receipt = nexus_receipt(job_slug, "flux.beauty_collection")
+        state["nexus_receipt"] = receipt["receipt_id"]
         atomic_json(queue_path, queue_snapshot(catalog, out, job_slug))
         control = job_out / "drift-control.json"
         if not control.exists():

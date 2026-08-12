@@ -1,14 +1,50 @@
 import json
+import os
 import pathlib
 import random
 import tempfile
 import unittest
+from unittest import mock
 
 from chorus import contact, hive, loop, sentinel
 from chorus import language
 
 
 class HiveEvidenceTest(unittest.TestCase):
+
+    def test_disabled_services_are_not_supervision_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = pathlib.Path(directory) / "run"
+            out = pathlib.Path(directory) / "out"
+            run.mkdir(); out.mkdir()
+            for name in ("piper", "nexus", "serve"):
+                (run / f"{name}.pid").write_text(str(os.getpid()))
+            args = type("Args", (), {
+                "run_dir": str(run), "out_dir": str(out),
+                "drift_stale": 1, "sentinel_stale": 1, "r2_stale": 1,
+            })()
+            with mock.patch.dict(os.environ, {
+                "GEMMA": "0", "DRIFT": "0", "SENTINEL": "0",
+                "CHORUS_SECOND_ENGINE": "",
+            }, clear=False):
+                self.assertIsNone(hive.audit(args))
+
+    def test_enabled_optional_service_cannot_restart_the_gpu_stack(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = pathlib.Path(directory) / "run"
+            out = pathlib.Path(directory) / "out"
+            run.mkdir(); out.mkdir()
+            for name in ("piper", "nexus", "serve"):
+                (run / f"{name}.pid").write_text(str(os.getpid()))
+            args = type("Args", (), {
+                "run_dir": str(run), "out_dir": str(out),
+                "drift_stale": 1, "sentinel_stale": 1, "r2_stale": 1,
+            })()
+            with mock.patch.dict(os.environ, {
+                "GEMMA": "1", "DRIFT": "0", "SENTINEL": "0",
+                "CHORUS_SECOND_ENGINE": "",
+            }, clear=False):
+                self.assertIsNone(hive.audit(args))
 
     def test_counter_voice_changes_world_and_subject(self):
         rng = random.Random(7)

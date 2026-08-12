@@ -192,7 +192,8 @@ if [ "${CONSTELLATION:-1}" = "1" ]; then
 fi
 if [ "${NIGHT_RUN:-1}" = "1" ] && [ -f "$REPO/chorus/night-run.json" ]; then
 	start_one night-run "$VENV/bin/python" chorus/night_runner.py \
-		--manifest "$REPO/chorus/night-run.json" --python "$VENV/bin/python"
+		--manifest "$REPO/chorus/night-run.json" --python "$VENV/bin/python" \
+		--run-dir "$RUN"
 	start_one queue-supervisor "$VENV/bin/python" chorus/queue_guardian.py \
 		--role supervisor --root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
 		--python "$VENV/bin/python"
@@ -208,7 +209,10 @@ fi
 if [ "${WATCHDOG:-1}" = "1" ]; then
 	start_one watchdog bash -c '
 		while true; do
-			for svc in piper nexus serve sentinel hive r2sync constellation; do
+			# Only execution foundations may trigger a whole-stack recovery.
+			# Observers report their own degraded state; restarting FLUX because
+			# an eye or archival lane is unavailable destroys useful GPU work.
+			for svc in piper nexus serve; do
 				pidfile="'"$RUN"'/$svc.pid"
 				[ -f "$pidfile" ] || continue
 				pid=$(cat "$pidfile" 2>/dev/null || echo)

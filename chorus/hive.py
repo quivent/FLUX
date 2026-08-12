@@ -529,29 +529,27 @@ def stale(path, seconds):
         return True
 
 
+def feature_enabled(name, default):
+    """Interpret the same 0/1 feature switches used by chorus/up.sh."""
+    return os.environ.get(name, "1" if default else "0").strip().lower() not in {
+        "0", "false", "no", "off", ""
+    }
+
+
 def audit(args):
     run = pathlib.Path(args.run_dir).expanduser()
-    required = ["piper", "nexus", "serve", "gemma", "drift", "sentinel"]
-    if (run / "r2sync.pid").exists():
-        required.append("r2sync")
+    # Disabled optional services are not failed services. The recovery wrapper
+    # intentionally runs the production queue with GEMMA=0 and DRIFT=0; treating
+    # those deliberate absences as faults restarted the entire stack every two
+    # minutes, killing the resident FLUX process and producing VRAM sawtoothing.
+    required = ["piper", "nexus", "serve"]
     dead = [name for name in required if not pid_alive(run / f"{name}.pid")]
     if dead:
         return "dead service: " + ", ".join(dead)
-    out = pathlib.Path(args.out_dir).expanduser()
-    if stale(out / "drift-status.json", args.drift_stale):
-        return "drift stopped producing"
-    if stale(out / "taste-log.jsonl", args.sentinel_stale):
-        return "sentinel stopped judging"
-    if (run / "r2sync.pid").exists():
-        status_path = out / "r2-status.json"
-        if stale(status_path, args.r2_stale):
-            return "R2 durability stream stopped proving life"
-        status = load(status_path, {})
-        last_success = float(status.get("last_success_at") or 0)
-        if last_success and time.time() - last_success > args.r2_stale:
-            return "R2 durability stream has not completed a healthy sweep"
-    if not judge_health():
-        return "visionary endpoint failed health"
+    # Gemma, Drift, Sentinel and R2 are observers or side lanes. Their health
+    # remains visible in the constellation, but none may tear down a healthy
+    # resident FLUX process. Recovery for those services must be scoped to the
+    # service itself rather than expressed as a whole-stack restart.
     return None
 
 

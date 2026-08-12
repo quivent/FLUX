@@ -64,17 +64,22 @@ class Handler(socketserver.StreamRequestHandler):
                 self._send({"ok": False, "accepted": False, "verified": False,
                             "status": "rejected", "error": "job id required"})
                 return
-            receipt_id = "rcpt_" + uuid.uuid4().hex[:16]
-            receipt = {
-                "ok": True, "accepted": True, "verified": True,
-                "status": "accepted", "job_id": job_id, "receipt_id": receipt_id,
-                "kind": str(job.get("kind") or "flux.motion_atlas"),
-                "execution_owner": str(job.get("execution_owner") or "flux"),
-                "issued_at": time.time(),
-            }
             with _lock:
-                _receipts[job_id] = receipt
-                _stats["submitted"] += 1
+                # Submission is idempotent by durable job identity. Recovery
+                # paths may ask again, but Nexus must not mint a second
+                # authority receipt for the same production.
+                receipt = _receipts.get(job_id)
+                if receipt is None:
+                    receipt = {
+                        "ok": True, "accepted": True, "verified": True,
+                        "status": "accepted", "job_id": job_id,
+                        "receipt_id": "rcpt_" + uuid.uuid4().hex[:16],
+                        "kind": str(job.get("kind") or "flux.motion_atlas"),
+                        "execution_owner": str(job.get("execution_owner") or "flux"),
+                        "issued_at": time.time(),
+                    }
+                    _receipts[job_id] = receipt
+                    _stats["submitted"] += 1
             self._send(receipt)
             return
 

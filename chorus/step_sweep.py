@@ -21,9 +21,12 @@ from PIL import Image, ImageDraw
 
 
 def atomic_json(path, value):
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
-    tmp.replace(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def publish(job_id, path, index, total, out_dir):
