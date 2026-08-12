@@ -99,7 +99,7 @@ start_one() { # name, command...
 
 # Quiesce producers before the durability lane. This ordering means a stack
 # restart is itself a tested final flush, not a race between Drift and R2.
-for svc in watchdog hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
+for svc in watchdog constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -169,6 +169,20 @@ elif [ "${R2SYNC:-1}" = "1" ]; then
 	echo "r2sync  skipped (no R2_ACCESS_KEY_ID in the environment)"
 fi
 
+# The autonomous production contract is durable data. The runner resumes
+# existing PNGs instead of overwriting them; Constellation supplies independent
+# proof leases, cache auditing, Gemma antennas, Gemini coding authority and the
+# event-driven Sentinel state consumed by the public page.
+if [ "${CONSTELLATION:-1}" = "1" ]; then
+	start_one constellation "$VENV/bin/python" chorus/constellation.py \
+		--root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--public-base "${CHORUS_PUBLIC_BASE:-https://tea.influx.vision}"
+fi
+if [ "${NIGHT_RUN:-1}" = "1" ] && [ -f "$REPO/chorus/night-run.json" ]; then
+	start_one night-run "$VENV/bin/python" chorus/night_runner.py \
+		--manifest "$REPO/chorus/night-run.json" --python "$VENV/bin/python"
+fi
+
 # Hive owns the living system: it checks the visionary semantically, watches
 # Drift and Sentinel freshness, and restarts the suite when any lane stops.
 # This tiny outer fuse watches only Hive itself; a supervisor cannot resurrect
@@ -197,7 +211,7 @@ curl -sS -o /dev/null -w 'landing %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/
 curl -sS -o /dev/null -w 'gallery %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/gallery/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve gemma drift sentinel hive r2sync watchdog; do
+for svc in piper nexus serve gemma drift sentinel hive r2sync constellation night-run gemini-coder watchdog; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"
