@@ -3,7 +3,7 @@
   "name": "beauty-motion-step-study",
   "model_dir": "/home/dev/models/FLUX.1-dev",
   "out_dir": "/home/dev/models/flux-output",
-  "step_range": "21:52",
+  "step_range": "21:148",
   "size": 512,
   "guidance": 3.6,
   "replicates": 4,

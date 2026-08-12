@@ -31,6 +31,31 @@ def ledger_generations(path):
     return len(seen)
 
 
+def step_values(spec):
+    if ":" in spec:
+        low, high = (int(value) for value in spec.split(":", 1))
+        return list(range(low, high + 1))
+    return sorted({int(value) for value in spec.split(",") if value.strip()})
+
+
+def prelude_snapshot(spec, out, current=None):
+    target = len(step_values(spec["step_range"]))
+    jobs = []
+    for job in spec["jobs"]:
+        for replicate in range(1, int(spec["replicates"]) + 1):
+            job_id = f"step-study-{job['family']}-r{replicate}"
+            sphere = out / "atlas" / f"{job_id}.sphere"
+            count = len(list(sphere.glob(f"{job_id}-steps-*.png")))
+            state = "done" if count >= target else "running" if job_id == current else "queued"
+            jobs.append({"name": job_id.replace("step-study-", "").replace("-", " ").title(),
+                         "slug": job_id, "approved": True, "axis": "denoise depth",
+                         "rendered": count, "target": target, "status": state})
+    return {"schema": "flux.beauty-queue-state.v1", "name": "Adjacent Geometry Prelude",
+            "status": "running", "updated": time.time(), "current": current,
+            "completed_jobs": sum(job["status"] == "done" for job in jobs),
+            "total_jobs": len(jobs), "jobs": jobs}
+
+
 def queue_snapshot(catalog, out, current=None, status="running"):
     jobs, completed = [], 0
     for index, job in enumerate(catalog["jobs"]):
@@ -64,6 +89,7 @@ def main():
              "total_jobs": len(jobs), "status": "running", "started": time.time()}
     for index, (job, replicate) in enumerate(jobs):
         job_id = f"step-study-{job['family']}-r{replicate}"
+        atomic_json(queue_path, prelude_snapshot(spec, out, job_id))
         state.update({"current_job": job_id, "job_index": index,
                       "completed_jobs": index, "updated": time.time()})
         atomic_json(state_path, state)
@@ -72,7 +98,9 @@ def main():
                    "--model-dir", spec["model_dir"], "--out-dir", spec["out_dir"],
                    "--step-range", spec["step_range"], "--size", str(spec["size"]),
                    "--guidance", str(spec["guidance"]), "--seed", str(job["seed"])]
-        result = subprocess.run(command, check=False)
+        result = subprocess.run(command, env={**dict(os.environ),
+                                "FLUX_QUEUE_STATE": str(queue_path),
+                                "FLUX_QUEUE_JOB": job_id}, check=False)
         if result.returncode:
             state.update({"status": "failed", "failed_job": job_id,
                           "exit_code": result.returncode, "updated": time.time()})

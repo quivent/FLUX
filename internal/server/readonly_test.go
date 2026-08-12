@@ -24,6 +24,7 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/", true},
 		{http.MethodGet, "/app", true},
 		{http.MethodGet, "/gallery/", true},
+		{http.MethodGet, "/portraits", true},
 		{http.MethodGet, "/sentinel", true},
 		{http.MethodGet, "/api/sentinel/events", true},
 		{http.MethodGet, "/movement", true},
@@ -68,6 +69,28 @@ func TestReadOnlyGate(t *testing.T) {
 			if rec.Code != http.StatusForbidden {
 				t.Errorf("%s %s: expected 403, got %d", tc.method, tc.path, rec.Code)
 			}
+		}
+	}
+}
+
+func TestRecentImageRoomsAreDisjoint(t *testing.T) {
+	cases := []struct {
+		scope, rel string
+		want       bool
+	}{
+		{"", "old-master.png", true},
+		{"", "batches/stills", true},
+		{"", "atlas/bell.sphere", false},
+		{"", "collections/bell-weather", false},
+		{"portraits", "collections/bell-weather", true},
+		{"portraits", "atlas/bell.sphere", false},
+		{"portraits", "old-master.png", false},
+		{"movement", "atlas/bell.sphere", true},
+		{"movement", "collections/bell-weather", false},
+	}
+	for _, tc := range cases {
+		if got := recentScopeIncludes(tc.scope, tc.rel); got != tc.want {
+			t.Errorf("scope=%q rel=%q: got %t want %t", tc.scope, tc.rel, got, tc.want)
 		}
 	}
 }

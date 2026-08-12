@@ -64,6 +64,26 @@ def usable_image(path):
         return False
 
 
+def publish_queue_progress(rendered, target):
+    path_name = os.environ.get("FLUX_QUEUE_STATE", "")
+    job_slug = os.environ.get("FLUX_QUEUE_JOB", "")
+    if not path_name or not job_slug:
+        return
+    path = pathlib.Path(path_name)
+    try:
+        state = json.loads(path.read_text())
+        for job in state.get("jobs") or []:
+            if job.get("slug") == job_slug:
+                job["rendered"] = rendered
+                job["target"] = target
+                job["status"] = "done" if rendered >= target else "running"
+        state["updated"] = time.time()
+        state["completed_jobs"] = sum(job.get("status") == "done" for job in state.get("jobs") or [])
+        atomic_json(path, state)
+    except (OSError, ValueError, TypeError):
+        return
+
+
 def compare(a, b):
     aa = np.asarray(a.convert("RGB"), dtype=np.uint8)
     bb = np.asarray(b.convert("RGB"), dtype=np.uint8)
@@ -118,8 +138,8 @@ def main():
     ap.add_argument("--seed", type=int, default=1935692473)
     args = ap.parse_args()
     steps = parse_steps(args.step_range)
-    if len(steps) < 2 or any(x < 1 or x > 120 for x in steps):
-        raise SystemExit("step range needs at least two values in [1,120]")
+    if len(steps) < 2 or any(x < 1 or x > 160 for x in steps):
+        raise SystemExit("step range needs at least two values in [1,160]")
     if args.size != 512:
         raise SystemExit("step sweep is locked to 512x512")
 
@@ -180,6 +200,7 @@ def main():
         manifest.update({"rendered": len(rows), "timings": timings, "updated": time.time(),
                          "resumed_outputs": sum(item.get("resumed", False) for item in timings)})
         atomic_json(manifest_path, manifest)
+        publish_queue_progress(len(rows), len(steps))
         print(json.dumps(timings[-1]), flush=True)
 
     adjacent = []

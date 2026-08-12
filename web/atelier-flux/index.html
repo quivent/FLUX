@@ -100,13 +100,13 @@
 
 <header>
   <a class="word" href="/">TEA <b>GALLERY</b></a>
-  <nav class="room-nav" aria-label="Gallery rooms"><a href="/">Garden</a><a href="/gallery/" aria-current="page">Images</a><a href="/movement">Motion Work</a><a href="/exhibition">Exhibition</a></nav>
+  <nav class="room-nav" aria-label="Gallery rooms"><a href="/">Garden</a><a href="/gallery/">Images</a><a href="/portraits">Portraits</a><a href="/movement">Motion Work</a><a href="/exhibition">Exhibition</a></nav>
   <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
 </header>
 
 <main>
   <div class="bar">
-    <span class="label">Images of Beauty</span>
+    <span class="label" id="collection-name">Images of Beauty</span>
     <span class="rule"></span>
     <span class="label num" id="s-shown">0 shown</span>
   </div>
@@ -125,13 +125,16 @@
 <script>
   // Paged, not capped. The wall held 1,184 frames while showing 96, so the
   // body of work was unreachable from the page that exists to show it.
-  const PAGE = 18, FIRST_REVEAL = 6, REVEAL_MS = 70;
+  const PAGE = 18, FIRST_REVEAL = 6, REVEAL_MS = 70, PORTRAITS = location.pathname.startsWith('/portraits');
   let offset = 0, total = 0;
   let fetching = false, opened = false;
   const $ = (id) => document.getElementById(id);
   const seen = new Set();
   const streamStartedAt = Date.now() / 1000;
   let baselineReady = false, pendingAssets = [];
+  document.title = PORTRAITS ? 'Portraits — Tea Gallery' : 'Images of Beauty — Tea Gallery';
+  $('collection-name').textContent = PORTRAITS ? 'Portraits' : 'Images of Beauty';
+  document.querySelectorAll('.room-nav a').forEach((a) => a.toggleAttribute('aria-current', PORTRAITS ? a.pathname === '/portraits' : a.pathname.startsWith('/gallery')));
 
   // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
   // two proxy hops. The server thumbnails to 384px and caches, so the grid
@@ -233,7 +236,7 @@
     fetching = true;
     const firstPage = offset === 0;
     try {
-      const j = await fetchJSON('/api/recent-images?limit=' + PAGE + '&offset=' + offset);
+      const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=' + PAGE + '&offset=' + offset);
       total = j.total || 0;
       $('s-collection').textContent = total;
       offset += (j.images || []).length;
@@ -308,6 +311,8 @@
     const asset = ev.asset || ev;
     const url = asset.access_url || asset.url;
     if (!url) return;
+    const isPortrait = String(url).startsWith('/outputs/collections/');
+    if (PORTRAITS !== isPortrait || String(url).startsWith('/outputs/atlas/')) return;
     // The public wall grows from its top-left corner. History appends below;
     // a newly landed work enters first and the existing collection makes room.
     if (!addCell(url, asset.name, true)) return;

@@ -18,6 +18,10 @@ class BeautyQueueTest(unittest.TestCase):
         self.assertEqual(queue["defaults"]["height"], 512)
         self.assertEqual(queue["defaults"]["batch"], 1)
 
+        night = json.loads(path.with_name("night-run.json").read_text())
+        low, high = (int(value) for value in night["step_range"].split(":"))
+        self.assertEqual(high - low + 1, 128)
+
 
 if __name__ == "__main__":
     unittest.main()

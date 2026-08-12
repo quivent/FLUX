@@ -314,6 +314,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas/", s.atlas)
 	mux.HandleFunc("/gallery", s.gallery)
 	mux.HandleFunc("/gallery/", s.gallery)
+	mux.HandleFunc("/portraits", s.portraits)
+	mux.HandleFunc("/portraits/", s.portraits)
 	mux.HandleFunc("/movement", s.movement)
 	mux.HandleFunc("/movement/", s.movement)
 	mux.HandleFunc("/sentinel", s.sentinelPage)
@@ -364,6 +366,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
+	"/portraits",
 	"/movement",
 	"/sentinel",
 	"/exhibition",
@@ -558,6 +561,18 @@ func (s Server) movement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "movement.html"))
+}
+
+func (s Server) portraits(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/portraits/" {
+		http.Redirect(w, r, "/portraits", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/portraits" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "index.html"))
 }
 
 func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
@@ -3757,7 +3772,6 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		offset = 0
 	}
 	scope := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
-	movementOnly := scope == "movement"
 	type recentImage struct {
 		Name     string
 		Path     string
@@ -3775,14 +3789,9 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			if entry.IsDir() {
 				name := entry.Name()
 				rel, _ := filepath.Rel(outputDir, file)
-				inAtlas := rel == "atlas" || strings.HasPrefix(filepath.ToSlash(rel), "atlas/")
-				// Atlas cells are sequential states, not independent still works.
-				// Keep them off the Images of Beauty wall; the Movement room asks
-				// for them explicitly and preserves their order there.
-				if movementOnly && file != outputDir && !inAtlas {
-					return filepath.SkipDir
-				}
-				if !movementOnly && inAtlas {
+				// Public rooms are disjoint: autonomous portraits and sequential
+				// motion states never silently bleed into Images of Beauty.
+				if file != outputDir && !recentScopeIncludes(scope, filepath.ToSlash(rel)) {
 					return filepath.SkipDir
 				}
 				// "_" marks a working directory, not a collection: contact
@@ -3795,12 +3804,6 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			}
 			if !isImageName(entry.Name()) || strings.HasPrefix(entry.Name(), "_") {
 				return nil
-			}
-			if movementOnly {
-				rel, relErr := filepath.Rel(outputDir, file)
-				if relErr != nil || !strings.HasPrefix(filepath.ToSlash(rel), "atlas/") {
-					return nil
-				}
 			}
 			info, _ := entry.Info()
 			rel, err := filepath.Rel(outputDir, file)
@@ -3818,7 +3821,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	stateRoot, err := filepath.Abs(filepath.Join(s.cfg.Root, ".fluxd"))
-	if err == nil && !movementOnly {
+	if err == nil && scope != "movement" && scope != "portraits" {
 		for _, root := range []string{"uploads", "references", "blends"} {
 			dir := filepath.Join(stateRoot, root)
 			_ = filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
@@ -3890,6 +3893,22 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "images": out, "total": total, "offset": offset, "limit": limit,
 	})
+}
+
+func recentScopeIncludes(scope, rel string) bool {
+	rel = strings.Trim(filepath.ToSlash(rel), "/")
+	if rel == "" || rel == "." {
+		return true
+	}
+	top := strings.SplitN(rel, "/", 2)[0]
+	switch scope {
+	case "movement":
+		return top == "atlas"
+	case "portraits":
+		return top == "collections"
+	default:
+		return top != "atlas" && top != "collections"
+	}
 }
 
 func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
