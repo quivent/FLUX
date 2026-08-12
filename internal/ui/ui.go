@@ -236,6 +236,7 @@ func Usage() {
 		{"accel", "inspect active and candidate acceleration backends"},
 		{"architecture", "show CLI, socket, HTTP, tunnel, and backend flow"},
 		{"atelier studies", "FLUX.1-related Atelier research imported into the CLI"},
+		{"atlas bell protocols", "open-prompt latent motion and directed tournament protocols"},
 		{"anime productions", "anime.sakure.network project bridge"},
 		{"ane", "manage strict ANE package registry and component conversion"},
 		{"ane direct-capture", "capture direct-ANE denoiser block manifest"},

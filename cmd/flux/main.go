@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"local/flux/internal/config"
@@ -761,11 +762,322 @@ func atlas(cfg config.Config, args []string) error {
 	switch args[0] {
 	case "sphere", "spheremap":
 		return atlasSphere(cfg, args[1:])
+	case "bell", "path-study":
+		return atlasBell(cfg, args[1:])
 	case "motion", "b300":
 		return atlasMotion(cfg, args[1:])
 	default:
-		return fmt.Errorf("atlas needs a command: sphere or motion")
+		return fmt.Errorf("atlas needs a command: sphere, bell, or motion")
 	}
+}
+
+type bellProtocol struct {
+	Mode          string
+	ShellScale    float64
+	SeedLock      float64
+	ShellCoupling float64
+	Adapter       string
+	Description   string
+}
+
+var bellProtocols = map[string]bellProtocol{
+	"near": {
+		Mode: "elliptic", ShellScale: 0.46, SeedLock: 0.68, ShellCoupling: 0.18, Adapter: "none",
+		Description: "the original close Bell path; identity is strong and change is deliberately small",
+	},
+	"open": {
+		Mode: "elliptic", ShellScale: 0.72, SeedLock: 0.54, ShellCoupling: 0.18, Adapter: "none",
+		Description: "wider steps on the same path geometry; the first answer to an under-changing sequence",
+	},
+	"sway": {
+		Mode: "sway", ShellScale: 0.62, SeedLock: 0.58, ShellCoupling: 0.30, Adapter: "none",
+		Description: "causal lateral motion with a moderate home anchor",
+	},
+	"orbit": {
+		Mode: "elliptic", ShellScale: 0.58, SeedLock: 0.60, ShellCoupling: 0.44, Adapter: "none",
+		Description: "stronger directional coupling while retaining the elliptic motion family",
+	},
+	"cache": {
+		Mode: "elliptic", ShellScale: 0.72, SeedLock: 0.54, ShellCoupling: 0.18, Adapter: "atlas-xframe-cache",
+		Description: "the open path with step-keyed cross-frame block reuse for paired fidelity research",
+	},
+}
+
+func atlasBell(cfg config.Config, args []string) error {
+	if len(args) == 0 || args[0] == "list" || args[0] == "protocols" {
+		ui.Header("atlas bell", "open-prompt latent motion protocols")
+		for _, name := range []string{"near", "open", "sway", "orbit", "cache"} {
+			p := bellProtocols[name]
+			ui.KV(name, fmt.Sprintf("%s · mode=%s shell=%.2f lock=%.2f coupling=%.2f adapter=%s",
+				p.Description, p.Mode, p.ShellScale, p.SeedLock, p.ShellCoupling, p.Adapter))
+		}
+		ui.KV("run", `flux atlas bell open --prompt "..."`)
+		ui.KV("paired cache", `flux atlas bell cache-audit --prompt "..." --generations 8`)
+		ui.KV("directed", `flux atlas bell tournament --prompt "..." --north-star "..." --detach`)
+		return nil
+	}
+
+	protocolName := strings.ToLower(strings.TrimSpace(args[0]))
+	if protocolName == "tournament" || protocolName == "directed" {
+		return atlasBellTournament(cfg, args[1:])
+	}
+	if protocolName == "control" {
+		return atlasBellControl(cfg, args[1:])
+	}
+	if protocolName == "status" {
+		return atlasBellStatus(cfg, args[1:])
+	}
+	paired := protocolName == "cache-audit"
+	if paired {
+		protocolName = "open"
+	}
+	protocol, ok := bellProtocols[protocolName]
+	if !ok {
+		return fmt.Errorf("unknown Bell protocol %q; use: near, open, sway, orbit, cache, cache-audit", args[0])
+	}
+
+	remaining := append([]string(nil), args[1:]...)
+	hasPrompt := false
+	for _, arg := range remaining {
+		if arg == "--prompt" || strings.HasPrefix(arg, "--prompt=") {
+			hasPrompt = true
+			break
+		}
+	}
+	if !hasPrompt {
+		return errors.New("Bell protocols require --prompt; their motion geometry never supplies artistic language")
+	}
+	generations := 1024
+	for i := 0; i < len(remaining); i++ {
+		if remaining[i] == "--generations" && i+1 < len(remaining) {
+			n, err := strconv.Atoi(remaining[i+1])
+			if err != nil || n < 1 || n > 65536 {
+				return fmt.Errorf("--generations must be in [1,65536]")
+			}
+			generations = n
+			remaining = append(remaining[:i], remaining[i+2:]...)
+			i--
+		}
+	}
+	base := filepath.Join(cfg.Root, "atlas_drafts", "garden-bell-learns-the-wind.json")
+	stamp := time.Now().UTC().Format("20060102-150405")
+	invoke := func(name string, p bellProtocol) error {
+		defaults := []string{
+			"--draft", base,
+			"--id", "bell-" + name + "-" + stamp,
+			"--size", "512",
+			"--steps", "28",
+			"--sample-count", strconv.Itoa(generations),
+			"--mode", p.Mode,
+			"--shell-scale", strconv.FormatFloat(p.ShellScale, 'f', -1, 64),
+			"--seed-lock", strconv.FormatFloat(p.SeedLock, 'f', -1, 64),
+			"--shell-coupling", strconv.FormatFloat(p.ShellCoupling, 'f', -1, 64),
+			"--order", "row_serpentine",
+			"--adapter", p.Adapter,
+		}
+		return atlasSphere(cfg, append(defaults, remaining...))
+	}
+	if !paired {
+		return invoke(protocolName, protocol)
+	}
+	if err := invoke("cache-baseline", bellProtocols["open"]); err != nil {
+		return err
+	}
+	return invoke("cache-reuse", bellProtocols["cache"])
+}
+
+func atlasBellTournament(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("atlas bell tournament", flag.ContinueOnError)
+	promptText := fs.String("prompt", "", "open FLUX prompt (required)")
+	northStar := fs.String("north-star", "increase visible coherent motion while preserving subject identity and established formal strength", "asymptotic destination (required but never treated as a fixed image)")
+	generations := fs.Int("generations", 1024, "decision generations; each renders four literal directions")
+	steps := fs.Int("steps", 28, "BF16 FLUX denoise steps")
+	seed := fs.Int("seed", 1935692473, "four-dimensional latent basis seed")
+	angle := fs.Float64("angle", 0.12, "initial angular distance from retained parent")
+	minimumGain := fs.Float64("minimum-gain", 2.0, "child score margin required to advance")
+	adapter := fs.String("adapter", "none", "none or first-block-cache; enable only after paired audit")
+	cacheThreshold := fs.Float64("cache-threshold", 0.08, "first-block-cache residual threshold")
+	id := fs.String("id", "", "durable lineage id")
+	detach := fs.Bool("detach", false, "run under ~/.flux-run and return immediately")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if strings.TrimSpace(*promptText) == "" {
+		return errors.New("atlas bell tournament requires --prompt; the protocol never supplies artistic language")
+	}
+	if strings.TrimSpace(*northStar) == "" {
+		return errors.New("atlas bell tournament requires a non-empty --north-star")
+	}
+	if *generations < 1 || *generations > 65536 {
+		return errors.New("--generations must be in [1,65536]")
+	}
+	if *adapter != "none" && *adapter != "first-block-cache" {
+		return errors.New("--adapter must be none or first-block-cache")
+	}
+	jobID := strings.TrimSpace(*id)
+	if jobID == "" {
+		jobID = "bell-directed-" + time.Now().UTC().Format("20060102-150405")
+	}
+	cmdArgs := []string{
+		filepath.Join(cfg.Root, "chorus", "tournament.py"),
+		"--prompt", *promptText,
+		"--north-star", *northStar,
+		"--id", jobID,
+		"--model-dir", cfg.ModelDir,
+		"--out-dir", cfg.OutputDir,
+		"--generations", strconv.Itoa(*generations),
+		"--size", "512",
+		"--steps", strconv.Itoa(*steps),
+		"--seed", strconv.Itoa(*seed),
+		"--angle", strconv.FormatFloat(*angle, 'f', -1, 64),
+		"--minimum-gain", strconv.FormatFloat(*minimumGain, 'f', -1, 64),
+		"--adapter", *adapter,
+		"--cache-threshold", strconv.FormatFloat(*cacheThreshold, 'f', -1, 64),
+	}
+	ui.Header("Bell tournament", "four directions, one Director, one retained lineage")
+	ui.KV("job", jobID)
+	ui.KV("render", fmt.Sprintf("512x512 · %d steps · 4 candidates × %d generations", *steps, *generations))
+	ui.KV("north star", *northStar)
+	ui.KV("adapter", *adapter)
+	ui.KV("control", filepath.Join(cfg.OutputDir, "atlas", jobID+".sphere", "control.json"))
+	if !*detach {
+		_, err := runner.Stream(context.Background(), nil, cfg.Python, cmdArgs...)
+		return err
+	}
+	home := atelierHome()
+	runDir := filepath.Join(home, ".flux-run")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return err
+	}
+	logPath := filepath.Join(runDir, jobID+".log")
+	pidPath := filepath.Join(runDir, jobID+".pid")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(cfg.Python, cmdArgs...)
+	cmd.Stdout, cmd.Stderr = logFile, logFile
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
+		return err
+	}
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0o644); err != nil {
+		_ = cmd.Process.Kill()
+		_ = logFile.Close()
+		return err
+	}
+	_ = cmd.Process.Release()
+	_ = logFile.Close()
+	ui.KV("state", ui.State("running")+" "+ui.Soft(fmt.Sprintf("pid %d", cmd.Process.Pid)))
+	ui.KV("log", logPath)
+	return nil
+}
+
+func atlasBellControl(cfg config.Config, args []string) error {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return errors.New("usage: flux atlas bell control <id> [--angle N] [--steps N] [--north-star text] [--pause|--resume|--stop]")
+	}
+	jobID := args[0]
+	fs := flag.NewFlagSet("atlas bell control", flag.ContinueOnError)
+	angle := fs.Float64("angle", -1, "next-generation angular distance")
+	steps := fs.Int("steps", 0, "next-generation denoise steps")
+	minimumGain := fs.Float64("minimum-gain", -1, "Director margin required to leave the parent")
+	northStar := fs.String("north-star", "", "slowly revised asymptotic destination")
+	pause := fs.Bool("pause", false, "pause at the generation boundary")
+	resume := fs.Bool("resume", false, "resume a paused lineage")
+	stop := fs.Bool("stop", false, "stop cleanly at the generation boundary")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	path := filepath.Join(cfg.OutputDir, "atlas", jobID+".sphere", "control.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var control map[string]any
+	if err := json.Unmarshal(raw, &control); err != nil {
+		return err
+	}
+	changed := false
+	if *angle >= 0 {
+		if *angle < 0.01 || *angle > 1.2 {
+			return errors.New("--angle must be in [0.01,1.2]")
+		}
+		control["angle"] = *angle
+		changed = true
+	}
+	if *steps > 0 {
+		if *steps > 120 {
+			return errors.New("--steps must be in [1,120]")
+		}
+		control["steps"] = *steps
+		changed = true
+	}
+	if *minimumGain >= 0 {
+		control["minimum_gain"] = *minimumGain
+		changed = true
+	}
+	if strings.TrimSpace(*northStar) != "" {
+		control["north_star"] = strings.TrimSpace(*northStar)
+		changed = true
+	}
+	if *pause && *resume {
+		return errors.New("choose --pause or --resume, not both")
+	}
+	if *pause {
+		control["paused"] = true
+		changed = true
+	}
+	if *resume {
+		control["paused"] = false
+		changed = true
+	}
+	if *stop {
+		control["stop"] = true
+		changed = true
+	}
+	if !changed {
+		return errors.New("no control change supplied")
+	}
+	control["updated"] = time.Now().UTC().Format(time.RFC3339Nano)
+	encoded, _ := json.MarshalIndent(control, "", "  ")
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(encoded, '\n'), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	ui.Header("Bell control", "next generation boundary")
+	ui.KV("job", jobID)
+	for _, key := range []string{"paused", "stop", "angle", "steps", "minimum_gain", "north_star"} {
+		ui.KV(key, fmt.Sprint(control[key]))
+	}
+	return nil
+}
+
+func atlasBellStatus(cfg config.Config, args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: flux atlas bell status <id>")
+	}
+	path := filepath.Join(cfg.OutputDir, "atlas", args[0]+".sphere", "manifest.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return err
+	}
+	ui.Header("Bell lineage", stringValue(manifest["status"]))
+	for _, key := range []string{"id", "generation", "generation_target", "accepted", "angle", "steps", "adapter", "north_star"} {
+		ui.KV(key, fmt.Sprint(manifest[key]))
+	}
+	if decision, ok := manifest["last_decision"].(map[string]any); ok {
+		ui.KV("decision", fmt.Sprintf("%s · %s", stringValue(decision["action"]), stringValue(decision["direction"])))
+	}
+	return nil
 }
 
 func atlasMotion(cfg config.Config, args []string) error {
@@ -874,6 +1186,7 @@ func atlasSphere(cfg config.Config, args []string) error {
 	size := fs.Int("size", 0, "override draft square size")
 	guidance := fs.Float64("guidance", 0, "override guidance")
 	mode := fs.String("mode", "", "override latent path mode")
+	promptText := fs.String("prompt", "", "override the draft prompt; required by open-prompt protocol commands")
 	seed := fs.String("seed", "", "override home seed")
 	shellScale := fs.Float64("shell-scale", -1, "override latent shell scale")
 	seedLock := fs.Float64("seed-lock", -1, "override home-latent lock")
@@ -905,6 +1218,10 @@ func atlasSphere(cfg config.Config, args []string) error {
 	}
 	if *mode != "" {
 		draft["mode"] = *mode
+	}
+	if strings.TrimSpace(*promptText) != "" {
+		draft["prompt"] = strings.TrimSpace(*promptText)
+		draft["view_prompts"] = []string{strings.TrimSpace(*promptText)}
 	}
 	if *seed != "" {
 		draft["seed_a"] = *seed
