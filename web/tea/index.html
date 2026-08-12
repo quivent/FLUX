@@ -200,7 +200,8 @@
   @media (max-width: 820px) {
     .shell { width: min(100% - 30px, 1180px); }
     nav { height: 72px; }
-    .navlinks a:not(.enter) { display: none; }
+    .navlinks { gap: 10px; overflow-x: auto; }
+    .navlinks a { flex: 0 0 auto; font-size: 8px; letter-spacing: .1em; white-space: nowrap; }
     .hero { min-height: auto; grid-template-columns: 1fr; padding: 70px 0 80px; }
     h1 { font-size: clamp(62px, 22vw, 96px); }
     .garden { min-height: 390px; width: min(100%, 440px); margin: -10px auto 0; }
@@ -217,10 +218,10 @@
   <nav aria-label="Main navigation">
     <a class="brand" href="/"><span class="seal" aria-hidden="true">茶</span>Tea</a>
     <div class="navlinks">
-      <a href="#about">About</a>
-      <a href="/gallery/">Gallery</a>
+      <a href="/">Garden</a>
+      <a href="/gallery/">Images</a>
+      <a href="/movement">Motion Work</a>
       <a href="/exhibition">Exhibition</a>
-      <a class="enter" href="/app">Enter the app</a>
     </div>
   </nav>
 

@@ -99,3 +99,53 @@ func TestMotionWorkAlwaysMovesAndKeepsArrivalGrid(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicNavigationNeverDisplacesAWork(t *testing.T) {
+	root := repoRoot(t)
+	pages := []string{
+		filepath.Join(root, "web", "tea", "index.html"),
+		filepath.Join(root, "web", "atelier-flux", "index.html"),
+		filepath.Join(root, "web", "atelier-flux", "movement.html"),
+		filepath.Join(root, "web", "atelier-flux", "exhibition.html"),
+		filepath.Join(root, "web", "atelier-flux", "stallion.html"),
+	}
+	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/exhibition"`}
+	for _, page := range pages {
+		raw, err := os.ReadFile(page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, link := range links {
+			if !strings.Contains(string(raw), link) {
+				t.Errorf("%s displaced persistent navigation link %s", filepath.Base(page), link)
+			}
+		}
+	}
+}
+
+func TestStallionIsACompleteSingleExhibition(t *testing.T) {
+	root := repoRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "web", "atelier-flux", "stallion.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	for _, token := range []string{
+		`7,584`,
+		`stallion-atlas-grid.jpg`,
+		`stallion-gait-projection.mp4`,
+		`autoplay muted loop playsinline`,
+		`140 states`,
+	} {
+		if !strings.Contains(source, token) {
+			t.Errorf("single Stallion exhibition missing %q", token)
+		}
+	}
+	index, err := os.ReadFile(filepath.Join(root, "web", "atelier-flux", "exhibition.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(index), `href="/exhibition/stallion"`) {
+		t.Error("exhibitions index does not open the Stallion single exhibition")
+	}
+}

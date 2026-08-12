@@ -564,10 +564,21 @@ func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := strings.TrimPrefix(r.URL.Path, "/exhibition/")
+	if name == "stallion/" {
+		http.Redirect(w, r, "/exhibition/stallion", http.StatusPermanentRedirect)
+		return
+	}
+	if name == "stallion" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "stallion.html"))
+		return
+	}
 	allowed := map[string]bool{
 		"stallion-atlas-exhibition.mp4":      true,
 		"stallion-atlas-poster.jpg":          true,
 		"stallion-atlas-contact.jpg":         true,
+		"stallion-gait-projection.mp4":       true,
+		"stallion-gait-poster.jpg":           true,
+		"stallion-atlas-grid.jpg":            true,
 		"bell-learns-the-wind.mp4":           true,
 		"bell-learns-the-wind-contact.jpg":   true,
 		"bell-learns-the-wind-manifest.json": true,

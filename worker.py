@@ -409,6 +409,7 @@ class Worker:
         self.profile_path.parent.mkdir(parents=True, exist_ok=True)
         self.pipe = None
         self.pipe_device = None
+        self.prompt_encoders_device = None
         self.pipe_adapter_config = None
         self.img2img_pipe = None
         self.img2img_device = None
@@ -531,8 +532,50 @@ class Worker:
         pipe.to(device)
         self.pipe = pipe
         self.pipe_device = device
+        self.prompt_encoders_device = device
         self.pipe_adapter_config = None
         print("model_ready=true", flush=True)
+
+    def _move_prompt_encoders(self, device):
+        """Move only FLUX's prompt encoders, leaving the denoiser resident.
+
+        FLUX consumes the embeddings, not the encoder modules, during denoising.
+        Keeping T5-XXL and CLIP-L on the GPU after encode_prompt wastes roughly
+        10 GiB on the H100.  This is residency swapping only: the encoders and
+        their BF16 weights remain unchanged and are restored before every new
+        prompt is encoded.
+        """
+        if self.pipe is None:
+            return
+        target = str(device)
+        if self.prompt_encoders_device == target:
+            return
+        moved = []
+        for name in ("text_encoder", "text_encoder_2"):
+            module = getattr(self.pipe, name, None)
+            if module is not None:
+                module.to(target)
+                moved.append(name)
+        self.prompt_encoders_device = target
+        if target == "cpu":
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        print(f"prompt_encoders_device={target} modules={','.join(moved)}", flush=True)
+
+    def _encode_prompt_then_park(self, prompt, *, num_images_per_prompt=1):
+        self._move_prompt_encoders(self.device)
+        try:
+            return self.pipe.encode_prompt(
+                prompt=prompt,
+                device=self.device,
+                num_images_per_prompt=num_images_per_prompt,
+                max_sequence_length=512,
+            )[:2]
+        finally:
+            # The returned CUDA tensors keep the conditioning alive. The two
+            # encoder modules themselves are no longer part of the render.
+            self._move_prompt_encoders("cpu")
 
     def _discard_pipe_adapter(self):
         if self.pipe is None:
@@ -541,6 +584,7 @@ class Worker:
             return
         self.pipe = None
         self.pipe_device = None
+        self.prompt_encoders_device = None
         self.pipe_adapter_config = None
         self.first_block_cache_stats = None
         gc.collect()
@@ -1061,6 +1105,7 @@ class Worker:
                 basis = [vector.to(self.device) for vector in _gram_schmidt(flattened)]
                 latent_shape = anchors[0].shape
                 latent_distance = float(job["latent_distance"])
+                prompt_embeds, pooled_prompt_embeds = self._encode_prompt_then_park(job["prompt"])
                 publish_queue = queue.Queue()
                 cadence = 0.18
 
@@ -1112,7 +1157,9 @@ class Worker:
                         return callback_kwargs
                     batch_started = time.monotonic()
                     images = self.pipe(
-                        prompt=job["prompt"], width=job["width"], height=job["height"],
+                        prompt=None, prompt_embeds=prompt_embeds,
+                        pooled_prompt_embeds=pooled_prompt_embeds,
+                        width=job["width"], height=job["height"],
                         guidance_scale=job["guidance"], num_inference_steps=job["steps"],
                         num_images_per_prompt=batch_size, latents=latents,
                         callback_on_step_end=on_step_end,
@@ -1354,13 +1401,17 @@ class Worker:
         prompts_to_encode = [str(job["prompt"])]
         if isinstance(job.get("view_prompts"), list):
             prompts_to_encode.extend(str(x).strip() for x in job.get("view_prompts") if str(x).strip())
-        for prompt_text in dict.fromkeys(prompts_to_encode):
-            prompt_cache[prompt_text] = self.pipe.encode_prompt(
-                prompt=prompt_text,
-                device=self.device,
-                num_images_per_prompt=1,
-                max_sequence_length=512,
-            )[:2]
+        self._move_prompt_encoders(self.device)
+        try:
+            for prompt_text in dict.fromkeys(prompts_to_encode):
+                prompt_cache[prompt_text] = self.pipe.encode_prompt(
+                    prompt=prompt_text,
+                    device=self.device,
+                    num_images_per_prompt=1,
+                    max_sequence_length=512,
+                )[:2]
+        finally:
+            self._move_prompt_encoders("cpu")
         prompt_encode_seconds = time.time() - encode_started
         if adapter_name.replace("_", "-") in ("first-block-cache", "teacache", "para-attn", "atlas-xframe-cache", "xframe-cache"):
             self.first_block_cache_stats = {"checks": 0, "hits": 0, "misses": 0}
@@ -1640,6 +1691,7 @@ class Worker:
         generator = None
         if job["seed"] not in (None, ""):
             generator = torch.Generator(device="cpu").manual_seed(int(job["seed"]))
+        prompt_embeds, pooled_prompt_embeds = self._encode_prompt_then_park(job["prompt"])
 
         def on_step_end(_pipe, step, _timestep, callback_kwargs):
             if job.get("cancel_requested"):
@@ -1651,7 +1703,9 @@ class Worker:
             return callback_kwargs
 
         image = self.pipe(
-            prompt=job["prompt"],
+            prompt=None,
+            prompt_embeds=prompt_embeds,
+            pooled_prompt_embeds=pooled_prompt_embeds,
             width=job["width"],
             height=job["height"],
             guidance_scale=job["guidance"],
