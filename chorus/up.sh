@@ -17,7 +17,9 @@ MODEL_DIR="${MODEL_DIR:-$HOME/models/FLUX.1-dev}"
 OUT_DIR="${OUT_DIR:-$HOME/models/flux-output}"
 RUN="${RUN:-$HOME/.flux-run}"
 ADDR="${ADDR:-0.0.0.0:7861}"
-DRIFT="${DRIFT:-1}"
+# The manifest runner is the authoritative producer. A second open-ended Drift
+# loop competes for the same GPU and can make queue progress look stalled.
+DRIFT="${DRIFT:-0}"
 GEMMA_BIN="${GEMMA_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
 GEMMA_MODEL="${GEMMA_MODEL:-$HOME/models/gemma-4-31B-q4/gemma-4-31B_q4_0-it.gguf}"
 GEMMA_MMPROJ="${GEMMA_MMPROJ:-$HOME/models/gemma-4-31B-q4/gemma-4-31B-it-mmproj.gguf}"
@@ -99,7 +101,7 @@ start_one() { # name, command...
 
 # Quiesce producers before the durability lane. This ordering means a stack
 # restart is itself a tested final flush, not a race between Drift and R2.
-for svc in watchdog constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
+for svc in watchdog queue-auditor queue-supervisor constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
 sleep 1
 
 # Order matters: the broker must own its socket before the server subscribes,
@@ -181,6 +183,12 @@ fi
 if [ "${NIGHT_RUN:-1}" = "1" ] && [ -f "$REPO/chorus/night-run.json" ]; then
 	start_one night-run "$VENV/bin/python" chorus/night_runner.py \
 		--manifest "$REPO/chorus/night-run.json" --python "$VENV/bin/python"
+	start_one queue-supervisor "$VENV/bin/python" chorus/queue_guardian.py \
+		--role supervisor --root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--python "$VENV/bin/python"
+	start_one queue-auditor "$VENV/bin/python" chorus/queue_guardian.py \
+		--role auditor --root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--python "$VENV/bin/python"
 fi
 
 # Hive owns the living system: it checks the visionary semantically, watches
@@ -211,7 +219,7 @@ curl -sS -o /dev/null -w 'landing %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/
 curl -sS -o /dev/null -w 'gallery %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/gallery/" || true
 curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
 echo "--- running ---"
-for svc in piper nexus serve gemma drift sentinel hive r2sync constellation night-run gemini-coder watchdog; do
+for svc in piper nexus serve gemma drift sentinel hive r2sync constellation night-run queue-supervisor queue-auditor gemini-coder watchdog; do
 	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
 	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
 		printf '%-8s up   (%s)\n' "$svc" "$pid"

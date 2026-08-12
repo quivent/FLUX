@@ -304,6 +304,11 @@ def novelty(g, history):
 def publish_piper(job_id, path, index, total, seed):
     """Announce a finished cell. Mirrors worker.py's _publish_piper_asset:
     the Go hub drops any event whose access_url is not under /outputs/."""
+    output_root = pathlib.Path(os.environ.get("FLUX_OUTPUT_ROOT", pathlib.Path(path).parent)).resolve()
+    try:
+        access_path = pathlib.Path(path).resolve().relative_to(output_root).as_posix()
+    except ValueError:
+        access_path = pathlib.Path(path).name
     payload = {
         "type": "asset.publish",
         "job_id": str(job_id),
@@ -315,7 +320,7 @@ def publish_piper(job_id, path, index, total, seed):
             "index": int(index),
             "cell_index": int(index),
             "total": int(total),
-            "access_url": "/outputs/" + pathlib.Path(path).name,
+            "access_url": "/outputs/" + access_path,
             "seed": str(seed),
         },
     }
@@ -368,7 +373,7 @@ CONTROLLABLE = {
     "sleep": (0.0, 3600.0),
 }
 # Free-form steering: pinned overrides a slot outright, phase forces the arc.
-PASSTHROUGH = {"phase", "pinned", "paused", "style_directive", "era"}
+PASSTHROUGH = {"phase", "pinned", "paused", "style_directive", "era", "study_prompt"}
 
 
 def clamp(name, value):
@@ -471,6 +476,33 @@ def load_picks(out_dir):
         return set()
 
 
+def publish_queue_progress(rendered, status="running"):
+    """Advance the durable production ledger immediately after an image lands."""
+    state_name = os.environ.get("FLUX_QUEUE_STATE", "")
+    job_slug = os.environ.get("FLUX_QUEUE_JOB", "")
+    if not state_name or not job_slug:
+        return
+    path = pathlib.Path(state_name)
+    try:
+        state = json.loads(path.read_text())
+        for job in state.get("jobs") or []:
+            if job.get("slug") == job_slug:
+                job["rendered"] = max(int(job.get("rendered") or 0), int(rendered))
+                job["status"] = "done" if job["rendered"] >= int(job.get("target") or 0) else status
+            elif job.get("status") == "running":
+                job["status"] = "queued"
+        state["current"] = job_slug
+        state["status"] = status
+        state["completed_jobs"] = sum(job.get("status") == "done" for job in state.get("jobs") or [])
+        state["updated"] = time.time()
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+        temporary.replace(path)
+    except (OSError, ValueError, TypeError):
+        # The runner owns recovery and can rebuild this projection from ledgers.
+        return
+
+
 def main():
     ap = argparse.ArgumentParser(description="Continuously generate drifting FLUX assets.")
     ap.add_argument("--out-dir", default=flux_paths.default_out_dir())
@@ -563,6 +595,13 @@ def main():
     started_at = time.time()
     history, elites = [], []
     generation = 0
+    # A restarted finite study resumes at its durable ledger boundary. The
+    # generation target is therefore a collection total, never "another N".
+    try:
+        for line in ledger.read_text().splitlines():
+            generation = max(generation, int(json.loads(line).get("generation") or 0))
+    except (OSError, ValueError, json.JSONDecodeError):
+        generation = 0
     recent_worlds = []
     previous_latent = None
     movement_style, style_age, last_style_directive = resume_movement(status_path)
@@ -680,6 +719,9 @@ def main():
             authored["prompt"] if authored and index == 0 else lang.compose(genome)
             for index, genome in enumerate(batch)
         ]
+        study_prompt = str((raw or {}).get("study_prompt") or "").strip()
+        if study_prompt:
+            prompts = [f"{prompt}. Study proposition: {study_prompt}" for prompt in prompts]
         prompt_conditioning = encode_generation(prompts)
 
         for index, genome in enumerate(batch):
@@ -738,6 +780,7 @@ def main():
             with (out_dir / "trial-ledger.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"file": name, "ts": row["ts"], **assignments[index]},
                                    sort_keys=True) + "\n")
+            publish_queue_progress(generation)
             print(f"  {name} {row['seconds']}s piper={published}", flush=True)
 
 

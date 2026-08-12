@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Resume the declared overnight study without overwriting completed assets."""
+"""Drain the step prelude and 48-study beauty queue without overwrites."""
 import argparse
 import json
+import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -12,6 +14,37 @@ def atomic_json(path, value):
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
     tmp.replace(path)
+
+
+def slug(value):
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def ledger_generations(path):
+    seen = set()
+    try:
+        for line in path.read_text().splitlines():
+            row = json.loads(line)
+            seen.add(int(row.get("generation") or 0))
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+    return len(seen)
+
+
+def queue_snapshot(catalog, out, current=None, status="running"):
+    jobs, completed = [], 0
+    for index, job in enumerate(catalog["jobs"]):
+        job_slug = slug(job["name"])
+        target = int(job.get("generations") or catalog["defaults"]["generations"])
+        count = ledger_generations(out / "collections" / job_slug / "creative-drift.jsonl")
+        state = "done" if count >= target else "running" if job_slug == current else "queued"
+        completed += int(state == "done")
+        jobs.append({"index": index, "name": job["name"], "slug": job_slug,
+                     "approved": job.get("approved") is True, "axis": job.get("axis"),
+                     "rendered": count, "target": target, "status": state})
+    return {"schema": "flux.beauty-queue-state.v1", "name": catalog["name"],
+            "status": status, "updated": time.time(), "current": current,
+            "completed_jobs": completed, "total_jobs": len(jobs), "jobs": jobs}
 
 
 def main():
@@ -24,6 +57,7 @@ def main():
     root = manifest_path.parent.parent
     out = pathlib.Path(spec["out_dir"])
     state_path = out / "night-run-state.json"
+    queue_path = out / "queue-state.json"
     jobs = [(job, replicate) for job in spec["jobs"]
             for replicate in range(1, int(spec["replicates"]) + 1)]
     state = {"schema": "flux.autonomous-run-state.v1", "name": spec["name"],
@@ -44,9 +78,50 @@ def main():
                           "exit_code": result.returncode, "updated": time.time()})
             atomic_json(state_path, state)
             return result.returncode
-    state.update({"status": "done", "completed_jobs": len(jobs),
-                  "finished": time.time(), "updated": time.time()})
+    state.update({"status": "prelude_done", "completed_jobs": len(jobs),
+                  "prelude_finished": time.time(), "updated": time.time()})
     atomic_json(state_path, state)
+    catalog = json.loads(pathlib.Path(spec["production_manifest"]).read_text())
+    if len(catalog.get("jobs") or []) != 48 or not all(job.get("approved") is True for job in catalog["jobs"]):
+        raise SystemExit("beauty queue requires exactly 48 explicitly approved jobs")
+    defaults = catalog["defaults"]
+    collections = out / "collections"; collections.mkdir(parents=True, exist_ok=True)
+    for job in catalog["jobs"]:
+        job_slug = slug(job["name"])
+        target = int(job.get("generations") or defaults["generations"])
+        job_out = collections / job_slug; job_out.mkdir(parents=True, exist_ok=True)
+        if ledger_generations(job_out / "creative-drift.jsonl") >= target:
+            continue
+        atomic_json(queue_path, queue_snapshot(catalog, out, job_slug))
+        control = job_out / "drift-control.json"
+        if not control.exists():
+            merged = {key: job.get(key, value) for key, value in defaults.items()
+                      if key not in ("generations", "width", "height", "batch")}
+            merged.update({"phase": "auto", "paused": False, "pinned": {},
+                           "study_prompt": job["focus"], "study_name": job["name"],
+                           "approved": True, "axis": job.get("axis")})
+            atomic_json(control, merged)
+        command = [args.python, str(root / "chorus" / "loop.py"),
+                   "--out-dir", str(job_out), "--model-dir", spec["model_dir"],
+                   "--control", str(control), "--max-generations", str(target),
+                   "--batch", "1", "--width", "512", "--height", "512",
+                   "--steps", str(job.get("steps", defaults["steps"])),
+                   "--guidance", str(job.get("guidance", defaults["guidance"])),
+                   "--mutation-rate", str(job.get("mutation_rate", defaults["mutation_rate"])),
+                   "--latent-max-cosine", str(job.get("latent_max_cosine", defaults["latent_max_cosine"])),
+                   "--style-hold-generations", str(job.get("style_hold_generations", defaults["style_hold_generations"])),
+                   "--phase-hours", str(job.get("phase_hours", defaults["phase_hours"])),
+                   "--seed", str(job["seed"])]
+        result = subprocess.run(command, env={**dict(os.environ),
+                                "FLUX_OUTPUT_ROOT": str(out),
+                                "FLUX_QUEUE_STATE": str(queue_path),
+                                "FLUX_QUEUE_JOB": job_slug}, check=False)
+        if result.returncode:
+            atomic_json(queue_path, queue_snapshot(catalog, out, job_slug, "failed"))
+            return result.returncode
+    state.update({"status": "done", "finished": time.time(), "updated": time.time()})
+    atomic_json(state_path, state)
+    atomic_json(queue_path, queue_snapshot(catalog, out, status="done"))
     return 0
 
 

@@ -37,8 +37,13 @@ LIVE_STATE_FILES = (
     "taste-log.jsonl",
     "taste-status.json",
     "trial-ledger.jsonl",
+    "night-run-state.json",
+    "queue-state.json",
+    "queue-audit.json",
+    "optimization-status.json",
+    "sentinel-state.json",
 )
-PROTOCOL_SUFFIXES = {".md", ".py", ".sh"}
+PROTOCOL_SUFFIXES = {".json", ".md", ".py", ".sh"}
 SHEET_SUFFIXES = {".json", ".jpg", ".jpeg", ".png"}
 STATUS_NAME = "r2-status.json"
 MANIFEST_NAME = "archive-manifest.json"
@@ -117,10 +122,11 @@ def settled_frames(out_dir, settle_seconds=2.0, now=None):
     now = time.time() if now is None else now
     settled, young = {}, {}
     root = pathlib.Path(out_dir)
-    paths = list(root.glob("*.png"))
-    atlas = root / "atlas"
-    if atlas.is_dir():
-        paths.extend(atlas.rglob("*.png"))
+    # Every public collection is durable, not only the historical root and
+    # atlas directories. Working trees beginning with '_' or '.' are state,
+    # handled separately below, and never masquerade as gallery frames.
+    paths = [path for path in root.rglob("*.png")
+             if not any(part.startswith(("_", ".")) for part in path.relative_to(root).parts)]
     for path in paths:
         try:
             age = now - path.stat().st_mtime
@@ -150,6 +156,12 @@ def state_sources(out_dir, protocol_dir=HERE):
             if path.is_file():
                 relative = path.relative_to(atlas).as_posix()
                 sources[f"state/atlas/{relative}"] = path
+    collections = out_dir / "collections"
+    if collections.is_dir():
+        for path in sorted(collections.rglob("*")):
+            if path.is_file() and path.suffix.lower() in {".json", ".jsonl"}:
+                relative = path.relative_to(collections).as_posix()
+                sources[f"state/collections/{relative}"] = path
         # Exact FLUX trunk checkpoints are small (~128 KiB at 512px) and turn
         # a late-fork restart into a suffix-only render. They are state, not
         # gallery frames, and must survive the node disk.

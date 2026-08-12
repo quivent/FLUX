@@ -77,6 +77,32 @@ class R2StreamTest(unittest.TestCase):
             self.assertIn("chorus/state/atlas/bell.sphere/manifest.json", keys)
             self.assertEqual(receipt["frames"]["missing_settled"], 0)
 
+    def test_nested_collection_frames_are_durable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            out, protocol = root / "out", root / "chorus"
+            collection = out / "collections" / "bell-weather"
+            collection.mkdir(parents=True)
+            protocol.mkdir()
+            (collection / "state-0001.png").write_bytes(b"frame")
+            (collection / "creative-drift.jsonl").write_text("{}\n")
+            (collection / "drift-control.json").write_text("{}\n")
+            s3 = FakeS3()
+
+            receipt, remote, _ = r2sync.sweep(
+                s3, "bucket", out, set(), out / "_sheets/r2-ledger.json",
+                lambda _message: None, settle_seconds=0, remote_verified=True,
+                protocol_dir=protocol)
+
+            name = "collections/bell-weather/state-0001.png"
+            self.assertIn(name, remote)
+            self.assertIn(f"chorus/frames/{name}", {row[2] for row in s3.uploads})
+            self.assertIn("chorus/state/collections/bell-weather/creative-drift.jsonl",
+                          {row[2] for row in s3.uploads})
+            self.assertIn("chorus/state/collections/bell-weather/drift-control.json",
+                          {row[2] for row in s3.uploads})
+            self.assertEqual(receipt["frames"]["missing_settled"], 0)
+
     def test_complete_artistic_state_is_streamed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

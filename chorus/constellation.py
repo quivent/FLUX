@@ -223,12 +223,19 @@ def check_actor(name, args, memo):
         except Exception:
             return proof("failing", "gpu_temperature_c", -1, result.stderr[-300:], True)
     if name == "generation-progress":
-        images = list(out.rglob("step-study-*-r[1-4].sphere/*-steps-*.png"))
-        count = len(images); active = bool(pgrep(r"step_sweep\.py")); previous = memo.get("count", count)
+        try:
+            queue = json.loads((out / "queue-state.json").read_text())
+            count = sum(int(job.get("rendered") or 0) for job in queue.get("jobs") or [])
+            target = sum(int(job.get("target") or 0) for job in queue.get("jobs") or [])
+        except Exception:
+            images = list(out.rglob("step-study-*-r[1-4].sphere/*-steps-*.png"))
+            count, target = len(images), 384
+        active = bool(pgrep(r"(step_sweep|chorus/loop)\.py")); previous = memo.get("count", count)
         memo["count"] = count
         advancing = count > previous
-        status = "healthy" if advancing or (count >= 384 and not active) else "degraded" if active else "failing"
-        return proof(status, "night_outputs", count, f"delta={count-previous} active={active}", True)
+        status = "healthy" if advancing or (count >= target and not active) else "degraded" if active else "failing"
+        return proof(status, "queue_outputs", count,
+                     f"{count}/{target} delta={count-previous} active={active}", True)
     if name == "motion-principle":
         ledgers = list((out / "atlas").glob("*.sphere/_repair/continuity-ledger.json"))
         jobs, median = 0, 0.0
@@ -334,7 +341,13 @@ def published_methods(out, root, actor_state):
                                   "adjacent_total_step_sweeps_share_no_exact_scheduler_prefix": True},
                         "current_policy": {"resolution": 512, "batch_size": 1,
                                            "similarity_cache": "disabled until paired image audit"}}
-    outputs = len(list(out.rglob("step-study-*-r[1-4].sphere/*-steps-*.png")))
+    try:
+        queue = json.loads((out / "queue-state.json").read_text())
+        outputs = sum(int(job.get("rendered") or 0) for job in queue.get("jobs") or [])
+        output_target = sum(int(job.get("target") or 0) for job in queue.get("jobs") or [])
+    except Exception:
+        outputs = len(list(out.rglob("step-study-*-r[1-4].sphere/*-steps-*.png")))
+        output_target = 384
     antennas = actor_state.get("hive-calibration", {}).get("value", 0)
     r2_age = actor_state.get("r2-durability", {}).get("value", -1)
     motion_fps = actor_state.get("motion-principle", {}).get("value", 12)
@@ -349,7 +362,7 @@ def published_methods(out, root, actor_state):
          "metric": "validated utility", "value": "0% claimed", "status": "gated",
          "evidence": "OFF until a paired pixel, geometry and beauty audit proves equivalence"},
         {"method": "Adjacent schedule sweep", "role": "measure where geometry changes as total denoise depth changes",
-         "metric": "completed outputs", "value": f"{outputs}/384", "status": "running" if outputs < 384 else "measured",
+         "metric": "completed outputs", "value": f"{outputs}/{output_target}", "status": "running" if outputs < output_target else "measured",
          "evidence": "same prompt, seed, initial latent, resolution, precision and guidance"},
         {"method": "Sequential 512px batch-one inference", "role": "maximize inspectable arrivals and avoid batch memory pressure",
          "metric": "batch / resolution", "value": "1 / 512×512", "status": "active",
@@ -442,11 +455,15 @@ def controller_main(args):
                 item["restarts"] = restarts[name]; actors.append(item)
             healthy = sum(item["status"] == "healthy" for item in actors)
             optimization, methods = published_methods(out, pathlib.Path(args.root), state)
+            try:
+                queue = json.loads((out / "queue-state.json").read_text())
+            except Exception:
+                queue = {"status": "waiting", "jobs": [], "rendered": 0, "target": 0}
             atomic_json(state_path, {"schema": "flux.sentinel.v1", "updated_at": now,
                                      "actors": actors, "summary": {"healthy": healthy,
                                      "total": len(actors), "failing": sum(x["status"] == "failing" for x in actors),
                                      "degraded": sum(x["status"] == "degraded" for x in actors)},
-                                     "cache": optimization, "methods": methods,
+                                     "cache": optimization, "methods": methods, "queue": queue,
                                      "audit": {"path": str(audit_path), "head": previous_hash,
                                      "events": recent}})
     for child in children.values():
