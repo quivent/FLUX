@@ -23,6 +23,7 @@ collapsing onto one attractor but is not an aesthetic claim. When picks exist
 signal in the loop, and it comes from a human.
 """
 import argparse
+import gc
 import hashlib
 import json
 import os
@@ -511,6 +512,41 @@ def main():
     pipe.set_progress_bar_config(disable=True)
     print("pipeline resident", flush=True)
 
+    prompt_encoders_device = "cuda"
+
+    def move_prompt_encoders(device):
+        """Keep FLUX conditioning exact while reclaiming encoder VRAM.
+
+        T5-XXL and CLIP-L are restored for each generation's prompt batch,
+        then parked on CPU. Their CUDA embeddings remain valid for denoising.
+        """
+        nonlocal prompt_encoders_device
+        if prompt_encoders_device == device:
+            return
+        moved = []
+        for name in ("text_encoder", "text_encoder_2"):
+            module = getattr(pipe, name, None)
+            if module is not None:
+                module.to(device)
+                moved.append(name)
+        prompt_encoders_device = device
+        if device == "cpu":
+            gc.collect()
+            torch.cuda.empty_cache()
+        print(f"prompt_encoders_device={device} modules={','.join(moved)}", flush=True)
+
+    def encode_generation(prompts):
+        move_prompt_encoders("cuda")
+        try:
+            return [pipe.encode_prompt(
+                prompt=prompt,
+                device="cuda",
+                num_images_per_prompt=1,
+                max_sequence_length=512,
+            )[:2] for prompt in prompts]
+        finally:
+            move_prompt_encoders("cpu")
+
     stopping = {"now": False}
 
     def _stop(_sig, _frm):
@@ -639,12 +675,17 @@ def main():
             "updated": time.time(),
         }, indent=2, sort_keys=True) + "\n")
 
+        prompts = [
+            authored["prompt"] if authored and index == 0 else lang.compose(genome)
+            for index, genome in enumerate(batch)
+        ]
+        prompt_conditioning = encode_generation(prompts)
+
         for index, genome in enumerate(batch):
             if stopping["now"]:
                 break
-            prompt = lang.compose(genome)
-            if authored and index == 0:
-                prompt = authored["prompt"]
+            prompt = prompts[index]
+            prompt_embeds, pooled_prompt_embeds = prompt_conditioning[index]
             seed = rng.randrange(1, 2**31)
             began = time.time()
             generator = torch.Generator("cuda").manual_seed(seed)
@@ -657,7 +698,9 @@ def main():
                 latent, previous_latent, live["latent_max_cosine"])
             previous_latent = latent.detach()
             image = pipe(
-                prompt=prompt,
+                prompt=None,
+                prompt_embeds=prompt_embeds,
+                pooled_prompt_embeds=pooled_prompt_embeds,
                 width=live["width"],
                 height=live["height"],
                 num_inference_steps=live["steps"],
