@@ -10,6 +10,7 @@ import gc
 import json
 import os
 import pathlib
+import shutil
 import socket
 import time
 
@@ -45,6 +46,22 @@ def parse_steps(spec):
         lo, hi = (int(x.strip()) for x in spec.split(":", 1))
         return list(range(lo, hi + 1))
     return sorted({int(x.strip()) for x in spec.split(",") if x.strip()})
+
+
+def usable_image(path):
+    """A snapshot may catch a legacy non-atomic PNG mid-write; quarantine it."""
+    if not path.exists():
+        return False
+    try:
+        with Image.open(path) as image:
+            image.verify()
+        return True
+    except (OSError, ValueError):
+        quarantine = path.parent / "_corrupt"
+        quarantine.mkdir(exist_ok=True)
+        target = quarantine / f"{path.name}.{int(time.time())}.corrupt"
+        shutil.move(path, target)
+        return False
 
 
 def compare(a, b):
@@ -119,7 +136,8 @@ def main():
     }
     atomic_json(manifest_path, manifest)
     image_paths = {value: sphere / f"{args.id}-steps-{value:03d}.png" for value in steps}
-    missing = [value for value in steps if not image_paths[value].exists()]
+    valid = {value: usable_image(image_paths[value]) for value in steps}
+    missing = [value for value in steps if not valid[value]]
     pipe = prompt_embeds = pooled = base = None
     if missing:
         pipe = FluxPipeline.from_pretrained(args.model_dir, torch_dtype=torch.bfloat16,
@@ -141,7 +159,7 @@ def main():
     manifest["status"] = "running"; atomic_json(manifest_path, manifest)
     for total_steps in steps:
         image_path = image_paths[total_steps]
-        if image_path.exists():
+        if valid[total_steps]:
             with Image.open(image_path) as existing:
                 image = existing.convert("RGB")
             seconds = 0.0

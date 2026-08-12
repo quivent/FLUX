@@ -20,6 +20,9 @@ def alive(pidfile):
     try:
         pid = int(pidfile.read_text())
         os.kill(pid, 0)
+        stat = pathlib.Path(f"/proc/{pid}/stat")
+        if stat.exists() and stat.read_text().split()[2] == "Z":
+            return 0
         return pid
     except (OSError, ValueError):
         return 0

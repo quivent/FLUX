@@ -84,7 +84,7 @@ func TestNightStudyIsDurableAndBeautyBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, token := range []string{`if image_path.exists():`, `"resumed_outputs"`} {
+	for _, token := range []string{`if valid[total_steps]:`, `usable_image(image_paths[value])`, `"resumed_outputs"`} {
 		if !strings.Contains(string(raw), token) {
 			t.Errorf("resumable step study missing %q", token)
 		}
