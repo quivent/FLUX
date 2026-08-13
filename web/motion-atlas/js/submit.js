@@ -2,10 +2,11 @@
   for(let i=0;i<15;i++){x.beginPath();x.moveTo(i*r.width/14,0);x.quadraticCurveTo(r.width/2,r.height/2,(14-i)*r.width/14,r.height);x.stroke()}
 }
 function updateRange(){
-  const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(65536,start+cells);
+  const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(ATLAS_FIELD,start+cells);
   $("indexStartOut").value=start.toLocaleString();$("cellsOut").value=`${cells.toLocaleString()} cells`;
   $("rangeLabel").value=`${start.toLocaleString()}—${end.toLocaleString()}`;if(!state.progress)$("progressText").textContent="— / —";
-  document.querySelector(".mapCursor").style.top=`${Math.min(94,start/65536*100)}%`;
+  document.querySelector(".mapCursor").style.top=`${Math.min(94,start/ATLAS_FIELD*100)}%`;
+  updateContinue();
 }
 function payload(dryRun=false){const start=numeric("indexStart"),cells=numeric("cells");return{
   prompt:$("prompt").value.trim(),id:$("id").value.trim(),backend:$("backend").value,model:$("model").value,precision:$("precision").value,batch_size:numeric("batchSize"),study_type:state.studyType,run_type:state.runType,
@@ -19,9 +20,47 @@ async function submit(dryRun){
   const body=payload(dryRun);if(!body.prompt){toast("A motion prompt is required");return}
   if(!dryRun)state.discovery.stopped=true;
   const button=dryRun?$("planButton"):$("launchButton");button.disabled=true;
+  if(!dryRun){state.submitting=true;updateContinue()}
   try{const r=await fetch("/api/atlas/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Atlas request failed");
-    if(dryRun)showManifest(j.plan);else{state.activeJob=j.job?.id||j.plan?.id;acceptAssetJob(state.activeJob);state.started=Date.now();checkpoint("planned");checkpoint("dispatched");if(j.nexus?.ok)checkpoint("nexus");else checkpoint("nexus","active");checkpoint("producing","active");$("productionSummary").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()} cells · starting now`;$("progressText").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()}`;$("progressBar").style.width="0%";$("stageMessage").innerHTML="<strong>ATLAS IN MOTION</strong><span>The resident worker is traversing the planned sphere.</span>";toast("Atlas queued on "+String(j.plan?.backend||"worker").toUpperCase())}
-  }catch(e){toast(e.message)}finally{button.disabled=false}
+    if(dryRun)showManifest(j.plan);else{state.activeJob=j.job?.id||j.plan?.id;acceptAssetJob(state.activeJob);state.started=Date.now();rememberRange(body);checkpoint("planned");checkpoint("dispatched");if(j.nexus?.ok)checkpoint("nexus");else checkpoint("nexus","active");checkpoint("producing","active");$("productionSummary").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()} cells · starting now`;$("progressText").textContent=`0 / ${Number(j.plan?.cells||0).toLocaleString()}`;$("progressBar").style.width="0%";$("stageMessage").innerHTML="<strong>ATLAS IN MOTION</strong><span>The resident worker is traversing the planned sphere.</span>";toast("Atlas queued on "+String(j.plan?.backend||"worker").toUpperCase())}
+  }catch(e){toast(e.message)}finally{button.disabled=false;state.submitting=false;updateContinue()}
+}
+function rememberRange(body){
+  const start=Number(body.index_start)||0,end=Number(body.index_end)||0;
+  if(!(end>start))return;
+  state.lastRange={start,end,cells:Number(body.cells)||end-start};
+  try{sessionStorage.setItem("motionAtlasRange",JSON.stringify(state.lastRange))}catch{}
+  updateContinue();
+}
+// Next origin is where the last dispatch ended, snapped to the slider's step and
+// held inside the field so the tail chunk still fits.
+function nextOrigin(){
+  const last=state.lastRange;
+  if(!last)return null;
+  const input=$("indexStart"),step=Number(input.step)||1,max=Number(input.max)||ATLAS_FIELD;
+  if(last.end>=ATLAS_FIELD)return null;
+  // Range inputs snap the assigned value to their step, so round up: overshooting
+  // a few cells beats handing back an origin that never advances.
+  const origin=Math.min(Math.ceil(last.end/step)*step,Math.floor(max/step)*step);
+  return origin>last.start?origin:null;
+}
+function updateContinue(){
+  const button=$("continueButton");
+  if(!button)return;
+  const origin=nextOrigin();
+  const ready=origin!==null&&state.model.loaded&&!state.submitting;
+  button.disabled=!ready;
+  button.title=!state.lastRange?"Start an atlas first"
+    :origin===null?"The 65,536-cell field is fully traversed"
+    :!state.model.loaded?"Load the FLUX worker first"
+    :`Next: ${origin.toLocaleString()}—${Math.min(ATLAS_FIELD,origin+(numeric("cells")||state.lastRange.cells)).toLocaleString()}`;
+}
+function continueAtlas(){
+  const origin=nextOrigin();
+  if(origin===null){toast(state.lastRange?"The atlas field is fully traversed":"Start an atlas before continuing");return}
+  $("indexStart").value=String(origin);
+  updateRange();
+  submit(false);
 }
 async function previewFlavors(){const prompt=$("prompt").value.trim();if(!prompt){toast("A motion prompt is required");return}state.preview.clear();state.selectedFlavor=null;$("previewGrid").innerHTML=Array.from({length:32},()=>'<div class="flavorPending"></div>').join("");$("previewStatus").textContent="Dispatching 32 unique seeds";$("previewCount").textContent="0 / 32";$("previewProgressBar").style.width="0%";$("launchFlavor").disabled=true;$("previewDialog").showModal();checkpoint("planned");const base=String(Date.now()%800000000+10000000);try{const r=await fetch("/api/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,model:"dev",backend:$("backend").value,width:384,height:384,steps:12,guidance:numeric("guidance"),seed:base,filename:`atlas-flavor-${Date.now()}.png`,iterations:32})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Preview batch failed");(j.jobs||[]).forEach((job,i)=>state.preview.set(job.id,{seed:String(j.plans?.[i]?.seed??Number(base)+i),job}));$("previewStatus").textContent="Generating flavor batch on the resident FLUX worker";checkpoint("planned")}catch(e){$("previewStatus").textContent=e.message;toast(e.message)}}
 async function renderSeedBatch(){if(!state.model.loaded){toast("Load the FLUX worker before generating");return}const prompt=$("prompt").value.trim();if(!prompt){toast("A motion prompt is required");return}const button=$("planButton"),base=String(Date.now()%800000000+10000000);button.disabled=true;button.textContent="Dispatching 32…";try{const r=await fetch("/api/atlas/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,model:"dev",backend:$("backend").value,width:numeric("size"),height:numeric("size"),steps:numeric("steps"),guidance:numeric("guidance"),latent_distance:numeric("latentDistance"),seed:base,filename:`seed-ramp-${Date.now()}.png`})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Generation failed");if(j.job?.id){state.activeJob=j.job.id;sessionStorage.setItem("motionAtlasJob",j.job.id);acceptAssetJob(j.job.id)}checkpoint("dispatched");checkpoint("nexus",j.nexus?.ok?"done":"active");$("assetSummary").textContent="One coherent 32-image batch is rendering";toast("32-image continuity batch is running")}catch(e){toast(e.message)}finally{button.textContent="Generate 32";updateJobReady()}}
