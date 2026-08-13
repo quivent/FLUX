@@ -3923,6 +3923,11 @@ func recentScopeIncludes(scope, rel string) bool {
 		return top == "atlas"
 	case "portraits":
 		return top == "collections"
+	case "images":
+		// The primary gallery is finished still work only. Motion studies and
+		// production bookkeeping have their own rooms and must never displace
+		// the public image wall merely because they are newer.
+		return top != "atlas" && top != "collections" && top != "studies" && top != "projects"
 	default:
 		return top != "atlas" && top != "collections"
 	}

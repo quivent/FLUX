@@ -103,6 +103,9 @@ func TestRecentImageRoomsAreDisjoint(t *testing.T) {
 		{"portraits", "old-master.png", false},
 		{"movement", "atlas/bell.sphere", true},
 		{"movement", "collections/bell-weather", false},
+		{"images", "finished-work.png", true},
+		{"images", "studies/stallion-motion", false},
+		{"images", "projects/round-42/candidate.png", false},
 	}
 	for _, tc := range cases {
 		if got := recentScopeIncludes(tc.scope, tc.rel); got != tc.want {

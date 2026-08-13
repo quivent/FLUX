@@ -308,7 +308,7 @@
   const galleryPreloads = [];
   let galleryWarmCount = 0;
   const thumbnail = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
-  const galleryWarm = fetch('/api/recent-images?limit=6', {cache: 'no-store'})
+  const galleryWarm = fetch('/api/recent-images?scope=images&limit=6', {cache: 'no-store'})
     .then((r) => r.ok ? r.json() : Promise.reject(new Error('gallery unavailable')))
     .then((data) => Promise.all((data.images || []).slice(0, 6).map((item) => new Promise((resolve) => {
       const image = new Image();
