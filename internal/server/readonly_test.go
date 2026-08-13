@@ -128,7 +128,7 @@ func TestRecentImagesKeepSameNamedFramesFromDistinctRuns(t *testing.T) {
 
 	s := Server{cfg: config.Config{Root: repoRoot(t), OutputDir: output}}
 	rec := httptest.NewRecorder()
-	s.recentImages(rec, httptest.NewRequest(http.MethodGet, "/api/recent-images?scope=images&limit=20", nil))
+	s.recentImages(rec, httptest.NewRequest(http.MethodGet, "/api/recent-images?limit=20", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("recent images status = %d: %s", rec.Code, rec.Body.String())
 	}
