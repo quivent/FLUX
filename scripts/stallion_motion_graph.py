@@ -8,6 +8,7 @@ rhythm experiments, but results are explicitly marked thumbnail-resolution.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -473,6 +474,16 @@ def public_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     } for row in results]
 
 
+def prune_results(run_dir: pathlib.Path, results: list[dict[str, Any]], retain: int) -> list[dict[str, Any]]:
+    ranked = ranked_results(results)
+    for result in ranked[retain:]:
+        if video := str(result.get("video", "")):
+            pathlib.Path(run_dir / video).unlink(missing_ok=True)
+        pathlib.Path(run_dir / f"r{int(result['round']):02d}-{result['mode']}.json").unlink(missing_ok=True)
+        shutil.rmtree(run_dir / f"r{int(result['round']):02d}-{result['mode']}-frames", ignore_errors=True)
+    return ranked[:retain]
+
+
 def checkpoint_run(run_dir: pathlib.Path, status: pathlib.Path, protocol: dict[str, Any], corpus: Corpus,
                    run_id: str, results: list[dict[str, Any]], completed_rounds: int,
                    contact_sheet: str, continuous: bool, state: str = "running") -> list[dict[str, Any]]:
@@ -517,6 +528,7 @@ def main() -> int:
     parser.add_argument("--rounds", type=int, default=1)
     parser.add_argument("--continuous", action="store_true")
     parser.add_argument("--round-pause", type=float, default=1.0)
+    parser.add_argument("--retain", type=int, default=256)
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, stop_requested)
     signal.signal(signal.SIGINT, stop_requested)
@@ -527,6 +539,7 @@ def main() -> int:
     frames = min(96, max(8, args.frames))
     rounds = min(12, max(1, args.rounds))
     continuous = bool(args.continuous)
+    retain = min(2048, max(len(modes), args.retain))
     run_id = args.run_id.strip() or time.strftime("stallion-motion-%Y%m%d-%H%M%S")
     root = pathlib.Path(args.output_root).expanduser().resolve()
     run_dir = root / "runs" / run_id
@@ -549,6 +562,8 @@ def main() -> int:
             raise InterruptedError("stop requested")
         selected: dict[str, list[int]] = {}
         results: list[dict[str, Any]] = []
+        seen_paths: set[str] = set()
+        candidate_count = 0
         round_index = 0
         while continuous or round_index < rounds:
             round_paths: dict[str, list[int]] = {}
@@ -561,17 +576,24 @@ def main() -> int:
                 path = beam_path(mode, labels, phase, pose_projection, graph, feat, protocol, frames, args.seed + round_index * 1009 + mode_index * 97)
                 selected[stem] = path
                 round_paths[stem] = path
+                candidate_count += 1
+                fingerprint = hashlib.sha1(np.asarray(path, dtype=np.int32).tobytes()).hexdigest()
+                if fingerprint in seen_paths:
+                    continue
+                seen_paths.add(fingerprint)
                 loop = bool(protocol["modes"][mode]["loop"])
                 metrics = sequence_metrics(path, phase, pose_projection, graph, feat, loop)
                 video_name = f"{stem}.mp4"
                 encoded = write_video(corpus, path, run_dir / video_name, args.fps, loop)
-                result = {"mode": mode, "round": round_index + 1, "family": int(labels[path[0]]), "description": protocol["modes"][mode]["description"], "indices": path, "selection_score": metrics["selection_score"], "metrics": metrics, "video": video_name if encoded else "", "poster": f"{stem}-frames/frame_00000.jpg"}
+                result = {"mode": mode, "round": round_index + 1, "family": int(labels[path[0]]), "fingerprint": fingerprint, "description": protocol["modes"][mode]["description"], "indices": path, "selection_score": metrics["selection_score"], "metrics": metrics, "video": video_name if encoded else "", "poster": f"{stem}-frames/frame_00000.jpg"}
                 atomic_json(run_dir / f"{stem}.json", result)
                 results.append(result)
             round_index += 1
+            results = prune_results(run_dir, results, retain)
             sheet_name = "latest-round-contact-sheet.jpg" if continuous else "contact-sheet.jpg"
             write_contact_sheet(corpus, round_paths if continuous else selected, run_dir / sheet_name)
             ranked = checkpoint_run(run_dir, status, protocol, corpus, run_id, results, round_index, sheet_name, continuous)
+            update_status(status, candidate_count=candidate_count, retained_count=len(ranked), retain_limit=retain)
             if shutil.disk_usage(run_dir).free < 2 * 1024**3:
                 raise RuntimeError("continuous run stopped before free disk fell below 2 GiB")
             if continuous:
