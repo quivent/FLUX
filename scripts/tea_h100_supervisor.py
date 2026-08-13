@@ -16,7 +16,7 @@ SOURCE = HOME / "tea-motion/source"
 RUN = HOME / "tea-motion/run"
 LOGS = HOME / "tea-motion/logs"
 OUTPUT = HOME / "models/tea-motion-output/studies/stallion-motion"
-FLUX_OUTPUT = HOME / "models/flux-output"
+FLUX_OUTPUT = HOME / "models/tea-motion-output"
 NATIVE_CELLS = pathlib.Path(os.environ.get(
     "TEA_STALLION_CELL_DIR",
     str(HOME / "models/stallion-native/spheremap_atlas_parametergridatl_1781801154422_0.sphere"),

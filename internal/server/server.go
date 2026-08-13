@@ -3876,7 +3876,11 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	seen := make(map[string]bool)
 	unique := items[:0]
 	for _, item := range items {
-		key := item.Name
+		// Retained motion studies deliberately reuse stable leaf names such as
+		// frame_00000.jpg in each run directory. The served path, not the leaf
+		// filename, is the image identity; deduplicating by Name collapsed an
+		// entire study corpus to a single gallery card.
+		key := item.Path
 		if seen[key] {
 			continue
 		}

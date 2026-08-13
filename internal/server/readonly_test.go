@@ -1,9 +1,14 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"local/flux/internal/config"
 )
 
 // The read-only gate is the only thing between a public listener and an H100,
@@ -103,6 +108,41 @@ func TestRecentImageRoomsAreDisjoint(t *testing.T) {
 		if got := recentScopeIncludes(tc.scope, tc.rel); got != tc.want {
 			t.Errorf("scope=%q rel=%q: got %t want %t", tc.scope, tc.rel, got, tc.want)
 		}
+	}
+}
+
+func TestRecentImagesKeepSameNamedFramesFromDistinctRuns(t *testing.T) {
+	output := t.TempDir()
+	for _, run := range []string{"run-a", "run-b"} {
+		path := filepath.Join(output, "studies", "stallion-motion", "runs", run, "frame_00000.jpg")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(run), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	s := Server{cfg: config.Config{Root: repoRoot(t), OutputDir: output}}
+	rec := httptest.NewRecorder()
+	s.recentImages(rec, httptest.NewRequest(http.MethodGet, "/api/recent-images?scope=images&limit=20", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("recent images status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Total  int `json:"total"`
+		Images []struct {
+			Path string `json:"path"`
+		} `json:"images"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Total != 2 || len(payload.Images) != 2 {
+		t.Fatalf("same-named frames collapsed: total=%d images=%d body=%s", payload.Total, len(payload.Images), rec.Body.String())
+	}
+	if payload.Images[0].Path == payload.Images[1].Path {
+		t.Fatalf("distinct runs returned one path twice: %s", rec.Body.String())
 	}
 }
 
