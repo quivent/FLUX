@@ -1,0 +1,247 @@
+#!/bin/bash
+# Chorus — bring up the whole suite on a node: piper broker, nexus authority,
+# the HTTP server that fans assets to the gallery, and the generating loop.
+#
+# This exists as a FILE rather than an inline command for a specific reason:
+# `pkill -f piper_local` matches the very shell that is about to launch
+# piper_local, because the launch line puts that name on the same command line.
+# Running from a script keeps the caller's command line free of the names being
+# matched. PID files then make the kills exact instead of pattern-matched.
+#
+# Idempotent: run it again to restart the stack in place.
+set -u
+
+REPO="${REPO:-$HOME/FLUX}"
+VENV="${VENV:-$HOME/.venv}"
+MODEL_DIR="${MODEL_DIR:-$HOME/models/FLUX.1-dev}"
+OUT_DIR="${OUT_DIR:-$HOME/models/flux-output}"
+RUN="${RUN:-$HOME/.flux-run}"
+ADDR="${ADDR:-0.0.0.0:7861}"
+# The manifest runner is the authoritative producer. A second open-ended Drift
+# loop competes for the same GPU and can make queue progress look stalled.
+DRIFT="${DRIFT:-0}"
+GEMMA_BIN="${GEMMA_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
+GEMMA_MODEL="${GEMMA_MODEL:-$HOME/models/gemma-4-31B-q4/gemma-4-31B_q4_0-it.gguf}"
+GEMMA_MMPROJ="${GEMMA_MMPROJ:-$HOME/models/gemma-4-31B-q4/gemma-4-31B-it-mmproj.gguf}"
+GEMMA_PORT="${GEMMA_PORT:-8080}"
+R2_ENV="${R2_ENV:-$HOME/.flux-r2.env}"
+GOVERNOR_TOKEN_FILE="${GOVERNOR_TOKEN_FILE:-$HOME/.governor-token}"
+# The public gateway terminates TLS and does not preserve Tea's Host all the
+# way to the workload. Keep the browser's websocket origin explicit so the
+# server can distinguish the real gallery from a foreign page without opening
+# the socket cross-origin.
+FLUX_WS_ORIGINS="${FLUX_WS_ORIGINS:-${CHORUS_PUBLIC_BASE:-https://tea.influx.vision}}"
+export FLUX_WS_ORIGINS
+
+# The vision endpoint is public infrastructure but inference is not anonymous.
+# Load its bearer from a mode-0600 operator file; never place it in the repo or
+# a recorded command line.
+if [ -f "$GOVERNOR_TOKEN_FILE" ]; then
+	export CHORUS_GOVERNOR_TOKEN
+	CHORUS_GOVERNOR_TOKEN=$(cat "$GOVERNOR_TOKEN_FILE")
+fi
+
+# Durable delivery must survive a shell ending and a stack restart. Keep the
+# credential envelope outside the repository, mode 0600, and load it into the
+# process environment before deciding whether the R2 lane exists.
+if [ -f "$R2_ENV" ]; then
+	set -a
+	# shellcheck disable=SC1090
+	. "$R2_ENV"
+	set +a
+fi
+
+ARCHIVE="${ARCHIVE:-$HOME/models/flux-archive}"
+mkdir -p "$RUN" "$OUT_DIR" "$ARCHIVE"
+cd "$REPO"
+
+# Provider holds, the local watchdog and a human recovery can all notice the
+# same outage. Serialize the idempotent restart so they cannot each launch a
+# complete producer stack at once. Background services explicitly close this
+# descriptor in start_one, so the lock belongs only to this finite bootstrap.
+exec 9>"$RUN/up.lock"
+if command -v flock >/dev/null 2>&1; then
+	flock -w 90 9 || { echo "another stack recovery did not settle within 90s" >&2; exit 1; }
+fi
+
+# Earlier versions archived the previous run's frames out of the served
+# directory on every start. With eight restarts in an evening that silently
+# emptied the wall each deploy, and the operator asked where their work had
+# gone. The wall is the whole body of work; the gallery already leads with the
+# newest, so old frames sink rather than intrude. Archiving is now explicit:
+#   ARCHIVE_PRIOR=1 bash chorus/up.sh
+if [ "${ARCHIVE_PRIOR:-0}" = "1" ]; then
+	prior=$(ls "$OUT_DIR"/*.png 2>/dev/null | wc -l | tr -d " ")
+	if [ "${prior:-0}" -gt 0 ]; then
+		stamp=$(date -u +%Y%m%dT%H%M%SZ)
+		mkdir -p "$ARCHIVE/$stamp"
+		mv "$OUT_DIR"/*.png "$ARCHIVE/$stamp/" 2>/dev/null || true
+		echo "archived $prior frame(s) to $ARCHIVE/$stamp"
+	fi
+fi
+
+stop_one() { # name
+	local pidfile="$RUN/$1.pid"
+	[ -f "$pidfile" ] || return 0
+	local pid
+	pid=$(cat "$pidfile" 2>/dev/null || true)
+	# Signal by recorded pid only. A pattern kill here would match this script.
+	if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+		kill "$pid" 2>/dev/null || true
+		local waits=10
+		# r2sync treats TERM as a final-flush request. Give the remote inventory
+		# and state receipt enough time to settle before escalating to KILL.
+		if [ "$1" = "r2sync" ]; then waits=60; fi
+		for _ in $(seq 1 "$waits"); do
+			kill -0 "$pid" 2>/dev/null || break
+			sleep 0.5
+		done
+		kill -9 "$pid" 2>/dev/null || true
+	fi
+	rm -f "$pidfile"
+}
+
+start_one() { # name, command...
+	local name="$1"; shift
+	( exec 9>&-; exec nohup "$@" ) > "$HOME/$name.log" 2>&1 &
+	echo $! > "$RUN/$name.pid"
+	printf '%-8s pid %s\n' "$name" "$(cat "$RUN/$name.pid")"
+}
+
+# Quiesce producers before the durability lane. This ordering means a stack
+# restart is itself a tested final flush, not a race between Drift and R2.
+if [ "${SKIP_WATCHDOG_STOP:-0}" != "1" ]; then stop_one watchdog; fi
+for svc in queue-auditor queue-supervisor constellation night-run gemini-coder hive sentinel drift r2sync gemma serve nexus piper; do stop_one "$svc"; done
+sleep 1
+
+# Order matters: the broker must own its socket before the server subscribes,
+# and both must be up before the drift loop publishes its first cell.
+start_one piper "$VENV/bin/python" scripts/piper_local.py
+start_one nexus "$VENV/bin/python" scripts/nexus_local.py
+sleep 2
+
+MODEL_DIR="$MODEL_DIR" OUT_DIR="$OUT_DIR" PATH="$VENV/bin:$PATH" \
+	start_one serve ./flux serve -addr "$ADDR" -backend cuda -unsafe-no-auth -public-read-only
+sleep 4
+
+# Gemma 4 is the local eye. Q4 keeps the full 31B vision model near one quarter
+# of an H100 while FLUX retains the larger share. Reasoning is disabled here:
+# the gate consumes strict JSON, and spending its response budget on a hidden
+# monologue left otherwise sound judgements with an empty final answer.
+gemma_ready=0
+if [ "${GEMMA:-1}" = "1" ] && [ -x "$GEMMA_BIN" ] && [ -f "$GEMMA_MODEL" ] && [ -f "$GEMMA_MMPROJ" ]; then
+	start_one gemma "$GEMMA_BIN" \
+		-m "$GEMMA_MODEL" -mm "$GEMMA_MMPROJ" \
+		--host 127.0.0.1 --port "$GEMMA_PORT" -ngl 99 -c 4096 -np 1 -fa on \
+		--reasoning off --reasoning-format none
+	for _ in $(seq 1 45); do
+		if curl -fsS --max-time 2 "http://127.0.0.1:$GEMMA_PORT/health" >/dev/null 2>&1; then
+			gemma_ready=1
+			break
+		fi
+		sleep 1
+	done
+	if [ "$gemma_ready" != "1" ]; then echo "gemma   started but not ready"; fi
+elif [ "${GEMMA:-1}" = "1" ]; then
+	echo "gemma   skipped (binary or model missing)"
+fi
+
+if [ "$gemma_ready" = "1" ]; then
+	export CHORUS_SECOND_ENGINE="${CHORUS_SECOND_ENGINE:-http://127.0.0.1:$GEMMA_PORT/v1/chat/completions}"
+fi
+
+if [ "$DRIFT" = "1" ]; then
+	MODEL_DIR="$MODEL_DIR" OUT_DIR="$OUT_DIR" \
+		start_one drift "$VENV/bin/python" chorus/loop.py \
+			--out-dir "$OUT_DIR" --model-dir "$MODEL_DIR"
+fi
+
+# The gate runs beside the loop, not on request. An unjudged run is the
+# failure mode this whole suite was rebuilt to escape.
+if [ "${SENTINEL:-1}" = "1" ]; then
+	start_one sentinel "$VENV/bin/python" chorus/sentinel.py --out-dir "$OUT_DIR" --interval 180
+fi
+
+# The hive proposes, trials and promotes language changes on evidence. It runs
+# on a slower clock than the sentinel: judgement is cheap, changing the
+# language is not.
+if [ "${HIVE:-1}" = "1" ]; then
+	CHORUS_SECOND_ENGINE="${CHORUS_SECOND_ENGINE:-}" \
+		start_one hive "$VENV/bin/python" chorus/hive.py \
+			--out-dir "$OUT_DIR" --public-base "${CHORUS_PUBLIC_BASE:-}" --interval 180
+fi
+
+# Stream frames off the node as they land. The volume is one crypto-erase from
+# taking the whole run with it, and a batch job is a thing that has not run yet.
+# Credentials come from the environment; a command line would be recorded.
+if [ "${R2SYNC:-1}" = "1" ] && [ -n "${R2_ACCESS_KEY_ID:-}" ]; then
+	start_one r2sync "$VENV/bin/python" chorus/r2sync.py \
+		--out-dir "$OUT_DIR" --interval 15 --verify-interval 600
+elif [ "${R2SYNC:-1}" = "1" ]; then
+	echo "r2sync  skipped (no R2_ACCESS_KEY_ID in the environment)"
+fi
+
+# The autonomous production contract is durable data. The runner resumes
+# existing PNGs instead of overwriting them; Constellation supplies independent
+# proof leases, cache auditing, Gemma antennas, Gemini coding authority and the
+# event-driven Sentinel state consumed by the public page.
+if [ "${CONSTELLATION:-1}" = "1" ]; then
+	start_one constellation "$VENV/bin/python" chorus/constellation.py \
+		--root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--public-base "${CHORUS_PUBLIC_BASE:-https://tea.influx.vision}"
+fi
+if [ "${NIGHT_RUN:-1}" = "1" ] && [ -f "$REPO/chorus/night-run.json" ]; then
+	start_one night-run "$VENV/bin/python" chorus/night_runner.py \
+		--manifest "$REPO/chorus/night-run.json" --python "$VENV/bin/python" \
+		--run-dir "$RUN"
+	start_one queue-supervisor "$VENV/bin/python" chorus/queue_guardian.py \
+		--role supervisor --root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--python "$VENV/bin/python"
+	start_one queue-auditor "$VENV/bin/python" chorus/queue_guardian.py \
+		--role auditor --root "$REPO" --out-dir "$OUT_DIR" --run-dir "$RUN" \
+		--python "$VENV/bin/python"
+fi
+
+# Hive owns semantic health. This outer fuse watches the essential local
+# processes and replaces itself with a clean stack restart if one exits. The
+# replacement deliberately does not signal the watchdog that is executing it;
+# the new stack starts a fresh watchdog before this process exits.
+if [ "${WATCHDOG:-1}" = "1" ]; then
+	start_one watchdog bash -c '
+		while true; do
+			# Only execution foundations may trigger a whole-stack recovery.
+			# Observers report their own degraded state; restarting FLUX because
+			# an eye or archival lane is unavailable destroys useful GPU work.
+			for svc in piper nexus serve; do
+				pidfile="'"$RUN"'/$svc.pid"
+				[ -f "$pidfile" ] || continue
+				pid=$(cat "$pidfile" 2>/dev/null || echo)
+				if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+					echo "$(date -u +%H:%M:%S) $svc died; restarting stack" \
+						>> "$HOME/watchdog.log"
+					exec env ARCHIVE_PRIOR=0 SKIP_WATCHDOG_STOP=1 \
+						bash "$HOME/FLUX/chorus/up.sh" >> "$HOME/watchdog.log" 2>&1
+				fi
+			done
+			sleep 60
+		done'
+fi
+
+sleep 2
+echo "--- health ---"
+curl -sS -o /dev/null -w 'landing %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/" || true
+curl -sS -o /dev/null -w 'gallery %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/gallery/" || true
+curl -sS -o /dev/null -w 'health  %{http_code}\n' "http://127.0.0.1:${ADDR##*:}/api/health" || true
+echo "--- running ---"
+for svc in piper nexus serve gemma drift sentinel hive r2sync constellation night-run queue-supervisor queue-auditor gemini-coder watchdog; do
+	pid=$(cat "$RUN/$svc.pid" 2>/dev/null || echo -)
+	if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
+		printf '%-8s up   (%s)\n' "$svc" "$pid"
+	elif pgrep -f "chorus/$svc.py" >/dev/null 2>&1; then
+		# Started outside this script, so there is no pid file. Reporting DOWN
+		# for a running service invites someone to start a second copy.
+		printf '%-8s up   (external)\n' "$svc"
+	else
+		printf '%-8s DOWN\n' "$svc"
+	fi
+done

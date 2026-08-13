@@ -39,6 +39,11 @@ import (
 type Options struct {
 	Addr  string
 	Token string
+	// PublicReadOnly serves the gallery to the open internet: safe GETs on an
+	// allowlist, everything else refused. Set it whenever the listener is
+	// reachable without a token, which is the only way a browser can open the
+	// page at all.
+	PublicReadOnly bool
 }
 
 type Server struct {
@@ -249,6 +254,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
+	mux.HandleFunc("/app", s.app)
+	mux.HandleFunc("/app/", s.app)
+	mux.HandleFunc("/atelier", s.legacyAtelier)
+	mux.HandleFunc("/atelier/", s.legacyAtelier)
 	mux.HandleFunc("/motion-atlas", s.motionAtlas)
 	mux.HandleFunc("/motion-atlas/", s.motionAtlas)
 	mux.HandleFunc("/atlas-studio", s.atlasStudio)
@@ -260,13 +269,18 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/visionary/chat", s.visionaryChat)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
 	mux.HandleFunc("/api/telemetry/events", s.telemetryEvents)
+	mux.HandleFunc("/api/telemetry/ws", s.telemetryWS)
 	mux.HandleFunc("/api/telemetry/processes/events", s.telemetryProcessEvents)
+	mux.HandleFunc("/api/telemetry/processes/ws", s.telemetryProcessWS)
 	mux.HandleFunc("/api/assets/events", s.assetEvents)
+	mux.HandleFunc("/api/assets/ws", s.assetWS)
 	mux.HandleFunc("/api/model/download", s.modelDownload)
 	mux.HandleFunc("/api/model/load", s.modelLoad)
 	mux.HandleFunc("/api/model/events", s.modelEvents)
+	mux.HandleFunc("/api/model/ws", s.modelWS)
 	mux.HandleFunc("/api/jobs", s.jobs)
 	mux.HandleFunc("/api/jobs/events", s.jobsEvents)
+	mux.HandleFunc("/api/jobs/ws", s.jobsWS)
 	mux.HandleFunc("/api/job/cancel", s.cancelJob)
 	mux.HandleFunc("/api/job/update", s.updateJob)
 	mux.HandleFunc("/api/jobs/prune", s.pruneJobs)
@@ -293,11 +307,28 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/collection/picks", s.collectionPicks)
 	mux.HandleFunc("/api/collection/delete", s.deleteCollection)
 	mux.HandleFunc("/api/recent-images", s.recentImages)
+	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
+	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
 	mux.HandleFunc("/api/gallery/events/", s.galleryEvents)
 	mux.HandleFunc("/atlas/", s.atlas)
 	mux.HandleFunc("/gallery", s.gallery)
 	mux.HandleFunc("/gallery/", s.gallery)
+	mux.HandleFunc("/portraits", s.portraits)
+	mux.HandleFunc("/portraits/", s.portraits)
+	mux.HandleFunc("/movement", s.movement)
+	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/studies", s.teaStudiesPage)
+	mux.HandleFunc("/studies/", s.teaStudiesPage)
+	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
+	mux.HandleFunc("/studies/stallion", s.stallionMotionLab)
+	mux.HandleFunc("/studies/stallion/", s.stallionMotionLab)
+	mux.HandleFunc("/studies/stallion/results/", s.stallionMotionResult)
+	mux.HandleFunc("/api/studies/stallion-motion", s.stallionMotionAPI)
+	mux.HandleFunc("/sentinel", s.sentinelPage)
+	mux.HandleFunc("/sentinel/", s.sentinelPage)
+	mux.HandleFunc("/exhibition", s.exhibition)
+	mux.HandleFunc("/exhibition/", s.exhibition)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
 	s.restoreAtlasReceipts()
@@ -310,7 +341,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
-		Handler:           withAuth(withLocalHeaders(mux), opt.Token),
+		Handler:           withAuth(withReadOnly(withLocalHeaders(mux), opt.PublicReadOnly), opt.Token),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -331,6 +362,75 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 		}
 		return err
 	}
+}
+
+// readOnlyPaths are the only things a public listener answers. An allowlist
+// rather than a blocklist of mutating verbs: a GET can still be expensive or
+// revealing (/api/warm loads the model, the governor proxies bill someone
+// else's key), and a blocklist silently opens every route added later.
+//
+// Prefixes, matched against the cleaned path.
+var readOnlyPaths = []string{
+	"/app",
+	"/gallery",
+	"/portraits",
+	"/movement",
+	"/studies",
+	"/sentinel",
+	"/exhibition",
+	"/atelier",
+	// Motion Atlas may be browsed from the public listener, but all of its
+	// generation controls remain blocked because this gate also requires GET
+	// or HEAD and does not expose the render/model mutation routes.
+	"/motion-atlas",
+	"/outputs/",
+	"/api/health",
+	"/api/recent-images",
+	"/api/studies",
+	"/api/sentinel",
+	// Without this the gallery falls back to full-size PNGs -- megabytes per
+	// tile, across two proxy hops.
+	"/api/asset/thumbnail",
+	"/api/assets/events",
+	"/api/assets/ws",
+	"/api/telemetry/events",
+	"/api/telemetry/ws",
+	"/api/jobs",
+}
+
+func readOnlyAllowed(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	// /api/jobs is a listing, but /api/jobs/<id>/cancel would not be; only the
+	// exact listing path and the websocket beneath it are safe.
+	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/jobs") && path != "/api/jobs" && path != "/api/jobs/ws" {
+		return false
+	}
+	for _, p := range readOnlyPaths {
+		if path == p || strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return path == "/" || path == "/favicon.ico"
+}
+
+// withReadOnly refuses anything outside the gallery when the listener is
+// public. It sits inside withAuth so a token-bearing operator is unaffected
+// only when no public flag is set -- the flag is the deliberate choice to
+// serve strangers, so it applies to every request on that listener.
+func withReadOnly(next http.Handler, enabled bool) http.Handler {
+	if !enabled {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !readOnlyAllowed(r) {
+			writeError(w, http.StatusForbidden, "this listener is public and read-only")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func withAuth(next http.Handler, token string) http.Handler {
@@ -381,6 +481,21 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
 		return
 	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+// app keeps the production console available without asking a public landing
+// page to also explain a working machine. The public listener still applies
+// its read-only gate, so exposing the shell does not expose GPU mutations.
+func (s Server) app(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/app/" {
+		http.Redirect(w, r, "/app", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/app" {
+		http.NotFound(w, r)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(indexHTML(s.cfg)))
 }
@@ -405,7 +520,7 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 	}
 	allowed := map[string]bool{
 		"index.html": true, "app.css": true, "app.js": true,
-		"topbar.css": true,
+		"topbar.css":  true,
 		"optics.html": true, "optics.js": true,
 		"queue.html": true, "queue.js": true,
 		"registry.html": true, "registry.js": true,
@@ -421,6 +536,159 @@ func (s Server) motionAtlas(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "motion-atlas", name))
+}
+
+// galleryFlux serves the live body of work, fed by this same server's asset
+// and job lanes.
+//
+// It is mounted here rather than under the static lane on purpose --
+// ListenAndServeStatic attaches no API, and the page is nothing without
+// /api/assets/ws and /outputs/ coming from the same origin.
+func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/gallery" {
+		http.Redirect(w, r, "/gallery/", http.StatusPermanentRedirect)
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/gallery/")
+	if name == "" {
+		name = "index.html"
+	}
+	// The page is deliberately a single self-contained file, so an allowlist of
+	// one is the whole surface: anything else is a path we never meant to serve.
+	if name != "index.html" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+}
+
+// movement presents one live authored path. The exhibition is a second,
+// collection-level surface that places it beside the Stallion atlas.
+func (s Server) movement(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/movement/" {
+		http.Redirect(w, r, "/movement", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/movement" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "movement.html"))
+}
+
+func (s Server) portraits(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/portraits/" {
+		http.Redirect(w, r, "/portraits", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/portraits" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+}
+
+func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/sentinel/" {
+		http.Redirect(w, r, "/sentinel", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/sentinel" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "sentinel.html"))
+}
+
+func (s Server) sentinelState() ([]byte, error) {
+	return os.ReadFile(filepath.Join(s.cfg.OutputDir, "sentinel-state.json"))
+}
+
+func (s Server) sentinelSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	raw, err := s.sentinelState()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"schema": "flux.sentinel.v1", "actors": []any{},
+			"summary": map[string]any{"healthy": 0, "total": 20, "failing": 0, "degraded": 0},
+			"status":  "starting"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(raw)
+}
+
+func (s Server) sentinelEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "event streaming unsupported")
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	path := filepath.Join(s.cfg.OutputDir, "sentinel-state.json")
+	for {
+		raw, err := s.sentinelState()
+		if err == nil {
+			_, _ = fmt.Fprintf(w, "event: sentinel\ndata: %s\n\n", raw)
+			flusher.Flush()
+		}
+		if !waitForPathChange(r.Context(), path) {
+			return
+		}
+	}
+}
+
+func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/exhibition/" {
+		http.Redirect(w, r, "/exhibition", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path == "/exhibition" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "exhibition.html"))
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/exhibition/")
+	if name == "stallion/" {
+		http.Redirect(w, r, "/exhibition/stallion", http.StatusPermanentRedirect)
+		return
+	}
+	if name == "stallion" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "stallion.html"))
+		return
+	}
+	allowed := map[string]bool{
+		"stallion-atlas-exhibition.mp4":      true,
+		"stallion-atlas-poster.jpg":          true,
+		"stallion-atlas-contact.jpg":         true,
+		"stallion-gait-projection.mp4":       true,
+		"stallion-gait-poster.jpg":           true,
+		"stallion-atlas-grid.jpg":            true,
+		"bell-learns-the-wind.mp4":           true,
+		"bell-learns-the-wind-contact.jpg":   true,
+		"bell-learns-the-wind-manifest.json": true,
+	}
+	if !allowed[name] {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "assets", name))
+}
+
+// legacyAtelier preserves links shared while the wall still carried its
+// working name. The redirect is permanent; no second copy of the gallery is
+// allowed to drift behind the canonical one.
+func (s Server) legacyAtelier(w http.ResponseWriter, r *http.Request) {
+	suffix := strings.TrimPrefix(r.URL.Path, "/atelier")
+	http.Redirect(w, r, "/gallery"+suffix, http.StatusPermanentRedirect)
 }
 
 func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {
@@ -590,6 +858,66 @@ func (s Server) telemetryEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// telemetryWS is the WebSocket twin of telemetryEvents, same motionTelemetryHub
+// subscription -- see jobsWS for why this exists (smaller per-message
+// framing, faster reconnect-storm recovery; fan-out latency itself is tied
+// with SSE since both ride the same broadcast).
+func (s Server) telemetryWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 8)
+	motionTelemetryHub.Lock()
+	motionTelemetryHub.clients[events] = struct{}{}
+	latest := motionTelemetryHub.latest
+	motionTelemetryHub.Unlock()
+	defer func() {
+		motionTelemetryHub.Lock()
+		delete(motionTelemetryHub.clients, events)
+		motionTelemetryHub.Unlock()
+	}()
+
+	send := func(event map[string]any) bool {
+		raw, err := json.Marshal(event)
+		if err != nil {
+			return false
+		}
+		return conn.writeText(raw) == nil
+	}
+	if latest != nil && !send(latest) {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
+}
+
 // runTelemetryHub is the single shared nvidia-smi poller backing
 // motionTelemetryHub — started once at server startup, regardless of how
 // many /api/telemetry/events viewers connect or disconnect.
@@ -666,6 +994,56 @@ func (s Server) telemetryProcessEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			flusher.Flush()
+		}
+	}
+}
+
+// telemetryProcessWS is the WebSocket twin of telemetryProcessEvents.
+func (s Server) telemetryProcessWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 32)
+	motionProcessHub.Lock()
+	motionProcessHub.clients[events] = struct{}{}
+	motionProcessHub.Unlock()
+	defer func() {
+		motionProcessHub.Lock()
+		delete(motionProcessHub.clients, events)
+		motionProcessHub.Unlock()
+	}()
+
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			raw, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			if conn.writeText(raw) != nil {
+				return
+			}
 		}
 	}
 }
@@ -747,6 +1125,79 @@ func parseTelemetryLine(line string) (map[string]any, bool) {
 	}, true
 }
 
+// assetWS is the WebSocket twin of assetEvents, including the same
+// job_id filter and replay-of-recent-history behavior on connect.
+func (s Server) assetWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	jobFilter := strings.TrimSpace(r.URL.Query().Get("job_id"))
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	events := make(chan map[string]any, 32)
+	motionAssetHub.Lock()
+	motionAssetHub.clients[events] = struct{}{}
+	recent := append([]map[string]any(nil), motionAssetHub.recent...)
+	motionAssetHub.Unlock()
+	defer func() {
+		motionAssetHub.Lock()
+		delete(motionAssetHub.clients, events)
+		motionAssetHub.Unlock()
+	}()
+
+	send := func(event map[string]any) bool {
+		if jobFilter != "" && stringValue(event["job_id"]) != jobFilter {
+			return true
+		}
+		asset, _ := event["asset"].(map[string]any)
+		if asset == nil || !strings.HasPrefix(stringValue(asset["access_url"]), "/outputs/") {
+			return true
+		}
+		raw, err := json.Marshal(event)
+		if err != nil {
+			return true
+		}
+		return conn.writeText(raw) == nil
+	}
+	for _, event := range recent {
+		replay := make(map[string]any, len(event)+1)
+		for key, value := range event {
+			replay[key] = value
+		}
+		replay["replay"] = true
+		if !send(replay) {
+			return
+		}
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case event := <-events:
+			if !send(event) {
+				return
+			}
+		}
+	}
+}
+
 func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w, http.MethodGet)
@@ -788,7 +1239,12 @@ func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	for _, event := range recent {
-		if !send(event) {
+		replay := make(map[string]any, len(event)+1)
+		for key, value := range event {
+			replay[key] = value
+		}
+		replay["replay"] = true
+		if !send(replay) {
 			return
 		}
 	}
@@ -949,6 +1405,83 @@ func (s Server) jobsEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// jobsWS is the WebSocket twin of jobsEvents, for multi-hour render jobs
+// where a live process view is the point, not a nice-to-have. Same
+// motionJobsHub subscription, same per-client output-URL/receipt handling;
+// only the wire format differs (WS text frames instead of SSE "event:"
+// framing).
+func (s Server) jobsWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn.readLoop()
+		close(done)
+	}()
+
+	updates := make(chan *jobsWorkerResponse, 4)
+	motionJobsHub.Lock()
+	motionJobsHub.clients[updates] = struct{}{}
+	latest := motionJobsHub.latest
+	motionJobsHub.Unlock()
+	defer func() {
+		motionJobsHub.Lock()
+		delete(motionJobsHub.clients, updates)
+		motionJobsHub.Unlock()
+	}()
+
+	send := func(data *jobsWorkerResponse) bool {
+		body := map[string]any{"ok": true, "worker_running": data.WorkerRunning, "jobs": []any{}}
+		if data.WorkerRunning {
+			jobs := s.jobsWithOutputURLs(r, data.Jobs)
+			applyAtlasReceipts(jobs)
+			body["jobs"] = jobs
+			body["model_loaded"] = data.ModelLoaded
+			body["backend"] = data.Backend
+			body["device"] = data.Device
+		} else {
+			body["worker_error"] = data.WorkerError
+		}
+		body["model_downloaded"] = serverModelReady(s.cfg.ModelDir)
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return false
+		}
+		return conn.writeText(raw) == nil
+	}
+
+	if latest != nil && !send(latest) {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case data := <-updates:
+			if !send(data) {
+				return
+			}
+		}
+	}
+}
+
 // runJobsHub is the single shared worker poller backing motionJobsHub —
 // one inotify watch on jobs.jsonl, one "op":"jobs" IPC call per actual
 // change, started once at server startup regardless of subscriber count.
@@ -1085,6 +1618,56 @@ func (s Server) modelEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		case raw := <-updates:
 			if !send(raw) {
+				return
+			}
+		}
+	}
+}
+
+// modelWS is the WebSocket twin of modelEvents.
+func (s Server) modelWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() { conn.readLoop(); close(done) }()
+
+	updates := make(chan []byte, 4)
+	motionModelHub.Lock()
+	motionModelHub.clients[updates] = struct{}{}
+	latest := motionModelHub.latest
+	motionModelHub.Unlock()
+	defer func() {
+		motionModelHub.Lock()
+		delete(motionModelHub.clients, updates)
+		motionModelHub.Unlock()
+	}()
+
+	if latest != nil && conn.writeText(latest) != nil {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case raw := <-updates:
+			if conn.writeText(raw) != nil {
 				return
 			}
 		}
@@ -3194,6 +3777,14 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 200 {
 		limit = 80
 	}
+	// Without an offset the gallery can only ever show the newest page, so a
+	// long run buries almost all of its own work: 1,088 of 1,184 frames were
+	// unreachable from the wall.
+	offset := intValue(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+	scope := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
 	type recentImage struct {
 		Name     string
 		Path     string
@@ -3210,12 +3801,21 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			}
 			if entry.IsDir() {
 				name := entry.Name()
-				if file != outputDir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+				rel, _ := filepath.Rel(outputDir, file)
+				// Public rooms are disjoint: autonomous portraits and sequential
+				// motion states never silently bleed into Images of Beauty.
+				if file != outputDir && !recentScopeIncludes(scope, filepath.ToSlash(rel)) {
+					return filepath.SkipDir
+				}
+				// "_" marks a working directory, not a collection: contact
+				// sheets and other instruments live there. Listing them puts a
+				// grid of thumbnails on the wall as though it were a work.
+				if file != outputDir && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "node_modules") {
 					return filepath.SkipDir
 				}
 				return nil
 			}
-			if !isImageName(entry.Name()) {
+			if !isImageName(entry.Name()) || strings.HasPrefix(entry.Name(), "_") {
 				return nil
 			}
 			info, _ := entry.Info()
@@ -3234,7 +3834,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	stateRoot, err := filepath.Abs(filepath.Join(s.cfg.Root, ".fluxd"))
-	if err == nil {
+	if err == nil && scope != "movement" && scope != "portraits" {
 		for _, root := range []string{"uploads", "references", "blends"} {
 			dir := filepath.Join(stateRoot, root)
 			_ = filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
@@ -3284,6 +3884,12 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		unique = append(unique, item)
 	}
 	items = unique
+	total := len(items)
+	if offset >= len(items) {
+		items = nil
+	} else {
+		items = items[offset:]
+	}
 	if len(items) > limit {
 		items = items[:limit]
 	}
@@ -3297,7 +3903,25 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			"modified": item.Modified,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "images": out})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "images": out, "total": total, "offset": offset, "limit": limit,
+	})
+}
+
+func recentScopeIncludes(scope, rel string) bool {
+	rel = strings.Trim(filepath.ToSlash(rel), "/")
+	if rel == "" || rel == "." {
+		return true
+	}
+	top := strings.SplitN(rel, "/", 2)[0]
+	switch scope {
+	case "movement":
+		return top == "atlas"
+	case "portraits":
+		return top == "collections"
+	default:
+		return top != "atlas" && top != "collections"
+	}
 }
 
 func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
@@ -3347,10 +3971,7 @@ func (s Server) gallery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/gallery" || r.URL.Path == "/gallery/" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		page := galleryIndexHTML()
-		page = strings.ReplaceAll(page, "{{STUDIO_URL}}", html.EscapeString(publicStudioURL(r)))
-		_, _ = w.Write([]byte(page))
+		s.galleryFlux(w, r)
 		return
 	}
 	rel, ok := s.cleanOutputRel(strings.TrimPrefix(r.URL.Path, "/gallery/"))

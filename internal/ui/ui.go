@@ -236,6 +236,7 @@ func Usage() {
 		{"accel", "inspect active and candidate acceleration backends"},
 		{"architecture", "show CLI, socket, HTTP, tunnel, and backend flow"},
 		{"atelier studies", "FLUX.1-related Atelier research imported into the CLI"},
+		{"atlas bell protocols", "open-prompt latent motion and directed tournament protocols"},
 		{"anime productions", "anime.sakure.network project bridge"},
 		{"ane", "manage strict ANE package registry and component conversion"},
 		{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
@@ -248,6 +249,9 @@ func Usage() {
 		{"colors", "palette and state sample"},
 	})
 	Suite("runtime", Indigo, []PairRow{
+		{"tea", "show the isolated Tea app setup and serving commands"},
+		{"tea setup", "install shared runtime dependencies and validate Tea"},
+		{"tea dev --open", "serve the Tea garden and motion gallery locally"},
 		{"warm", "start worker and load FLUX into memory"},
 		{"warm --preload=false", "start queue without loading the 32 GB model"},
 		{"serve", "local HTTP API and dashboard backed by the worker socket"},

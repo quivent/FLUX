@@ -1,0 +1,80 @@
+{
+  "id": "garden-remembers-machine",
+  "title": "The Garden Remembers the Machine",
+  "collection": "Images of Beauty",
+  "proposition": "A mostly white garden where botanical life and used machinery remember one another through touch, weather, repair, tea, and time—fragile but never decorative, mechanical but never sterile.",
+  "allow_author": false,
+  "subjects": [
+    "cherry roots threading through a dismantled radio",
+    "white camellias growing from an open relay cabinet",
+    "tea steam passing through a punched brass screen",
+    "a cracked porcelain cup beside a rain-darkened motor",
+    "plum petals caught inside a watchmaker's gears",
+    "moss covering the keys of an abandoned switchboard",
+    "a paper lantern wired to a flowering circuit board",
+    "seed pods arranged beside worn turbine blades",
+    "a greenhouse window repaired with copper traces",
+    "fallen blossoms collecting around a silent tram bell",
+    "fern shadows crossing a ceramic control panel",
+    "a mechanical bird drinking from a stone tea basin"
+  ],
+  "details": [
+    "one repaired joint held by red thread",
+    "a single petal resting on an oil stain",
+    "tiny beside a pale mechanism too large to fit",
+    "only the shadow joining the living and machined forms",
+    "rain beads tracing one interrupted electrical path",
+    "a hand-written maintenance mark almost washed away",
+    "one moving part while the garden remains still",
+    "a hairline crack continuing into a drawn circuit"
+  ],
+  "surfaces": [
+    {
+      "medium": "sumi-e ink wash",
+      "medium_clause": "wet grey ink blooms into warm white paper, one black mechanical line",
+      "family": "ink",
+      "tonal": true
+    },
+    {
+      "medium": "woodblock print",
+      "medium_clause": "carved grey and tea-brown planes leave most of the paper untouched",
+      "family": "print",
+      "tonal": false
+    },
+    {
+      "medium": "etching",
+      "medium_clause": "fine bitten lines and pale plate tone dissolve into generous white margins",
+      "family": "print",
+      "tonal": true
+    },
+    {
+      "medium": "egg tempera panel",
+      "medium_clause": "thin chalk-white layers hold minute botanical and copper marks",
+      "family": "paint",
+      "tonal": false
+    },
+    {
+      "medium": "risograph print",
+      "medium_clause": "pale stone ink and one misregistered vermilion plate cross unprinted paper",
+      "family": "print",
+      "tonal": false
+    }
+  ],
+  "moods": [
+    "high white daylight, shadows barely present, one warm metallic glint",
+    "quiet overcast light, pearl grey and bone, one tea-brown trace",
+    "morning haze through glass, pale mint at the furthest edge",
+    "white ground after rain, one reflected signal-red mark",
+    "soft window light, chalk and porcelain, the darkest value very small"
+  ],
+  "title_motifs": [
+    "the relay garden",
+    "tea for the silent machine",
+    "white circuit in bloom",
+    "maintenance of petals",
+    "the garden's small repair",
+    "copper root",
+    "after the tram stopped",
+    "porcelain memory"
+  ]
+}

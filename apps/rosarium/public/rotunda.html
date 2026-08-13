@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0a0b">
+<title>Rosarium — The Rotunda</title>
+<meta name="description" content="A quiet circular salon for the sovereign, architectural, and geometric works of Rosarium.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Italiana&amp;family=Manrope:wght@300;400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,300;1,6..72,300&amp;family=Pinyon+Script&amp;display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b0a0b;
+    --paper: #eee8df;
+    --paper-dim: rgba(238, 232, 223, 0.64);
+    --paper-faint: rgba(238, 232, 223, 0.13);
+    --rose: #dc8c98;
+    --rose-dark: #6f313e;
+    --gold: #c8a873;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  body {
+    min-height: 100svh;
+    overflow: hidden;
+    font-family: Manrope, system-ui, sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, a { -webkit-tap-highlight-color: transparent; }
+
+  button:focus-visible, a:focus-visible {
+    outline: 1px solid var(--rose);
+    outline-offset: 5px;
+  }
+
+  .atmosphere {
+    position: fixed;
+    inset: -5%;
+    z-index: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 40%, rgba(112, 72, 75, 0.22), transparent 34%),
+      linear-gradient(145deg, #111113, #070708 70%);
+  }
+
+  .atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,.78), transparent 25%, transparent 75%, rgba(0,0,0,.78)),
+      linear-gradient(180deg, rgba(0,0,0,.72), transparent 30%, rgba(0,0,0,.86));
+    z-index: 2;
+  }
+
+  .atmosphere::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    opacity: .22;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.16'/%3E%3C/svg%3E");
+    mix-blend-mode: soft-light;
+  }
+
+  #ambient-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: .2;
+    filter: blur(38px) saturate(.8) brightness(.58);
+    transform: scale(1.09);
+    transition: opacity 700ms ease;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100svh;
+  }
+
+  .museum-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 76px;
+    padding: 0 clamp(1.2rem, 4vw, 4rem);
+    border-bottom: 1px solid var(--paper-faint);
+    background: rgba(11, 10, 11, .42);
+    backdrop-filter: blur(18px);
+  }
+
+  .museum-logo {
+    color: var(--rose);
+    font-family: "Pinyon Script", cursive;
+    font-size: clamp(1.55rem, 2.4vw, 2.05rem);
+    letter-spacing: 0;
+    text-decoration: none;
+  }
+
+  .nav-items { display: flex; align-items: center; gap: clamp(1rem, 2.5vw, 2.3rem); }
+
+  .nav-item {
+    color: var(--paper-dim);
+    font-family: Newsreader, Georgia, serif;
+    font-size: 1rem;
+    font-style: italic;
+    text-decoration: none;
+    transition: color 220ms ease;
+  }
+
+  .nav-item:hover, .nav-item.active { color: var(--rose); }
+
+  .rotunda {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(190px, .62fr) minmax(460px, 2fr) minmax(180px, .58fr);
+    align-items: center;
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: clamp(1rem, 2vw, 2rem) clamp(1.2rem, 4vw, 4rem);
+  }
+
+  .rotunda > * { min-width: 0; }
+
+  .room-copy {
+    position: relative;
+    z-index: 20;
+    align-self: center;
+    max-width: 270px;
+  }
+
+  .eyebrow, .work-number, .room-count, .hint, .collection-button {
+    font-size: .64rem;
+    font-weight: 500;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow { color: var(--rose); margin: 0 0 1rem; }
+
+  h1 {
+    max-width: 6ch;
+    margin: 0;
+    font-family: Italiana, Georgia, serif;
+    font-size: clamp(3.2rem, 6vw, 6.8rem);
+    font-weight: 400;
+    letter-spacing: -.045em;
+    line-height: .82;
+  }
+
+  .room-intro {
+    max-width: 27ch;
+    margin: 1.65rem 0 2rem;
+    color: var(--paper-dim);
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(1rem, 1.35vw, 1.18rem);
+    font-style: italic;
+    line-height: 1.45;
+  }
+
+  .collections { display: grid; justify-items: start; gap: .35rem; }
+
+  .collection-button {
+    position: relative;
+    border: 0;
+    padding: .55rem 0 .55rem 1.25rem;
+    background: transparent;
+    color: rgba(238, 232, 223, .46);
+    cursor: pointer;
+    font-family: Manrope, system-ui, sans-serif;
+    transition: color 250ms ease, transform 250ms var(--ease);
+  }
+
+  .collection-button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--rose);
+    transition: width 300ms var(--ease);
+  }
+
+  .collection-button:hover { color: var(--paper); }
+  .collection-button.active { color: var(--paper); transform: translateX(.55rem); }
+  .collection-button.active::before { width: .8rem; }
+
+  .gallery-stage {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: min(69vh, 760px);
+    min-height: 480px;
+    perspective: 1400px;
+    perspective-origin: 50% 46%;
+  }
+
+  .gallery-stage::before,
+  .gallery-stage::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    border: 1px solid rgba(238, 232, 223, .08);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .gallery-stage::before {
+    top: 4%;
+    width: min(62vw, 900px);
+    height: min(62vw, 900px);
+  }
+
+  .gallery-stage::after {
+    bottom: -15%;
+    width: min(76vw, 1100px);
+    height: 42%;
+    border-color: rgba(200, 168, 115, .13);
+    background: radial-gradient(ellipse at center, rgba(220, 140, 152, .09), transparent 62%);
+    transform: translateX(-50%) rotateX(72deg);
+  }
+
+  .works {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+
+  .work {
+    --frame-width: clamp(260px, 31vw, 510px);
+    position: absolute;
+    top: 48%;
+    left: 50%;
+    z-index: 2;
+    width: var(--frame-width);
+    aspect-ratio: 1;
+    border: 0;
+    padding: clamp(7px, .7vw, 12px);
+    background: linear-gradient(145deg, rgba(230, 213, 183, .86), rgba(90, 70, 59, .78));
+    box-shadow: 0 35px 85px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.3);
+    cursor: pointer;
+    opacity: 0;
+    transform: translate(-50%, -50%) translateZ(-500px) scale(.56);
+    transform-style: preserve-3d;
+    transition: transform 900ms var(--ease), opacity 650ms ease, filter 650ms ease;
+  }
+
+  .work::after {
+    content: "";
+    position: absolute;
+    inset: clamp(7px, .7vw, 12px);
+    border: 1px solid rgba(255,255,255,.22);
+    pointer-events: none;
+  }
+
+  .work img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #171517;
+    filter: saturate(.88) contrast(1.03);
+  }
+
+  .work.slot-0 {
+    z-index: 10;
+    opacity: 1;
+    filter: none;
+    transform: translate(-50%, -50%) translateZ(70px) scale(1);
+  }
+
+  .work.slot-n1 {
+    z-index: 7;
+    opacity: .72;
+    filter: brightness(.62) saturate(.7);
+    transform: translate(-50%, -50%) translateX(clamp(-460px, -29vw, -260px)) translateZ(-185px) rotateY(39deg) scale(.72);
+  }
+
+  .work.slot-p1 {
+    z-index: 7;
+    opacity: .72;
+    filter: brightness(.62) saturate(.7);
+    transform: translate(-50%, -50%) translateX(clamp(260px, 29vw, 460px)) translateZ(-185px) rotateY(-39deg) scale(.72);
+  }
+
+  .work.slot-n2 {
+    z-index: 4;
+    opacity: .24;
+    filter: brightness(.38) blur(1px);
+    transform: translate(-50%, -50%) translateX(clamp(-700px, -47vw, -410px)) translateZ(-390px) rotateY(56deg) scale(.5);
+  }
+
+  .work.slot-p2 {
+    z-index: 4;
+    opacity: .24;
+    filter: brightness(.38) blur(1px);
+    transform: translate(-50%, -50%) translateX(clamp(410px, 47vw, 700px)) translateZ(-390px) rotateY(-56deg) scale(.5);
+  }
+
+  .work.hidden { pointer-events: none; }
+
+  .stage-arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--paper-faint);
+    border-radius: 50%;
+    background: rgba(11,10,11,.34);
+    color: var(--paper);
+    cursor: pointer;
+    font-family: Newsreader, Georgia, serif;
+    font-size: 1.4rem;
+    backdrop-filter: blur(10px);
+    transform: translateY(-50%);
+    transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
+  }
+
+  .stage-arrow:hover { background: rgba(220,140,152,.16); border-color: var(--rose); color: var(--rose); }
+  .stage-arrow.prev { left: 1.5%; }
+  .stage-arrow.next { right: 1.5%; }
+
+  .work-copy {
+    position: relative;
+    z-index: 20;
+    align-self: center;
+    max-width: 280px;
+    padding-left: clamp(1rem, 2vw, 2.2rem);
+    border-left: 1px solid rgba(238,232,223,.15);
+  }
+
+  .work-number { margin: 0 0 1rem; color: var(--gold); }
+
+  #work-title {
+    margin: 0;
+    color: var(--paper);
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(1.55rem, 2.5vw, 2.8rem);
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.02;
+    text-wrap: balance;
+  }
+
+  #work-room {
+    margin: 1rem 0 0;
+    color: var(--paper-dim);
+    font-size: .7rem;
+    letter-spacing: .17em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  .progress {
+    position: relative;
+    width: 100%;
+    height: 1px;
+    margin-top: 2rem;
+    overflow: hidden;
+    background: var(--paper-faint);
+  }
+
+  #progress-bar {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--rose));
+    transition: width 700ms var(--ease);
+  }
+
+  .view-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.5rem;
+    border: 0;
+    padding: .4rem 0;
+    background: transparent;
+    color: var(--paper);
+    cursor: pointer;
+    font: 500 .65rem/1 Manrope, sans-serif;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+
+  .view-button::after { content: "↗"; color: var(--rose); font-size: 1rem; }
+
+  .footer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 62px;
+    padding: 0 clamp(1.2rem, 4vw, 4rem);
+    border-top: 1px solid var(--paper-faint);
+    color: rgba(238,232,223,.42);
+  }
+
+  .room-count { color: var(--paper-dim); }
+  .hint { font-weight: 400; letter-spacing: .13em; }
+
+  .play-button {
+    border: 0;
+    background: transparent;
+    color: var(--paper-dim);
+    cursor: pointer;
+    font: 500 .64rem/1 Manrope, sans-serif;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+
+  .play-button:hover { color: var(--rose); }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    padding: clamp(1rem, 4vw, 4rem);
+    background: rgba(5, 5, 6, .94);
+    backdrop-filter: blur(22px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 350ms ease;
+  }
+
+  .lightbox.open { opacity: 1; pointer-events: auto; }
+
+  .lightbox figure {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.1rem 1.5rem;
+    max-width: min(88vw, 980px);
+    max-height: 88vh;
+    margin: 0;
+  }
+
+  #lightbox-image {
+    grid-column: 1 / -1;
+    display: block;
+    max-width: 100%;
+    max-height: 78vh;
+    margin: auto;
+    border: 8px solid rgba(238,232,223,.88);
+    object-fit: contain;
+    box-shadow: 0 45px 120px rgba(0,0,0,.75);
+  }
+
+  #lightbox-title {
+    color: var(--paper-dim);
+    font-family: Newsreader, Georgia, serif;
+    font-size: 1.1rem;
+    font-style: italic;
+  }
+
+  .close-button {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--paper-faint);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--paper);
+    cursor: pointer;
+    font-size: 1.2rem;
+  }
+
+  .loading {
+    position: fixed;
+    inset: 76px 0 62px;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: var(--paper-dim);
+    font: italic 1.1rem Newsreader, Georgia, serif;
+    transition: opacity 450ms ease;
+  }
+
+  .loading.done { opacity: 0; pointer-events: none; }
+
+  @media (max-width: 980px) {
+    body { overflow: auto; }
+    .shell { min-height: 100svh; }
+    .rotunda {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(430px, 59vh) auto;
+      align-items: start;
+      gap: 0;
+      padding-top: 1.5rem;
+    }
+    .room-copy { max-width: none; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end; }
+    .room-copy h1 { max-width: none; font-size: clamp(3rem, 13vw, 5.6rem); }
+    .room-intro { display: none; }
+    .eyebrow { grid-column: 1 / -1; margin-bottom: 0; }
+    .collections { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+    .collection-button { padding-left: .8rem; }
+    .collection-button.active { transform: none; }
+    .collection-button.active::before { width: .5rem; }
+    .gallery-stage { min-height: 430px; height: 58vh; }
+    .work-copy {
+      display: grid;
+      grid-template-columns: auto minmax(0,1fr) auto;
+      align-items: center;
+      gap: .8rem 1.2rem;
+      max-width: none;
+      padding: 1rem 0 0;
+      border: 0;
+      border-top: 1px solid var(--paper-faint);
+    }
+    .work-number, #work-room { margin: 0; }
+    #work-title { font-size: clamp(1.35rem, 5vw, 2rem); }
+    .progress { grid-column: 1 / -1; margin-top: 0; }
+    .view-button { display: none; }
+  }
+
+  @media (max-width: 620px) {
+    body, .shell, .rotunda { max-width: 100vw; overflow-x: hidden; }
+    .museum-nav {
+      align-items: flex-start; flex-direction: column; gap: .7rem;
+      min-height: 64px; padding-block: .8rem;
+    }
+    .museum-logo { font-size: 1.65rem; }
+    .nav-items {
+      width: 100%; gap: 1.25rem; overflow-x: auto;
+      padding-bottom: .25rem; scrollbar-width: none;
+    }
+    .nav-items::-webkit-scrollbar { display: none; }
+    .nav-item { font-size: .9rem; }
+    .rotunda { grid-template-rows: auto minmax(340px, 51vh) auto; padding-inline: 1rem; }
+    .room-copy { display: block; }
+    .room-copy h1 { font-size: 3.35rem; }
+    .eyebrow { margin-bottom: .55rem; }
+    .collections { justify-content: flex-start; margin-top: .8rem; }
+    .collection-button { font-size: .56rem; }
+    .gallery-stage { min-height: 340px; height: 50vh; }
+    .work { --frame-width: min(72vw, 310px); }
+    .work.slot-n1, .work.slot-p1, .work.slot-n2, .work.slot-p2 { opacity: 0; pointer-events: none; }
+    .stage-arrow { width: 40px; height: 40px; }
+    .stage-arrow.prev { left: 0; }
+    .stage-arrow.next { right: 0; }
+    .work-copy { grid-template-columns: auto 1fr; }
+    #work-room { display: none; }
+    .hint { display: none; }
+    .footer-bar { min-height: 52px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true">
+    <img id="ambient-image" src="/arcane_princess_haute_couture.png" alt="">
+  </div>
+
+  <div class="shell">
+    <nav class="museum-nav" aria-label="Main museum navigation">
+      <a href="/" class="museum-logo">Rosarium</a>
+      <div class="nav-items">
+        <a href="/" class="nav-item">Gallery</a>
+        <a href="/arcane.html" class="nav-item">Arcane Princesses</a>
+        <a href="/motion.html" class="nav-item">Motion</a>
+        <a href="/rotunda.html" class="nav-item active" aria-current="page">Rotunda</a>
+      </div>
+    </nav>
+
+    <main class="rotunda">
+      <section class="room-copy" aria-labelledby="page-title">
+        <p class="eyebrow">A circular salon</p>
+        <h1 id="page-title">The<br>Rotunda</h1>
+        <p class="room-intro">One work held in light. Its neighbors waiting in the curve of the room.</p>
+        <div class="collections" role="tablist" aria-label="Rotunda rooms">
+          <button class="collection-button active" role="tab" aria-selected="true" data-room="sovereign">Sovereign</button>
+          <button class="collection-button" role="tab" aria-selected="false" data-room="architecture">Architecture</button>
+          <button class="collection-button" role="tab" aria-selected="false" data-room="geometry">Geometry</button>
+        </div>
+      </section>
+
+      <section class="gallery-stage" aria-label="Circular artwork viewer">
+        <div class="works" id="works"></div>
+        <button class="stage-arrow prev" id="previous" aria-label="Previous work">←</button>
+        <button class="stage-arrow next" id="next" aria-label="Next work">→</button>
+      </section>
+
+      <aside class="work-copy" aria-live="polite">
+        <p class="work-number" id="work-number">I / XII</p>
+        <h2 id="work-title">Arcane Princess Haute Couture</h2>
+        <p id="work-room">The Sovereign Room</p>
+        <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+        <button class="view-button" id="view-work">View the work</button>
+      </aside>
+    </main>
+
+    <footer class="footer-bar">
+      <span class="room-count" id="room-count">Room I · 12 works</span>
+      <span class="hint">Arrow keys to walk the room</span>
+      <button class="play-button" id="play-button">Pause procession</button>
+    </footer>
+  </div>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Artwork detail" aria-hidden="true">
+    <button class="close-button" id="close-lightbox" aria-label="Close artwork detail">×</button>
+    <figure>
+      <img id="lightbox-image" src="" alt="">
+      <figcaption id="lightbox-title"></figcaption>
+    </figure>
+  </div>
+
+  <div class="loading" id="loading">Preparing the room…</div>
+
+<script>
+  (() => {
+    const roomDefinitions = {
+      sovereign: {
+        stream: 'arcane_princess',
+        title: 'The Sovereign Room',
+        shortTitle: 'Sovereign',
+        numeral: 'I',
+        limit: 12
+      },
+      architecture: {
+        stream: 'mansion',
+        title: 'The Architecture Room',
+        shortTitle: 'Architecture',
+        numeral: 'II',
+        limit: 12
+      },
+      geometry: {
+        stream: 'poly4d',
+        title: 'The Geometry Room',
+        shortTitle: 'Geometry',
+        numeral: 'III',
+        limit: 6
+      }
+    };
+
+    const state = {
+      rooms: {},
+      room: 'sovereign',
+      index: 0,
+      playing: !matchMedia('(prefers-reduced-motion: reduce)').matches,
+      timer: null
+    };
+
+    const works = document.getElementById('works');
+    const ambient = document.getElementById('ambient-image');
+    const workNumber = document.getElementById('work-number');
+    const workTitle = document.getElementById('work-title');
+    const workRoom = document.getElementById('work-room');
+    const roomCount = document.getElementById('room-count');
+    const progressBar = document.getElementById('progress-bar');
+    const playButton = document.getElementById('play-button');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightbox-image');
+    const lightboxTitle = document.getElementById('lightbox-title');
+
+    const modulo = (value, length) => ((value % length) + length) % length;
+
+    const roman = number => {
+      const table = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+      let value = number;
+      let result = '';
+      table.forEach(([unit, glyph]) => {
+        while (value >= unit) { result += glyph; value -= unit; }
+      });
+      return result;
+    };
+
+    const cleanName = name => name.includes('__') ? name.slice(name.indexOf('__') + 2) : name;
+
+    const formatName = name => cleanName(name)
+      .replace(/\.(png|jpe?g|webp|gif)$/i, '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, letter => letter.toUpperCase());
+
+    const thumbnailFor = name => '/thumbs/' + name.replace(/\.png$/i, '.webp');
+
+    const fullFor = (name, room) => {
+      if (room !== 'sovereign') return thumbnailFor(name);
+      const clean = cleanName(name);
+      return '/renders/' + clean.replace(/\.webp$/i, '.png');
+    };
+
+    const currentItems = () => state.rooms[state.room] || [];
+    const currentItem = () => currentItems()[state.index];
+
+    function chooseRoomItems(stream, definition) {
+      const source = (stream.play && stream.play.length ? stream.play : stream.all) || [];
+      const chosen = source.slice(0, definition.limit);
+      if (chosen.length < definition.limit && stream.all) {
+        stream.all.forEach(name => {
+          if (chosen.length < definition.limit && !chosen.includes(name)) chosen.push(name);
+        });
+      }
+      return chosen;
+    }
+
+    function buildWorks() {
+      works.replaceChildren();
+      for (let slot = -2; slot <= 2; slot += 1) {
+        const button = document.createElement('button');
+        button.className = 'work';
+        button.type = 'button';
+        button.dataset.slot = String(slot);
+        button.setAttribute('aria-label', slot === 0 ? 'Open current artwork' : 'Select neighboring artwork');
+        const image = document.createElement('img');
+        image.alt = '';
+        button.appendChild(image);
+        button.addEventListener('click', () => {
+          if (slot === 0) openLightbox();
+          else move(slot);
+        });
+        works.appendChild(button);
+      }
+    }
+
+    function updateWorks() {
+      const items = currentItems();
+      if (!items.length) return;
+
+      [...works.children].forEach(button => {
+        const slot = Number(button.dataset.slot);
+        const itemIndex = modulo(state.index + slot, items.length);
+        const item = items[itemIndex];
+        const image = button.querySelector('img');
+        const source = slot === 0 ? fullFor(item, state.room) : thumbnailFor(item);
+
+        button.className = 'work ' + (slot === 0 ? 'slot-0' : slot < 0 ? 'slot-n' + Math.abs(slot) : 'slot-p' + slot);
+        button.dataset.itemIndex = String(itemIndex);
+        image.onerror = () => {
+          image.onerror = null;
+          image.src = thumbnailFor(item);
+        };
+        image.src = source;
+        image.alt = formatName(item);
+      });
+
+      const item = currentItem();
+      const definition = roomDefinitions[state.room];
+      const count = items.length;
+      workNumber.textContent = `${roman(state.index + 1)} / ${roman(count)}`;
+      workTitle.textContent = formatName(item);
+      workRoom.textContent = definition.title;
+      roomCount.textContent = `Room ${definition.numeral} · ${count} works`;
+      progressBar.style.width = `${((state.index + 1) / count) * 100}%`;
+
+      ambient.style.opacity = '0';
+      const nextAmbient = new Image();
+      nextAmbient.onload = () => {
+        ambient.src = nextAmbient.src;
+        ambient.style.opacity = '.2';
+      };
+      nextAmbient.src = thumbnailFor(item);
+    }
+
+    function move(delta) {
+      const items = currentItems();
+      if (!items.length) return;
+      state.index = modulo(state.index + delta, items.length);
+      updateWorks();
+      restartTimer();
+    }
+
+    function selectRoom(room) {
+      if (!state.rooms[room] || !state.rooms[room].length) return;
+      state.room = room;
+      state.index = 0;
+      document.querySelectorAll('.collection-button').forEach(button => {
+        const active = button.dataset.room === room;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+      });
+      updateWorks();
+      restartTimer();
+    }
+
+    function restartTimer() {
+      clearInterval(state.timer);
+      if (!state.playing) return;
+      state.timer = setInterval(() => move(1), 7200);
+    }
+
+    function togglePlaying() {
+      state.playing = !state.playing;
+      playButton.textContent = state.playing ? 'Pause procession' : 'Begin procession';
+      restartTimer();
+    }
+
+    function openLightbox() {
+      const item = currentItem();
+      if (!item) return;
+      lightboxImage.onerror = () => {
+        lightboxImage.onerror = null;
+        lightboxImage.src = thumbnailFor(item);
+      };
+      lightboxImage.src = fullFor(item, state.room);
+      lightboxImage.alt = formatName(item);
+      lightboxTitle.textContent = `${formatName(item)} · ${roomDefinitions[state.room].title}`;
+      lightbox.classList.add('open');
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.getElementById('close-lightbox').focus();
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      document.getElementById('view-work').focus();
+    }
+
+    async function initialize() {
+      buildWorks();
+
+      try {
+        const response = await fetch('/manifest.json');
+        if (!response.ok) throw new Error(`Manifest returned ${response.status}`);
+        const manifest = await response.json();
+
+        Object.entries(roomDefinitions).forEach(([key, definition]) => {
+          const stream = manifest.streams.find(candidate => candidate.id === definition.stream);
+          state.rooms[key] = stream ? chooseRoomItems(stream, definition) : [];
+        });
+
+        if (!state.rooms.sovereign.length) throw new Error('The Sovereign room is empty');
+        updateWorks();
+        restartTimer();
+        document.getElementById('loading').classList.add('done');
+      } catch (error) {
+        console.error(error);
+        const loading = document.getElementById('loading');
+        loading.textContent = 'The room could not be prepared.';
+      }
+    }
+
+    document.getElementById('previous').addEventListener('click', () => move(-1));
+    document.getElementById('next').addEventListener('click', () => move(1));
+    document.getElementById('view-work').addEventListener('click', openLightbox);
+    document.getElementById('close-lightbox').addEventListener('click', closeLightbox);
+    playButton.addEventListener('click', togglePlaying);
+    lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
+    document.querySelectorAll('.collection-button').forEach(button => {
+      button.addEventListener('click', () => selectRoom(button.dataset.room));
+    });
+
+    const stage = document.querySelector('.gallery-stage');
+    let touchStartX = 0;
+    stage.addEventListener('touchstart', event => {
+      touchStartX = event.changedTouches[0].clientX;
+    }, { passive: true });
+    stage.addEventListener('touchend', event => {
+      const distance = event.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(distance) > 45) move(distance < 0 ? 1 : -1);
+    }, { passive: true });
+
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+      else if (!lightbox.classList.contains('open') && event.key === 'ArrowLeft') move(-1);
+      else if (!lightbox.classList.contains('open') && event.key === 'ArrowRight') move(1);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearInterval(state.timer);
+      else restartTimer();
+    });
+
+    initialize();
+  })();
+</script>
+</body>
+</html>

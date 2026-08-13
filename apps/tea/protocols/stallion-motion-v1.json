@@ -1,0 +1,63 @@
+{
+  "schema": "tea.stallion-motion.v1",
+  "title": "Stallion motion graph protocol",
+  "source_contract": {
+    "kind": "atlas_grid_proxy",
+    "columns": 96,
+    "rows": 79,
+    "cells": 7584,
+    "note": "The proxy preserves every recovered atlas cell in index order but only at thumbnail resolution. Replace it with original cells without changing graph/search stages."
+  },
+  "features": {
+    "analysis_size": 32,
+    "background_border": 6,
+    "pose_crop": [0.12, 0.04, 0.88, 0.96],
+    "family_count": 12,
+    "candidate_neighbors": 40
+  },
+  "hard_gates": {
+    "duplicate_distance_min": 0.018,
+    "visual_jump_max": 0.48,
+    "centroid_jump_max": 0.14,
+    "scale_log_jump_max": 0.16,
+    "phase_advance_min": 0.025,
+    "phase_advance_max": 0.34
+  },
+  "edge_weights": {
+    "identity": 0.25,
+    "pose_progression": 0.20,
+    "background": 0.15,
+    "flow": 0.15,
+    "composition": 0.10,
+    "quality": 0.10,
+    "palette": 0.05
+  },
+  "sequence_weights": {
+    "transition": 1.0,
+    "pose_acceleration": 0.34,
+    "visual_acceleration": 0.26,
+    "direction_reversal": 0.55,
+    "revisit": 3.0,
+    "loop_seam": 1.4
+  },
+  "modes": {
+    "spectral_loop": {
+      "description": "Monotonic gait phase with strong loop closure and stable scene family.",
+      "motion_target": 0.16,
+      "jump_tolerance": 0.70,
+      "loop": true
+    },
+    "continuity": {
+      "description": "Lowest-jump whole path with second-order smoothness and strongly penalized reversals.",
+      "motion_target": 0.11,
+      "jump_tolerance": 0.58,
+      "loop": false
+    },
+    "kinetic": {
+      "description": "Larger pose steps while retaining identity, background, and acceleration constraints.",
+      "motion_target": 0.24,
+      "jump_tolerance": 0.86,
+      "loop": false
+    }
+  }
+}

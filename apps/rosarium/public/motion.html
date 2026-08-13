@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090809">
+  <title>Works in Motion — Rosarium</title>
+  <meta name="description" content="Three moving studies from Rosarium: regalia, transformation, flora, and light in continuous form.">
+  <meta property="og:title" content="Works in Motion — Rosarium">
+  <meta property="og:description" content="Regalia, transformation, flora, and light in continuous form.">
+  <meta property="og:image" content="/renders/arcane_princess_haute_couture.png">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&amp;family=Italiana&amp;family=Manrope:wght@300;400;500&amp;family=Pinyon+Script&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/rosarium.css">
+</head>
+<body class="collection-page">
+  <nav class="museum-nav" aria-label="Main museum navigation">
+    <a href="/" class="museum-logo">Rosarium</a>
+    <div class="nav-items">
+      <a href="/" class="nav-item">Gallery</a>
+      <a href="/arcane.html" class="nav-item">Arcane Princesses</a>
+      <a href="/motion.html" class="nav-item" aria-current="page">Motion</a>
+      <a href="/rotunda.html" class="nav-item">Rotunda</a>
+    </div>
+  </nav>
+
+  <header class="collection-hero motion-intro">
+    <div class="hero-copy">
+      <p class="eyebrow">Three Continuous Studies</p>
+      <h1 class="collection-title">Works in Motion</h1>
+      <p class="collection-lede">
+        Still forms begin to breathe: crowns refract, figures pass through one another,
+        and a garden returns to its beginning without ever quite repeating.
+      </p>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <img class="motion-gif" src="/renders/arcane_motion_blend_crown_jewel.gif" alt="">
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="motion-title">
+      <div class="collection-bar">
+        <div>
+          <h2 class="collection-heading" id="motion-title">The Moving Room</h2>
+          <p class="collection-count">Three loops · Continuous play</p>
+        </div>
+      </div>
+
+      <div class="motion-grid">
+        <article class="motion-card">
+          <div class="motion-frame">
+            <img class="motion-gif" src="/renders/arcane_motion_blend_crown_jewel.gif" alt="Crown Jewel figures transforming in a continuous motion study">
+          </div>
+          <div class="motion-copy">
+            <span class="motion-index">Study I · Regalia</span>
+            <h3 class="motion-title">Crown Jewel</h3>
+            <p class="motion-desc">A slow refraction through ceremonial figures, jewel tones, and the architecture of a crown.</p>
+            <a class="motion-link" href="/renders/arcane_motion_blend_crown_jewel.gif" target="_blank" rel="noopener">View at full scale</a>
+          </div>
+        </article>
+
+        <article class="motion-card">
+          <div class="motion-frame">
+            <img class="motion-gif" src="/renders/arcane_motion_blend_master.gif" alt="Arcane Princess forms blending in a continuous motion study" loading="lazy">
+          </div>
+          <div class="motion-copy">
+            <span class="motion-index">Study II · Transformation</span>
+            <h3 class="motion-title">The Arcane Procession</h3>
+            <p class="motion-desc">Portraits move like memory—one sovereign presence resolving into the next.</p>
+            <a class="motion-link" href="/renders/arcane_motion_blend_master.gif" target="_blank" rel="noopener">View at full scale</a>
+          </div>
+        </article>
+
+        <article class="motion-card">
+          <div class="motion-frame">
+            <img class="motion-gif" src="/renders/garden_of_eden_master.gif" alt="A luminous procedural garden moving in a seamless cycle" loading="lazy">
+          </div>
+          <div class="motion-copy">
+            <span class="motion-index">Study III · Flora</span>
+            <h3 class="motion-title">Garden of Eden</h3>
+            <p class="motion-desc">Flora, water, and colored light fold into a garden with no fixed hour.</p>
+            <a class="motion-link" href="/renders/garden_of_eden_master.gif" target="_blank" rel="noopener">View at full scale</a>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="museum-footer">
+    <span>Rosarium · FLUX</span>
+    <a href="/arcane.html">Return to the Arcane Collection</a>
+  </footer>
+
+  <script>
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.motion-gif').forEach(image => {
+        image.src = '/renders/arcane_princess_haute_couture.png';
+        image.alt = 'Still from the Rosarium Arcane collection';
+      });
+    }
+  </script>
+</body>
+</html>

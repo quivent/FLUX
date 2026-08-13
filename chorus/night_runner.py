@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""Drain the step prelude and 48-study beauty queue without overwrites."""
+import argparse
+import fcntl
+import json
+import os
+import pathlib
+import re
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+
+active_child = None
+producer_lock = None
+
+
+def stop_active_child(signum, _frame):
+    """A stack restart must never leave a GPU renderer orphaned."""
+    child = active_child
+    if child is not None and child.poll() is None:
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    raise SystemExit(128 + signum)
+
+
+def run_child(command, env):
+    global active_child
+    active_child = subprocess.Popen(command, env=env, start_new_session=True)
+    try:
+        return active_child.wait()
+    finally:
+        active_child = None
+
+
+def atomic_json(path, value):
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        tmp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def acquire_producer_lock(run_dir):
+    """Enforce Nexus' one-owner decision locally for this runner's lifetime."""
+    global producer_lock
+    run_dir.mkdir(parents=True, exist_ok=True)
+    handle = (run_dir / "producer.lock").open("a+")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        return False
+    handle.seek(0); handle.truncate()
+    handle.write(f"{os.getpid()}\n"); handle.flush()
+    producer_lock = handle
+    return True
+
+
+def nexus_receipt(job_id, kind):
+    """Fail closed unless Nexus admits this named execution."""
+    address = os.environ.get("NEXUS_ADDR", "127.0.0.1:9999")
+    host, port = address.rsplit(":", 1)
+    request = {"type": "submit", "job": {
+        "id": job_id, "kind": kind, "execution_owner": "night-runner",
+    }}
+    with socket.create_connection((host, int(port)), timeout=5) as conn:
+        conn.sendall((json.dumps(request) + "\n").encode())
+        conn.shutdown(socket.SHUT_WR)
+        response = json.loads(conn.makefile().readline())
+    if not all((response.get("ok"), response.get("accepted"),
+                response.get("verified"), response.get("receipt_id"))):
+        raise RuntimeError(f"Nexus refused {job_id}: {response}")
+    return response
+
+
+def slug(value):
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def ledger_generations(path):
+    seen = set()
+    try:
+        for line in path.read_text().splitlines():
+            row = json.loads(line)
+            seen.add(int(row.get("generation") or 0))
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+    return len(seen)
+
+
+def step_values(spec):
+    if ":" in spec:
+        low, high = (int(value) for value in spec.split(":", 1))
+        return list(range(low, high + 1))
+    return sorted({int(value) for value in spec.split(",") if value.strip()})
+
+
+def prelude_snapshot(spec, out, current=None):
+    target = len(step_values(spec["step_range"]))
+    jobs = []
+    for job in spec["jobs"]:
+        for replicate in range(1, int(spec["replicates"]) + 1):
+            job_id = f"step-study-{job['family']}-r{replicate}"
+            sphere = out / "atlas" / f"{job_id}.sphere"
+            count = len(list(sphere.glob(f"{job_id}-steps-*.png")))
+            state = "done" if count >= target else "running" if job_id == current else "queued"
+            jobs.append({"name": job_id.replace("step-study-", "").replace("-", " ").title(),
+                         "slug": job_id, "approved": True, "axis": "denoise depth",
+                         "rendered": count, "target": target, "status": state})
+    return {"schema": "flux.beauty-queue-state.v1", "name": "Adjacent Geometry Prelude",
+            "status": "running", "updated": time.time(), "current": current,
+            "completed_jobs": sum(job["status"] == "done" for job in jobs),
+            "total_jobs": len(jobs), "jobs": jobs}
+
+
+def queue_snapshot(catalog, out, current=None, status="running"):
+    jobs, completed = [], 0
+    for index, job in enumerate(catalog["jobs"]):
+        job_slug = slug(job["name"])
+        target = int(job.get("generations") or catalog["defaults"]["generations"])
+        count = ledger_generations(out / "collections" / job_slug / "creative-drift.jsonl")
+        state = "done" if count >= target else "running" if job_slug == current else "queued"
+        completed += int(state == "done")
+        jobs.append({"index": index, "name": job["name"], "slug": job_slug,
+                     "approved": job.get("approved") is True, "axis": job.get("axis"),
+                     "rendered": count, "target": target, "status": state})
+    return {"schema": "flux.beauty-queue-state.v1", "name": catalog["name"],
+            "status": status, "updated": time.time(), "current": current,
+            "completed_jobs": completed, "total_jobs": len(jobs), "jobs": jobs}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--manifest", default=str(pathlib.Path(__file__).with_name("night-run.json")))
+    ap.add_argument("--python", default=sys.executable)
+    ap.add_argument("--run-dir", default=str(pathlib.Path.home() / ".flux-run"))
+    args = ap.parse_args()
+    signal.signal(signal.SIGTERM, stop_active_child)
+    signal.signal(signal.SIGINT, stop_active_child)
+    manifest_path = pathlib.Path(args.manifest).resolve()
+    if not acquire_producer_lock(pathlib.Path(args.run_dir).expanduser()):
+        print("Nexus production lease already held; refusing a second queue runner", file=sys.stderr)
+        return 75
+    spec = json.loads(manifest_path.read_text())
+    root = manifest_path.parent.parent
+    out = pathlib.Path(spec["out_dir"])
+    state_path = out / "night-run-state.json"
+    queue_path = out / "queue-state.json"
+    jobs = [(job, replicate) for job in spec["jobs"]
+            for replicate in range(1, int(spec["replicates"]) + 1)]
+    state = {"schema": "flux.autonomous-run-state.v1", "name": spec["name"],
+             "total_jobs": len(jobs), "status": "running", "started": time.time()}
+    for index, (job, replicate) in enumerate(jobs):
+        job_id = f"step-study-{job['family']}-r{replicate}"
+        atomic_json(queue_path, prelude_snapshot(spec, out, job_id))
+        state.update({"current_job": job_id, "job_index": index,
+                      "completed_jobs": index, "updated": time.time()})
+        receipt = nexus_receipt(job_id, "flux.adjacent_step_geometry")
+        state["nexus_receipt"] = receipt["receipt_id"]
+        atomic_json(state_path, state)
+        command = [args.python, str(root / "chorus" / "step_sweep.py"),
+                   "--prompt", job["prompt"], "--id", job_id,
+                   "--model-dir", spec["model_dir"], "--out-dir", spec["out_dir"],
+                   "--step-range", spec["step_range"], "--size", str(spec["size"]),
+                   "--guidance", str(spec["guidance"]), "--seed", str(job["seed"])]
+        returncode = run_child(command, {**dict(os.environ),
+                               "FLUX_QUEUE_STATE": str(queue_path),
+                               "FLUX_QUEUE_JOB": job_id})
+        if returncode:
+            state.update({"status": "failed", "failed_job": job_id,
+                          "exit_code": returncode, "updated": time.time()})
+            atomic_json(state_path, state)
+            return returncode
+    state.update({"status": "prelude_done", "completed_jobs": len(jobs),
+                  "prelude_finished": time.time(), "updated": time.time()})
+    atomic_json(state_path, state)
+    catalog = json.loads(pathlib.Path(spec["production_manifest"]).read_text())
+    if len(catalog.get("jobs") or []) != 48 or not all(job.get("approved") is True for job in catalog["jobs"]):
+        raise SystemExit("beauty queue requires exactly 48 explicitly approved jobs")
+    defaults = catalog["defaults"]
+    collections = out / "collections"; collections.mkdir(parents=True, exist_ok=True)
+    for job in catalog["jobs"]:
+        job_slug = slug(job["name"])
+        target = int(job.get("generations") or defaults["generations"])
+        job_out = collections / job_slug; job_out.mkdir(parents=True, exist_ok=True)
+        if ledger_generations(job_out / "creative-drift.jsonl") >= target:
+            continue
+        receipt = nexus_receipt(job_slug, "flux.beauty_collection")
+        state["nexus_receipt"] = receipt["receipt_id"]
+        atomic_json(queue_path, queue_snapshot(catalog, out, job_slug))
+        control = job_out / "drift-control.json"
+        if not control.exists():
+            merged = {key: job.get(key, value) for key, value in defaults.items()
+                      if key not in ("generations", "width", "height", "batch")}
+            merged.update({"phase": "auto", "paused": False, "pinned": {},
+                           "study_prompt": job["focus"], "study_name": job["name"],
+                           "approved": True, "axis": job.get("axis")})
+            atomic_json(control, merged)
+        command = [args.python, str(root / "chorus" / "loop.py"),
+                   "--out-dir", str(job_out), "--model-dir", spec["model_dir"],
+                   "--control", str(control), "--max-generations", str(target),
+                   "--batch", "1", "--width", "512", "--height", "512",
+                   "--steps", str(job.get("steps", defaults["steps"])),
+                   "--guidance", str(job.get("guidance", defaults["guidance"])),
+                   "--mutation-rate", str(job.get("mutation_rate", defaults["mutation_rate"])),
+                   "--latent-max-cosine", str(job.get("latent_max_cosine", defaults["latent_max_cosine"])),
+                   "--style-hold-generations", str(job.get("style_hold_generations", defaults["style_hold_generations"])),
+                   "--phase-hours", str(job.get("phase_hours", defaults["phase_hours"])),
+                   "--seed", str(job["seed"])]
+        returncode = run_child(command, {**dict(os.environ),
+                               "FLUX_OUTPUT_ROOT": str(out),
+                               "FLUX_QUEUE_STATE": str(queue_path),
+                               "FLUX_QUEUE_JOB": job_slug})
+        if returncode:
+            atomic_json(queue_path, queue_snapshot(catalog, out, job_slug, "failed"))
+            return returncode
+    state.update({"status": "done", "finished": time.time(), "updated": time.time()})
+    atomic_json(state_path, state)
+    atomic_json(queue_path, queue_snapshot(catalog, out, status="done"))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
