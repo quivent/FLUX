@@ -142,7 +142,14 @@ def main() -> int:
         reviews = {"schema": "tea.stallion-motion.gpu-reviews.v1", "reviews": {}}
     indexed: dict[str, Any] = reviews.setdefault("reviews", {})
     while not STOP:
-        candidates = sorted(runs_root.glob("*/r*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        stamped: list[tuple[float, pathlib.Path]] = []
+        for path in runs_root.glob("*/r*.json"):
+            try:
+                stamped.append((path.stat().st_mtime, path))
+            except FileNotFoundError:
+                # Retention may displace a result while the reviewer scans.
+                continue
+        candidates = [path for _, path in sorted(stamped, reverse=True)]
         live_keys = {f"{path.parent.name}/{path.stem}" for path in candidates}
         changed = False
         for key in list(indexed):
