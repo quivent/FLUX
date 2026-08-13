@@ -1,5 +1,7 @@
 torch
 torchvision
+numpy
+Pillow
 diffusers
 transformers
 accelerate

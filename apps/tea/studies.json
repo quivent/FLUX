@@ -1,0 +1,59 @@
+[
+  {
+    "id": "stallion-p3-latent-sphere",
+    "label": "The Stallion — Full Latent Sphere",
+    "subject": "A white stallion galloping through a meadow of Sakura trees",
+    "prompt": "A wild stallion, white, galloping through a meadow of Sakura trees",
+    "kind": "atlas sphere",
+    "status": "complete",
+    "source": "Atelier Stallion sphere · completion reported",
+    "n_rows": 1024,
+    "n_cols": 64,
+    "n_latent": 65536,
+    "render_count": 65536,
+    "size": 384,
+    "steps": 40,
+    "batch_size": 24,
+    "mode": "omega",
+    "sample_mode": "spherical_outward",
+    "seed": 7,
+    "note": "The completed source atlas for the current Stallion exhibition. Tea presently shows a 7,584-cell authored exhibition snapshot while the full corpus remains on the original motion server.",
+    "url": "/exhibition/stallion",
+    "featured": true
+  },
+  {
+    "id": "stallion-continuity-graph-01",
+    "label": "Stallion Continuity Graph I",
+    "subject": "Local perceptual transitions across the Stallion sphere",
+    "prompt": "Mine plausible motion paths without assuming atlas index order is temporal.",
+    "kind": "continuity",
+    "status": "designed",
+    "source": "Atelier experiment specification",
+    "render_count": 7584,
+    "n_latent": 65536,
+    "note": "Tests twelve neighboring offsets, directional flow, and perceptual continuity; designed for six CPU shards and twelve 96-frame candidate paths."
+  },
+  {
+    "id": "stallion-continuity-graph-02",
+    "label": "Stallion Continuity Graph II",
+    "subject": "Strict contour, color, histogram, and flow continuity",
+    "prompt": "Reject static pairs and visual jumps, then retain the three strongest local transitions.",
+    "kind": "continuity",
+    "status": "designed",
+    "source": "Atelier experiment specification",
+    "render_count": 7584,
+    "n_latent": 65536,
+    "note": "A stricter second graph with twenty-four candidate offsets, top-k three, and sixteen intended 96-frame paths."
+  },
+  {
+    "id": "horse-gallop-motion-paths",
+    "label": "HorseGallop Motion Paths",
+    "subject": "Three treatments derived from the same equine image field",
+    "prompt": "Chronophotographic ghost, latent morph, and staccato kinetic treatments.",
+    "kind": "motion",
+    "status": "planned",
+    "source": "Atelier HorseGallop execution plan",
+    "note": "Chronophotographic compositing and staccato sequencing are CPU/RAM work; latent morphing remains GPU-intensive.",
+    "url": "/movement"
+  }
+]

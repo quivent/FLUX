@@ -1,0 +1,326 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Images of Beauty — Tea Gallery</title>
+<!-- Tea Gallery — a living public collection. -->
+<style>
+  :root {
+    --base: #05060a;
+    --panel: rgba(255, 255, 255, 0.024);
+    --hair: rgba(255, 255, 255, 0.07);
+    --ink: #edf0f7;
+    --dim: #8b93a7;
+    --cyan: #3ad4e8;
+    --violet: #9d7bff;
+    --magenta: #ff5fa2;
+    --ok: #3ddc97;
+    --warn: #ffc46e;
+    --bad: #ff6470;
+    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 620px at 12% -12%, rgba(157, 123, 255, 0.11), transparent 62%),
+      radial-gradient(900px 520px at 108% 8%, rgba(58, 212, 232, 0.09), transparent 58%),
+      var(--base);
+    color: var(--ink);
+    font-family: var(--display);
+    -webkit-font-smoothing: antialiased;
+  }
+  .label { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+  .num { font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; }
+
+  header {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 18px 24px; border-bottom: 1px solid var(--hair);
+    position: sticky; top: 0; z-index: 5;
+    backdrop-filter: blur(14px); background: rgba(5, 6, 10, 0.82);
+  }
+  .word { font-size: 13px; letter-spacing: 0.44em; text-transform: uppercase; }
+  .word b { font-weight: 600; background: linear-gradient(96deg, var(--cyan), var(--violet) 52%, var(--magenta));
+            -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .collection-mark { margin-left: auto; color: var(--dim); font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+  .collection-mark strong { color: var(--ink); font-size: 12px; font-weight: 500; }
+  .room-nav { display: flex; align-items: center; gap: 17px; font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+  .room-nav a { color: var(--dim); }
+  .room-nav a[aria-current="page"] { color: var(--ink); }
+
+  main { padding: 22px 24px 64px; max-width: 1500px; margin: 0 auto; }
+
+  .bar { display: flex; align-items: baseline; gap: 14px; margin: 26px 0 12px; }
+  .rule { flex: 1; height: 1px; background: var(--hair); }
+
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+  .cell {
+    position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--hair);
+    background: #0a0c13; aspect-ratio: 1; display: block;
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(9px) scale(0.985); } }
+  .cell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+  .cell:hover img { transform: scale(1.045); }
+  .cell figcaption {
+    position: absolute; inset: auto 0 0 0; padding: 20px 10px 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.86));
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cell.fresh { border-color: rgba(58, 212, 232, 0.55); box-shadow: 0 0 0 1px rgba(58, 212, 232, 0.2), 0 0 34px rgba(58, 212, 232, 0.14); }
+
+  .opening {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    min-height: 76px; margin-bottom: 14px; color: var(--dim);
+    transition: opacity .35s ease, min-height .35s ease, margin .35s ease;
+  }
+  .opening.done { opacity: 0; min-height: 0; height: 0; margin: 0; overflow: hidden; }
+  .opening-mark { position: relative; width: 42px; height: 42px; flex: 0 0 auto; animation: turn 7s linear infinite; }
+  .opening-mark i { position: absolute; left: 16px; top: 3px; width: 10px; height: 20px; border-radius: 80% 20% 80% 20%; background: linear-gradient(160deg, #fff, var(--magenta)); transform-origin: 5px 18px; opacity: .82; }
+  .opening-mark i:nth-child(2) { transform: rotate(72deg); }.opening-mark i:nth-child(3) { transform: rotate(144deg); }
+  .opening-mark i:nth-child(4) { transform: rotate(216deg); }.opening-mark i:nth-child(5) { transform: rotate(288deg); }
+  .opening b { display: block; color: var(--ink); font: 400 15px/1.2 var(--display); letter-spacing: .02em; }
+  .opening span:last-child { display: block; margin-top: 5px; font: 10px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  @keyframes turn { to { transform: rotate(360deg); } }
+  .cell.skeleton { border-color: rgba(255,255,255,.045); background: #090b11; pointer-events: none; animation: breatheTile 1.9s ease-in-out infinite alternate; }
+  .cell.skeleton:before { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, transparent 25%, rgba(255,255,255,.045) 42%, rgba(157,123,255,.08) 50%, transparent 68%); transform: translateX(-100%); animation: pass 2.4s ease-in-out infinite; }
+  .cell.skeleton:nth-child(2n) { animation-delay: -.5s; }.cell.skeleton:nth-child(3n) { animation-delay: -1s; }
+  @keyframes pass { 55%,100% { transform: translateX(100%); } }
+  @keyframes breatheTile { to { border-color: rgba(255,183,197,.13); background: #0c0d16; } }
+
+  .empty { padding: 44px; text-align: center; color: var(--dim); font-size: 13px;
+           border: 1px dashed var(--hair); border-radius: 12px; }
+  .empty b { display: block; margin-bottom: 8px; color: var(--ink); font: 400 19px/1.3 var(--display); }
+  .scroll-sentinel { height: 1px; margin-top: 72px; }
+  a { color: inherit; text-decoration: none; }
+</style>
+
+<header>
+  <a class="word" href="/">TEA <b>GALLERY</b></a>
+  <nav class="room-nav" aria-label="Gallery rooms"><a href="/">Garden</a><a href="/gallery/">Images</a><a href="/portraits">Portraits</a><a href="/movement">Motion Work</a><a href="/studies">Studies</a><a href="/exhibition">Exhibition</a></nav>
+  <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
+</header>
+
+<main>
+  <div class="bar">
+    <span class="label" id="collection-name">Images of Beauty</span>
+    <span class="rule"></span>
+    <span class="label num" id="s-shown">0 shown</span>
+  </div>
+  <div class="opening" id="opening" aria-live="polite">
+    <span class="opening-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <span><b>Warming the gallery</b><span>A few works are coming into focus</span></span>
+  </div>
+  <div class="grid" id="grid" aria-busy="true">
+    <span class="cell skeleton"></span><span class="cell skeleton"></span><span class="cell skeleton"></span>
+    <span class="cell skeleton"></span><span class="cell skeleton"></span><span class="cell skeleton"></span>
+  </div>
+  <div id="more" class="scroll-sentinel" hidden aria-hidden="true"></div>
+  <div class="empty" id="empty" style="display:none"><b>The garden is between breaths.</b>New work will appear here as soon as the next frame settles.</div>
+</main>
+
+<script>
+  // Paged, not capped. The wall held 1,184 frames while showing 96, so the
+  // body of work was unreachable from the page that exists to show it.
+  const PAGE = 18, FIRST_REVEAL = 6, REVEAL_MS = 70, PORTRAITS = location.pathname.startsWith('/portraits');
+  let offset = 0, total = 0;
+  let fetching = false, opened = false;
+  const $ = (id) => document.getElementById(id);
+  const seen = new Set();
+  const streamStartedAt = Date.now() / 1000;
+  let baselineReady = false, pendingAssets = [];
+  document.title = PORTRAITS ? 'Portraits — Tea Gallery' : 'Images of Beauty — Tea Gallery';
+  $('collection-name').textContent = PORTRAITS ? 'Portraits' : 'Images of Beauty';
+  document.querySelectorAll('.room-nav a').forEach((a) => a.toggleAttribute('aria-current', PORTRAITS ? a.pathname === '/portraits' : a.pathname.startsWith('/gallery')));
+
+  // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
+  // two proxy hops. The server thumbnails to 384px and caches, so the grid
+  // costs a few KB per tile and the full PNG loads only when one is opened.
+  const thumb = (url) => '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url);
+
+  function preload(im) {
+    const url = im.path || im.url;
+    if (!url) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const image = new Image();
+      const timer = setTimeout(() => resolve(false), 5000);
+      image.onload = () => { clearTimeout(timer); resolve(true); };
+      image.onerror = () => { clearTimeout(timer); resolve(false); };
+      image.src = thumb(url);
+    });
+  }
+
+  function finishOpening(hasImages) {
+    if (opened) return;
+    opened = true;
+    $('grid').querySelectorAll('.skeleton').forEach((tile) => tile.remove());
+    $('grid').setAttribute('aria-busy', 'false');
+    $('opening').classList.add('done');
+    if (!hasImages) $('empty').style.display = '';
+  }
+
+  const LEGACY_TITLES = [
+    'After the Last Light', 'A Room Remembering Rain', 'Gold Beneath Leaves',
+    'The Quiet Witness', 'Before the Weather Turns', 'One Red Mark',
+    'Fire Going Quiet', 'A Door Left Open', 'Blue Hour, Passing',
+    'Study for a Tender Machine', 'The Far Side of Morning', 'Dark Water Holding Light',
+  ];
+
+  function displayName(name, url) {
+    const raw = String(name || url.split('/').pop() || '').replace(/\.png$/i, '');
+    const titled = raw.match(/^(.*?)--g\d{4}-\d{2}-s\d+$/);
+    if (titled) return titled[1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    let hash = 2166136261;
+    for (const ch of raw) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+    return LEGACY_TITLES[(hash >>> 0) % LEGACY_TITLES.length];
+  }
+
+  function addCell(url, name, fresh, append) {
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    const fig = document.createElement('figure');
+    fig.className = 'cell' + (fresh ? ' fresh' : '');
+    fig.style.margin = '0';
+    fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
+      + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
+      + `<figcaption>${displayName(name, url)}</figcaption></a>`;
+    // An asset can be announced a beat before its thumbnail is renderable, and
+    // a broken-image glyph on the wall is worse than one fewer tile. Retry once,
+    // then drop it silently rather than leave a hole that looks like a failure.
+    const img = fig.querySelector('img');
+    img.onerror = () => {
+      if (img.dataset.retried) { fig.remove(); seen.delete(url); return; }
+      img.dataset.retried = '1';
+      setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 1200);
+    };
+    fig.dataset.name = name || '';
+    append ? $('grid').appendChild(fig) : $('grid').prepend(fig);
+    if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
+    $('empty').style.display = 'none';
+    $('s-collection').textContent = total || seen.size;
+    updateShown();
+    return true;
+  }
+
+  function updateShown() {
+    const cells = Array.from($('grid').querySelectorAll('.cell:not(.skeleton)'));
+    $('s-shown').textContent = cells.length + (total ? ' of ' + total : '') + ' shown';
+  }
+
+  async function fetchJSON(path) {
+    const r = await fetch(path, { cache: 'no-store' });
+    if (!r.ok) throw new Error(path + ' -> ' + r.status);
+    return r.json();
+  }
+
+  async function revealSequentially(images, firstPage) {
+    if (firstPage) {
+      const first = images.slice(0, FIRST_REVEAL);
+      await Promise.race([
+        Promise.all(first.map(preload)),
+        new Promise((resolve) => setTimeout(resolve, 2200)),
+      ]);
+      finishOpening(images.length > 0);
+    }
+    for (const im of images) {
+      addCell(im.path || im.url, im.name, false, true);
+      await new Promise((resolve) => setTimeout(resolve, REVEAL_MS));
+    }
+  }
+
+  async function backfill() {
+    if (fetching) return;
+    fetching = true;
+    const firstPage = offset === 0;
+    try {
+      const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=' + PAGE + '&offset=' + offset);
+      total = j.total || 0;
+      $('s-collection').textContent = total;
+      offset += (j.images || []).length;
+      $('more').hidden = offset >= total;
+      // `path` before `url`: the server builds `url` absolute against its own
+      // origin, which behind a gateway is the capability URL. Loading images
+      // from that would leak the origin and break the page every time the
+      // endpoint rotates. A same-origin path survives both.
+      await revealSequentially(j.images || [], firstPage);
+      if (firstPage) {
+        baselineReady = true;
+        const queued = pendingAssets;
+        pendingAssets = [];
+        queued.forEach(onAssetEvent);
+      }
+    } catch (e) {
+      if (offset === 0) finishOpening(false);
+    }
+    finally {
+      if (firstPage && !baselineReady) {
+        baselineReady = true;
+        const queued = pendingAssets;
+        pendingAssets = [];
+        queued.forEach(onAssetEvent);
+      }
+      fetching = false;
+      requestAnimationFrame(fillViewport);
+    }
+  }
+
+  function fillViewport() {
+    const sentinel = $('more');
+    if (!sentinel.hidden && sentinel.getBoundingClientRect().top < innerHeight + 800) backfill();
+  }
+
+  new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting) && !$('more').hidden) backfill();
+  }, { rootMargin: '800px 0px' }).observe($('more'));
+
+  // The WebSocket is the branch's asset lane; SSE is the fallback that shipped
+  // before it. Falling back rather than failing keeps this page working
+  // against an older server binary on the same node.
+  function stream() {
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/assets/ws');
+    let opened = false;
+    ws.onopen = () => { opened = true; };
+    ws.onmessage = (m) => onAsset(m.data);
+    ws.onclose = () => {
+      opened ? setTimeout(stream, 2000) : sse();
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  function sse() {
+    const es = new EventSource('/api/assets/events');
+    // The server deliberately names this stream event `asset`; onmessage only
+    // receives unnamed events and left the fallback connected but inert.
+    es.addEventListener('asset', (m) => onAsset(m.data));
+    es.onerror = () => { es.close(); setTimeout(stream, 2000); };
+  }
+
+  function onAsset(raw) {
+    let ev;
+    try { ev = JSON.parse(raw); } catch { return; }
+    if (ev.event && ev.event !== 'ASSET_READY') return;
+    if (ev.replay || Number(ev.ts || 0) < streamStartedAt - 1) return; // replay never increments the collection
+    if (!baselineReady) { pendingAssets.push(ev); return; }
+    onAssetEvent(ev);
+  }
+
+  function onAssetEvent(ev) {
+    const asset = ev.asset || ev;
+    const url = asset.access_url || asset.url;
+    if (!url) return;
+    const isPortrait = String(url).startsWith('/outputs/collections/');
+    if (PORTRAITS !== isPortrait || String(url).startsWith('/outputs/atlas/')) return;
+    // The public wall grows from its top-left corner. History appends below;
+    // a newly landed work enters first and the existing collection makes room.
+    if (!addCell(url, asset.name, true)) return;
+    total += 1;
+    offset += 1;
+    $('s-collection').textContent = total;
+    updateShown();
+  }
+
+  backfill(); stream();
+</script>

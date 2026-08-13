@@ -10,7 +10,7 @@ import (
 // The public wall presents art, not the machinery that makes or judges it.
 // Operational state belongs in an operator surface even when it is useful.
 func TestPublicGalleryHidesProductionMachinery(t *testing.T) {
-	page, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "atelier-flux", "index.html"))
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestPublicGalleryHidesProductionMachinery(t *testing.T) {
 }
 
 func TestGalleryCountsOnlyNewPushedAssets(t *testing.T) {
-	page, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "atelier-flux", "index.html"))
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestGalleryCountsOnlyNewPushedAssets(t *testing.T) {
 }
 
 func TestGalleryLoadsContinuouslyOnScroll(t *testing.T) {
-	page, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "atelier-flux", "index.html"))
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestGalleryLoadsContinuouslyOnScroll(t *testing.T) {
 }
 
 func TestMotionWorkAlwaysMovesAndKeepsArrivalGrid(t *testing.T) {
-	page, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "atelier-flux", "movement.html"))
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "movement.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,13 +103,15 @@ func TestMotionWorkAlwaysMovesAndKeepsArrivalGrid(t *testing.T) {
 func TestPublicNavigationNeverDisplacesAWork(t *testing.T) {
 	root := repoRoot(t)
 	pages := []string{
-		filepath.Join(root, "web", "tea", "index.html"),
-		filepath.Join(root, "web", "atelier-flux", "index.html"),
-		filepath.Join(root, "web", "atelier-flux", "movement.html"),
-		filepath.Join(root, "web", "atelier-flux", "exhibition.html"),
-		filepath.Join(root, "web", "atelier-flux", "stallion.html"),
+		filepath.Join(root, "apps", "tea", "public", "index.html"),
+		filepath.Join(root, "apps", "tea", "public", "gallery.html"),
+		filepath.Join(root, "apps", "tea", "public", "movement.html"),
+		filepath.Join(root, "apps", "tea", "public", "studies.html"),
+		filepath.Join(root, "apps", "tea", "public", "stallion-lab.html"),
+		filepath.Join(root, "apps", "tea", "public", "exhibition.html"),
+		filepath.Join(root, "apps", "tea", "public", "stallion.html"),
 	}
-	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/exhibition"`}
+	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/studies"`, `href="/exhibition"`}
 	for _, page := range pages {
 		raw, err := os.ReadFile(page)
 		if err != nil {
@@ -125,7 +127,7 @@ func TestPublicNavigationNeverDisplacesAWork(t *testing.T) {
 
 func TestStallionIsACompleteSingleExhibition(t *testing.T) {
 	root := repoRoot(t)
-	raw, err := os.ReadFile(filepath.Join(root, "web", "atelier-flux", "stallion.html"))
+	raw, err := os.ReadFile(filepath.Join(root, "apps", "tea", "public", "stallion.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +143,7 @@ func TestStallionIsACompleteSingleExhibition(t *testing.T) {
 			t.Errorf("single Stallion exhibition missing %q", token)
 		}
 	}
-	index, err := os.ReadFile(filepath.Join(root, "web", "atelier-flux", "exhibition.html"))
+	index, err := os.ReadFile(filepath.Join(root, "apps", "tea", "public", "exhibition.html"))
 	if err != nil {
 		t.Fatal(err)
 	}

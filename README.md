@@ -78,6 +78,7 @@ Second-pass features:
   paths, geometry, quality, traversal, and cross-frame cache settings.
 - `serve`: local HTTP API and dashboard backed by the Unix socket worker.
 - `gallery`: museum-style live gallery backed by the same server and event streams.
+- `tea`: setup, validate, and serve the isolated Tea garden and motion gallery in `apps/tea`.
 - `apps/rosarium`: recovered Rosarium museum, FLUX production lineage,
   motion works, and local catalog of 7,218 available works.
 - `render --async`: queue jobs on the worker.
