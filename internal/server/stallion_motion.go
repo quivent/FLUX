@@ -302,6 +302,14 @@ func (s Server) stallionMotionStatus() (map[string]any, error) {
 		status["contact_sheet_url"] = "/studies/stallion/results/" + runID + "/" + sheet
 	}
 	status["manifest_url"] = "/studies/stallion/results/" + runID + "/manifest.json"
+	source, sourceErr := stallionNativeSource()
+	status["runtime_protocol"] = "tea.stallion-motion.v2"
+	status["source_ready"] = sourceErr == nil
+	if sourceErr != nil {
+		status["source_error"] = sourceErr.Error()
+	} else {
+		status["native_source"] = source
+	}
 	return status, nil
 }
 
