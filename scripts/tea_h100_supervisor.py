@@ -67,19 +67,22 @@ def spawn(name: str, command: list[str], env: dict[str, str], pid_file: pathlib.
 def ensure_server() -> dict[str, object]:
     pid_file = RUN / "server.pid"
     healthy = False
-    if process_matches(pid_file, "tea serve"):
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:7861/api/health", timeout=2) as response:
-                healthy = response.status == 200
-        except OSError:
-            healthy = False
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:7861/api/health", timeout=2) as response:
+            healthy = response.status == 200
+    except OSError:
+        healthy = False
     if not healthy:
         pid = spawn("server", [
             str(HOME / "tea-motion/flux"), "tea", "serve", "--addr", "0.0.0.0:7861",
             "--public-read-only", "--unsafe-no-auth",
-        ], {"OUT_DIR": str(FLUX_OUTPUT), "FLUX_PYTHON": "/usr/bin/python3"}, pid_file)
+        ], {
+            "OUT_DIR": str(FLUX_OUTPUT), "FLUX_PYTHON": "/usr/bin/python3",
+            "TEA_STALLION_CELL_DIR": str(NATIVE_CELLS),
+        }, pid_file)
         return {"state": "restarted", "pid": pid}
-    return {"state": "running", "pid": int(pid_file.read_text())}
+    pid = int(pid_file.read_text()) if process_matches(pid_file, "tea serve") else 0
+    return {"state": "running", "pid": pid}
 
 
 def ensure_reviewer() -> dict[str, object]:

@@ -1,6 +1,15 @@
 {
   "schema": "tea.stallion-motion.v2",
   "title": "Native object-centric Stallion motion protocol",
+  "governor_review": {
+    "event_id": "memory_20260813_032143.948060431_d6f7ff5e1fff",
+    "resolved_falsifications": [
+      "cumulative per-edge background drift",
+      "alternating latent-state gait collision",
+      "equal-area mask centroid and boundary pop"
+    ],
+    "go_no_go": "A 24-frame native film fails on any edge failure, latent revisit, pose reversal, or cumulative background displacement above 0.050 frame diagonal."
+  },
   "source_contract": {
     "kind": "native_cells_only",
     "minimum_cells": 8,

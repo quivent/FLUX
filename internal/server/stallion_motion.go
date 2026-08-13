@@ -416,7 +416,15 @@ func (s Server) startStallionMotion(w http.ResponseWriter, r *http.Request) {
 func stallionNativeSource() (string, error) {
 	source := strings.TrimSpace(os.Getenv("TEA_STALLION_CELL_DIR"))
 	if source == "" {
-		return "", errors.New("native Stallion cells are not configured; set TEA_STALLION_CELL_DIR to the cell_*.png directory")
+		if home, err := os.UserHomeDir(); err == nil {
+			conventional := filepath.Join(home, "models", "stallion-native", "spheremap_atlas_parametergridatl_1781801154422_0.sphere")
+			if info, statErr := os.Stat(conventional); statErr == nil && info.IsDir() {
+				source = conventional
+			}
+		}
+		if source == "" {
+			return "", errors.New("native Stallion cells are not configured; set TEA_STALLION_CELL_DIR to the cell_*.png directory")
+		}
 	}
 	absolute, err := filepath.Abs(source)
 	if err != nil {
