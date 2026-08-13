@@ -5,3 +5,5 @@ function drawMap(){
   const c=$("mapCanvas"),d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;
   const x=c.getContext("2d");x.scale(d,d);x.strokeStyle="#55e7ee22";x.lineWidth=.7;
   for(let i=0;i<18;i++){x.beginPath();x.ellipse(r.width/2,r.height/2,r.width*(.12+i*.027),r.height*(.42-i*.009),0,0,Math.PI*2);x.stroke()}
+  for(let i=0;i<15;i++){x.beginPath();x.moveTo(i*r.width/14,0);x.quadraticCurveTo(r.width/2,r.height/2,(14-i)*r.width/14,r.height);x.stroke()}
+}

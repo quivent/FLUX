@@ -1,5 +1,4 @@
 // presets.js
-}
 document.querySelectorAll("[data-run]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-run]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.runType=b.dataset.run});
 document.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-study]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.studyType=b.dataset.study;updateJobReady()});
 const presets={continuity:{mode:"elliptic",seedLock:.58,shellScale:1.02,shellCoupling:.7,cacheThreshold:.22,rates:[.18,.06,-.04,.04,-.02,.01]},cinema:{mode:"elliptic",seedLock:.3,shellScale:1.12,shellCoupling:.92,cacheThreshold:.3,rates:[.32,.11,-.09,.08,-.06,.04]},parallax:{mode:"omega",seedLock:.2,shellScale:1.34,shellCoupling:1.45,cacheThreshold:.24,rates:[.5,.28,-.16,.22,-.12,.09]},dream:{mode:"omega",seedLock:.12,shellScale:1.55,shellCoupling:.55,cacheThreshold:.34,rates:[.72,-.38,.44,.31,-.27,.19]},sway:{mode:"sway",seedLock:.42,shellScale:1.08,shellCoupling:1.1,cacheThreshold:.27,rates:[.24,.09,-.05,.07,-.03,.02]}};
@@ -24,3 +23,6 @@ $("clearErrors").onclick=async()=>{
     if(!r.ok||!j.ok)throw Error(j.error||"Could not clear failed jobs");
     toast(`Cleared ${(j.removed||[]).length} failed job${(j.removed||[]).length===1?"":"s"}`);
     refreshJobs();
+  }catch(e){toast(e.message)}
+  finally{state.clearing=false}
+};

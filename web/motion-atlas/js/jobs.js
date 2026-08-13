@@ -92,5 +92,25 @@ function renderJobFeed(j){
   document.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{const job=allJobs.find(x=>x.id===b.dataset.job);if(!job)return;state.pinnedJob=job.id;state.activeJob=job.id;state.shownJob=null;sessionStorage.setItem("motionAtlasJob",job.id);acceptAssetJob(job.id);clearPrefilled();state.frames=[];const strip=$("filmstrip");if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());state.hydratedJobs.delete(job.id);hydrateJobAssets(job.id);showJobProgress(job)});
 }
 async function refreshJobs(){try{const r=await fetch("/api/jobs"),j=await r.json();renderJobFeed(j)}catch{}}
-function connectStreams(){const jobs=new EventSource("/api/jobs/events");jobs.addEventListener("jobs",e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(!data)return;try{const shown=state.pinnedJob||state.shownJob;if(shown)acceptAssetJob(shown);else (data.jobs||[]).filter(x=>String(x.status).toLowerCase()==="running").slice(0,1).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}});jobs.onerror=()=>{$("workerState").textContent="RECONNECTING"};const gpu=new EventSource("/api/telemetry/events");gpu.addEventListener("gpu",e=>{try{renderGPU(JSON.parse(e.data).gpu)}catch{}});gpu.onerror=()=>{};const processes=new EventSource("/api/telemetry/processes/events");processes.addEventListener("process",e=>{try{renderGPUProcess(JSON.parse(e.data))}catch{}});const assets=new EventSource("/api/assets/events");assets.addEventListener("asset",e=>{try{const event=JSON.parse(e.data);if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}});assets.onerror=()=>{const el=$("stageMessage");if(el&&el.querySelector("span"))el.querySelector("span").textContent="Piper reconnecting to the asset socket."};const model=new EventSource("/api/model/events");model.addEventListener("model",e=>{try{renderModel(JSON.parse(e.data))}catch{}})}
+// connectSocket replaces the old per-feed EventSource with a real WebSocket:
+// EventSource auto-reconnects on its own, a raw WebSocket doesn't, so that
+// reconnect-with-backoff is reimplemented here explicitly, once, shared by
+// every feed (jobs/telemetry/processes/assets/model).
+function connectSocket(path,onData,onReconnecting){
+  const url=(location.protocol==="https:"?"wss://":"ws://")+location.host+path;
+  let ws,closedByUs=false,retries=0;
+  const connect=()=>{
+    ws=new WebSocket(url);
+    ws.onopen=()=>{retries=0};
+    ws.onmessage=e=>{let data=null;try{data=JSON.parse(e.data)}catch{}if(data)onData(data)};
+    ws.onerror=()=>{ws.close()};
+    // Exponential backoff with jitter, capped at 10s: without this, every
+    // open tab reconnects in lockstep on a fixed timer after any blip,
+    // hammering the server the instant it's back.
+    ws.onclose=()=>{if(closedByUs)return;onReconnecting&&onReconnecting();const delay=Math.min(1000*2**retries,10000)+Math.random()*300;retries++;setTimeout(connect,delay)};
+  };
+  connect();
+  return{close:()=>{closedByUs=true;ws&&ws.close()}};
+}
+function connectStreams(){connectSocket("/api/jobs/ws",data=>{try{const shown=state.pinnedJob||state.shownJob;if(shown)acceptAssetJob(shown);else (data.jobs||[]).filter(x=>String(x.status).toLowerCase()==="running").slice(0,1).forEach(x=>acceptAssetJob(x.id))}catch{}try{const hasRunning=(data.jobs||[]).some(j=>j.status==="running"||j.status==="queued");if(hasRunning&&!state.slideshowTimer){state.slideshowTimer=setInterval(playFrame,340)}else if(!hasRunning&&state.slideshowTimer){clearInterval(state.slideshowTimer);state.slideshowTimer=null}}catch{}try{renderJobFeed(data)}catch{}},()=>{$("workerState").textContent="RECONNECTING"});connectSocket("/api/telemetry/ws",data=>{try{renderGPU(data.gpu)}catch{}});connectSocket("/api/telemetry/processes/ws",data=>{try{renderGPUProcess(data)}catch{}});connectSocket("/api/assets/ws",event=>{try{if(state.acceptedAssetJobs.has(event.job_id))ingestAssetEvent(event);else{const pending=state.pendingAssets.get(event.job_id)||[];pending.push(event);state.pendingAssets.set(event.job_id,pending)}}catch{}},()=>{const el=$("stageMessage");if(el&&el.querySelector("span"))el.querySelector("span").textContent="Piper reconnecting to the asset socket."});connectSocket("/api/model/ws",data=>{try{renderModel(data)}catch{}})}
 async function modelAction(path){try{const r=await fetch(path,{method:"POST"}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"Model action failed");$("modelMessage").textContent=String(j.status||"Working").toUpperCase();$("modelProgressBar").classList.add("busy")}catch(e){toast(e.message)}}

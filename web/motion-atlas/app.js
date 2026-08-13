@@ -8,9 +8,9 @@ const resumedJob=sessionStorage.getItem("motionAtlasJob");
 // across a reload. Shape: {start,end,cells}.
 const resumedRange=(()=>{try{const r=JSON.parse(sessionStorage.getItem("motionAtlasRange")||"null");return r&&Number.isFinite(r.end)?r:null}catch{return null}})();
 const state={studyType:null,runType:"path",activeJob:resumedJob,lastRange:resumedRange,started:0,frames:[],assetSide:"A",acceptedAssetJobs:new Set(),hydratedJobs:new Set(),pendingAssets:new Map(),gpuProcesses:new Map(),preview:new Map(),selectedFlavor:null,model:{known:false,downloaded:false,loaded:false,pendingPreview:!resumedJob},discovery:{started:false,stopped:false,level:0,jobs:new Map(),ready:new Set()}};
-const pageStudies=[
 
 // studies.js
+const pageStudies=[
   ["Lanterns Across the Salt Observatory","At blue hour, a solitary white stag crosses a flooded marble observatory suspended above the sea; each measured step sends constellations trembling through reflected water while brass instruments, salt-worn columns, and distant storm light recede in exact cinematic perspective. A continuous lateral tracking shot, anatomically precise, luminous but restrained, quiet awe, coherent physical space, no text or ornament on the animal."],
   ["The Orchard Remembers the Wind","An ancient pear orchard bends beneath a lucid summer storm as a red fox runs between silvered trunks, loose petals and rain moving in layered parallax. Low tracking camera, precise animal anatomy, wet earth reflecting intermittent sky fire, restrained painterly realism, one continuous physical world, stable identity and graceful sequential motion."],
   ["Procession Through the Glass Tides","A small procession of pale horses walks across translucent tidal flats at dawn, their reflections descending into a submerged city of arches and gardens. Slow elevated camera drift, measured hoof movement, atmospheric depth, exact perspective, quiet ceremonial scale, consistent anatomy and identity, continuous cinematic motion without cuts."],
@@ -43,10 +43,10 @@ function drawMap(){
   const c=$("mapCanvas"),d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;
   const x=c.getContext("2d");x.scale(d,d);x.strokeStyle="#55e7ee22";x.lineWidth=.7;
   for(let i=0;i<18;i++){x.beginPath();x.ellipse(r.width/2,r.height/2,r.width*(.12+i*.027),r.height*(.42-i*.009),0,0,Math.PI*2);x.stroke()}
-
-// submit.js
   for(let i=0;i<15;i++){x.beginPath();x.moveTo(i*r.width/14,0);x.quadraticCurveTo(r.width/2,r.height/2,(14-i)*r.width/14,r.height);x.stroke()}
 }
+
+// submit.js
 function updateRange(){
   const start=numeric("indexStart"),cells=numeric("cells"),end=Math.min(ATLAS_FIELD,start+cells);
   $("indexStartOut").value=start.toLocaleString();$("cellsOut").value=`${cells.toLocaleString()} cells`;
@@ -313,6 +313,8 @@ function playFrame(){
   state.playIndex=base+(((state.playIndex??base)-base+1)%window);
   showStageFrame(state.frames[state.playIndex]);
 }
+
+// fuel.js
 function humanDuration(sec){
   if(!Number.isFinite(sec)||sec<=0)return "—";
   if(sec<90)return Math.ceil(sec)+"s";
@@ -382,43 +384,10 @@ function tickProgress(){
     if(remaining>0)$("eta").textContent=remaining<90?Math.ceil(remaining)+" sec":(remaining/60).toFixed(1)+" min";
   }
   renderEtaBar();
-
-// fuel.js
-  $("fuelLabel").textContent=remaining>0?(rate>0?`${humanDuration(seconds)} of work`:`${remaining.toLocaleString()} cells`):"IDLE";
-  $("statRunning").textContent=runningJobs.length;
-  $("statPending").textContent=queuedJobs.length;
-  $("statFailed").textContent=failedJobs.length;
-  $("statFailed").parentElement.classList.toggle("warn",failedJobs.length>0);
-  // Nothing running is only worth flagging when work is queued behind it; an
-  // empty queue is idle, not a fault.
-  const stalled=runningJobs.length===0&&queuedJobs.length>0;
-  $("statRunning").parentElement.classList.toggle("warn",stalled);
-  const clear=$("clearErrors");
-  if(clear)clear.disabled=failedJobs.length===0||!!state.clearing;
-  state.failedJobIds=failedJobs.map(x=>x.id);
-  $("fuelDetail").textContent=remaining>0
-    ?`${remaining.toLocaleString()} cells remaining${rate>0?` · ${rate.toFixed(2)} fps`:" · rate unknown"}`
-    :state.activeJob?"Queue complete":(state.lastRange?"Idle · Continue extends the atlas":"Idle — ready to launch");
-  tank.classList.toggle("idle",remaining===0);
-  tank.classList.toggle("stalled",stalled);
-  tank.classList.toggle("low",remaining>0&&rate>0&&seconds<FUEL_LOW_SEC);
-  updateContinue();
 }
-function tickProgress(){
-  const p=state.progress;
-  if(!p||!(p.total>0))return;
-  const projected=p.rate>0?Math.min(p.total,p.done+p.rate*((Date.now()-p.at)/1000)):p.done;
-  $("progressBar").style.width=(projected/p.total*100).toFixed(2)+"%";
-  $("progressText").textContent=`${Math.floor(projected).toLocaleString()} / ${p.total.toLocaleString()}`;
-  if(p.rate>0){
-    const remaining=(p.total-projected)/p.rate;
-    if(remaining>0)$("eta").textContent=remaining<90?Math.ceil(remaining)+" sec":(remaining/60).toFixed(1)+" min";
-  }
-  renderEtaBar();
-}
-async function prefillRecent(){
 
 // prefill.js
+async function prefillRecent(){
   if(state.frames.length)return;
   try{
     const r=await fetch("/api/recent-images?limit=48"),j=await r.json();
@@ -437,9 +406,9 @@ function clearPrefilled(){
   state.frames=[];
   const strip=$("filmstrip");
   if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());
+}
 
 // presets.js
-}
 document.querySelectorAll("[data-run]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-run]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.runType=b.dataset.run});
 document.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-study]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.studyType=b.dataset.study;updateJobReady()});
 const presets={continuity:{mode:"elliptic",seedLock:.58,shellScale:1.02,shellCoupling:.7,cacheThreshold:.22,rates:[.18,.06,-.04,.04,-.02,.01]},cinema:{mode:"elliptic",seedLock:.3,shellScale:1.12,shellCoupling:.92,cacheThreshold:.3,rates:[.32,.11,-.09,.08,-.06,.04]},parallax:{mode:"omega",seedLock:.2,shellScale:1.34,shellCoupling:1.45,cacheThreshold:.24,rates:[.5,.28,-.16,.22,-.12,.09]},dream:{mode:"omega",seedLock:.12,shellScale:1.55,shellCoupling:.55,cacheThreshold:.34,rates:[.72,-.38,.44,.31,-.27,.19]},sway:{mode:"sway",seedLock:.42,shellScale:1.08,shellCoupling:1.1,cacheThreshold:.27,rates:[.24,.09,-.05,.07,-.03,.02]}};
@@ -464,11 +433,11 @@ $("clearErrors").onclick=async()=>{
     if(!r.ok||!j.ok)throw Error(j.error||"Could not clear failed jobs");
     toast(`Cleared ${(j.removed||[]).length} failed job${(j.removed||[]).length===1?"":"s"}`);
     refreshJobs();
-
-// init.js
   }catch(e){toast(e.message)}
   finally{state.clearing=false}
 };
+
+// init.js
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
 $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();refreshJobs();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
 
@@ -501,4 +470,3 @@ $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlas
   const lbl=$("systemLabel");
   if(lbl){lbl.textContent=done>=rows.length-1?"READY":done>0?"PARTIAL":"OFFLINE";lbl.style.color=done>=rows.length-1?"#34d399":done>0?"#fbbf24":"#ff5f6d"}
 })();
-

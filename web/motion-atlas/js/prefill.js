@@ -1,4 +1,5 @@
 // prefill.js
+async function prefillRecent(){
   if(state.frames.length)return;
   try{
     const r=await fetch("/api/recent-images?limit=48"),j=await r.json();
@@ -17,3 +18,4 @@ function clearPrefilled(){
   state.frames=[];
   const strip=$("filmstrip");
   if(strip)strip.querySelectorAll("img").forEach(x=>x.remove());
+}

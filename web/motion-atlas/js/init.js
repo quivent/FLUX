@@ -1,7 +1,4 @@
 // init.js
-  }catch(e){toast(e.message)}
-  finally{state.clearing=false}
-};
 $("downloadModel").onclick=()=>modelAction("/api/model/download");$("loadModel").onclick=()=>modelAction("/api/model/load");
 $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlasTitle",$("id").value);sessionStorage.setItem("motionAtlasPrompt",$("prompt").value);sessionStorage.setItem("motionAtlasSeed",$("seed").value);updateJobReady()});document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;if(e.key==="ArrowLeft"){e.preventDefault();cycleFrame(-1)}if(e.key==="ArrowRight"){e.preventDefault();cycleFrame(1)}});seedPage();drawMap();updateRange();updateGeometryHelp();updateJobReady();refreshJobs();connectStreams();prefillRecent();setInterval(tickProgress,200);window.addEventListener("resize",drawMap);
 
@@ -34,4 +31,3 @@ $("atlasForm").addEventListener("input",()=>{sessionStorage.setItem("motionAtlas
   const lbl=$("systemLabel");
   if(lbl){lbl.textContent=done>=rows.length-1?"READY":done>0?"PARTIAL":"OFFLINE";lbl.style.color=done>=rows.length-1?"#34d399":done>0?"#fbbf24":"#ff5f6d"}
 })();
-
