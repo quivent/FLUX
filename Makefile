@@ -23,7 +23,7 @@ VENV_PY := $(VENV)/bin/python
 GMAN_FLUX := scripts/gman-flux.sh
 NODE ?= flux-worker
 
-.PHONY: chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
+.PHONY: tea-setup tea-check tea-dev tea-rubric chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
 
 help:
 	@echo "Targets:"
@@ -32,6 +32,10 @@ help:
 	@echo "  make generate   Generate one image with PROMPT='...'"
 	@echo "  make flux       Build and install ~/.local/bin/flux"
 	@echo "  make install    Alias for make flux"
+	@echo "  make tea-setup  Build Tea and verify its isolated app suite"
+	@echo "  make tea-check  Run Tea, server, and object-motion rubric checks"
+	@echo "  make tea-dev    Serve Tea locally on DEV_ADDR"
+	@echo "  make tea-rubric Run the fail-closed Stallion adversarial fixtures"
 	@echo "  make motion-install  Install all Motion Atlas dependencies and model"
 	@echo "  make motion-dev      Install and serve Motion Atlas locally"
 	@echo "  make motion-prod     Install and serve Motion Atlas on PROD_ADDR (auth required)"
@@ -158,6 +162,20 @@ flux: go-build
 	./flux install
 
 install: flux
+
+tea-setup: setup go-build
+	./flux tea setup
+
+tea-rubric:
+	PYTHONPATH=scripts python3 -m unittest scripts/test_stallion_motion_rubric.py -v
+
+tea-check: go-build tea-rubric
+	./flux tea check
+	go test ./internal/server ./cmd/flux
+	python3 -m py_compile scripts/stallion_motion_graph.py scripts/stallion_motion_rubric.py scripts/stallion_gpu_reviewer.py scripts/stallion_cognition_loop.py scripts/tea_h100_supervisor.py
+
+tea-dev: go-build
+	./flux tea dev --addr "$(DEV_ADDR)"
 
 motion-install: setup flux
 	./flux atlas motion --backend "$(BACKEND)" --setup-only

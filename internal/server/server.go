@@ -318,6 +318,13 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/portraits/", s.portraits)
 	mux.HandleFunc("/movement", s.movement)
 	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/studies", s.teaStudiesPage)
+	mux.HandleFunc("/studies/", s.teaStudiesPage)
+	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
+	mux.HandleFunc("/studies/stallion", s.stallionMotionLab)
+	mux.HandleFunc("/studies/stallion/", s.stallionMotionLab)
+	mux.HandleFunc("/studies/stallion/results/", s.stallionMotionResult)
+	mux.HandleFunc("/api/studies/stallion-motion", s.stallionMotionAPI)
 	mux.HandleFunc("/sentinel", s.sentinelPage)
 	mux.HandleFunc("/sentinel/", s.sentinelPage)
 	mux.HandleFunc("/exhibition", s.exhibition)
@@ -368,12 +375,18 @@ var readOnlyPaths = []string{
 	"/gallery",
 	"/portraits",
 	"/movement",
+	"/studies",
 	"/sentinel",
 	"/exhibition",
 	"/atelier",
+	// Motion Atlas may be browsed from the public listener, but all of its
+	// generation controls remain blocked because this gate also requires GET
+	// or HEAD and does not expose the render/model mutation routes.
+	"/motion-atlas",
 	"/outputs/",
 	"/api/health",
 	"/api/recent-images",
+	"/api/studies",
 	"/api/sentinel",
 	// Without this the gallery falls back to full-size PNGs -- megabytes per
 	// tile, across two proxy hops.
@@ -468,7 +481,7 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "tea", "index.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
 }
 
 // app keeps the production console available without asking a public landing
@@ -546,7 +559,7 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", name))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 }
 
 // movement presents one live authored path. The exhibition is a second,
@@ -560,7 +573,7 @@ func (s Server) movement(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "movement.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "movement.html"))
 }
 
 func (s Server) portraits(w http.ResponseWriter, r *http.Request) {
@@ -572,7 +585,7 @@ func (s Server) portraits(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "index.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 }
 
 func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
@@ -584,7 +597,7 @@ func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "sentinel.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "sentinel.html"))
 }
 
 func (s Server) sentinelState() ([]byte, error) {
@@ -640,7 +653,7 @@ func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/exhibition" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "exhibition.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "exhibition.html"))
 		return
 	}
 	name := strings.TrimPrefix(r.URL.Path, "/exhibition/")
@@ -649,7 +662,7 @@ func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if name == "stallion" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "stallion.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "stallion.html"))
 		return
 	}
 	allowed := map[string]bool{
@@ -667,7 +680,7 @@ func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "atelier-flux", "assets", name))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "assets", name))
 }
 
 // legacyAtelier preserves links shared while the wall still carried its

@@ -50,6 +50,8 @@ func main() {
 		err = architecture(cfg)
 	case "atelier":
 		err = atelier(cfg, os.Args[2:])
+	case "tea":
+		err = tea(cfg, os.Args[2:])
 	case "atlas":
 		err = atlas(cfg, os.Args[2:])
 	case "anime":
@@ -321,6 +323,112 @@ func atelier(cfg config.Config, args []string) error {
 	default:
 		return fmt.Errorf("unknown atelier command %q; use studies", args[0])
 	}
+}
+
+func tea(cfg config.Config, args []string) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		ui.Header("tea", "living image garden and motion gallery")
+		ui.Suite("subcommands", ui.Teal, []ui.PairRow{
+			{"setup", "install the shared FLUX runtime and validate Tea assets"},
+			{"check", "verify the isolated app bundle without starting a server"},
+			{"dev", "serve Tea locally with its FLUX API and live streams"},
+			{"serve", "same as dev; supports auth and a public read-only mode"},
+		})
+		return nil
+	}
+	switch strings.ToLower(args[0]) {
+	case "setup":
+		if len(args) != 1 {
+			return errors.New("usage: flux tea setup")
+		}
+		if err := setup(cfg); err != nil {
+			return err
+		}
+		return teaCheck(cfg)
+	case "check", "doctor":
+		if len(args) != 1 {
+			return errors.New("usage: flux tea check")
+		}
+		return teaCheck(cfg)
+	case "dev", "serve", "start":
+		return teaServe(cfg, args[1:])
+	default:
+		return fmt.Errorf("unknown tea command %q; use setup, check, dev, or serve", args[0])
+	}
+}
+
+func teaCheck(cfg config.Config) error {
+	root := filepath.Join(cfg.Root, "apps", "tea", "public")
+	required := []string{
+		"index.html", "gallery.html", "movement.html", "studies.html", "stallion-lab.html", "exhibition.html", "stallion.html", "sentinel.html",
+		"../studies.json",
+		"../protocols/stallion-motion-v2.json",
+		"assets/bell-learns-the-wind-contact.jpg",
+		"assets/bell-learns-the-wind-manifest.json",
+		"assets/bell-learns-the-wind.mp4",
+		"assets/stallion-atlas-contact.jpg",
+		"assets/stallion-atlas-exhibition.mp4",
+		"assets/stallion-atlas-grid.jpg",
+		"assets/stallion-atlas-poster.jpg",
+		"assets/stallion-gait-poster.jpg",
+		"assets/stallion-gait-projection.mp4",
+	}
+	var missing []string
+	for _, rel := range required {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil || info.IsDir() || info.Size() == 0 {
+			missing = append(missing, rel)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("Tea app is incomplete under %s; missing or empty: %s", root, strings.Join(missing, ", "))
+	}
+	ui.Header("tea check", "app bundle ready")
+	ui.KV("root", root)
+	ui.KV("pages", "garden gallery movement studies exhibition sentinel")
+	ui.KV("runtime", "shared FLUX HTTP server and worker")
+	ui.KV("assets", fmt.Sprintf("%d required files present", len(required)))
+	return nil
+}
+
+func teaServe(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("tea serve", flag.ContinueOnError)
+	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
+	token := fs.String("token", "", "HTTP bearer token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
+	publicReadOnly := fs.Bool("public-read-only", false, "serve Tea and safe GETs; refuse GPU mutations")
+	open := fs.Bool("open", false, "open Tea in the default browser")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := teaCheck(cfg); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	cfg.Backend = strings.ToLower(*backend)
+	resolvedToken := resolveToken(*token, *tokenEnv)
+	if publicBindAddr(*addr) && resolvedToken == "" && !*unsafeNoAuth {
+		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
+	}
+	url := "http://" + *addr + "/"
+	ui.Header("tea", "living image garden over the FLUX runtime")
+	ui.KV("url", url)
+	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
+	ui.KV("backend", cfg.Backend)
+	ui.KV("outputs", cfg.OutputDir)
+	if *publicReadOnly {
+		ui.KV("public", "read-only presentation and event streams")
+	}
+	if *open {
+		server.OpenBrowser(url)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken, PublicReadOnly: *publicReadOnly})
 }
 
 func atelierStudies(cfg config.Config, args []string) error {
@@ -2617,7 +2725,7 @@ func serve(cfg config.Config, args []string) error {
 	ui.KV("worker", "starts on first render or POST /api/warm")
 	ui.KV("model", cfg.ModelDir)
 	if *publicReadOnly {
-		ui.KV("public", "read-only: /atelier /outputs /api/health /api/recent-images /api/assets /api/jobs")
+		ui.KV("public", "read-only: /atelier /motion-atlas /outputs /api/health /api/recent-images /api/assets /api/jobs")
 	}
 	ui.KV("client", fmt.Sprintf("flux remote status --url http://%s", *addr))
 	if *open {

@@ -1,0 +1,110 @@
+{
+  "schema": "tea.stallion-motion.v2",
+  "title": "Native object-centric Stallion motion protocol",
+  "governor_review": {
+    "event_id": "memory_20260813_032143.948060431_d6f7ff5e1fff",
+    "resolved_falsifications": [
+      "cumulative per-edge background drift",
+      "alternating latent-state gait collision",
+      "equal-area mask centroid and boundary pop"
+    ],
+    "go_no_go": "A 24-frame native film fails on any edge failure, latent revisit, pose reversal, or cumulative background displacement above 0.050 frame diagonal."
+  },
+  "source_contract": {
+    "kind": "native_cells_only",
+    "minimum_cells": 8,
+    "minimum_native_side": 256,
+    "uniform_dimensions": true,
+    "atlas_composites_allowed": false,
+    "interpolation_allowed": false,
+    "delivery": "literal native PNG stitches; H.264 encoding only after object-rubric approval"
+  },
+  "topology": {
+    "order": "row_serpentine",
+    "layouts": [
+      {"cells": 7584, "rows": 79, "columns": 96, "meaning": "authored presentation subset"},
+      {"cells": 65536, "rows": 1024, "columns": 64, "meaning": "completed latent sphere"}
+    ],
+    "candidate_offsets": [
+      [0, 1], [0, 2], [0, 3], [0, 4],
+      [1, -2], [1, -1], [1, 0], [1, 1], [1, 2],
+      [2, -2], [2, -1], [2, 0], [2, 1], [2, 2],
+      [-1, -1], [-1, 0], [-1, 1],
+      [-2, -1], [-2, 0], [-2, 1]
+    ],
+    "law": "Topology proposes candidates. Perceptual object continuity decides whether they survive."
+  },
+  "features": {
+    "analysis_size": 128,
+    "background_border": 18,
+    "pose_crop": [0.08, 0.02, 0.92, 0.98],
+    "family_count": 16,
+    "candidate_neighbors": 20
+  },
+  "hard_gates": {
+    "duplicate_distance_min": 0.020,
+    "visual_jump_max": 0.46,
+    "centroid_jump_max": 0.10,
+    "scale_log_jump_max": 0.12,
+    "phase_advance_min": 0.020,
+    "phase_advance_max": 0.30
+  },
+  "object_rubric": {
+    "foreground_motion_min": 0.014,
+    "foreground_motion_max": 0.180,
+    "foreground_motion_target": 0.060,
+    "background_motion_max": 0.010,
+    "camera_motion_max": 0.008,
+    "foreground_background_ratio_min": 2.50,
+    "silhouette_change_min": 0.035,
+    "silhouette_change_max": 0.380,
+    "foreground_acceleration_max": 0.055,
+    "mask_confidence_min": 0.72,
+    "mask_area_min": 0.06,
+    "mask_area_max": 0.72,
+    "mirror_symmetry_max": 0.76,
+    "mask_centroid_shift_max": 0.060,
+    "mask_boundary_change_max": 0.250,
+    "cumulative_background_displacement_max": 0.050,
+    "latent_state_revisits": 0,
+    "pose_direction_reversals": 0,
+    "publication_rule": "Every transition must pass; one inverse or symmetric edge rejects the entire film."
+  },
+  "edge_weights": {
+    "identity": 0.20,
+    "pose_progression": 0.28,
+    "background": 0.24,
+    "flow": 0.12,
+    "composition": 0.08,
+    "quality": 0.05,
+    "palette": 0.03
+  },
+  "sequence_weights": {
+    "transition": 1.0,
+    "pose_acceleration": 0.50,
+    "visual_acceleration": 0.32,
+    "direction_reversal": 0.85,
+    "revisit": 3.0,
+    "loop_seam": 2.0
+  },
+  "modes": {
+    "spectral_loop": {
+      "description": "Closed asymmetric gait along declared sphere adjacency; every edge passes object motion.",
+      "motion_target": 0.14,
+      "jump_tolerance": 0.55,
+      "loop": true
+    },
+    "continuity": {
+      "description": "Stable environment with coherent stallion articulation and no camera substitution.",
+      "motion_target": 0.10,
+      "jump_tolerance": 0.48,
+      "loop": false
+    },
+    "kinetic": {
+      "description": "Larger but bounded stallion articulation; background and camera gates remain unchanged.",
+      "motion_target": 0.20,
+      "jump_tolerance": 0.62,
+      "loop": false
+    }
+  }
+}
