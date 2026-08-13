@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Continuously add neural optical-flow evidence to Stallion motion studies.
+"""Object-centric GPU gate for native Stallion motion candidates.
 
-The CPU miners remain the proposal engine. This reviewer consumes only retained
-candidate paths, uses RAFT-Small on the H100 to measure warp residual and flow
-acceleration, and writes a bounded sidecar index for the Tea gallery.
+RAFT is measured separately inside and outside a semantic horse mask.  Raw
+background translation is reported as camera motion, residual background flow
+is reported independently, and only articulated foreground motion can pass.
+This reviewer refuses the presentation atlas and never renders frames.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import json
 import os
 import pathlib
 import signal
+import subprocess
 import time
 from typing import Any
 
@@ -20,6 +22,12 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision.models.optical_flow import Raft_Small_Weights, raft_small
+from torchvision.models.segmentation import (
+    DeepLabV3_MobileNet_V3_Large_Weights,
+    deeplabv3_mobilenet_v3_large,
+)
+
+from stallion_motion_rubric import PairEvidence, evaluate_sequence
 
 
 STOP = False
@@ -36,32 +44,79 @@ def atomic_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def proportional_boxes(width: int, height: int, cols: int, rows: int) -> list[tuple[int, int, int, int]]:
-    return [
-        (round(col * width / cols), round(row * height / rows),
-         round((col + 1) * width / cols), round((row + 1) * height / rows))
-        for row in range(rows) for col in range(cols)
-    ]
-
-
-class Atlas:
-    def __init__(self, path: pathlib.Path, side: int) -> None:
-        with Image.open(path) as image:
-            self.grid = image.convert("RGB").copy()
-        self.boxes = proportional_boxes(self.grid.width, self.grid.height, 96, 79)
+class NativeCorpus:
+    def __init__(self, path: pathlib.Path, side: int, minimum_side: int = 256) -> None:
+        if not path.is_dir():
+            raise RuntimeError(
+                "source-integrity gate: GPU review requires native cell_*.png files, not an atlas image"
+            )
+        self.paths = tuple(sorted(path.glob("cell_*.png")))
+        if not self.paths:
+            raise RuntimeError(f"no native cell_*.png files under {path}")
+        with Image.open(self.paths[0]) as first:
+            self.native_size = first.size
+        if min(self.native_size) < minimum_side:
+            raise RuntimeError(
+                f"source-integrity gate: native cells are {self.native_size}, require at least {minimum_side}px"
+            )
         self.side = side
         self.cache: dict[int, torch.Tensor] = {}
+
+    def image(self, index: int) -> Image.Image:
+        if not 0 <= index < len(self.paths):
+            raise IndexError(f"cell index {index} outside native corpus of {len(self.paths)}")
+        with Image.open(self.paths[index]) as image:
+            if image.size != self.native_size:
+                raise RuntimeError(
+                    f"source-integrity gate: {self.paths[index].name} is {image.size}, expected {self.native_size}"
+                )
+            return image.convert("RGB").copy()
 
     def tensor(self, index: int) -> torch.Tensor:
         cached = self.cache.get(index)
         if cached is not None:
             return cached
-        tile = self.grid.crop(self.boxes[index]).resize((self.side, self.side), Image.Resampling.BICUBIC)
-        value = torch.from_numpy(np.asarray(tile, dtype=np.uint8).copy()).permute(2, 0, 1).float().div_(255.0)
-        if len(self.cache) >= 7584:
+        image = self.image(index).resize((self.side, self.side), Image.Resampling.BICUBIC)
+        value = torch.from_numpy(np.asarray(image, dtype=np.uint8).copy()).permute(2, 0, 1).float().div_(255.0)
+        if len(self.cache) >= 512:
             self.cache.clear()
         self.cache[index] = value
         return value
+
+
+class HorseSegmenter:
+    def __init__(self, side: int) -> None:
+        weights = DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT
+        categories = [str(value).lower() for value in weights.meta["categories"]]
+        if "horse" not in categories:
+            raise RuntimeError("semantic segmentation weights do not expose a horse class")
+        self.horse_class = categories.index("horse")
+        self.transform = weights.transforms()
+        self.model = deeplabv3_mobilenet_v3_large(weights=weights).eval().cuda()
+        self.side = side
+        self.cache: dict[int, tuple[torch.Tensor, float]] = {}
+
+    @torch.inference_mode()
+    def masks(self, corpus: NativeCorpus, indices: list[int]) -> tuple[torch.Tensor, list[float]]:
+        missing = [index for index in dict.fromkeys(indices) if index not in self.cache]
+        for offset in range(0, len(missing), 16):
+            batch_indices = missing[offset:offset + 16]
+            batch = torch.stack([self.transform(corpus.image(index)) for index in batch_indices]).cuda()
+            logits = self.model(batch)["out"]
+            probability = logits.softmax(1)[:, self.horse_class:self.horse_class + 1]
+            probability = F.interpolate(
+                probability, (self.side, self.side), mode="bilinear", align_corners=False,
+            )[:, 0]
+            masks = probability >= 0.30
+            for index, mask, confidence_map in zip(batch_indices, masks, probability):
+                confidence = float(confidence_map[mask].mean().item()) if bool(mask.any()) else 0.0
+                self.cache[index] = (mask.cpu(), confidence)
+            if len(self.cache) > 2048:
+                keep = {index: self.cache[index] for index in indices if index in self.cache}
+                self.cache = keep
+        masks = torch.stack([self.cache[index][0] for index in indices]).cuda(non_blocking=True)
+        confidence = [self.cache[index][1] for index in indices]
+        return masks, confidence
 
 
 def pairs_for(result: dict[str, Any]) -> list[tuple[int, int]]:
@@ -72,49 +127,133 @@ def pairs_for(result: dict[str, Any]) -> list[tuple[int, int]]:
     return pairs
 
 
-@torch.inference_mode()
-def review(model: torch.nn.Module, atlas: Atlas, pairs: list[tuple[int, int]], batch_size: int) -> dict[str, Any]:
-    residuals: list[float] = []
-    mean_vectors: list[list[float]] = []
-    magnitudes: list[float] = []
-    for offset in range(0, len(pairs), batch_size):
-        batch = pairs[offset:offset + batch_size]
-        first = torch.stack([atlas.tensor(a) for a, _ in batch]).cuda(non_blocking=True)
-        second = torch.stack([atlas.tensor(b) for _, b in batch]).cuda(non_blocking=True)
-        first, second = first.mul(2).sub(1), second.mul(2).sub(1)
-        flow = model(first, second)[-1]
-        b, _, h, w = flow.shape
-        yy, xx = torch.meshgrid(
-            torch.arange(h, device=flow.device), torch.arange(w, device=flow.device), indexing="ij"
-        )
-        x = (xx[None] + flow[:, 0]) * (2.0 / max(1, w - 1)) - 1.0
-        y = (yy[None] + flow[:, 1]) * (2.0 / max(1, h - 1)) - 1.0
-        warped = F.grid_sample(second, torch.stack([x, y], dim=-1), align_corners=True, padding_mode="border")
-        residual = (first - warped).abs().mean((1, 2, 3)).mul(0.5)
-        vector = flow.mean((2, 3)) / float(atlas.side)
-        magnitude = torch.linalg.vector_norm(flow, dim=1).mean((1, 2)) / float(atlas.side)
-        residuals.extend(residual.cpu().tolist())
-        mean_vectors.extend(vector.cpu().tolist())
-        magnitudes.extend(magnitude.cpu().tolist())
-    vectors = np.asarray(mean_vectors, dtype=np.float32)
-    acceleration = np.linalg.norm(np.diff(vectors, axis=0), axis=1) if len(vectors) > 1 else np.zeros(1)
-    neural_score = (
-        0.50 * float(np.mean(residuals))
-        + 0.25 * float(np.percentile(residuals, 95))
-        + 0.20 * float(np.mean(acceleration))
-        + 0.05 * float(np.std(magnitudes))
+def is_v2_candidate(path: pathlib.Path) -> bool:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        value.get("schema") == "tea.stallion-motion.proposal.v2"
+        and value.get("protocol") == "tea.stallion-motion.v2"
     )
+
+
+def masked_median(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    selected = values[:, mask]
+    if selected.shape[1] == 0:
+        return torch.zeros(values.shape[0], device=values.device, dtype=values.dtype)
+    return selected.median(dim=1).values
+
+
+def mirror_iou(mask: torch.Tensor) -> float:
+    points = torch.nonzero(mask, as_tuple=False)
+    if not len(points):
+        return 1.0
+    y0, x0 = points.min(0).values.tolist()
+    y1, x1 = points.max(0).values.tolist()
+    crop = mask[y0:y1 + 1, x0:x1 + 1]
+    mirror = crop.flip(1)
+    union = (crop | mirror).sum().clamp_min(1)
+    return float((crop & mirror).sum().float().div(union).item())
+
+
+@torch.inference_mode()
+def review(
+    flow_model: torch.nn.Module,
+    segmenter: HorseSegmenter,
+    corpus: NativeCorpus,
+    pairs: list[tuple[int, int]],
+    batch_size: int,
+) -> dict[str, Any]:
+    raw: list[dict[str, float]] = []
+    foreground_vectors: list[np.ndarray] = []
+    for offset in range(0, len(pairs), batch_size):
+        batch_pairs = pairs[offset:offset + batch_size]
+        flat_indices = [value for pair in batch_pairs for value in pair]
+        masks, confidences = segmenter.masks(corpus, flat_indices)
+        first_masks, second_masks = masks[0::2], masks[1::2]
+        union_masks = first_masks | second_masks
+        # Keep segmentation uncertainty out of the background measurement.
+        dilated_masks = F.max_pool2d(union_masks[:, None].float(), 11, stride=1, padding=5)[:, 0] > 0
+        background_masks = ~dilated_masks
+
+        first = torch.stack([corpus.tensor(a) for a, _ in batch_pairs]).cuda(non_blocking=True)
+        second = torch.stack([corpus.tensor(b) for _, b in batch_pairs]).cuda(non_blocking=True)
+        flow = flow_model(first.mul(2).sub(1), second.mul(2).sub(1))[-1]
+        for position in range(len(batch_pairs)):
+            bg = background_masks[position]
+            fg = union_masks[position]
+            camera = masked_median(flow[position], bg)
+            compensated = flow[position] - camera[:, None, None]
+            magnitude = torch.linalg.vector_norm(compensated, dim=0) / float(corpus.side)
+            background_motion = float(masked_median(magnitude[None], bg)[0].item())
+            foreground_motion = float(masked_median(magnitude[None], fg)[0].item())
+            foreground_vector = masked_median(compensated, fg).div(float(corpus.side))
+            foreground_vectors.append(foreground_vector.cpu().numpy())
+            intersection = (first_masks[position] & second_masks[position]).sum().float()
+            union = (first_masks[position] | second_masks[position]).sum().clamp_min(1).float()
+            silhouette_change = 1.0 - float((intersection / union).item())
+            raw.append({
+                "foreground_motion": foreground_motion,
+                "background_motion": background_motion,
+                "camera_motion": float(torch.linalg.vector_norm(camera).div(float(corpus.side)).item()),
+                "silhouette_change": silhouette_change,
+                "mask_confidence": min(confidences[position * 2:position * 2 + 2]),
+                "mask_area": float((first_masks[position].float().mean() + second_masks[position].float().mean()).mul(0.5).item()),
+                "mirror_symmetry": max(mirror_iou(first_masks[position]), mirror_iou(second_masks[position])),
+            })
+
+    for index, row in enumerate(raw):
+        acceleration = 0.0
+        if index:
+            acceleration = float(np.linalg.norm(foreground_vectors[index] - foreground_vectors[index - 1]))
+        row["foreground_acceleration"] = acceleration
+    evidence = [PairEvidence(**row) for row in raw]
+    rubric = evaluate_sequence(evidence)
     return {
-        "schema": "tea.stallion-motion.gpu-review.v1",
-        "model": "raft-small-c-t-v2",
+        "schema": "tea.stallion-motion.gpu-review.v2",
+        "models": ["raft-small-c-t-v2", "deeplabv3-mobilenet-v3-large-horse"],
+        "source_kind": "native_cells",
+        "source_dimensions": list(corpus.native_size),
+        "measurement_resolution": [corpus.side, corpus.side],
         "pair_count": len(pairs),
-        "neural_score": neural_score,
-        "mean_warp_residual": float(np.mean(residuals)),
-        "p95_warp_residual": float(np.percentile(residuals, 95)),
-        "mean_flow_magnitude": float(np.mean(magnitudes)),
-        "mean_flow_acceleration": float(np.mean(acceleration)),
+        "qualified": rubric["qualified"],
+        "neural_score": rubric["score"],
+        "failures": rubric["failures"],
+        "qualified_fraction": rubric["qualified_fraction"],
+        "object_rubric": rubric,
         "reviewed_at": time.time(),
     }
+
+
+def publish_native_video(corpus: NativeCorpus, result: dict[str, Any], result_path: pathlib.Path) -> tuple[str, str]:
+    """Encode only accepted source cells; never resize, interpolate, or annotate."""
+    stem = result_path.stem
+    frames_dir = result_path.parent / f"{stem}-native-frames"
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    for prior in frames_dir.glob("frame_*.png"):
+        prior.unlink(missing_ok=True)
+    indices = [int(value) for value in result["indices"]]
+    if bool(result.get("loop")) and indices:
+        indices.append(indices[0])
+    for position, index in enumerate(indices):
+        os.symlink(corpus.paths[index].resolve(), frames_dir / f"frame_{position:05d}.png")
+    video_name = f"{stem}.mp4"
+    command = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-framerate", str(max(1, int(result.get("fps", 10)))),
+        "-i", str(frames_dir / "frame_%05d.png"),
+        "-c:v", "libx264", "-preset", "medium", "-crf", "12",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        str(result_path.parent / video_name),
+    ]
+    subprocess.run(command, check=True, timeout=240)
+    # Preserve one literal source symlink for the poster; remove the remaining
+    # indexing links. The source corpus itself is never copied or modified.
+    for frame in frames_dir.glob("frame_*.png"):
+        if frame.name != "frame_00000.png":
+            frame.unlink(missing_ok=True)
+    return video_name, f"{frames_dir.name}/frame_00000.png"
 
 
 def main() -> int:
@@ -122,34 +261,32 @@ def main() -> int:
     parser.add_argument("--source", required=True)
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--side", type=int, default=256)
-    parser.add_argument("--batch-size", type=int, default=12)
-    parser.add_argument("--poll", type=float, default=0.15)
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--poll", type=float, default=0.5)
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, stop_requested)
     signal.signal(signal.SIGINT, stop_requested)
     if not torch.cuda.is_available():
-        raise SystemExit("CUDA is required for the Stallion GPU reviewer")
+        raise SystemExit("CUDA is required for the Stallion object reviewer")
     torch.backends.cudnn.benchmark = True
-    weights = Raft_Small_Weights.DEFAULT
-    model = raft_small(weights=weights, progress=True).eval().cuda()
-    atlas = Atlas(pathlib.Path(args.source), max(64, args.side // 8 * 8))
+    side = max(128, args.side // 8 * 8)
+    corpus = NativeCorpus(pathlib.Path(args.source), side)
+    segmenter = HorseSegmenter(side)
+    flow_weights = Raft_Small_Weights.DEFAULT
+    flow_model = raft_small(weights=flow_weights, progress=True).eval().cuda()
     root = pathlib.Path(args.output_root).resolve()
     runs_root = root / "runs"
     reviews_path = root / "gpu-reviews.json"
     try:
         reviews = json.loads(reviews_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        reviews = {"schema": "tea.stallion-motion.gpu-reviews.v1", "reviews": {}}
+        reviews = {"schema": "tea.stallion-motion.gpu-reviews.v2", "reviews": {}}
     indexed: dict[str, Any] = reviews.setdefault("reviews", {})
     while not STOP:
-        stamped: list[tuple[float, pathlib.Path]] = []
-        for path in runs_root.glob("*/r*.json"):
-            try:
-                stamped.append((path.stat().st_mtime, path))
-            except FileNotFoundError:
-                # Retention may displace a result while the reviewer scans.
-                continue
-        candidates = [path for _, path in sorted(stamped, reverse=True)]
+        candidates = sorted(
+            (path for path in runs_root.glob("*/r*.json") if is_v2_candidate(path)),
+            key=lambda path: path.stat().st_mtime, reverse=True,
+        )
         live_keys = {f"{path.parent.name}/{path.stem}" for path in candidates}
         changed = False
         for key in list(indexed):
@@ -171,21 +308,25 @@ def main() -> int:
                 pairs = pairs_for(result)
                 if not pairs:
                     continue
-                evidence = review(model, atlas, pairs, max(1, args.batch_size))
+                evidence = review(flow_model, segmenter, corpus, pairs, max(1, args.batch_size))
                 key = f"{path.parent.name}/{path.stem}"
                 indexed[key] = evidence
+                if evidence["qualified"]:
+                    video, poster = publish_native_video(corpus, result, path)
+                    result["video"] = video
+                    result["poster"] = poster
                 result["gpu_review"] = evidence
                 atomic_json(path, result)
                 reviews["updated_at"] = time.time()
                 reviews["review_count"] = len(indexed)
                 atomic_json(reviews_path, reviews)
-                print(json.dumps({"key": key, "neural_score": evidence["neural_score"]}), flush=True)
-            except (OSError, json.JSONDecodeError, RuntimeError) as exc:
+                print(json.dumps({"key": key, "qualified": evidence["qualified"], "score": evidence["neural_score"]}), flush=True)
+            except (OSError, json.JSONDecodeError, RuntimeError, IndexError, subprocess.SubprocessError) as exc:
                 if "out of memory" in str(exc).lower() and args.batch_size > 1:
                     torch.cuda.empty_cache()
                     args.batch_size = max(1, args.batch_size // 2)
                 print(json.dumps({"path": str(path), "error": str(exc)}), flush=True)
-                time.sleep(0.2)
+                time.sleep(0.5)
     return 0
 
 

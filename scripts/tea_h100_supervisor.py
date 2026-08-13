@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Node-local supervision for the continuous Tea H100 study pipeline."""
+"""Node-local supervision for the fail-closed Tea H100 study pipeline."""
 from __future__ import annotations
 
 import json
@@ -17,14 +17,24 @@ RUN = HOME / "tea-motion/run"
 LOGS = HOME / "tea-motion/logs"
 OUTPUT = HOME / "models/tea-motion-output/studies/stallion-motion"
 FLUX_OUTPUT = HOME / "models/flux-output"
+NATIVE_CELLS = pathlib.Path(os.environ.get(
+    "TEA_STALLION_CELL_DIR",
+    str(HOME / "models/stallion-native/spheremap_atlas_parametergridatl_1781801154422_0.sphere"),
+))
 STOP = False
 MINERS = (
     (1, "spectral_loop", 101, 2), (2, "continuity", 211, 3), (3, "kinetic", 307, 4),
     (4, "spectral_loop", 401, 5), (5, "continuity", 503, 6), (6, "kinetic", 607, 7),
-    (7, "spectral_loop", 701, 8), (8, "continuity", 809, 9), (9, "kinetic", 907, 10),
-    (10, "spectral_loop", 1009, 11), (11, "continuity", 1201, 0), (12, "kinetic", 1303, 1),
-    (13, "spectral_loop", 1409, 12), (14, "continuity", 1511, 13),
 )
+
+
+def source_ready() -> tuple[bool, str]:
+    if not NATIVE_CELLS.is_dir():
+        return False, f"native source absent: {NATIVE_CELLS}"
+    cells = list(NATIVE_CELLS.glob("cell_*.png"))
+    if len(cells) not in (7584, 65536):
+        return False, f"native source has {len(cells)} cells; require declared topology 7584 or 65536"
+    return True, f"{len(cells)} native cells ready"
 
 
 def stop_requested(_signal: int, _frame: object) -> None:
@@ -73,14 +83,26 @@ def ensure_server() -> dict[str, object]:
 
 
 def ensure_reviewer() -> dict[str, object]:
+    # This function is reached only after source_ready in the main loop.
     pid_file = RUN / "gpu-reviewer.pid"
     if process_matches(pid_file, "stallion_gpu_reviewer.py"):
         return {"state": "running", "pid": int(pid_file.read_text())}
     pid = spawn("gpu-reviewer", [
         "/usr/bin/python3", "scripts/stallion_gpu_reviewer.py",
-        "--source", "apps/tea/public/assets/stallion-atlas-grid.jpg",
-        "--output-root", str(OUTPUT), "--side", "256", "--batch-size", "12", "--poll", "0.15",
+        "--source", str(NATIVE_CELLS),
+        "--output-root", str(OUTPUT), "--side", "256", "--batch-size", "8", "--poll", "0.5",
     ], {"CUDA_VISIBLE_DEVICES": "0"}, pid_file)
+    return {"state": "restarted", "pid": pid}
+
+
+def ensure_cognition() -> dict[str, object]:
+    pid_file = RUN / "cognition.pid"
+    if process_matches(pid_file, "stallion_cognition_loop.py"):
+        return {"state": "running", "pid": int(pid_file.read_text())}
+    pid = spawn("cognition", [
+        "/usr/bin/python3", "scripts/stallion_cognition_loop.py",
+        "--output-root", str(OUTPUT), "--poll", "10",
+    ], {}, pid_file)
     return {"state": "restarted", "pid": pid}
 
 
@@ -92,8 +114,8 @@ def ensure_miner(number: int, mode: str, seed: int, core: int) -> dict[str, obje
     run_id = f"stallion-motion-h100-{name}-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}-{time.time_ns() % 1_000_000:06d}"
     pid = spawn(name, [
         "taskset", "-c", str(core), "/usr/bin/python3", "scripts/stallion_motion_graph.py",
-        "--source", "apps/tea/public/assets/stallion-atlas-grid.jpg",
-        "--protocol", "apps/tea/protocols/stallion-motion-v1.json",
+        "--source", str(NATIVE_CELLS),
+        "--protocol", "apps/tea/protocols/stallion-motion-v2.json",
         "--output-root", str(OUTPUT), "--run-id", run_id, "--modes", mode,
         "--frames", "24", "--fps", "10", "--seed", str(seed), "--continuous",
         "--round-pause", "0.25", "--retain", "128",
@@ -106,9 +128,22 @@ def main() -> int:
     signal.signal(signal.SIGINT, stop_requested)
     RUN.mkdir(parents=True, exist_ok=True)
     while not STOP:
+        ready, source_message = source_ready()
+        if not ready:
+            status = {
+                "schema": "tea.h100-supervisor.v2", "updated_at": time.time(),
+                "server": ensure_server(), "source": {"ready": False, "message": source_message},
+                "cognition": ensure_cognition(), "gpu_reviewer": {"state": "gated"}, "miners": [],
+            }
+            tmp = RUN / "supervisor-status.json.tmp"
+            tmp.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            tmp.replace(RUN / "supervisor-status.json")
+            time.sleep(5)
+            continue
         status = {
-            "schema": "tea.h100-supervisor.v1", "updated_at": time.time(),
-            "server": ensure_server(), "gpu_reviewer": ensure_reviewer(),
+            "schema": "tea.h100-supervisor.v2", "updated_at": time.time(),
+            "source": {"ready": True, "message": source_message},
+            "server": ensure_server(), "cognition": ensure_cognition(), "gpu_reviewer": ensure_reviewer(),
             "miners": [ensure_miner(*spec) for spec in MINERS],
         }
         tmp = RUN / "supervisor-status.json.tmp"

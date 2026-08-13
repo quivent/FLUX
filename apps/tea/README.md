@@ -65,12 +65,12 @@ the existing API/event routes.
 
 ## Stallion motion protocol
 
-The lab uses [`protocols/stallion-motion-v1.json`](protocols/stallion-motion-v1.json)
-as its auditable contract and [`../../scripts/stallion_motion_graph.py`](../../scripts/stallion_motion_graph.py)
-as the runner. It separates identity, pose, background, palette, composition,
-and quality; clusters coherent shot families; estimates gait phase; builds a
-gated transition graph; and searches whole paths with acceleration, reversal,
-revisit, and loop-seam penalties. Lower ranked coherence scores are better.
+The lab uses [`protocols/stallion-motion-v2.json`](protocols/stallion-motion-v2.json)
+as its auditable contract. The CPU runner proposes paths only through declared
+row-serpentine atlas adjacency. The H100 reviewer segments the horse, measures
+foreground, background, and camera flow separately, rejects symmetry and
+static-object substitutions, and publishes only candidates whose every edge
+passes. Lower object-rubric scores are better.
 
 The interface starts and stops asynchronous batches through
 `/api/studies/stallion-motion`, polls structured progress, and presents ranked
@@ -80,11 +80,10 @@ continuous mode removes the round ceiling and checkpoints after every round;
 it reuses one feature graph, pauses briefly between rounds, retains only each
 film's poster after encoding, and stops before free disk falls below 2 GiB.
 
-The checked-in 96×79 atlas grid is used as a 7,584-cell proxy corpus today.
-The runner also accepts a directory of `cell_*.png` originals; feature analysis
-stays at 32 px while final frames are decoded from the source files at delivery
-time, so connecting the recovered originals does not require a protocol or UI
-rewrite.
+The checked-in 96×79 atlas grid is an index image and can never be a runtime
+source. Set `TEA_STALLION_CELL_DIR` to a uniform directory of native
+`cell_*.png` files. Publication is a literal native-PNG stitch: no resizing,
+interpolation, sharpening, labels, or synthesized in-between frames.
 
 The recovered Stallion lineage, measured H100 CPU budget, and safe next steps
 are recorded in [`STALLION.md`](STALLION.md).

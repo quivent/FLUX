@@ -99,7 +99,10 @@ func (s Server) stallionMotionHistory() (map[string]any, error) {
 		if json.Unmarshal(raw, &status) != nil {
 			continue
 		}
-		results := compactStallionResults(status["results"], runID, reviews)
+		results := compactStallionResults(status["results"], runID, reviews, runsRoot)
+		if len(results) == 0 {
+			continue
+		}
 		resultCount += len(results)
 		run := map[string]any{
 			"run_id":       runID,
@@ -127,7 +130,7 @@ func (s Server) stallionMotionHistory() (map[string]any, error) {
 	}, nil
 }
 
-func compactStallionResults(rawResults any, runID string, reviews map[string]any) []map[string]any {
+func compactStallionResults(rawResults any, runID string, reviews map[string]any, runsRoot string) []map[string]any {
 	rawRows, _ := rawResults.([]any)
 	results := make([]map[string]any, 0, len(rawRows))
 	for _, raw := range rawRows {
@@ -135,6 +138,13 @@ func compactStallionResults(rawResults any, runID string, reviews map[string]any
 		if !ok {
 			continue
 		}
+		review, qualified := qualifiedStallionReview(reviews[stallionReviewKey(runID, row)])
+		if !qualified {
+			// Proposals are private working material. A film reaches the gallery
+			// only after the v2 horse/background/camera gate accepts every edge.
+			continue
+		}
+		row = hydrateStallionResult(filepath.Join(runsRoot, runID), row)
 		result := map[string]any{
 			"run_id":          runID,
 			"mode":            stringValue(row["mode"]),
@@ -142,11 +152,9 @@ func compactStallionResults(rawResults any, runID string, reviews map[string]any
 			"rank":            row["rank"],
 			"family":          row["family"],
 			"description":     stringValue(row["description"]),
-			"selection_score": row["selection_score"],
+			"selection_score": review["neural_score"],
 		}
-		if review := reviews[stallionReviewKey(runID, row)]; review != nil {
-			result["gpu_review"] = review
-		}
+		result["gpu_review"] = review
 		for _, key := range []string{"video", "poster"} {
 			name := filepath.ToSlash(stringValue(row[key]))
 			if name != "" {
@@ -164,7 +172,35 @@ func compactStallionResults(rawResults any, runID string, reviews map[string]any
 		}
 		results = append(results, result)
 	}
+	sort.SliceStable(results, func(i, j int) bool {
+		return floatValue(results[i]["selection_score"]) < floatValue(results[j]["selection_score"])
+	})
+	for index := range results {
+		results[index]["rank"] = index + 1
+	}
 	return results
+}
+
+func hydrateStallionResult(runDir string, row map[string]any) map[string]any {
+	name := fmt.Sprintf("r%02d-%s.json", intValue(row["round"]), stringValue(row["mode"]))
+	raw, err := os.ReadFile(filepath.Join(runDir, name))
+	if err != nil {
+		return row
+	}
+	var detail map[string]any
+	if json.Unmarshal(raw, &detail) != nil {
+		return row
+	}
+	return detail
+}
+
+func qualifiedStallionReview(raw any) (map[string]any, bool) {
+	review, ok := raw.(map[string]any)
+	if !ok || stringValue(review["schema"]) != "tea.stallion-motion.gpu-review.v2" {
+		return nil, false
+	}
+	qualified, _ := review["qualified"].(bool)
+	return review, qualified
 }
 
 func stallionReviewKey(runID string, row map[string]any) string {
@@ -193,7 +229,17 @@ func (s Server) stallionMotionStatus() (map[string]any, error) {
 	root := s.stallionMotionRoot()
 	latestRaw, err := os.ReadFile(filepath.Join(root, "latest.json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return map[string]any{"ok": true, "state": "idle", "protocol": "tea.stallion-motion.v1"}, nil
+		_, sourceErr := stallionNativeSource()
+		return map[string]any{
+			"ok": true, "state": "idle", "protocol": "tea.stallion-motion.v2",
+			"source_ready": sourceErr == nil,
+			"source_error": func() string {
+				if sourceErr != nil {
+					return sourceErr.Error()
+				}
+				return ""
+			}(),
+		}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -218,21 +264,39 @@ func (s Server) stallionMotionStatus() (map[string]any, error) {
 	status["run_id"] = runID
 	reviews := s.stallionGPUReviews()
 	if results, ok := status["results"].([]any); ok {
+		qualifiedResults := make([]any, 0, len(results))
 		for _, raw := range results {
 			row, ok := raw.(map[string]any)
 			if !ok {
 				continue
 			}
-			if review := reviews[stallionReviewKey(runID, row)]; review != nil {
-				row["gpu_review"] = review
+			review, qualified := qualifiedStallionReview(reviews[stallionReviewKey(runID, row)])
+			if !qualified {
+				continue
 			}
+			row = hydrateStallionResult(filepath.Join(root, "runs", runID), row)
+			row["gpu_review"] = review
+			row["selection_score"] = review["neural_score"]
 			for _, key := range []string{"video", "poster"} {
 				name := filepath.ToSlash(stringValue(row[key]))
 				if name != "" {
 					row[key+"_url"] = "/studies/stallion/results/" + runID + "/" + name
 				}
 			}
+			qualifiedResults = append(qualifiedResults, row)
 		}
+		sort.SliceStable(qualifiedResults, func(i, j int) bool {
+			left, _ := qualifiedResults[i].(map[string]any)
+			right, _ := qualifiedResults[j].(map[string]any)
+			return floatValue(left["selection_score"]) < floatValue(right["selection_score"])
+		})
+		for index, raw := range qualifiedResults {
+			if row, ok := raw.(map[string]any); ok {
+				row["rank"] = index + 1
+			}
+		}
+		status["results"] = qualifiedResults
+		status["result_count"] = len(qualifiedResults)
 	}
 	if sheet := filepath.ToSlash(stringValue(status["contact_sheet"])); sheet != "" {
 		status["contact_sheet_url"] = "/studies/stallion/results/" + runID + "/" + sheet
@@ -283,10 +347,17 @@ func (s Server) startStallionMotion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	source, err := stallionNativeSource()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"ok": false, "error": err.Error(), "protocol": "tea.stallion-motion.v2",
+		})
+		return
+	}
 	commandArgs := []string{
 		filepath.Join(s.cfg.Root, "scripts", "stallion_motion_graph.py"),
-		"--source", filepath.Join(s.cfg.Root, "apps", "tea", "public", "assets", "stallion-atlas-grid.jpg"),
-		"--protocol", filepath.Join(s.cfg.Root, "apps", "tea", "protocols", "stallion-motion-v1.json"),
+		"--source", source,
+		"--protocol", filepath.Join(s.cfg.Root, "apps", "tea", "protocols", "stallion-motion-v2.json"),
 		"--output-root", root,
 		"--run-id", runID,
 		"--modes", strings.Join(modes, ","),
@@ -299,7 +370,7 @@ func (s Server) startStallionMotion(w http.ResponseWriter, r *http.Request) {
 		commandArgs = append(commandArgs, "--continuous", "--round-pause", "1")
 	}
 	command := exec.Command(s.cfg.Python, commandArgs...)
-	command.Env = append(os.Environ(), "OMP_NUM_THREADS=12", "OPENBLAS_NUM_THREADS=12", "MKL_NUM_THREADS=12")
+	command.Env = append(os.Environ(), "OMP_NUM_THREADS=1", "OPENBLAS_NUM_THREADS=1", "MKL_NUM_THREADS=1")
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logPath := filepath.Join(root, "runner.log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -332,6 +403,29 @@ func (s Server) startStallionMotion(w http.ResponseWriter, r *http.Request) {
 			return fmt.Sprintf("Stallion motion exploration started: %d candidates", rounds*len(modes))
 		}(),
 	})
+}
+
+func stallionNativeSource() (string, error) {
+	source := strings.TrimSpace(os.Getenv("TEA_STALLION_CELL_DIR"))
+	if source == "" {
+		return "", errors.New("native Stallion cells are not configured; set TEA_STALLION_CELL_DIR to the cell_*.png directory")
+	}
+	absolute, err := filepath.Abs(source)
+	if err != nil {
+		return "", fmt.Errorf("resolve native Stallion source: %w", err)
+	}
+	info, err := os.Stat(absolute)
+	if err != nil {
+		return "", fmt.Errorf("native Stallion source unavailable: %w", err)
+	}
+	if !info.IsDir() {
+		return "", errors.New("native Stallion source must be a directory, never an atlas/contact sheet")
+	}
+	cells, err := filepath.Glob(filepath.Join(absolute, "cell_*.png"))
+	if err != nil || len(cells) < 8 {
+		return "", fmt.Errorf("native Stallion source has %d cells; require at least 8", len(cells))
+	}
+	return absolute, nil
 }
 
 func writeStallionLatest(root, runID string) error {

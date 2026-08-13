@@ -55,7 +55,7 @@ func TestTeaStudyCatalogIncludesDraftsAndRecoveredStallionWork(t *testing.T) {
 }
 
 func TestStallionMotionProtocolIsNormalized(t *testing.T) {
-	raw, err := osReadFileAtRoot(repoRoot(t), "apps/tea/protocols/stallion-motion-v1.json")
+	raw, err := osReadFileAtRoot(repoRoot(t), "apps/tea/protocols/stallion-motion-v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestStallionMotionProtocolIsNormalized(t *testing.T) {
 	if err := json.Unmarshal(raw, &protocol); err != nil {
 		t.Fatal(err)
 	}
-	if protocol.Schema != "tea.stallion-motion.v1" {
+	if protocol.Schema != "tea.stallion-motion.v2" {
 		t.Errorf("protocol schema = %q", protocol.Schema)
 	}
 	var total float64
@@ -103,6 +103,9 @@ func TestStallionMotionLabAndIdleAPI(t *testing.T) {
 	if api.Code != http.StatusOK || !strings.Contains(api.Body.String(), `"state":"idle"`) {
 		t.Fatalf("idle API = %d %s", api.Code, api.Body.String())
 	}
+	if !strings.Contains(api.Body.String(), `"source_ready":false`) {
+		t.Fatalf("idle API must expose native-source gate: %s", api.Body.String())
+	}
 }
 
 func TestStallionMotionHistoryBuildsCompactGallery(t *testing.T) {
@@ -113,17 +116,25 @@ func TestStallionMotionHistoryBuildsCompactGallery(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeJSONFile(t, filepath.Join(runDir, "status.json"), map[string]any{
-		"state": "complete", "source_kind": "atlas_grid_proxy", "frames": 32, "fps": 12, "rounds": 1,
+		"state": "complete", "source_kind": "native_cells", "frames": 32, "fps": 12, "rounds": 1,
 		"contact_sheet": "contact-sheet.jpg",
 		"results": []any{map[string]any{
 			"mode": "spectral_loop", "round": 1, "rank": 1, "family": 2,
-			"selection_score": 0.23, "video": "r01-spectral_loop.mp4", "poster": "r01-spectral_loop-frames/frame_00000.jpg",
+			"selection_score": 0.23, "video": "", "poster": "",
 			"metrics": map[string]any{"frames": 32, "worst_visual_jump": 0.3, "edges": []any{"large", "detail"}},
 		}},
 	})
+	writeJSONFile(t, filepath.Join(runDir, "r01-spectral_loop.json"), map[string]any{
+		"mode": "spectral_loop", "round": 1, "rank": 1, "family": 2,
+		"selection_score": 0.23, "video": "r01-spectral_loop.mp4", "poster": "r01-spectral_loop-native-frames/frame_00000.png",
+		"metrics": map[string]any{"frames": 32, "worst_visual_jump": 0.3, "edges": []any{"large", "detail"}},
+	})
 	writeJSONFile(t, filepath.Join(output, "studies", "stallion-motion", "gpu-reviews.json"), map[string]any{
 		"reviews": map[string]any{
-			runID + "/r01-spectral_loop": map[string]any{"neural_score": 0.12, "model": "raft-small-c-t-v2"},
+			runID + "/r01-spectral_loop": map[string]any{
+				"schema": "tea.stallion-motion.gpu-review.v2", "qualified": true,
+				"neural_score": 0.12, "models": []any{"raft-small-c-t-v2", "deeplabv3-horse"},
+			},
 		},
 	})
 	s := Server{cfg: config.Config{Root: repoRoot(t), OutputDir: output}}
