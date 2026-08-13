@@ -25,6 +25,8 @@ STOP = False
 MINERS = (
     (1, "spectral_loop", 101, 2), (2, "continuity", 211, 3), (3, "kinetic", 307, 4),
     (4, "spectral_loop", 401, 5), (5, "continuity", 503, 6), (6, "kinetic", 607, 7),
+    (7, "spectral_loop", 701, 8), (8, "continuity", 809, 9), (9, "kinetic", 907, 10),
+    (10, "spectral_loop", 1009, 11), (11, "continuity", 1201, 12), (12, "kinetic", 1303, 13),
 )
 
 
@@ -93,7 +95,7 @@ def ensure_reviewer() -> dict[str, object]:
     pid = spawn("gpu-reviewer", [
         "/usr/bin/python3", "scripts/stallion_gpu_reviewer.py",
         "--source", str(NATIVE_CELLS),
-        "--output-root", str(OUTPUT), "--side", "256", "--batch-size", "8", "--poll", "0.5",
+        "--output-root", str(OUTPUT), "--side", "256", "--batch-size", "32", "--poll", "0.25",
     ], {"CUDA_VISIBLE_DEVICES": "0"}, pid_file)
     return {"state": "restarted", "pid": pid}
 
