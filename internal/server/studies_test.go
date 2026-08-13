@@ -121,6 +121,11 @@ func TestStallionMotionHistoryBuildsCompactGallery(t *testing.T) {
 			"metrics": map[string]any{"frames": 32, "worst_visual_jump": 0.3, "edges": []any{"large", "detail"}},
 		}},
 	})
+	writeJSONFile(t, filepath.Join(output, "studies", "stallion-motion", "gpu-reviews.json"), map[string]any{
+		"reviews": map[string]any{
+			runID + "/r01-spectral_loop": map[string]any{"neural_score": 0.12, "model": "raft-small-c-t-v2"},
+		},
+	})
 	s := Server{cfg: config.Config{Root: repoRoot(t), OutputDir: output}}
 	rec := httptest.NewRecorder()
 	s.stallionMotionAPI(rec, httptest.NewRequest(http.MethodGet, "/api/studies/stallion-motion?history=1", nil))
@@ -139,6 +144,9 @@ func TestStallionMotionHistoryBuildsCompactGallery(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), `"edges"`) {
 		t.Error("gallery history must not inline full transition-edge manifests")
+	}
+	if !strings.Contains(rec.Body.String(), `"neural_score":0.12`) {
+		t.Error("gallery history does not merge the GPU optical-flow review")
 	}
 }
 

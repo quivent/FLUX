@@ -85,6 +85,7 @@ func (s Server) stallionMotionHistory() (map[string]any, error) {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() > entries[j].Name() })
 	runs := make([]map[string]any, 0, len(entries))
 	resultCount := 0
+	reviews := s.stallionGPUReviews()
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -98,7 +99,7 @@ func (s Server) stallionMotionHistory() (map[string]any, error) {
 		if json.Unmarshal(raw, &status) != nil {
 			continue
 		}
-		results := compactStallionResults(status["results"], runID)
+		results := compactStallionResults(status["results"], runID, reviews)
 		resultCount += len(results)
 		run := map[string]any{
 			"run_id":       runID,
@@ -126,7 +127,7 @@ func (s Server) stallionMotionHistory() (map[string]any, error) {
 	}, nil
 }
 
-func compactStallionResults(rawResults any, runID string) []map[string]any {
+func compactStallionResults(rawResults any, runID string, reviews map[string]any) []map[string]any {
 	rawRows, _ := rawResults.([]any)
 	results := make([]map[string]any, 0, len(rawRows))
 	for _, raw := range rawRows {
@@ -142,6 +143,9 @@ func compactStallionResults(rawResults any, runID string) []map[string]any {
 			"family":          row["family"],
 			"description":     stringValue(row["description"]),
 			"selection_score": row["selection_score"],
+		}
+		if review := reviews[stallionReviewKey(runID, row)]; review != nil {
+			result["gpu_review"] = review
 		}
 		for _, key := range []string{"video", "poster"} {
 			name := filepath.ToSlash(stringValue(row[key]))
@@ -161,6 +165,24 @@ func compactStallionResults(rawResults any, runID string) []map[string]any {
 		results = append(results, result)
 	}
 	return results
+}
+
+func stallionReviewKey(runID string, row map[string]any) string {
+	return fmt.Sprintf("%s/r%02d-%s", runID, intValue(row["round"]), stringValue(row["mode"]))
+}
+
+func (s Server) stallionGPUReviews() map[string]any {
+	raw, err := os.ReadFile(filepath.Join(s.stallionMotionRoot(), "gpu-reviews.json"))
+	if err != nil {
+		return nil
+	}
+	var payload struct {
+		Reviews map[string]any `json:"reviews"`
+	}
+	if json.Unmarshal(raw, &payload) != nil {
+		return nil
+	}
+	return payload.Reviews
 }
 
 func (s Server) stallionMotionRoot() string {
@@ -194,11 +216,15 @@ func (s Server) stallionMotionStatus() (map[string]any, error) {
 	}
 	status["ok"] = true
 	status["run_id"] = runID
+	reviews := s.stallionGPUReviews()
 	if results, ok := status["results"].([]any); ok {
 		for _, raw := range results {
 			row, ok := raw.(map[string]any)
 			if !ok {
 				continue
+			}
+			if review := reviews[stallionReviewKey(runID, row)]; review != nil {
+				row["gpu_review"] = review
 			}
 			for _, key := range []string{"video", "poster"} {
 				name := filepath.ToSlash(stringValue(row[key]))
