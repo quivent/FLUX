@@ -126,6 +126,40 @@ def ensure_miner(number: int, mode: str, seed: int, core: int) -> dict[str, obje
     return {"state": "restarted", "pid": pid, "mode": mode, "core": core}
 
 
+def native_validation_passed() -> bool:
+    try:
+        payload = json.loads((OUTPUT / "gpu-reviews.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    for review in (payload.get("reviews") or {}).values():
+        if (
+            review.get("schema") == "tea.stallion-motion.gpu-review.v2"
+            and review.get("qualified") is True
+            and int(review.get("pair_count", 0)) >= 23
+            and float((review.get("object_rubric") or {}).get("cumulative_background_displacement", 1.0)) <= 0.050
+        ):
+            return True
+    return False
+
+
+def ensure_validation_miner() -> dict[str, object]:
+    name = "native-validation"
+    pid_file = RUN / "miners" / f"{name}.pid"
+    if process_matches(pid_file, "stallion_motion_graph.py"):
+        return {"state": "running", "pid": int(pid_file.read_text()), "mode": "validation", "core": 2}
+    seed = int(time.time()) % 2_000_000_000
+    run_id = f"stallion-motion-h100-validation-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}"
+    pid = spawn(name, [
+        "taskset", "-c", "2", "/usr/bin/python3", "scripts/stallion_motion_graph.py",
+        "--source", str(NATIVE_CELLS),
+        "--protocol", "apps/tea/protocols/stallion-motion-v2.json",
+        "--output-root", str(OUTPUT), "--run-id", run_id,
+        "--modes", "continuity", "--frames", "24", "--fps", "10",
+        "--seed", str(seed), "--rounds", "1", "--retain", "8",
+    ], {"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}, pid_file)
+    return {"state": "restarted", "pid": pid, "mode": "validation", "core": 2, "seed": seed}
+
+
 def main() -> int:
     signal.signal(signal.SIGTERM, stop_requested)
     signal.signal(signal.SIGINT, stop_requested)
@@ -143,11 +177,18 @@ def main() -> int:
             tmp.replace(RUN / "supervisor-status.json")
             time.sleep(5)
             continue
+        reviewer = ensure_reviewer()
+        validation_passed = native_validation_passed()
         status = {
             "schema": "tea.h100-supervisor.v2", "updated_at": time.time(),
             "source": {"ready": True, "message": source_message},
-            "server": ensure_server(), "cognition": ensure_cognition(), "gpu_reviewer": ensure_reviewer(),
-            "miners": [ensure_miner(*spec) for spec in MINERS],
+            "server": ensure_server(), "cognition": ensure_cognition(), "gpu_reviewer": reviewer,
+            "native_validation_passed": validation_passed,
+            "execution_phase": "continuous" if validation_passed else "native_validation",
+            "miners": (
+                [ensure_miner(*spec) for spec in MINERS]
+                if validation_passed else [ensure_validation_miner()]
+            ),
         }
         tmp = RUN / "supervisor-status.json.tmp"
         tmp.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
