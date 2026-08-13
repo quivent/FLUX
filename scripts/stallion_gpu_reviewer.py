@@ -157,11 +157,25 @@ def mirror_iou(mask: torch.Tensor) -> float:
     return float((crop & mirror).sum().float().div(union).item())
 
 
+def mask_centroid(mask: torch.Tensor) -> torch.Tensor:
+    points = torch.nonzero(mask, as_tuple=False).float()
+    if not len(points):
+        return torch.zeros(2, device=mask.device)
+    return points.mean(0)
+
+
+def mask_perimeter(mask: torch.Tensor) -> float:
+    value = mask.float()[None, None]
+    eroded = -F.max_pool2d(-value, 3, stride=1, padding=1)
+    return float((value - eroded).clamp_min(0).sum().item())
+
+
 @torch.inference_mode()
 def review(
     flow_model: torch.nn.Module,
     segmenter: HorseSegmenter,
     corpus: NativeCorpus,
+    result: dict[str, Any],
     pairs: list[tuple[int, int]],
     batch_size: int,
 ) -> dict[str, Any]:
@@ -193,6 +207,13 @@ def review(
             intersection = (first_masks[position] & second_masks[position]).sum().float()
             union = (first_masks[position] | second_masks[position]).sum().clamp_min(1).float()
             silhouette_change = 1.0 - float((intersection / union).item())
+            centroid_shift = float(
+                torch.linalg.vector_norm(mask_centroid(first_masks[position]) - mask_centroid(second_masks[position]))
+                .div(float(corpus.side)).item()
+            )
+            perimeter_first = mask_perimeter(first_masks[position])
+            perimeter_second = mask_perimeter(second_masks[position])
+            boundary_change = abs(perimeter_first - perimeter_second) / max(perimeter_first, perimeter_second, 1.0)
             raw.append({
                 "foreground_motion": foreground_motion,
                 "background_motion": background_motion,
@@ -201,6 +222,10 @@ def review(
                 "mask_confidence": min(confidences[position * 2:position * 2 + 2]),
                 "mask_area": float((first_masks[position].float().mean() + second_masks[position].float().mean()).mul(0.5).item()),
                 "mirror_symmetry": max(mirror_iou(first_masks[position]), mirror_iou(second_masks[position])),
+                "camera_dx": float(camera[0].div(float(corpus.side)).item()),
+                "camera_dy": float(camera[1].div(float(corpus.side)).item()),
+                "mask_centroid_shift": centroid_shift,
+                "mask_boundary_change": boundary_change,
             })
 
     for index, row in enumerate(raw):
@@ -209,7 +234,11 @@ def review(
             acceleration = float(np.linalg.norm(foreground_vectors[index] - foreground_vectors[index - 1]))
         row["foreground_acceleration"] = acceleration
     evidence = [PairEvidence(**row) for row in raw]
-    rubric = evaluate_sequence(evidence)
+    indices = [int(value) for value in result["indices"]]
+    declared_reversals = int((result.get("metrics") or {}).get("direction_reversals", 0))
+    rubric = evaluate_sequence(
+        evidence, indices=indices, declared_pose_reversals=declared_reversals,
+    )
     return {
         "schema": "tea.stallion-motion.gpu-review.v2",
         "models": ["raft-small-c-t-v2", "deeplabv3-mobilenet-v3-large-horse"],
@@ -308,7 +337,7 @@ def main() -> int:
                 pairs = pairs_for(result)
                 if not pairs:
                     continue
-                evidence = review(flow_model, segmenter, corpus, pairs, max(1, args.batch_size))
+                evidence = review(flow_model, segmenter, corpus, result, pairs, max(1, args.batch_size))
                 key = f"{path.parent.name}/{path.stem}"
                 indexed[key] = evidence
                 if evidence["qualified"]:

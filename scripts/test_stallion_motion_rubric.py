@@ -27,6 +27,11 @@ class StallionMotionRubricTest(unittest.TestCase):
         self.assertFalse(verdict.qualified)
         self.assertIn("symmetry", verdict.failures)
 
+    def test_mask_centroid_pop_is_a_hard_failure(self):
+        verdict = evaluate_pair(ADVERSARIAL_FIXTURES["mask_centroid_pop"])
+        self.assertFalse(verdict.qualified)
+        self.assertIn("mask_centroid_pop", verdict.failures)
+
     def test_serpentine_mapping_round_trips(self):
         for index in range(64):
             row, col = serpentine_coordinate(index, 8)
@@ -47,4 +52,3 @@ class StallionMotionRubricTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

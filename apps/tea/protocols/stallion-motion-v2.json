@@ -54,6 +54,11 @@
     "mask_area_min": 0.06,
     "mask_area_max": 0.72,
     "mirror_symmetry_max": 0.76,
+    "mask_centroid_shift_max": 0.060,
+    "mask_boundary_change_max": 0.250,
+    "cumulative_background_displacement_max": 0.050,
+    "latent_state_revisits": 0,
+    "pose_direction_reversals": 0,
     "publication_rule": "Every transition must pass; one inverse or symmetric edge rejects the entire film."
   },
   "edge_weights": {

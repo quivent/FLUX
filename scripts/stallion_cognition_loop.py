@@ -38,6 +38,11 @@ HYPOTHESES = {
     "horse_mask_too_small": "Treat the segmentation as failed; do not enlarge its image.",
     "horse_mask_too_large": "Exclude frames where the mask absorbs background.",
     "symmetry": "Reject the pose family before path search; retain the severe symmetry hinge.",
+    "cumulative_background_drift": "Reduce topology radius; keep per-edge background and camera gates fixed.",
+    "latent_state_revisit": "Reject repeated latent states before GPU review.",
+    "phase_reversal": "Require monotonic pose-phase progression across the whole path.",
+    "mask_centroid_pop": "Reject centroid-discontinuous masks before flow scoring.",
+    "mask_boundary_pop": "Reject unstable silhouettes; do not smooth their masks to hide the failure.",
 }
 
 
