@@ -42,6 +42,25 @@ This repository provides a minimal Python runner for the local BF16 Diffusers-fo
 
 ## 📦 Installation
 
+### AONS studio provisioning
+
+The complete H100 workload is declared in `deploy/aons.provision.json`. From
+the AONS repository, the studio can be inspected and reconciled by name:
+
+```zsh
+aons studios show flux
+aons studios plan flux
+aons studios apply flux --yes
+```
+
+The contract copies the CUDA worker and HTTP application, installs the pinned
+Go toolchain and Python dependencies, acquires the pinned FLUX.1-dev snapshot
+through the configured Hugging Face connection, preloads it on GPU 0, exposes
+the studio on port 7861, and records both provider command handles. The model
+and outputs live under `/home/dev/models`; `/scratch` is not used for durable
+studio state. AONS only reconciles an already-running `flux-worker` node and
+will not wake it implicitly.
+
 Build and install the local command:
 
 ```zsh
