@@ -1,0 +1,185 @@
+{
+  "apiVersion": "aons.influx.vision/v1alpha1",
+  "kind": "NodeWorkload",
+  "metadata": {
+    "name": "flux-studio",
+    "mission": "flux-studio",
+    "purpose": "Resident FLUX.1-dev CUDA worker with the FLUX HTTP production studio (retargeted to governor-gemma-nightly, co-resident with the Gemma 4 12B)"
+  },
+  "spec": {
+    "node": {
+      "name": "governor-gemma-nightly",
+      "image": "pytorch-2.13-cuda12.9",
+      "chip": "h100",
+      "runningOnly": true,
+      "scratchGiB": 50,
+      "allowCrossMission": true
+    },
+    "residency": {
+      "policy": "exclusive-swap",
+      "prewarm": "flux"
+    },
+    "files": [
+      {
+        "source": "../go.mod",
+        "destination": "/home/dev/FLUX/go.mod"
+      },
+      {
+        "source": "../go.sum",
+        "destination": "/home/dev/FLUX/go.sum"
+      },
+      {
+        "source": "../worker.py",
+        "destination": "/home/dev/FLUX/worker.py",
+        "executable": true
+      },
+      {
+        "source": "../generate.py",
+        "destination": "/home/dev/FLUX/generate.py",
+        "executable": true
+      },
+      {
+        "source": "../check_flux.py",
+        "destination": "/home/dev/FLUX/check_flux.py",
+        "executable": true
+      },
+      {
+        "source": "../flux_paths.py",
+        "destination": "/home/dev/FLUX/flux_paths.py"
+      },
+      {
+        "source": "../flux_ane.py",
+        "destination": "/home/dev/FLUX/flux_ane.py"
+      },
+      {
+        "source": "givemeanode/requirements-node.txt",
+        "destination": "/home/dev/FLUX/deploy/givemeanode/requirements-node.txt"
+      }
+    ],
+    "fileTrees": [
+      {
+        "source": "../cmd",
+        "destination": "/home/dev/FLUX/cmd",
+        "exclude": [
+          ".git"
+        ]
+      },
+      {
+        "source": "../internal",
+        "destination": "/home/dev/FLUX/internal",
+        "exclude": [
+          ".git"
+        ]
+      },
+      {
+        "source": "../web/motion-atlas",
+        "destination": "/home/dev/FLUX/web/motion-atlas",
+        "exclude": [
+          "node_modules",
+          ".git"
+        ]
+      }
+    ],
+    "setup": [
+      {
+        "id": "flux-cuda-python-runtime",
+        "verify": "\"$HOME/.venv/bin/python\" -c 'import torch,diffusers,transformers,accelerate; assert torch.cuda.is_available()'",
+        "command": "test -x \"$HOME/.venv/bin/python\" || python3 -m venv --system-site-packages \"$HOME/.venv\"; \"$HOME/.venv/bin/pip\" install --no-input -r \"$HOME/FLUX/deploy/givemeanode/requirements-node.txt\"",
+        "timeoutSeconds": 900
+      },
+      {
+        "id": "flux-go-toolchain",
+        "verify": "test -x \"$HOME/.local/go1.25.8/bin/go\" && \"$HOME/.local/go1.25.8/bin/go\" version | grep -q 'go1.25.8'",
+        "command": "set -eu; case \"$(uname -m)\" in x86_64) arch=amd64; sha=ceb5e041bbc3893846bd1614d76cb4681c91dadee579426cf21a63f2d7e03be6;; aarch64|arm64) arch=arm64; sha=7d137f59f66bb93f40a6b2b11e713adc2a9d0c8d9ae581718e3fad19e5295dc7;; *) echo unsupported architecture >&2; exit 1;; esac; archive=$(mktemp); trap 'rm -f \"$archive\"' EXIT; curl -fsSL \"https://go.dev/dl/go1.25.8.linux-${arch}.tar.gz\" -o \"$archive\"; printf '%s  %s\\n' \"$sha\" \"$archive\" | sha256sum -c -; mkdir -p \"$HOME/.local/go1.25.8\"; tar -xzf \"$archive\" --strip-components=1 -C \"$HOME/.local/go1.25.8\"",
+        "timeoutSeconds": 300
+      },
+      {
+        "id": "flux-studio-binary",
+        "verify": "cd \"$HOME/FLUX\" && test -x flux && test go.mod -ot flux && test go.sum -ot flux && ! find cmd internal -type f -name '*.go' -newer flux -print -quit | grep -q .",
+        "command": "cd \"$HOME/FLUX\" && \"$HOME/.local/go1.25.8/bin/go\" build -o flux ./cmd/flux",
+        "timeoutSeconds": 900
+      }
+    ],
+    "models": [
+      {
+        "id": "flux",
+        "source": "black-forest-labs/FLUX.1-dev",
+        "path": "/home/dev/models/FLUX.1-dev",
+        "requiredFiles": [
+          "model_index.json",
+          "text_encoder/model.safetensors",
+          "text_encoder_2/model.safetensors.index.json",
+          "transformer/diffusion_pytorch_model.safetensors.index.json",
+          "vae/diffusion_pytorch_model.safetensors"
+        ],
+        "residency": "prewarm",
+        "license": "FLUX.1-dev non-commercial",
+        "acquire": {
+          "method": "connection-import",
+          "connection": "huggingface",
+          "source": "black-forest-labs/FLUX.1-dev@3de623fc3c33e44ffbe2bad470d0f45bccf2eb21"
+        }
+      }
+    ],
+    "services": [
+      {
+        "name": "flux-worker",
+        "command": "cd \"$HOME/FLUX\" && mkdir -p .fluxd \"$HOME/models/flux-output\" && exec \"$HOME/.venv/bin/python\" -u worker.py --socket \"$HOME/FLUX/.fluxd/flux.sock\" --state \"$HOME/FLUX/.fluxd/jobs.jsonl\" --profile \"$HOME/FLUX/.fluxd/profile.json\" --model-dir \"$HOME/models/FLUX.1-dev\" --out-dir \"$HOME/models/flux-output\" --backend cuda --preload",
+        "env": {
+          "CUDA_VISIBLE_DEVICES": "0",
+          "PYTHONUNBUFFERED": "1"
+        },
+        "restart": "on-failure",
+        "maxRestarts": 20,
+        "watchPaths": [
+          "/home/dev/FLUX/worker.py",
+          "/home/dev/FLUX/flux_paths.py",
+          "/home/dev/FLUX/flux_ane.py"
+        ],
+        "restartOnChange": true,
+        "commandHandlePath": "/home/dev/.aons/run/flux-worker.command-id",
+        "reloadCommand": "pkill -TERM -f '[w]orker.py.*flux.sock' || true",
+        "startupTimeoutSeconds": 900,
+        "health": {
+          "command": "test -S \"$HOME/FLUX/.fluxd/flux.sock\" && \"$HOME/.venv/bin/python\" -c 'import json,socket; s=socket.socket(socket.AF_UNIX); s.settimeout(2); s.connect(\"/home/dev/FLUX/.fluxd/flux.sock\"); s.sendall(b\"{\\\"op\\\":\\\"ping\\\"}\\n\"); r=json.loads(s.makefile().readline()); assert r.get(\"ok\") and r.get(\"loaded\")'"
+        }
+      },
+      {
+        "name": "flux-http",
+        "command": "cd \"$HOME/FLUX\" && exec ./flux serve --addr 0.0.0.0:7861 --backend cuda --unsafe-no-auth",
+        "env": {
+          "MODEL_DIR": "/home/dev/models/FLUX.1-dev",
+          "OUT_DIR": "/home/dev/models/flux-output",
+          "FLUX_PYTHON": "/home/dev/.venv/bin/python"
+        },
+        "restart": "on-failure",
+        "maxRestarts": 20,
+        "dependsOn": [
+          "flux-worker"
+        ],
+        "watchPaths": [
+          "/home/dev/FLUX/flux",
+          "/home/dev/FLUX/web/motion-atlas"
+        ],
+        "restartOnChange": true,
+        "commandHandlePath": "/home/dev/.aons/run/flux-http.command-id",
+        "reloadCommand": "pkill -TERM -f '[f]lux serve --addr 0.0.0.0:7861' || true",
+        "startupTimeoutSeconds": 120,
+        "health": {
+          "port": 7861,
+          "path": "/api/health"
+        }
+      }
+    ],
+    "endpoints": [
+      {
+        "port": 7861,
+        "auth": "capability-url"
+      }
+    ],
+    "keepalive": {
+      "policy": "running-services",
+      "source": "flux-worker"
+    }
+  }
+}

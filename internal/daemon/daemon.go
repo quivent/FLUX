@@ -42,8 +42,45 @@ type Response struct {
 	Raw      map[string]any   `json:"-"`
 }
 
+// New returns the client the CLI uses when no worker was named.
+//
+// The default worker listens on .fluxd/flux.sock, but a fleet runs its workers
+// under per-GPU names (flux-gpu0, flux-gpu1, ...) on their own sockets. When a
+// fleet worker is already live, the unnamed default would ignore it, start a
+// second worker, and load a second full pipeline onto the same GPU — roughly
+// 32 GiB of duplicate weights. On a box that also hosts an LLM that is an
+// out-of-memory error rather than a slow render, and the CLI's own message
+// ("route: resident unix socket") gives no hint that it picked a different
+// resident worker than the HTTP server is using.
+//
+// So adopt a live fleet worker when one is listening. An explicit NewNamed call
+// still addresses exactly what it asks for, and with no fleet worker up the
+// default socket is used exactly as before.
 func New(cfg config.Config) Client {
+	if name, ok := liveFleetWorker(cfg); ok {
+		return NewNamed(cfg, name)
+	}
 	return NewNamed(cfg, "flux")
+}
+
+// liveFleetWorker reports the lowest-indexed per-GPU worker that is actually
+// accepting connections. A socket file left behind by a dead worker is skipped:
+// only a successful dial proves the pipeline behind it is resident.
+func liveFleetWorker(cfg config.Config) (string, bool) {
+	if os.Getenv("FLUX_NO_FLEET_ADOPT") != "" {
+		return "", false
+	}
+	dir := filepath.Join(cfg.Root, ".fluxd")
+	for gpu := 0; gpu < 8; gpu++ {
+		name := fmt.Sprintf("flux-gpu%d", gpu)
+		conn, err := net.DialTimeout("unix", filepath.Join(dir, name+".sock"), 250*time.Millisecond)
+		if err != nil {
+			continue
+		}
+		_ = conn.Close()
+		return name, true
+	}
+	return "", false
 }
 
 func NewNamed(cfg config.Config, name string) Client {

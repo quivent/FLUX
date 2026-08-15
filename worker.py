@@ -420,7 +420,12 @@ class Worker:
         self.jobs = self._load_jobs()
         self.profile = self._load_profile()
         self.atlas_tasks = queue.Queue()
-        if preload and self.default_backend in ("auto", "mps", "cpu"):
+        # --preload is explicit operator intent and applies to every backend.
+        # Gating it on an auto/mps/cpu allowlist silently skipped preload under
+        # --backend cuda, so a resident CUDA worker reported ok-but-not-loaded
+        # forever and the studio health proof (which requires loaded) could
+        # never pass on a GPU node.
+        if preload:
             if self.kind == "img2img":
                 self._load_img2img_pipe()
             else:
