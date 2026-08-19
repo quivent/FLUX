@@ -17,6 +17,7 @@ import unittest.mock
 import uuid
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
 from diffusers import FluxImg2ImgPipeline, FluxPipeline
@@ -528,13 +529,39 @@ class Worker:
         device = device or self.device
         if self.pipe is not None and self.pipe_device == device:
             return
-        print(f"loading model={self.model_dir} backend={self.default_backend} device={device}", flush=True)
+        is_cuda = (device == "cuda" or 
+                   (isinstance(device, torch.device) and device.type == "cuda") or 
+                   (isinstance(device, str) and device.startswith("cuda")))
+        
+        needs_offload = False
+        if is_cuda and torch.cuda.is_available():
+            try:
+                free_b, _ = torch.cuda.mem_get_info()
+                if free_b < 38 * (1024**3):
+                    needs_offload = True
+            except Exception:
+                pass
+
         pipe = FluxPipeline.from_pretrained(
             str(self.model_dir),
             torch_dtype=torch.bfloat16,
             local_files_only=True,
         )
-        pipe.to(device)
+
+        if is_cuda and needs_offload:
+            print("Shared multi-tenant GPU: enabling model CPU offload", flush=True)
+            pipe.enable_model_cpu_offload()
+        elif is_cuda:
+            try:
+                pipe.to(device)
+            except Exception as e:
+                print(f"Direct VRAM allocation failed ({e}); falling back to model CPU offload", flush=True)
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                pipe.enable_model_cpu_offload()
+        else:
+            pipe.to(device)
+
         self.pipe = pipe
         self.pipe_device = device
         self.prompt_encoders_device = device
@@ -570,7 +597,7 @@ class Worker:
         print(f"prompt_encoders_device={target} modules={','.join(moved)}", flush=True)
 
     def _encode_prompt_then_park(self, prompt, *, num_images_per_prompt=1):
-        self._move_prompt_encoders(self.device)
+        # If offloading is active (e.g. multi-tenant GPU), call encode_prompt directly
         try:
             return self.pipe.encode_prompt(
                 prompt=prompt,
@@ -578,10 +605,17 @@ class Worker:
                 num_images_per_prompt=num_images_per_prompt,
                 max_sequence_length=512,
             )[:2]
-        finally:
-            # The returned CUDA tensors keep the conditioning alive. The two
-            # T5 itself is no longer part of the render.
-            self._move_prompt_encoders("cpu")
+        except Exception:
+            self._move_prompt_encoders(self.device)
+            try:
+                return self.pipe.encode_prompt(
+                    prompt=prompt,
+                    device=self.device,
+                    num_images_per_prompt=num_images_per_prompt,
+                    max_sequence_length=512,
+                )[:2]
+            finally:
+                self._move_prompt_encoders("cpu")
 
     def _discard_pipe_adapter(self):
         if self.pipe is None:
@@ -1697,8 +1731,6 @@ class Worker:
         generator = None
         if job["seed"] not in (None, ""):
             generator = torch.Generator(device="cpu").manual_seed(int(job["seed"]))
-        prompt_embeds, pooled_prompt_embeds = self._encode_prompt_then_park(job["prompt"])
-
         def on_step_end(_pipe, step, _timestep, callback_kwargs):
             if job.get("cancel_requested"):
                 raise CancelledJob("job cancelled")
@@ -1708,17 +1740,31 @@ class Worker:
             self._write_jobs()
             return callback_kwargs
 
-        image = self.pipe(
-            prompt=None,
-            prompt_embeds=prompt_embeds,
-            pooled_prompt_embeds=pooled_prompt_embeds,
-            width=job["width"],
-            height=job["height"],
-            guidance_scale=job["guidance"],
-            num_inference_steps=job["steps"],
-            generator=generator,
-            callback_on_step_end=on_step_end,
-        ).images[0]
+        is_offloaded = hasattr(self.pipe, "hf_device_map") or getattr(self.pipe, "_is_offloaded", False) or hasattr(self.pipe, "_offload_gpu_id")
+        
+        if is_offloaded:
+            image = self.pipe(
+                prompt=job["prompt"],
+                width=job["width"],
+                height=job["height"],
+                guidance_scale=job["guidance"],
+                num_inference_steps=job["steps"],
+                generator=generator,
+                callback_on_step_end=on_step_end,
+            ).images[0]
+        else:
+            prompt_embeds, pooled_prompt_embeds = self._encode_prompt_then_park(job["prompt"])
+            image = self.pipe(
+                prompt=None,
+                prompt_embeds=prompt_embeds,
+                pooled_prompt_embeds=pooled_prompt_embeds,
+                width=job["width"],
+                height=job["height"],
+                guidance_scale=job["guidance"],
+                num_inference_steps=job["steps"],
+                generator=generator,
+                callback_on_step_end=on_step_end,
+            ).images[0]
         job["phase"] = "saving"
         self._write_jobs()
         output = self._output_path(job)
