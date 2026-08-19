@@ -25,6 +25,7 @@ import (
 	"local/flux/internal/runner"
 	"local/flux/internal/server"
 	"local/flux/internal/ui"
+	"local/flux/internal/version"
 )
 
 func main() {
@@ -38,6 +39,12 @@ func main() {
 	switch os.Args[1] {
 	case "help", "-h", "--help":
 		ui.Usage()
+	case "usage", "examples", "example":
+		ui.Examples()
+		return
+	case "version", "-v", "--version":
+		fmt.Printf("flux %s\n", version.Full())
+		return
 	case "install":
 		err = install(cfg)
 	case "setup":
@@ -72,8 +79,8 @@ func main() {
 		err = gpu(cfg, os.Args[2:])
 	case "fleet":
 		err = fleetCmd(cfg, os.Args[2:])
-	case "warm", "launch":
-		err = warm(cfg, os.Args[2:])
+	case "load", "warm", "launch":
+		err = loadWorker(cfg, os.Args[2:])
 	case "serve", "http":
 		err = serve(cfg, os.Args[2:])
 	case "oscillihue", "web":
@@ -144,24 +151,90 @@ func install(cfg config.Config) error {
 	return nil
 }
 
+func ensureUV() (string, error) {
+	if p, err := exec.LookPath("uv"); err == nil {
+		return p, nil
+	}
+
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		candidates := []string{
+			filepath.Join(home, ".local", "bin", "uv"),
+			filepath.Join(home, ".cargo", "bin", "uv"),
+		}
+		for _, cand := range candidates {
+			if info, err := os.Stat(cand); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
+				return cand, nil
+			}
+		}
+	}
+
+	ui.Step("uv not found on PATH; installing uv via astral.sh...")
+	var cmd *exec.Cmd
+	if _, err := exec.LookPath("curl"); err == nil {
+		cmd = exec.Command("sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh")
+	} else if _, err := exec.LookPath("wget"); err == nil {
+		cmd = exec.Command("sh", "-c", "wget -qO- https://astral.sh/uv/install.sh | sh")
+	} else {
+		return "", fmt.Errorf("uv is not installed and neither curl nor wget is available to install it")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to install uv: %w", err)
+	}
+
+	if p, err := exec.LookPath("uv"); err == nil {
+		return p, nil
+	}
+	if home != "" {
+		candidates := []string{
+			filepath.Join(home, ".local", "bin", "uv"),
+			filepath.Join(home, ".cargo", "bin", "uv"),
+		}
+		for _, cand := range candidates {
+			if info, err := os.Stat(cand); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
+				return cand, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("uv installation completed but the uv binary could not be found")
+}
+
 func setup(cfg config.Config) error {
 	ui.Header("setup", "creating Python environment for local FLUX generation")
-	if _, err := exec.LookPath("uv"); err != nil {
-		return fmt.Errorf("uv is not installed or not on PATH")
+	uvBin, err := ensureUV()
+	if err != nil {
+		return err
 	}
 	// Rooted at cfg.Root, not the caller's cwd — 'flux setup' arrives over
 	// SSH from gemstone with cwd=$HOME, and relative paths made it fail
 	// with "File not found: requirements.txt" on the first remote box.
-	steps := [][]string{
-		{"uv", "venv", filepath.Join(cfg.Root, ".venv"), "--python", "python3.13"},
-		{"uv", "pip", "install", "--python", filepath.Join(cfg.Root, ".venv", "bin", "python"), "-r", filepath.Join(cfg.Root, "requirements.txt")},
+	venvPath := filepath.Join(cfg.Root, ".venv")
+	pyBin := filepath.Join(venvPath, "bin", "python")
+
+	var steps [][]string
+	if _, err := os.Stat(pyBin); err != nil {
+		steps = append(steps, []string{uvBin, "venv", venvPath, "--allow-existing", "--python", "python3.13"})
 	}
+	steps = append(steps, []string{uvBin, "pip", "install", "--python", pyBin, "-r", filepath.Join(cfg.Root, "requirements.txt")})
+
 	for _, step := range steps {
 		ui.Step(strings.Join(step, " "))
 		if _, err := runner.Stream(context.Background(), nil, step[0], step[1:]...); err != nil {
 			return err
 		}
 	}
+
+	fmt.Println()
+	ui.Suite("next steps", ui.Mint, []ui.PairRow{
+		{"flux doctor", "verify model weight safetensors, CUDA/MPS, and headers"},
+		{"flux download --dry", "inspect Hugging Face weights fetch command"},
+		{"flux load", "launch resident daemon and preload weights into GPU memory"},
+		{"flux serve studio", "start the HTTP/WebSocket API and studio dashboard on :7861"},
+		{"flux usage", "view real-world generation and pipeline commands"},
+	})
 	return nil
 }
 
@@ -267,22 +340,32 @@ func architecture(cfg config.Config) error {
 	ui.KV("state", filepath.Join(cfg.Root, ".fluxd", "jobs.jsonl"))
 	ui.KV("profile", filepath.Join(cfg.Root, ".fluxd", "profile.json"))
 	ui.KV("http", "flux serve -> /api/health /api/jobs /api/render /outputs")
-	ui.KV("public", "cloudflared -> flux.sakure.network and anime.sakure.network/api")
+	ui.KV("domain", "https://flux.influx.vision/ (automatic Caddy edge routing)")
 	ui.KV("outputs", cfg.OutputDir)
+	fmt.Println()
+	ui.Suite("domain mapping (flux.influx.vision)", ui.Rose, []ui.PairRow{
+		{"/", "https://flux.influx.vision/ -> Constellation Index Portal"},
+		{"/tea", "https://flux.influx.vision/tea -> Tea Living Garden & Stallion Lab"},
+		{"/rosarium", "https://flux.influx.vision/rosarium -> Rosarium Grand Museum (7,218 works)"},
+		{"/atlas", "https://flux.influx.vision/atlas -> Motion Atlas Sphere & Agent Console"},
+		{"/atelier", "https://flux.influx.vision/atelier -> Atelier Synthesis Cockpit"},
+		{"/studio", "https://flux.influx.vision/studio -> FLUX Studio Engine Dashboard"},
+		{"/gallery", "https://flux.influx.vision/gallery -> Live Generation Feed & Archive"},
+		{"/api, /outputs", "https://flux.influx.vision/api -> Reverse Proxy to :7861"},
+	})
 	fmt.Println()
 	ui.Suite("request flow", ui.Teal, []ui.PairRow{
 		{"local render", "flux render -> socket submit -> worker queue -> output png"},
 		{"remote render", "HTTP /api/render -> same socket submit -> worker queue"},
-		{"anime page", "anime.sakure.network/flux -> same-origin /api/jobs and /outputs"},
 		{"queue reader", "flux jobs and HTTP /api/jobs read .fluxd/jobs.jsonl through worker"},
 	})
 	fmt.Println()
 	ui.Suite("acceleration", ui.Gold, []ui.PairRow{
-		{"mps", "active PyTorch Diffusers backend on Apple GPU"},
+		{"cuda", "active PyTorch / Diffusers BF16 tensor execution on NVIDIA GPU"},
+		{"mps", "active PyTorch Diffusers backend on Apple Silicon GPU"},
 		{"mlx", "candidate backend, selected by benchmark profile when available"},
-		{"coreml", "compiled fixed-shape candidate"},
 		{"ane", "strict validated-package path; not active until renderable package exists"},
-		{"amx/cpu", "fallback and auxiliary CPU execution"},
+		{"cpu", "fallback and auxiliary CPU execution"},
 	})
 	fmt.Println()
 	ui.KV("doc", filepath.Join(cfg.Root, "ACCELERATION.md"))
@@ -416,7 +499,8 @@ func teaServe(cfg config.Config, args []string) error {
 	}
 	url := "http://" + *addr + "/"
 	ui.Header("tea", "living image garden over the FLUX runtime")
-	ui.KV("url", url)
+	ui.KV("local url", url)
+	ui.KV("domain", "https://flux.influx.vision/tea")
 	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
 	ui.KV("backend", cfg.Backend)
 	ui.KV("outputs", cfg.OutputDir)
@@ -2547,71 +2631,86 @@ print(json.dumps(out, sort_keys=True))
 func tree() {
 	ui.Tree("tree", "command topology", []ui.TreeGroup{
 		{
-			Name:   "kernel",
-			Detail: "install, setup, verification, command help",
-			Color:  ui.Violet,
+			Name:   "setup",
+			Detail: "installation, environment, hardware & diagnostics",
+			Color:  ui.Mint,
 			Children: []ui.PairRow{
 				{"install", "global symlink into ~/.local/bin"},
 				{"setup", "uv venv + Python dependencies"},
-				{"doctor", "MPS, package, model, BF16 header checks"},
+				{"doctor", "CUDA/MPS, package, model, BF16 header checks"},
 				{"accel", "current and target acceleration stack"},
-				{"architecture", "CLI, socket, HTTP, tunnel, and backend flow"},
-				{"atelier studies", "FLUX.1 studies imported from ~/Atelier"},
-				{"anime productions", "anime.sakure.network project bridge"},
 				{"bench", "socket benchmark for backend auto-selection"},
 				{"bench --dry-run", "show benchmark plan without starting worker"},
-				{"studio", "paths, worker files, preset lanes"},
+			},
+		},
+		{
+			Name:   "models",
+			Detail: "model acquisition, resident VRAM, GPU & formats",
+			Color:  ui.Violet,
+			Children: []ui.PairRow{
 				{"download", "fetch FLUX.1-dev BF16 weights from Hugging Face"},
 				{"download --dry", "show the fetch plan without downloading"},
+				{"load", "launch worker and preload model into GPU memory"},
+				{"load --preload=false", "launch queue without loading model"},
+				{"gpu", "show GPU memory, utilization, and active CUDA processes"},
+				{"fleet", "inspect multi-GPU worker pool across detected devices"},
+				{"ane", "manage strict ANE package registry and component conversion"},
+				{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
 			},
 		},
 		{
-			Name:   "runtime",
-			Detail: "resident worker and queue",
-			Color:  ui.Indigo,
+			Name:   "applications",
+			Detail: "web studios, galleries & motion laboratories",
+			Color:  ui.Rose,
 			Children: []ui.PairRow{
-				{"warm", "launch worker and preload model"},
-				{"warm --preload=false", "launch queue without loading model"},
-				{"serve", "HTTP API and local dashboard over the worker socket"},
-				{"serve oscillihue", "serve the web/ folder as a static site on :7870"},
-				{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires token auth"},
-				{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
+				{"serve studio", "primary HTTP API and studio dashboard on :7861"},
+				{"serve tea", "Tea living image garden & Stallion motion lab on :7861"},
+				{"serve rosarium", "recovered visual museum (7,218 works) on :7862"},
+				{"serve atlas", "Motion Atlas Sphere & agent console on :7870"},
+				{"serve atelier", "Koyomi synthesis cockpit & prompt duels on :7860"},
+				{"serve portal", "Influx Vision constellation index on :8898"},
+				{"serve gallery", "live generation feed and archive on :7861/gallery"},
 				{"remote", "client for an exposed FLUX HTTP endpoint"},
-				{"jobs", "inspect queued/running/done/error jobs"},
-				{"jobs cancel <id>", "cancel queued or request running cancellation"},
-				{"jobs open latest", "open newest completed output"},
-				{"jobs prune --keep 20", "remove old terminal records"},
-				{"stop", "shutdown resident worker"},
 			},
 		},
 		{
-			Name:   "forge",
-			Detail: "image generation",
-			Color:  ui.Teal,
+			Name:   "actions",
+			Detail: "image generation, refinement, queues & pipelines",
+			Color:  ui.Gold,
 			Children: []ui.PairRow{
 				{"render", "start/use resident socket and wait for the job"},
-				{"render --direct", "force one-shot generation"},
+				{"render --direct", "force one-shot Python generation"},
 				{"render --async", "submit to resident worker, starting queue if needed"},
 				{"render --burst N", "seed fanout"},
 				{"img2img", "image-to-image refinement over .fluxd/img2img.sock"},
 				{"img2img --warm", "start the second socket without preloading"},
-				{"img2img --jobs", "inspect the image-to-image queue"},
+				{"jobs", "inspect queued/running/done/error jobs"},
+				{"jobs cancel <id>", "cancel queued or request running cancellation"},
+				{"jobs open latest", "open newest completed output"},
+				{"jobs prune --keep 20", "remove old terminal records"},
+				{"stop", "shutdown resident worker daemons"},
+				{"pipeline", "safe dry-run multi-generation workflows"},
 				{"muse", "shot board with renderable local/remote commands"},
 				{"matrix", "style/mood/camera exploration board"},
-				{"pipeline", "safe dry-run multi-generation workflows"},
+				{"shape", "compose final prompt with creative lenses"},
+				{"spark", "six prompt mutations"},
+				{"evolve", "prompt-side candidate generator"},
+				{"recipes", "styles, moods, ratios, presets"},
 				{"plan", "print exact engine commands"},
 				{"history", "JSONL render ledger"},
 			},
 		},
 		{
-			Name:   "prompt",
-			Detail: "composition surfaces",
-			Color:  ui.Gold,
+			Name:   "config",
+			Detail: "system topology, architectures & themes",
+			Color:  ui.Indigo,
 			Children: []ui.PairRow{
-				{"recipes", "styles, moods, ratios, presets"},
-				{"shape", "compose final prompt with creative lenses"},
-				{"spark", "six prompt mutations"},
-				{"muse --commands", "copy-safe render command board"},
+				{"studio", "runtime posture, model paths, preset lanes"},
+				{"usage", "real-world command examples & workflow patterns"},
+				{"tree", "full command topology in Council-style branches"},
+				{"architecture", "CLI, socket, HTTP, tunnel, and backend flow"},
+				{"colors", "palette and state sample"},
+				{"anime", "anime.sakure.network project bridge"},
 			},
 		},
 	})
@@ -2619,6 +2718,7 @@ func tree() {
 
 func studio(cfg config.Config) error {
 	ui.Header("studio", "local BF16 console overview")
+	ui.KV("version", version.Full())
 	ui.KV("root", cfg.Root)
 	ui.KV("model", cfg.ModelDir)
 	ui.KV("outputs", cfg.OutputDir)
@@ -2645,7 +2745,7 @@ func studio(cfg config.Config) error {
 		}
 		ui.KV("worker", ui.State("online")+" "+ui.Soft(loaded+" backend="+valueOr(resp.Backend, "?")+" device="+valueOr(resp.Device, "?")))
 	} else {
-		ui.KV("worker", ui.State("down")+" "+ui.Soft("no live socket; render/bench/warm can start queue"))
+		ui.KV("worker", ui.State("down")+" "+ui.Soft("no live socket; render/bench/load can start queue"))
 	}
 	ui.KV("socket", socket)
 	ui.KV("jobs", state)
@@ -2660,8 +2760,8 @@ func studio(cfg config.Config) error {
 	return nil
 }
 
-func warm(cfg config.Config, args []string) error {
-	fs := flag.NewFlagSet("warm", flag.ExitOnError)
+func loadWorker(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("load", flag.ExitOnError)
 	preload := fs.Bool("preload", true, "load model immediately")
 	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	if err := fs.Parse(args); err != nil {
@@ -2671,7 +2771,7 @@ func warm(cfg config.Config, args []string) error {
 		return err
 	}
 	cfg.Backend = strings.ToLower(*backend)
-	ui.Header("warm", "starting persistent FLUX worker")
+	ui.Header("load", "starting persistent FLUX worker")
 	ui.KV("backend", cfg.Backend)
 	client := daemon.New(cfg)
 	if err := client.Start(*preload); err != nil {
@@ -2691,14 +2791,44 @@ func warm(cfg config.Config, args []string) error {
 
 func serve(cfg config.Config, args []string) error {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		switch strings.ToLower(args[0]) {
-		case "oscillihue", "web", "static":
-			return serveOscillihue(cfg, args[1:])
+		app := strings.ToLower(args[0])
+		subArgs := args[1:]
+		switch app {
+		case "tea", "garden":
+			return teaServe(cfg, subArgs)
+		case "rosarium", "museum":
+			return serveRosarium(cfg, subArgs)
+		case "atlas", "motion-atlas", "oscillihue", "motion", "web":
+			return serveOscillihue(cfg, subArgs)
+		case "atelier", "cockpit", "koyomi":
+			return serveAtelier(cfg, subArgs)
+		case "portal", "constellation", "hub":
+			return servePortal(cfg, subArgs)
+		case "gallery", "view":
+			return gallery(cfg, subArgs)
+		case "studio", "api", "server", "core", "http":
+			return serveStudio(cfg, subArgs)
+		case "help", "-h", "--help", "apps", "list":
+			ui.Header("serve", "standardized FLUX application server")
+			ui.Suite("applications", ui.Rose, []ui.PairRow{
+				{"flux serve studio", "primary HTTP/WebSocket API and studio dashboard on :7861"},
+				{"flux serve tea", "Tea living image garden and Stallion motion lab on :7861"},
+				{"flux serve rosarium", "recovered visual museum & 7,218-item catalog on :7862"},
+				{"flux serve atlas", "Motion Atlas Sphere & agent console on :7870"},
+				{"flux serve atelier", "Atelier synthesis cockpit & prompt duels on :7860"},
+				{"flux serve portal", "Influx Vision constellation portal on :8898"},
+				{"flux serve gallery", "live generation feed and archive on :7861/gallery"},
+			})
+			return nil
 		default:
-			return fmt.Errorf("unknown serve target %q; use `flux serve` for the API or `flux serve oscillihue` for the web folder", args[0])
+			return fmt.Errorf("unknown application %q for `flux serve`\n\nAvailable applications:\n  • studio   (primary HTTP API & studio UI on :7861)\n  • tea      (living garden & Stallion lab on :7861)\n  • rosarium (grand museum on :7862)\n  • atlas    (Motion Atlas Sphere on :7870)\n  • atelier  (synthesis cockpit on :7860)\n  • portal   (constellation index on :8898)\n  • gallery  (live generation archive on :7861/gallery)", app)
 		}
 	}
-	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	return serveStudio(cfg, args)
+}
+
+func serveStudio(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve studio", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
 	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	token := fs.String("token", "", "HTTP bearer token")
@@ -2717,8 +2847,9 @@ func serve(cfg config.Config, args []string) error {
 	if publicBindAddr(*addr) && resolvedToken == "" && !*unsafeNoAuth {
 		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
 	}
-	ui.Header("serve", "local HTTP API over the Unix socket worker")
-	ui.KV("addr", "http://"+*addr)
+	ui.Header("serve studio", "local HTTP API over the Unix socket worker")
+	ui.KV("local url", "http://"+*addr)
+	ui.KV("domain", "https://flux.influx.vision/studio or https://flux.influx.vision/api")
 	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
 	ui.KV("backend", cfg.Backend)
 	ui.KV("api", "/api/health /api/jobs /api/render /api/warm /api/stop")
@@ -2734,6 +2865,115 @@ func serve(cfg config.Config, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken, PublicReadOnly: *publicReadOnly})
+}
+
+func serveRosarium(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve rosarium", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:7862", "HTTP listen address")
+	dir := fs.String("dir", filepath.Join(cfg.Root, "apps", "rosarium", "public"), "directory to serve")
+	open := fs.Bool("open", false, "open Rosarium in default browser")
+	quiet := fs.Bool("quiet", false, "suppress per-request log")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("rosarium root %s: %w", root, err)
+	}
+	url := "http://" + *addr
+	ui.Header("serve rosarium", "recovered visual museum (7,218 works)")
+	ui.KV("local url", url)
+	ui.KV("domain", "https://flux.influx.vision/rosarium")
+	ui.KV("root", root)
+	ui.KV("auth", ui.Soft("none; static museum"))
+	ui.KV("stop", "ctrl-c")
+	if *open {
+		server.OpenBrowser(url)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServeStatic(ctx, server.StaticOptions{
+		Addr:  *addr,
+		Root:  root,
+		Quiet: *quiet,
+	})
+}
+
+func serveAtelier(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve atelier", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:7860", "HTTP listen address")
+	dir := filepath.Join(cfg.Root, "atelier")
+	open := fs.Bool("open", false, "open Atelier in default browser")
+	quiet := fs.Bool("quiet", false, "suppress per-request log")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("atelier root %s: %w", root, err)
+	}
+	url := "http://" + *addr
+	ui.Header("serve atelier", "synthesis cockpit & evolution studio")
+	ui.KV("local url", url+"/control.html")
+	ui.KV("domain", "https://flux.influx.vision/atelier")
+	ui.KV("root", root)
+	ui.KV("auth", ui.Soft("none; local cockpit"))
+	ui.KV("stop", "ctrl-c")
+	if *open {
+		server.OpenBrowser(url + "/control.html")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServeStatic(ctx, server.StaticOptions{
+		Addr:     *addr,
+		Root:     root,
+		Fallback: "/control.html",
+		Quiet:    *quiet,
+	})
+}
+
+func servePortal(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve portal", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:8898", "HTTP listen address")
+	dir := fs.String("dir", filepath.Join(cfg.Root, "web", "portal"), "directory to serve")
+	open := fs.Bool("open", false, "open portal in default browser")
+	quiet := fs.Bool("quiet", false, "suppress per-request log")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(root); err != nil {
+		if _, errVar := os.Stat("/var/www/flux-portal"); errVar == nil {
+			root = "/var/www/flux-portal"
+		} else {
+			return fmt.Errorf("portal root %s: %w", root, err)
+		}
+	}
+	url := "http://" + *addr
+	ui.Header("serve portal", "Influx Vision constellation portal")
+	ui.KV("local url", url)
+	ui.KV("domain", "https://flux.influx.vision/")
+	ui.KV("root", root)
+	ui.KV("stop", "ctrl-c")
+	if *open {
+		server.OpenBrowser(url)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServeStatic(ctx, server.StaticOptions{
+		Addr:  *addr,
+		Root:  root,
+		Quiet: *quiet,
+	})
 }
 
 func serveOscillihue(cfg config.Config, args []string) error {
@@ -2758,8 +2998,9 @@ func serveOscillihue(cfg config.Config, args []string) error {
 	}
 	url := "http://" + *addr
 
-	ui.Header("oscillihue", "static web folder over HTTP")
-	ui.KV("url", url)
+	ui.Header("serve atlas", "Motion Atlas Sphere & web suite over HTTP")
+	ui.KV("local url", url)
+	ui.KV("domain", "https://flux.influx.vision/atlas")
 	ui.KV("root", root)
 	if fallback != "" {
 		ui.KV("index", url+fallback)
@@ -2790,7 +3031,7 @@ func oscillihue(cfg config.Config, args []string) error {
 		case "serve", "http", "start", "web", "static":
 			args = args[1:]
 		default:
-			return fmt.Errorf("unknown oscillihue action %q; use `flux oscillihue serve`", args[0])
+			return fmt.Errorf("unknown oscillihue action %q; use `flux serve atlas`", args[0])
 		}
 	}
 	return serveOscillihue(cfg, args)
@@ -2816,8 +3057,9 @@ func gallery(cfg config.Config, args []string) error {
 		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
 	}
 	url := "http://" + *addr + "/gallery"
-	ui.Header("gallery", "Atelier live archive over the FLUX socket")
-	ui.KV("url", url)
+	ui.Header("serve gallery", "live generation feed and archive")
+	ui.KV("local url", url)
+	ui.KV("domain", "https://flux.influx.vision/gallery")
 	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
 	ui.KV("backend", cfg.Backend)
 	ui.KV("stream", "/api/jobs/events /api/img2img/events /api/gallery/events")

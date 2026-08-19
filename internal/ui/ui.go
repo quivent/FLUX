@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"local/flux/internal/version"
 )
 
 type Color string
@@ -75,7 +77,7 @@ func Wordmark() {
 func Banner() {
 	fmt.Println()
 	Wordmark()
-	fmt.Println(paint(Bold, paint(Violet, "flux")) + paint(Dim, "  BF16 local image forge"))
+	fmt.Println(paint(Bold, paint(Violet, "flux")) + " " + paint(Dim, version.Full()) + paint(Dim, " · BF16 local image forge"))
 	fmt.Println(paint(Indigo, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"))
 	fmt.Println(paint(Dim, "  Resident socket · prompt instruments · exposed HTTP · local-only FLUX.1-dev"))
 }
@@ -229,87 +231,103 @@ func padVisible(value string, width int) string {
 
 func Usage() {
 	Banner()
-	Suite("kernel", Violet, []PairRow{
+	Suite("setup", Mint, []PairRow{
 		{"install", "symlink ./flux into ~/.local/bin/flux"},
-		{"setup", "create .venv and install Python deps"},
-		{"doctor", "verify model files, MPS, packages, BF16 headers"},
+		{"setup", "auto-install uv, create .venv, install dependencies"},
+		{"doctor", "verify model files, CUDA/MPS, packages, BF16 headers"},
 		{"accel", "inspect active and candidate acceleration backends"},
-		{"architecture", "show CLI, socket, HTTP, tunnel, and backend flow"},
-		{"atelier studies", "FLUX.1-related Atelier research imported into the CLI"},
-		{"atlas bell protocols", "open-prompt latent motion and directed tournament protocols"},
-		{"anime productions", "anime.sakure.network project bridge"},
-		{"ane", "manage strict ANE package registry and component conversion"},
-		{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
 		{"bench", "benchmark socket backends and update auto-selection profile"},
 		{"bench --dry-run", "show benchmark plan without starting worker"},
-		{"studio", "runtime posture, model paths, preset lanes"},
-		{"gpu", "show NVIDIA/Torch GPU state and active compute processes"},
+	})
+	Suite("models", Violet, []PairRow{
 		{"download", "fetch the FLUX.1-dev BF16 Diffusers snapshot"},
-		{"tree", "full command topology"},
-		{"colors", "palette and state sample"},
+		{"download --dry", "show the fetch plan without downloading"},
+		{"load", "start worker and preload FLUX into GPU memory"},
+		{"load --preload=false", "start queue without loading the 32 GB model"},
+		{"gpu", "show GPU memory, utilization, and active CUDA processes"},
+		{"fleet", "inspect multi-GPU worker pool across detected devices"},
+		{"ane", "manage strict ANE package registry and component conversion"},
+		{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
 	})
-	Suite("runtime", Indigo, []PairRow{
-		{"tea", "show the isolated Tea app setup and serving commands"},
-		{"tea setup", "install shared runtime dependencies and validate Tea"},
-		{"tea dev --open", "serve the Tea garden and motion gallery locally"},
-		{"warm", "start worker and load FLUX into memory"},
-		{"warm --preload=false", "start queue without loading the 32 GB model"},
-		{"serve", "local HTTP API and dashboard backed by the worker socket"},
-		{"serve oscillihue", "static file server for the web/ folder on :7870"},
-		{"oscillihue serve", "same static server, noun-first spelling"},
-		{"oscillihue --open --dir web", "serve a specific folder and open it"},
-		{"serve --addr 0.0.0.0:7861", "expose HTTP API; requires a bearer token"},
-		{"serve --addr 0.0.0.0:7861 --unsafe-no-auth", "expose HTTP API without auth"},
-		{"gallery", "start the Atelier gallery server at /gallery"},
-		{"gallery --open", "open the live gallery in the default browser"},
+	Suite("applications", Rose, []PairRow{
+		{"serve studio", "primary HTTP API and studio dashboard on :7861"},
+		{"serve tea", "Tea living image garden & Stallion motion lab on :7861"},
+		{"serve rosarium", "recovered visual museum (7,218 works) on :7862"},
+		{"serve atlas", "Motion Atlas Sphere & agent console on :7870"},
+		{"serve atelier", "Koyomi synthesis cockpit & prompt duels on :7860"},
+		{"serve portal", "Influx Vision constellation index on :8898"},
+		{"serve gallery", "live generation feed and archive on :7861/gallery"},
 		{"remote", "call an exposed FLUX HTTP endpoint"},
-		{"stop", "stop the resident worker"},
-		{"jobs", "summarize queued/running/done worker jobs"},
-		{"gpu", "show GPU memory, utilization, and FLUX-visible CUDA state"},
-		{"jobs cancel <id>", "cancel a queued job or request running-job cancellation"},
-		{"jobs open latest", "open newest completed output"},
-		{"jobs prune --keep 20", "remove old done/error/cancelled records"},
 	})
-	Suite("forge", Teal, []PairRow{
-		{"render \"prompt\"", "start/use resident socket and wait"},
+	Suite("actions", Gold, []PairRow{
+		{"render \"prompt\"", "start/use resident socket and wait for image"},
 		{"render --direct", "force one-shot Python generation"},
 		{"render --async", "queue a job, starting worker if needed"},
+		{"render --burst N", "seed fanout"},
 		{"img2img --image file \"prompt\"", "second socket for FLUX image-to-image refinement"},
 		{"img2img --image A --image2 B \"prompt\"", "composite two references into one img2img source"},
 		{"img2img --warm", "start img2img socket without loading the model"},
+		{"jobs", "summarize queued/running/done worker jobs"},
+		{"jobs cancel <id>", "cancel a queued job or request cancellation"},
+		{"jobs open latest", "open newest completed output"},
+		{"jobs prune --keep 20", "remove old done/error/cancelled records"},
+		{"stop", "stop the resident worker daemons"},
+		{"pipeline \"subject\"", "safe dry-run multi-generation workflow"},
 		{"muse \"subject\"", "generate a shot board of renderable lanes"},
 		{"matrix \"subject\"", "creative style/mood/camera control board"},
-		{"pipeline \"subject\"", "safe dry-run multi-generation workflow"},
-		{"plan", "show exact render plan without running"},
-		{"history", "show recent renders"},
-	})
-	Suite("prompt", Gold, []PairRow{
-		{"recipes", "styles, moods, ratios, presets"},
 		{"shape", "compose final prompt with style/mood/camera/light/etc."},
 		{"spark", "six creative prompt mutations"},
-		{"evolve \"subject\"", "prompt-side candidate generator; ANE slot planned"},
-		{"muse --commands", "copy-safe render command board"},
+		{"evolve \"subject\"", "prompt-side candidate generator"},
+		{"recipes", "styles, moods, ratios, presets"},
+		{"plan", "show exact render plan without running"},
+		{"history", "show recent render ledger"},
+	})
+	Suite("config", Indigo, []PairRow{
+		{"studio", "runtime posture, model paths, preset lanes"},
+		{"usage", "real-world command examples & workflow patterns"},
+		{"tree", "full command topology in Council-style branches"},
+		{"architecture", "show CLI, socket, HTTP, tunnel, and backend flow"},
+		{"colors", "palette and state sample"},
+		{"anime", "anime.sakure.network project bridge"},
 	})
 	fmt.Println()
-	fmt.Println(paint(Dim, "  Examples"))
-	Pair("flux render \"glass cabin\" --preset hero", "starts/uses resident socket")
-	Pair("flux img2img --image subject.png --image2 style.png \"single cohesive character\"", "simple image+image to image")
-	Pair("flux bench --backends mps,mlx --steps 8", "profile concrete backends through the socket")
-	Pair("flux bench --dry-run --backends mps,mlx", "show benchmark plan only")
-	Pair("flux atelier studies", "FLUX.1 study index from ~/Atelier")
-	Pair("flux atelier studies flat-prompt-protocol", "study details with source path")
-	Pair("flux anime productions", "anime.sakure.network project bridge")
-	Pair("flux muse \"anime rain station\" --remote-url http://host:7861", "shot board with commands")
-	Pair("flux matrix \"forest shrine\" --styles anime,noir --cameras wide,close", "creative lanes")
-	Pair("flux pipeline \"forest shrine\" --mode anime", "multi-generation plan")
-	Pair("flux pipeline \"forest shrine\" --mode anime --run", "queue the workflow")
-	Pair("flux evolve \"forest shrine\" --mode anime", "prompt candidates with word counts")
-	Pair("flux render \"shrine\" --camera wide --light lantern --palette sakura", "controlled creativity")
-	Pair("flux jobs --active", "active queue with estimates")
-	Pair("flux gpu", "NVIDIA and Torch CUDA state")
-	Pair("flux remote render --url http://host:7861 \"glass cabin\" --wait", "generate through exposed HTTP")
-	Pair("flux render \"keyboard\" --preset object --direct", "force one-shot process")
-	Pair("flux spark \"orange keyboard\"", "prompt exploration")
+	fmt.Println(paint(Dim, "  Run `flux usage` or `flux examples` for real-world command invocations."))
+	fmt.Println()
+}
+
+func Examples() {
+	Header("usage", "real-world command examples & workflow patterns")
+	Suite("rendering & forge", Teal, []PairRow{
+		{"flux render \"glass cabin\" --preset hero", "starts/uses resident socket with hero preset"},
+		{"flux render \"keyboard\" --preset object --direct", "force one-shot Python generation without socket"},
+		{"flux render \"shrine\" --camera wide --light lantern --palette sakura", "fine-grained visual lens control"},
+		{"flux img2img --image subject.png --image2 style.png \"single cohesive character\"", "image+image composite refinement"},
+		{"flux remote render --url http://host:7861 \"glass cabin\" --wait", "generate through exposed HTTP endpoint"},
+	})
+	Suite("pipelines & exploration", Gold, []PairRow{
+		{"flux pipeline \"forest shrine\" --mode anime", "multi-generation prompt exploration plan"},
+		{"flux pipeline \"forest shrine\" --mode anime --run", "queue the multi-generation workflow"},
+		{"flux matrix \"forest shrine\" --styles anime,noir --cameras wide,close", "generate creative matrix control board"},
+		{"flux muse \"anime rain station\" --remote-url http://host:7861", "generate shot board with copy-safe commands"},
+		{"flux evolve \"forest shrine\" --mode anime", "generate prompt candidates with word counts"},
+		{"flux spark \"orange keyboard\"", "six creative prompt mutations"},
+	})
+	Suite("applications & serving", Rose, []PairRow{
+		{"flux serve studio", "serve primary HTTP/WebSocket API & studio UI on :7861"},
+		{"flux serve tea", "serve Tea living garden & Stallion motion lab on :7861"},
+		{"flux serve rosarium", "serve recovered visual museum (7,218 works) on :7862"},
+		{"flux serve atlas", "serve Motion Atlas Sphere on :7870"},
+		{"flux serve atelier", "serve Atelier synthesis cockpit on :7860"},
+		{"flux serve portal", "serve Influx Vision constellation portal on :8898"},
+		{"flux serve gallery", "serve live generation archive on :7861/gallery"},
+	})
+	Suite("benchmarking & telemetry", Mint, []PairRow{
+		{"flux bench --backends cuda,cpu --steps 8", "profile concrete backends through the socket"},
+		{"flux bench --dry-run --backends cuda,cpu", "show benchmark plan without starting worker"},
+		{"flux jobs --active", "inspect active queue with progress estimates"},
+		{"flux gpu", "inspect NVIDIA and Torch CUDA compute state"},
+		{"flux atelier studies flat-prompt-protocol", "view study details with source path"},
+	})
 	fmt.Println()
 }
 

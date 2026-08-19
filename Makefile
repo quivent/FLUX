@@ -155,8 +155,16 @@ chorus-status:
 chorus-stop:
 	gman run "$(NODE)" -- bash -lc 'kill $$(cat ~/.flux-run/drift.pid) 2>/dev/null; echo stopped'
 
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo "2026.08.19")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")$(shell git diff --quiet 2>/dev/null || echo "-dirty")
+BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 go-build:
-	go build -o flux ./cmd/flux
+	@mkdir -p .fluxd
+	@num=$$(expr $$(cat .build_num 2>/dev/null || echo 0) + 1); \
+	 echo "$$num" > .build_num; \
+	 echo "reversioning: v$(VERSION) (build $$num · $(GIT_COMMIT) · $(BUILD_TIME))"; \
+	 go build -ldflags "-X 'local/flux/internal/version.Version=$(VERSION)' -X 'local/flux/internal/version.GitCommit=$(GIT_COMMIT)' -X 'local/flux/internal/version.BuildTime=$(BUILD_TIME)' -X 'local/flux/internal/version.BuildNum=$$num'" -o flux ./cmd/flux
 
 flux: go-build
 	./flux install

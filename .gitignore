@@ -8,4 +8,5 @@ outputs/
 /history.jsonl
 .fluxd/
 serve.log
+.build_num
 *.log
