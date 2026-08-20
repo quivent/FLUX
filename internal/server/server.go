@@ -312,6 +312,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jury/presets", s.juryPresetsAPI)
 	mux.HandleFunc("/api/jury/sync-r2", s.jurySyncR2API)
 	mux.HandleFunc("/api/jury/spectacles", s.jurySpectaclesAPI)
+	mux.HandleFunc("/api/jury/feedback", s.juryFeedbackAPI)
 	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
 	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
@@ -653,6 +654,29 @@ func (s Server) jurySpectaclesAPI(w http.ResponseWriter, r *http.Request) {
 		"ok":         true,
 		"count":      len(items),
 		"spectacles": items,
+	})
+}
+
+func (s Server) juryFeedbackAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	var req jury.HumanFeedbackRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := jury.SaveHumanFeedback(s.cfg.OutputDir, req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":      true,
+		"action":  req.Action,
+		"job_id":  req.JobID,
+		"message": "Human feedback recorded and incorporated into Movement Towards Master loop",
 	})
 }
 

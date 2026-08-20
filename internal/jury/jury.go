@@ -167,6 +167,17 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			masterpiece INTEGER,
 			created_at INTEGER NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS human_feedback (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_id TEXT NOT NULL,
+			seed TEXT,
+			prompt TEXT,
+			action TEXT NOT NULL,
+			curated_rank INTEGER DEFAULT 0,
+			rating INTEGER DEFAULT 5,
+			operator TEXT DEFAULT 'human',
+			created_at INTEGER NOT NULL
+		);`,
 	}
 	for _, q := range queries {
 		if _, err := db.Exec(q); err != nil {
@@ -424,4 +435,63 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 		items = append(items, it)
 	}
 	return items, nil
+}
+
+type HumanFeedbackRequest struct {
+	JobID       string `json:"job_id"`
+	Seed        string `json:"seed"`
+	Prompt      string `json:"prompt"`
+	Action      string `json:"action"` // "crown_masterpiece", "promote_spectacle", "demote", "rerank"
+	CuratedRank int    `json:"curated_rank"`
+	Rating      int    `json:"rating"`
+	Operator    string `json:"operator"`
+}
+
+func SaveHumanFeedback(outputDir string, fb HumanFeedbackRequest) error {
+	d, err := InitDB(outputDir)
+	if err != nil {
+		return err
+	}
+	if fb.Operator == "" {
+		fb.Operator = "human"
+	}
+	now := time.Now().Unix()
+
+	_, err = d.Exec(`
+		INSERT INTO human_feedback (job_id, seed, prompt, action, curated_rank, rating, operator, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, fb.JobID, fb.Seed, fb.Prompt, fb.Action, fb.CuratedRank, fb.Rating, fb.Operator, now)
+	if err != nil {
+		return err
+	}
+
+	// Dynamic override in jury_verdicts based on human feedback
+	if fb.Action == "crown_masterpiece" {
+		_, _ = d.Exec(`UPDATE jury_verdicts SET masterpiece = 1, composite_score = 99.0, percentile_rank = 99.5 WHERE job_id = ?`, fb.JobID)
+	} else if fb.Action == "promote_spectacle" {
+		_, _ = d.Exec(`UPDATE jury_verdicts SET masterpiece = 2, composite_score = 94.0, percentile_rank = 94.5 WHERE job_id = ?`, fb.JobID)
+	} else if fb.Action == "demote" {
+		_, _ = d.Exec(`UPDATE jury_verdicts SET masterpiece = 0, composite_score = 45.0, percentile_rank = 15.0 WHERE job_id = ?`, fb.JobID)
+	}
+
+	// Append to JSONL for genetic loop pickup
+	genomeFile := filepath.Join(outputDir, "spectacle_genome.jsonl")
+	if fb.Action == "crown_masterpiece" || fb.Action == "promote_spectacle" {
+		entry := map[string]any{
+			"ts":             now,
+			"job_id":         fb.JobID,
+			"seed":           fb.Seed,
+			"prompt":         fb.Prompt,
+			"human_crowned":  true,
+			"curated_action": fb.Action,
+			"target":         "movement_towards_master",
+		}
+		data, _ := json.Marshal(entry)
+		f, err := os.OpenFile(genomeFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			_, _ = f.Write(append(data, '\n'))
+			_ = f.Close()
+		}
+	}
+	return nil
 }
