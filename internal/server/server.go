@@ -324,10 +324,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/engine/", s.enginePage)
 	mux.HandleFunc("/engine-room", s.enginePage)
 	mux.HandleFunc("/engine-room/", s.enginePage)
-	mux.HandleFunc("/moj", s.mojPage)
-	mux.HandleFunc("/moj/", s.mojPage)
-	mux.HandleFunc("/jury", s.mojPage)
-	mux.HandleFunc("/jury/", s.mojPage)
+	mux.HandleFunc("/jury", s.juryPage)
+	mux.HandleFunc("/jury/", s.juryPage)
+	mux.HandleFunc("/moj", s.juryPage)
+	mux.HandleFunc("/moj/", s.juryPage)
 	mux.HandleFunc("/portal", s.portalPage)
 	mux.HandleFunc("/portal/", s.portalPage)
 	mux.HandleFunc("/garden", s.gardenPage)
@@ -559,12 +559,12 @@ func (s Server) enginePage(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "engine.html"))
 }
 
-func (s Server) mojPage(w http.ResponseWriter, r *http.Request) {
-	rel := strings.TrimPrefix(r.URL.Path, "/jury")
-	rel = strings.TrimPrefix(rel, "/moj")
+func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/moj")
+	rel = strings.TrimPrefix(rel, "/jury")
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "moj.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "jury.html"))
 		return
 	}
 	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
@@ -572,7 +572,7 @@ func (s Server) mojPage(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, file)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "moj.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "jury.html"))
 }
 
 // app keeps the production console available without asking a public landing

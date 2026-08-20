@@ -105,8 +105,8 @@ func main() {
 		err = pipeline(cfg, os.Args[2:])
 	case "evolve", "mutate", "prompt-evolve":
 		err = evolve(cfg, os.Args[2:])
-	case "moj", "jury", "evaluate":
-		err = mojCmd(cfg, os.Args[2:])
+	case "jury", "evaluate", "moj":
+		err = juryCmd(cfg, os.Args[2:])
 	case "plan":
 		err = render(cfg, append(os.Args[2:], "--dry-run", "--echo"))
 	case "shape":
@@ -5679,15 +5679,15 @@ func filenameFromArgs(args []string) string {
 	return ""
 }
 
-func mojCmd(cfg config.Config, args []string) error {
-	fmt.Println(ui.Accent("=== FLUX Mixture of Judges (MoJ) Jury Matrix ==="))
-	fmt.Println("Authority: Governor (31B) + Visual Witness (Qwen3-VL/Pixtral) + Fast Gates")
-	fmt.Println("Blueprint: /root/CLIs/flux/moj_continuum.toml")
+func juryCmd(cfg config.Config, args []string) error {
+	fmt.Println(ui.Accent("=== FLUX Sovereign Visual Jury Matrix ==="))
+	fmt.Println("Authority: Governor (31B) + Qwen3-VL (8B) + Pixtral (12B) + Gemma Decoder (12B)")
+	fmt.Println("Blueprint: /root/CLIs/flux/jury_continuum.toml")
 	fmt.Println("Audit Log: /root/Models/flux-output/audit.jsonl")
-	fmt.Println("Web View:  https://motion.influx.vision/moj")
+	fmt.Println("Web View:  https://motion.influx.vision/jury")
 
 	if len(args) > 0 && args[0] == "provision" {
-		cmd := exec.Command("/root/CLIs/flux/provision_mixture_of_judges.sh")
+		cmd := exec.Command("/root/CLIs/flux/provision_jury.sh")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
