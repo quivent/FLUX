@@ -124,17 +124,12 @@ Every generated cell must pass through the **4-Shard Consensus Matrix** before e
 ```mermaid
 sequenceDiagram
     participant F as FLUX Forge
-    participant P as Shard 1: Pixtral 12B
-    participant Q as Shard 2: Qwen 3.8 (8B Vision)
-    participant C as Shard 3: Consensus Engine
-    participant G as Shard 4: Governor Gemma 31B
+    participant Q as Shard 1: Qwen 3.8 Dense (Vision)
+    participant G as Shard 2: Governor Gemma 31B
     participant R as Cloudflare R2 Vault
 
-    F->>P: Dispatch Raw Latent Cell (BF16)
     F->>Q: Dispatch Raw Latent Cell (BF16)
-    P->>C: Gouache Density & Facial Sharpness (Score: 9.4)
-    Q->>C: Chiaroscuro & Silhouette Read (Score: 9.6)
-    C->>G: Compute Harmonic Mean (Strictness γ = 2.4)
+    Q->>G: Dense Spatial Geometry & Impasto Critique (Score: 9.5)
     alt Score ≥ 9.0 (Crowned)
         G->>R: Consecrate Masterpiece (.png + manifest.json)
         G->>F: Issue 1-Sentence Poetic Epigram
