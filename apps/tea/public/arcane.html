@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arcane Production Studio · Influx Vision</title>
+  <meta name="description" content="Fortiche-grade Arcane anime production forge, 64-frame latent turntables, Piltover & Zaun world atlas, and AI beauty jury.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --ink: #27231f;
+      --ink-soft: #635d55;
+      --ink-faint: #9c958a;
+      --border: #e6e2d8;
+      --border-dark: #2a2622;
+      --hojicha: #79583e;
+      --vermilion: #a63e39;
+      --celadon: #5a776a;
+      --hextech: #00d2ff;
+      --chemtech: #00ff88;
+      --zaun-rust: #8b4513;
+      --gold: #c5a059;
+      --bg-dark: #121110;
+      --card-dark: #1a1816;
+      --text-dark: #e8e4dc;
+      --text-dark-faint: #888277;
+    }
+
+    body.mode-nocturnal {
+      --paper: #121110;
+      --paper-soft: #1a1816;
+      --ink: #e8e4dc;
+      --ink-soft: #a8a296;
+      --ink-faint: #6e675c;
+      --border: #2a2622;
+      --hojicha: #a47854;
+      --vermilion: #d05851;
+      --celadon: #78a08f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      transition: background 0.4s ease, color 0.4s ease;
+      min-height: 100vh;
+    }
+
+    /* Universal Two-Tier Navigation */
+    .top-nav {
+      border-bottom: 1px solid var(--border);
+      background: var(--paper-soft);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+    }
+    .brand-seal {
+      width: 22px;
+      height: 22px;
+      background: var(--vermilion);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+    }
+    .nav-tiers {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    .nav-tier-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--ink-faint);
+    }
+    .nav-link {
+      text-decoration: none;
+      color: var(--ink-soft);
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: var(--ink);
+      background: rgba(0,0,0,0.04);
+    }
+    body.mode-nocturnal .nav-link:hover, body.mode-nocturnal .nav-link.active {
+      background: rgba(255,255,255,0.06);
+    }
+    .nav-divider {
+      color: var(--border);
+      font-weight: 300;
+    }
+    .ritual-switch {
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* Arcane Hero Banner */
+    .arcane-hero {
+      border: 1px solid var(--border);
+      background: var(--paper-soft);
+      border-radius: 8px;
+      padding: 36px 40px;
+      margin-bottom: 32px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 32px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-title {
+      font-family: 'Cinzel', serif;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      color: var(--ink);
+    }
+    .hero-subtitle {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 15px;
+      color: var(--hojicha);
+      margin-bottom: 16px;
+    }
+    .hero-desc {
+      color: var(--ink-soft);
+      line-height: 1.7;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .hero-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .hero-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.03);
+      border: 1px solid var(--border);
+    }
+    body.mode-nocturnal .hero-tag { background: rgba(255,255,255,0.04); }
+
+    /* Dual-City Mode Selector */
+    .realm-switch {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .city-btn {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--paper-soft);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: left;
+      transition: all 0.25s ease;
+    }
+    .city-btn.active.piltover {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, rgba(197,160,89,0.08), transparent);
+      box-shadow: 0 0 20px rgba(197,160,89,0.15);
+    }
+    .city-btn.active.zaun {
+      border-color: var(--chemtech);
+      background: linear-gradient(135deg, rgba(0,255,136,0.08), transparent);
+      box-shadow: 0 0 20px rgba(0,255,136,0.15);
+    }
+    .city-name {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .city-meta {
+      font-size: 11px;
+      color: var(--ink-faint);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Production Grid */
+    .production-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 32px;
+    }
+
+    /* Studio Card */
+    .studio-card {
+      border: 1px solid var(--border);
+      background: var(--paper-soft);
+      border-radius: 8px;
+      padding: 24px;
+      position: relative;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .card-title {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* 64-Frame Turntable Player */
+    .turntable-viewport {
+      width: 100%;
+      height: 440px;
+      background: #000;
+      border-radius: 6px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .turntable-viewport img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .turntable-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .scrub-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .scrub-slider {
+      flex: 1;
+      accent-color: var(--vermilion);
+    }
+    .frame-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+      min-width: 90px;
+      text-align: center;
+    }
+
+    /* Prompt Synthesizer */
+    .synth-group {
+      margin-bottom: 16px;
+    }
+    .synth-label {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-faint);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .synth-input, .synth-select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+    }
+    .synth-btn {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border-dark);
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .synth-btn:hover {
+      background: var(--vermilion);
+      border-color: var(--vermilion);
+      color: #fff;
+    }
+
+    /* Fortiche Jury Matrix */
+    .jury-score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .score-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--celadon);
+    }
+    .verdict-seal {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px dashed var(--gold);
+      background: rgba(197,160,89,0.06);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .verdict-title {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .verdict-quote {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Universal Two-Tier Navigation -->
+  <header class="top-nav">
+    <a href="/" class="brand">
+      <div class="brand-seal">壱</div>
+      <span>INFLUX VISION</span>
+    </a>
+    <nav class="nav-tiers">
+      <div class="nav-tier-group">
+        <span class="nav-label">🍵 TEA:</span>
+        <a href="/jury" class="nav-link">👑 Jury</a>
+        <a href="/gallery" class="nav-link">🖼️ Stream</a>
+        <a href="/garden" class="nav-link">🌿 Garden</a>
+        <a href="/portraits" class="nav-link">👤 Portraits</a>
+        <a href="/exhibition" class="nav-link">🏛️ Exhibition</a>
+      </div>
+      <span class="nav-divider">|</span>
+      <div class="nav-tier-group">
+        <span class="nav-label">⚡ MOTION:</span>
+        <a href="/movement" class="nav-link">🎬 Video</a>
+        <a href="/atlas/" class="nav-link">🌐 Worlds</a>
+        <a href="/studies" class="nav-link">🐎 Studies</a>
+        <a href="/arcane" class="nav-link active">🎨 Arcane</a>
+        <a href="/engine" class="nav-link">⚙️ Engine</a>
+      </div>
+    </nav>
+    <button class="ritual-switch" id="themeSwitch">
+      <span>🍵</span>
+      <span id="switchText">Living Parchment</span>
+    </button>
+  </header>
+
+  <main class="container">
+    
+    <!-- Hero Banner -->
+    <section class="arcane-hero">
+      <div>
+        <div class="hero-title">The Arcane World Forge</div>
+        <div class="hero-subtitle">Fortiche-Grade Anime Production Studio · 64-Frame Latent Turntables</div>
+        <div class="hero-desc">
+          An uncompromised generative production line bridging 3D-2D hybrid character silhouettes, hand-painted gouache impasto, sharp graphic chiaroscuro, and deterministic latent cartography across the dual realms of Piltover and Zaun.
+        </div>
+        <div class="hero-tags">
+          <span class="hero-tag">🏎️ 288GB B300 SXM6 Engine</span>
+          <span class="hero-tag">📐 atlas-xframe-cache (1.5s/cell)</span>
+          <span class="hero-tag">👑 4-Shard Fortiche Jury</span>
+          <span class="hero-tag">🎨 Visible Oil & Gouache</span>
+        </div>
+      </div>
+      <div>
+        <div class="realm-switch">
+          <button class="city-btn active piltover" id="btnPiltover">
+            <span class="city-name">☀️ Piltover Apex</span>
+            <span class="city-meta">Gilded Art Deco · Hextech Cyan · Ivory</span>
+          </button>
+          <button class="city-btn zaun" id="btnZaun">
+            <span class="city-name">🧪 Zaun Undercity</span>
+            <span class="city-meta">Toxic Chemtech · Rust · Violet Neon</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Production Grid -->
+    <div class="production-grid">
+      
+      <!-- 64-Frame Turntable Studio -->
+      <div class="studio-card">
+        <div class="card-header">
+          <span class="card-title">64-Frame Latent Turntable (Arcane Scout 65k)</span>
+          <span class="nav-label">SO(4) GEODESIC ORBIT</span>
+        </div>
+
+        <div class="turntable-viewport">
+          <img id="turntableImg" src="/outputs/stream/arcane_scout_00.png" onerror="this.src='/outputs/stream/latest.png'" alt="Arcane Character Turntable">
+        </div>
+
+        <div class="turntable-controls">
+          <div class="scrub-row">
+            <input type="range" min="0" max="63" value="0" class="scrub-slider" id="frameSlider">
+            <span class="frame-badge" id="frameBadge">CELL 01 / 64 (0°)</span>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 6px;">
+            <button class="hero-tag" id="btnAutoSpin" style="cursor: pointer;">▶ Auto Orbit (24 FPS)</button>
+            <button class="hero-tag copy-btn" id="btnExportAtlas" style="cursor: pointer;">📥 Export 64-Cell Atlas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arcane Prompt Synthesizer & Beauty Jury -->
+      <div class="studio-card">
+        <div class="card-header">
+          <span class="card-title">Fortiche Synthesis & Aesthetic Jury</span>
+          <span class="nav-label">DYNAMIC STRICTNESS 2.4γ</span>
+        </div>
+
+        <form id="synthForm" onsubmit="event.preventDefault(); forgeArcane();">
+          <div class="synth-group">
+            <label class="synth-label">Subject & Archetype</label>
+            <input type="text" class="synth-input" id="promptSubject" value="Zaun vigilante brawler with mechanical chemtech gauntlet, sharp jawline, messy crimson undercut">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="synth-group">
+            <div>
+              <label class="synth-label">Aesthetic Preset</label>
+              <select class="synth-select" id="presetSelect">
+                <option value="arcane-hero">arcane-hero (Fortiche Key Visual)</option>
+                <option value="arcane-zaun">arcane-zaun (Undercity Chiaroscuro)</option>
+                <option value="arcane-piltover">arcane-piltover (High City Gilded)</option>
+                <option value="arcane-turn">arcane-turn (64-Frame Turntable)</option>
+              </select>
+            </div>
+            <div>
+              <label class="synth-label">Lighting & Atmosphere</label>
+              <select class="synth-select" id="lightSelect">
+                <option value="chemtech">chemtech (Toxic Emerald Rim)</option>
+                <option value="hextech">hextech (Cyan Crystal Glow)</option>
+                <option value="rim">rim (High-Contrast Silhouette)</option>
+                <option value="golden">golden (Theatrical Sunlit Chiaroscuro)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="synth-btn">
+            <span>⚡ Forge Arcane Cell (1.5s on B300)</span>
+          </button>
+        </form>
+
+        <div style="margin-top: 24px;">
+          <div class="synth-label">4-Shard Fortiche Aesthetic Sieve</div>
+          <div class="jury-score-row">
+            <span>🎨 Gouache Impasto & Brush Texture Density</span>
+            <span class="score-val" id="scoreGouache">9.4 / 10</span>
+          </div>
+          <div class="jury-score-row">
+            <span>📐 Angular Silhouette & Facial Plane Sharpness</span>
+            <span class="score-val" id="scoreSilhouette">9.6 / 10</span>
+          </div>
+          <div class="jury-score-row">
+            <span>💡 Rim Light Separation & Volumetric Fog</span>
+            <span class="score-val" id="scoreLight">9.1 / 10</span>
+          </div>
+          <div class="jury-score-row">
+            <span>🚫 Anti-Plastic CGI Differentiation Filter</span>
+            <span class="score-val" id="scoreAntiCGI">100% Passed</span>
+          </div>
+
+          <div class="verdict-seal">
+            <div>
+              <div class="verdict-title">👑 SOVEREIGN JURY CROWNED</div>
+              <div class="verdict-quote">"The brushstrokes preserve the weight of the hand. Fortiche aesthetic integrity verified."</div>
+            </div>
+            <button class="hero-tag copy-btn" style="cursor:pointer;" onclick="playCeramicWhisper()">Archive R2</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="/assets/sensory.js"></script>
+  <script>
+    // Theme Switch
+    const themeBtn = document.getElementById('themeSwitch');
+    const switchText = document.getElementById('switchText');
+    let isDark = localStorage.getItem('influx_twilight_mode') === 'true';
+
+    function updateTheme() {
+      if (isDark) {
+        document.body.classList.add('mode-nocturnal');
+        switchText.textContent = 'Nocturnal Study';
+      } else {
+        document.body.classList.remove('mode-nocturnal');
+        switchText.textContent = 'Living Parchment';
+      }
+    }
+    updateTheme();
+    themeBtn.addEventListener('click', () => {
+      isDark = !isDark;
+      localStorage.setItem('influx_twilight_mode', isDark);
+      updateTheme();
+    });
+
+    // Dual-City Switch
+    const btnPiltover = document.getElementById('btnPiltover');
+    const btnZaun = document.getElementById('btnZaun');
+    btnPiltover.addEventListener('click', () => {
+      btnPiltover.classList.add('active');
+      btnZaun.classList.remove('active');
+      document.getElementById('presetSelect').value = 'arcane-piltover';
+      document.getElementById('lightSelect').value = 'hextech';
+      window.playCeramicWhisper();
+    });
+    btnZaun.addEventListener('click', () => {
+      btnZaun.classList.add('active');
+      btnPiltover.classList.remove('active');
+      document.getElementById('presetSelect').value = 'arcane-zaun';
+      document.getElementById('lightSelect').value = 'chemtech';
+      window.playCeramicWhisper();
+    });
+
+    // Turntable Scrub
+    const slider = document.getElementById('frameSlider');
+    const badge = document.getElementById('frameBadge');
+    slider.addEventListener('input', (e) => {
+      const frame = parseInt(e.target.value);
+      const angle = Math.round((frame / 64) * 360);
+      badge.textContent = `CELL ${String(frame + 1).padStart(2, '0')} / 64 (${angle}°)`;
+      window.playEscapementTick();
+    });
+
+    // Auto Spin
+    let spinInterval = null;
+    const btnAutoSpin = document.getElementById('btnAutoSpin');
+    btnAutoSpin.addEventListener('click', () => {
+      if (spinInterval) {
+        clearInterval(spinInterval);
+        spinInterval = null;
+        btnAutoSpin.textContent = '▶ Auto Orbit (24 FPS)';
+      } else {
+        btnAutoSpin.textContent = '⏸ Pause Orbit';
+        spinInterval = setInterval(() => {
+          let next = (parseInt(slider.value) + 1) % 64;
+          slider.value = next;
+          const angle = Math.round((next / 64) * 360);
+          badge.textContent = `CELL ${String(next + 1).padStart(2, '0')} / 64 (${angle}°)`;
+        }, 1000 / 24);
+      }
+    });
+
+    function forgeArcane() {
+      window.playCeramicWhisper();
+      const subject = document.getElementById('promptSubject').value;
+      const preset = document.getElementById('presetSelect').value;
+      alert(`Forging Arcane cell: "${subject}" with preset ${preset} on B300 node!`);
+    }
+  </script>
+</body>
+</html>

@@ -49,6 +49,8 @@ var OrderedStyles = []Definition{
 	{"material", "macro material study, exact surface response, visible fabrication detail"},
 	{"anime", "anime production still, expressive linework, cinematic color design, clean compositing"},
 	{"noir", "graphic noir lighting, hard silhouettes, controlled negative space"},
+	{"arcane", "Fortiche Arcane production style, visible oil and gouache brushwork, graphic angular plane rendering, sharp stylized anatomy, 3D-2D hybrid aesthetic"},
+	{"fortiche", "Fortiche animation key visual, textured digital matte painting, dramatic theatrical chiaroscuro, stylized facial geometry, textured paint layering"},
 }
 
 var OrderedMoods = []Definition{
@@ -81,6 +83,8 @@ var OrderedLights = []Definition{
 	{"lantern", "warm lantern light, localized glow, deep surrounding shadow"},
 	{"storm", "storm light, charged sky, intermittent highlights, heavy atmosphere"},
 	{"studio", "controlled studio cross-light, clean highlights, precise material response"},
+	{"hextech", "pulsing hextech crystal luminescence, cyan edge halation, harsh geometric shadows"},
+	{"chemtech", "toxic emerald underlighting, sickly lime haze, caustic industrial spill"},
 }
 
 var OrderedPalettes = []Definition{
@@ -91,6 +95,9 @@ var OrderedPalettes = []Definition{
 	{"mono", "near-monochrome palette, tonal discipline, small color interruption"},
 	{"pastel", "pastel production colors, gentle gradients, airy value structure"},
 	{"acid", "acid accent colors, unstable contrast, sharp synthetic highlights"},
+	{"hextech", "hextech cyan glow, gilded gold filigree, deep navy shadows, polished copper highlights"},
+	{"zaun", "toxic emerald chemtech mist, rusted umber iron, violet neon underglow, radioactive chartreuse"},
+	{"piltover", "sun-bleached white marble, warm brass trim, sapphire glass reflections, crisp ivory air"},
 }
 
 var OrderedTextures = []Definition{
@@ -101,6 +108,7 @@ var OrderedTextures = []Definition{
 	{"metal", "brushed metal, micro-scratches, anisotropic reflections"},
 	{"glass", "layered glass, caustic reflections, transparent edge detail"},
 	{"weathered", "weathered surfaces, patina, wear patterns, lived-in imperfection"},
+	{"gouache", "hand-painted gouache impasto, dry-brush edge breaks, matte pigment pooling, visible brushstroke layering"},
 }
 
 var OrderedDetails = []Definition{
@@ -128,6 +136,7 @@ var OrderedDirectors = []Definition{
 	{"shinkai", "luminous skies, emotional weather, polished atmospheric light"},
 	{"vogue", "high-fashion editorial staging, confident pose language, refined styling"},
 	{"brutalist", "severe massing, concrete tactility, institutional geometry"},
+	{"fortiche", "Fortiche visual rhythm, dynamic angular perspective, expressive painterly character planes, graphic rim light"},
 }
 
 var OrderedRatios = []Ratio{
@@ -149,6 +158,10 @@ var OrderedPresets = []Preset{
 	{"future", "speculative", "optimistic", "wide", 30, 3.4, "plausible near-future scene"},
 	{"anime", "anime", "melancholy", "poster", 30, 3.5, "anime key visual or production still"},
 	{"noir", "noir", "nocturne", "wide", 30, 3.4, "graphic shadow-forward scene"},
+	{"arcane-hero", "arcane", "electric", "poster", 30, 3.5, "Fortiche-grade Arcane hero character visual"},
+	{"arcane-zaun", "arcane", "ominous", "wide", 30, 3.6, "Zaun undercity chemtech atmosphere"},
+	{"arcane-piltover", "fortiche", "optimistic", "wide", 30, 3.5, "Piltover gilded architectural grandeur"},
+	{"arcane-turn", "arcane", "clinical", "square", 28, 3.5, "64-frame character turnaround cell"},
 }
 
 func Compose(base string, s Shape) (string, error) {
