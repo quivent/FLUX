@@ -503,6 +503,11 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
 		return
 	}
+	portalFile := filepath.Join(s.cfg.Root, "web", "portal", "index.html")
+	if _, err := os.Stat(portalFile); err == nil {
+		http.ServeFile(w, r, portalFile)
+		return
+	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
 }
 
