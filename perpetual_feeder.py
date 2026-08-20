@@ -79,15 +79,19 @@ MASTERY_REFINERS = [
 
 seen_prompts = set()
 
+JOBS_LEDGER = "/root/CLIs/flux/.fluxd/flux-gpu0.jobs.jsonl"
+
 def get_queue_depth():
     try:
-        req = urllib.request.urlopen("http://127.0.0.1:7861/api/jobs", timeout=2)
-        data = json.loads(req.read().decode())
-        jobs = data.get("jobs", [])
-        active = [j for j in jobs if j.get("status") in ("queued", "running")]
-        return len(active)
+        if os.path.exists(JOBS_LEDGER):
+            with open(JOBS_LEDGER, "r") as f:
+                lines = [line.strip() for line in f if line.strip()]
+                recent = [json.loads(l) for l in lines[-15:]]
+                active = [j for j in recent if j.get("status") in ("queued", "running")]
+                return len(active)
     except Exception:
-        return 0
+        pass
+    return 0
 
 def sample_spectacle_genome():
     for log_path in [SPECTACLE_LOG, WINNING_GENOME_LOG]:

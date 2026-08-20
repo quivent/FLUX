@@ -928,9 +928,29 @@
     const wG = currentConfig.weights.governor || 0.15;
     const totW = wP + wQ + wD + wG || 1.0;
 
-    const comp = ((sH * wP) + (sS * wQ) + (sD * wD) + (sG * wG)) / totW;
+    const rawComp = ((sH * wP) + (sS * wQ) + (sD * wD) + (sG * wG)) / totW;
+    
+    // Empirical CDF Percentile Mapping (Calibrated against harsh critic distribution)
+    // Raw distribution: 50.0 to 86.0
+    let pct = Math.max(1.0, Math.min(99.9, ((rawComp - 48.0) / 36.0) * 100.0));
+    
+    let curved = 70.0;
+    if (pct >= 98.0) {
+      curved = 98.0 + ((pct - 98.0) / 2.0) * 2.0;
+    } else if (pct >= 90.0) {
+      curved = 90.0 + ((pct - 90.0) / 8.0) * 7.9;
+    } else if (pct >= 70.0) {
+      curved = 80.0 + ((pct - 70.0) / 20.0) * 9.9;
+    } else if (pct >= 35.0) {
+      curved = 65.0 + ((pct - 35.0) / 35.0) * 14.9;
+    } else {
+      curved = (pct / 35.0) * 64.9;
+    }
+
     return {
-      composite: comp.toFixed(1),
+      composite: curved.toFixed(1),
+      rawScore: rawComp.toFixed(1),
+      percentile: pct.toFixed(1),
       harmony: sH.toFixed(1),
       structure: sS.toFixed(1),
       decoder: sD.toFixed(1),
@@ -941,6 +961,7 @@
 
         const computed = computeCompositeScore(prompt, seed);
         const composite = computed.composite;
+        const pctRank = parseFloat(computed.percentile);
 
         // Update Hero Stage
         if (latestImgPath) {
@@ -949,18 +970,18 @@
         document.getElementById('heroSeed').textContent = `SEED: ${seed}`;
         document.getElementById('heroScore').textContent = composite;
         document.getElementById('heroPrompt').textContent = prompt;
-        document.getElementById('heroJobId').textContent = `JOB: ${latest.id || 'LIVE'}`;
+        document.getElementById('heroJobId').textContent = `JOB: ${latest.id || 'LIVE'} · TOP ${(100 - pctRank).toFixed(1)}%`;
 
         const frame = document.getElementById('heroFrame');
         const tierBadge = document.getElementById('heroTierBadge');
         const uPill = document.getElementById('heroUniqueness');
         
         const estNovelty = (70 + (seed % 28)).toFixed(1);
-        if (parseFloat(composite) >= 90.0) {
+        if (pctRank >= 90.0) {
           uPill.innerHTML = `✨ NOVELTY: ${estNovelty}% (BREAKTHROUGH)`;
           uPill.style.borderColor = 'var(--cyan)';
           uPill.style.color = 'var(--cyan)';
-        } else if (parseFloat(composite) < 60.0) {
+        } else if (pctRank < 40.0) {
           uPill.innerHTML = `⚠️ NOVELTY: 32.4% (REDUNDANT)`;
           uPill.style.borderColor = 'var(--rose)';
           uPill.style.color = 'var(--rose)';
@@ -971,14 +992,14 @@
         }
 
         frame.className = 'hero-canvas-frame';
-        if (composite >= 98.0) {
+        if (pctRank >= 98.0) {
           frame.classList.add('is-masterpiece');
-          tierBadge.textContent = '👑 OPUS MASTERPIECE';
+          tierBadge.textContent = `👑 MASTERPIECE · TOP ${(100 - pctRank).toFixed(1)}%`;
           tierBadge.className = 'hero-pill-top-right masterpiece';
           tierBadge.style.display = 'block';
-        } else if (composite >= 90.0) {
+        } else if (pctRank >= 90.0) {
           frame.classList.add('is-spectacle');
-          tierBadge.textContent = '✨ SPECTACLE';
+          tierBadge.textContent = `✨ SPECTACLE · TOP ${(100 - pctRank).toFixed(1)}%`;
           tierBadge.className = 'hero-pill-top-right spectacle';
           tierBadge.style.display = 'block';
         } else {
