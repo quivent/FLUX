@@ -112,9 +112,18 @@ func resolveOutputDir(home string) string {
 	if _, err := os.Stat("/runs"); err == nil {
 		return "/runs/flux-output"
 	}
+	// Prioritize whichever directory actually contains rendered frames
 	for _, candidate := range []string{
-		filepath.Join(home, "models", "flux-output"),
 		filepath.Join(home, "Models", "flux-output"),
+		filepath.Join(home, "models", "flux-output"),
+	} {
+		if entries, err := os.ReadDir(candidate); err == nil && len(entries) > 0 {
+			return candidate
+		}
+	}
+	for _, candidate := range []string{
+		filepath.Join(home, "Models", "flux-output"),
+		filepath.Join(home, "models", "flux-output"),
 	} {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
