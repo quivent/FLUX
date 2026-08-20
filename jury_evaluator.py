@@ -11,6 +11,8 @@ import glob
 import json
 import os
 import sqlite3
+import subprocess
+import threading
 import time
 import urllib.request
 import numpy as np
@@ -25,6 +27,38 @@ DEFECT_LOG = "/root/Models/flux-output/defect_blacklist.jsonl"
 OUTPUT_DIR = "/root/Models/flux-output"
 
 os.makedirs(os.path.dirname(AUDIT_LOG), exist_ok=True)
+
+def stream_image_to_r2_async(img_path):
+    """Pushes every settled artwork directly to Cloudflare R2 on render completion."""
+    if not img_path or not os.path.exists(img_path):
+        return
+    def _upload():
+        try:
+            fname = os.path.basename(img_path)
+            r2_key = f"outputs/{fname}"
+            subprocess.run(["gemstone", "r2", "push", img_path, r2_key],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            print(f"[R2 STREAM] Artwork preserved to Cloudflare R2: {r2_key}", flush=True)
+        except Exception as e:
+            print(f"[R2 STREAM ERR] {e}", flush=True)
+    threading.Thread(target=_upload, daemon=True).start()
+
+def sync_state_to_r2_async():
+    """Pushes active SQLite database & Spectacle genome to Cloudflare R2."""
+    def _sync():
+        try:
+            if os.path.exists(SQLITE_DB):
+                subprocess.run(["gemstone", "r2", "push", SQLITE_DB, "state/jury.sqlite3"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+            if os.path.exists(SPECTACLE_LOG):
+                subprocess.run(["gemstone", "r2", "push", SPECTACLE_LOG, "outputs/spectacle_genome.jsonl"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+            if os.path.exists(MASTERPIECE_LOG):
+                subprocess.run(["gemstone", "r2", "push", MASTERPIECE_LOG, "outputs/masterpiece_vault.jsonl"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+        except Exception:
+            pass
+    threading.Thread(target=_sync, daemon=True).start()
 
 EXCEPTIONAL_TRAITS = [
     "obsidian", "bioluminescent", "liquid crystal", "astral sorceress", "porcelain armor",
@@ -232,14 +266,19 @@ def score_frame(job, cfg):
         "is_masterpiece": percentile_rank >= 98.0
     }
 
+    # Real-Time Cloudflare R2 Streaming: Push image straight to R2 the instant it settles
+    if img_path and os.path.exists(img_path):
+        stream_image_to_r2_async(img_path)
+
     # Append to audit.jsonl
     with open(AUDIT_LOG, "a") as f:
         f.write(json.dumps(receipt) + "\n")
 
-    # Feedback Routing
+    # Feedback Routing & Automatic R2 State Synchronization
     if tier == "masterpiece":
         with open(MASTERPIECE_LOG, "a") as f:
             f.write(json.dumps(receipt) + "\n")
+        sync_state_to_r2_async()
     elif tier == "spectacle":
         with open(SPECTACLE_LOG, "a") as f:
             f.write(json.dumps({
@@ -252,6 +291,7 @@ def score_frame(job, cfg):
                 "uniqueness": u_score,
                 "target": "movement_towards_master"
             }) + "\n")
+        sync_state_to_r2_async()
     elif percentile_rank < 35.0:
         with open(DEFECT_LOG, "a") as f:
             f.write(json.dumps({
