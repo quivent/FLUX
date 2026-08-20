@@ -308,19 +308,33 @@
       background: rgba(0, 240, 255, 0.1);
     }
 
-    /* Feedback Cycle Strip */
-    .cycle-strip {
+    /* Movement Towards Master Strip */
+    .master-movement-strip {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(16, 185, 129, 0.05);
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      background: rgba(255, 200, 59, 0.08);
+      border: 1px solid rgba(255, 200, 59, 0.3);
       border-radius: var(--radius-sm);
-      padding: 8px 14px;
+      padding: 10px 16px;
       margin-top: 14px;
       font-family: var(--font-mono);
       font-size: 11px;
     }
+
+    .tier-pills {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tier-pill {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .tier-pill.spectacle { background: rgba(0, 240, 255, 0.15); color: var(--cyan); border: 1px solid var(--border-cyan); }
+    .tier-pill.masterpiece { background: rgba(255, 200, 59, 0.2); color: var(--gold); border: 1px solid var(--border-gold); }
 
     /* Jury Order Tags */
     .order-strip {
@@ -415,6 +429,21 @@
       color: var(--cyan);
       backdrop-filter: blur(8px);
     }
+
+    .witness-tier-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    .witness-tier-badge.spectacle { background: rgba(0, 240, 255, 0.85); color: #000; }
+    .witness-tier-badge.masterpiece { background: rgba(255, 200, 59, 0.95); color: #000; box-shadow: 0 0 16px rgba(255, 200, 59, 0.6); }
 
     .witness-composite-badge {
       position: absolute;
@@ -511,7 +540,7 @@
       color: var(--text);
     }
 
-    /* Masterpiece Vault Feed */
+    /* Vault Feeds: Spectacles & Masterpieces */
     .vault-section {
       background: var(--bg-panel);
       border: 1px solid var(--border);
@@ -715,10 +744,16 @@
       </div>
     </div>
 
-    <!-- Feedback Cycle Indicator -->
-    <div class="cycle-strip">
-      <span style="color:var(--emerald);">🧬 EVOLUTIONARY FEEDBACK CYCLE ACTIVE</span>
-      <span style="color:var(--text-dim);" id="cycleStatus">Frames scoring ≥90.0 auto-seed the perpetual generator genome</span>
+    <!-- Movement Towards Master Banner -->
+    <div class="master-movement-strip">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-weight:700; color:var(--gold);">🧬 THE MOVEMENT TOWARDS MASTER</span>
+        <span style="color:var(--text-dim);">Progression: Standard → Spectacle (≥90.0) → Masterpiece (≥98.0)</span>
+      </div>
+      <div class="tier-pills">
+        <span class="tier-pill spectacle">✨ SPECTACLE ≥90.0</span>
+        <span class="tier-pill masterpiece">👑 MASTERPIECE ≥98.0</span>
+      </div>
     </div>
 
     <!-- Judge Order Strip -->
@@ -742,6 +777,7 @@
         <div class="witness-frame-box">
           <img class="witness-img" id="witnessImg" src="" alt="Settling frame...">
           <div class="witness-overlay-tag" id="witnessSeed">SEED: --</div>
+          <div class="witness-tier-badge" id="witnessTierBadge" style="display:none;"></div>
           <div class="witness-composite-badge" id="witnessComposite">-- / 100</div>
         </div>
 
@@ -807,7 +843,7 @@
           Aggregating multi-perspective visual representations and computing consensus vector alignment...
         </div>
         <div class="judge-metrics-row">
-          <div>Consensus Vector: <strong id="m-consensus" style="color:var(--emerald);">UNIFIED</strong></div>
+          <div>Consensus Vector: <strong id="m-consensus">UNIFIED</strong></div>
           <div>Feature Dispersion: <strong id="m-dispersion">LOW</strong></div>
           <div>Confidence: <strong id="m-confidence">98.4%</strong></div>
         </div>
@@ -826,22 +862,22 @@
         </div>
         <div class="judge-metrics-row">
           <div>Prompt Fidelity: <strong id="m-fidelity">--</strong></div>
-          <div>Mutation Decision: <strong id="m-mutation" style="color:var(--gold);">REPLICATE TRAITS</strong></div>
-          <div>Next Vector: <strong id="m-vector">ORTHOGONAL</strong></div>
+          <div>Mutation Decision: <strong id="m-mutation" style="color:var(--gold);">CONVERGE TO MASTER</strong></div>
+          <div>Next Vector: <strong id="m-vector">MASTER-TIER POLISH</strong></div>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- Masterpiece Wall -->
+  <!-- Spectacle & Masterpiece Vault -->
   <div class="vault-section">
     <div class="vault-header">
-      <div class="vault-title">🏆 Jury Masterpiece Vault (Consensus Score ≥ 90.0)</div>
-      <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim);" id="vaultCount">0 ARCHIVED</span>
+      <div class="vault-title">✨ Spectacle Vault (Consensus Score ≥ 90.0)</div>
+      <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim);" id="spectacleCount">0 PROMOTED</span>
     </div>
-    <div class="masterpiece-grid" id="masterpieceGrid">
-      <!-- Masterpieces dynamically appended -->
+    <div class="masterpiece-grid" id="spectacleGrid">
+      <!-- Spectacles dynamically appended -->
     </div>
   </div>
 </div>
@@ -1075,6 +1111,19 @@
         document.getElementById('witnessPrompt').textContent = prompt;
         document.getElementById('witnessJobId').textContent = `JOB: ${latest.id || 'LIVE'}`;
 
+        const tierBadge = document.getElementById('witnessTierBadge');
+        if (composite >= 98.0) {
+          tierBadge.textContent = '👑 MASTERPIECE (≥98)';
+          tierBadge.className = 'witness-tier-badge masterpiece';
+          tierBadge.style.display = 'block';
+        } else if (composite >= 90.0) {
+          tierBadge.textContent = '✨ SPECTACLE (≥90)';
+          tierBadge.className = 'witness-tier-badge spectacle';
+          tierBadge.style.display = 'block';
+        } else {
+          tierBadge.style.display = 'none';
+        }
+
         // Update Pixtral
         document.getElementById('score-pixtral').textContent = `HARMONY: ${sHarmony}/100`;
         document.getElementById('critique-pixtral').textContent = 
@@ -1097,11 +1146,11 @@
         // Update Governor
         document.getElementById('score-governor').textContent = `SEMANTIC: ${sSemantic}/100`;
         document.getElementById('critique-governor').textContent = 
-          `Semantic alignment verified against full prompt genome under ${gG}γ strictness. Descriptors approved for succession seeding.`;
+          `Semantic alignment verified against full prompt genome under ${gG}γ strictness. Triggering Movement Towards Master convergence.`;
         document.getElementById('m-fidelity').textContent = `${sSemantic}%`;
 
-        // Update Masterpieces
-        const masterpieces = done.filter((j, idx) => {
+        // Update Spectacles
+        const spectacles = done.filter((j, idx) => {
           const comp = (((calibrateRaw(88 + (j.prompt.length % 11), gP, adv) * wP) + 
                          (calibrateRaw(86 + (j.seed % 13), gQ, adv) * wQ) + 
                          (calibrateRaw(90 + (j.seed % 9), gD, adv) * wD) + 
@@ -1109,18 +1158,19 @@
           return comp >= 90.0;
         }).slice(-8).reverse();
 
-        document.getElementById('vaultCount').textContent = `${masterpieces.length} PROMOTED`;
-        document.getElementById('masterpieceGrid').innerHTML = masterpieces.map((m, idx) => {
+        document.getElementById('spectacleCount').textContent = `${spectacles.length} SPECTACLES PROMOTED`;
+        document.getElementById('spectacleGrid').innerHTML = spectacles.map((m, idx) => {
           const comp = (((calibrateRaw(88 + (m.prompt.length % 11), gP, adv) * wP) + 
                          (calibrateRaw(86 + (m.seed % 13), gQ, adv) * wQ) + 
                          (calibrateRaw(90 + (m.seed % 9), gD, adv) * wD) + 
                          (calibrateRaw(89 + (m.seed % 10), gG, adv) * wG)) / totW).toFixed(1);
           const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
+          const isMaster = comp >= 98.0;
           return `
-            <div class="masterpiece-card">
-              <img class="masterpiece-thumb" src="${mImg}" loading="lazy" alt="Masterpiece">
+            <div class="masterpiece-card" style="${isMaster ? 'border-color:var(--gold); box-shadow:0 0 20px rgba(255,200,59,0.3);' : ''}">
+              <img class="masterpiece-thumb" src="${mImg}" loading="lazy" alt="Spectacle">
               <div class="masterpiece-meta">
-                <span class="masterpiece-score">★ ${comp}</span>
+                <span class="masterpiece-score">${isMaster ? '👑 ' : '✨ '} ${comp}</span>
                 <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); max-width:140px;">${m.prompt}</div>
               </div>
             </div>

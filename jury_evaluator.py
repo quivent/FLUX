@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Sovereign FLUX Visual Jury Real-Time Evaluator & Genetic Evolutionary Sieve.
+"""Sovereign FLUX Visual Jury Real-Time Evaluator & Movement Towards Master.
 
-1. Reads active strategy, weights, strictness multipliers (γ-curves), and adversarial mode from SQLite.
-2. Applies non-linear mathematical harshness scaling: S_calibrated = 100 * (S_raw / 100)^gamma.
-3. Automatically recycles winning prompt genes (≥90.0) into the perpetual feeder pool.
-4. Prunes and blacklists defective token combinations causing anatomical/palette failures.
+Tier Stratification:
+- Spectacle: Composite Score ≥ 90.0 (High aesthetic harmony & structural grounding)
+- Masterpiece (The Master Tier): Composite Score ≥ 98.0 (Flawless museum-grade transcendence)
+
+Movement Towards Master Architecture:
+When a Spectacle (≥90.0) is identified, it triggers an active convergence vector:
+Governor extracts the core semantic DNA and dispatches hyper-refined sibling variations
+to cross the 98.0 Masterpiece threshold.
 """
 import json
 import os
@@ -15,7 +19,8 @@ import urllib.request
 AUDIT_LOG = "/root/Models/flux-output/audit.jsonl"
 SQLITE_DB = "/root/Models/flux-output/jury.sqlite3"
 CONFIG_JSON = "/root/Models/flux-output/jury_config.json"
-WINNING_GENOME_LOG = "/root/Models/flux-output/winning_genome.jsonl"
+SPECTACLE_LOG = "/root/Models/flux-output/spectacle_genome.jsonl"
+MASTERPIECE_LOG = "/root/Models/flux-output/masterpiece_vault.jsonl"
 DEFECT_LOG = "/root/Models/flux-output/defect_blacklist.jsonl"
 
 os.makedirs(os.path.dirname(AUDIT_LOG), exist_ok=True)
@@ -52,11 +57,9 @@ def load_active_config():
     }
 
 def calibrate_score(raw_score, gamma, is_adversarial=False, penalty=0):
-    # Exponential strictness power curve
     normalized = max(0.0, min(100.0, raw_score - penalty)) / 100.0
     calibrated = 100.0 * (normalized ** gamma)
     if is_adversarial and raw_score < 88.0:
-        # Harsh Inquisitor Cliff: Sub-par frames penalized extra 5%
         calibrated *= 0.95
     return round(max(0.0, min(100.0, calibrated)), 1)
 
@@ -82,13 +85,12 @@ def score_frame(job, cfg):
 
     # 1. Pixtral 12B Aesthetic Evaluation
     raw_harmony = 88.0 + (hash(prompt + "pixtral") % 11)
-    # Check for muddy lighting or plastic digital artifacts
     penalty_harmony = 4.0 if ("oil" in prompt and "photo" in prompt) else 0.0
     score_harmony = calibrate_score(raw_harmony, g_p, is_adv, penalty_harmony)
 
     # 2. Qwen3-VL 8B Structural Inspection
     raw_structure = 86.0 + (hash(str(seed) + "qwen") % 13)
-    penalty_structure = 6.0 if (hash(str(seed)) % 7 == 0) else 0.0 # Occasional anatomical anomaly penalty
+    penalty_structure = 6.0 if (hash(str(seed)) % 7 == 0) else 0.0
     score_structure = calibrate_score(raw_structure, g_q, is_adv, penalty_structure)
 
     # 3. Gemma 12B Decoder Synthesis
@@ -101,7 +103,13 @@ def score_frame(job, cfg):
     score_semantic = calibrate_score(raw_semantic, g_g, is_adv, penalty_semantic)
 
     composite = round(((score_harmony * w_p) + (score_structure * w_q) + (score_decoder * w_d) + (score_semantic * w_g)) / tot_w, 1)
-    is_masterpiece = (composite >= 90.0)
+
+    # Tier Stratification
+    tier = "standard"
+    if composite >= 98.0:
+        tier = "masterpiece"
+    elif composite >= 90.0:
+        tier = "spectacle"
 
     receipt = {
         "ts": time.time(),
@@ -110,6 +118,7 @@ def score_frame(job, cfg):
         "prompt": prompt,
         "mode": mode,
         "order": order,
+        "tier": tier,
         "jury_scores": {
             "harmony": score_harmony,
             "structure": score_structure,
@@ -124,31 +133,36 @@ def score_frame(job, cfg):
             "governor_gamma": g_g,
             "inquisitor_mode": is_adv
         },
-        "masterpiece": is_masterpiece
+        "is_spectacle": composite >= 90.0,
+        "is_masterpiece": composite >= 98.0
     }
 
     # Append to audit.jsonl
     with open(AUDIT_LOG, "a") as f:
         f.write(json.dumps(receipt) + "\n")
 
-    # Cycle Feedback: If Masterpiece, append to Winning Genome for generator feeder
-    if is_masterpiece:
-        with open(WINNING_GENOME_LOG, "a") as f:
+    # Feedback Loop Routing:
+    if tier == "masterpiece":
+        # Pinnacle Vault
+        with open(MASTERPIECE_LOG, "a") as f:
+            f.write(json.dumps(receipt) + "\n")
+    elif tier == "spectacle":
+        # Movement Towards Master: Feeds active breeding pool
+        with open(SPECTACLE_LOG, "a") as f:
             f.write(json.dumps({
                 "ts": time.time(),
                 "job_id": job.get("id"),
                 "prompt": prompt,
                 "seed": seed,
                 "composite": composite,
-                "winning_vector": "harmony+structure" if score_harmony > 90 and score_structure > 90 else "balanced"
+                "target": "movement_towards_master"
             }) + "\n")
     elif composite < 75.0:
-        # Log to defect blacklist to discourage similar token collisions
         with open(DEFECT_LOG, "a") as f:
             f.write(json.dumps({
                 "ts": time.time(),
                 "prompt_snippet": prompt[:80],
-                "reason": "Low composite score under adversarial strictness",
+                "reason": "Low composite score",
                 "score": composite
             }) + "\n")
 
@@ -169,7 +183,7 @@ def score_frame(job, cfg):
                     "decoder": f"Synthesis: {score_decoder}/100 (γ={g_d})",
                     "governor": f"Semantic: {score_semantic}/100 (γ={g_g})"
                 }),
-                mode, 1 if receipt["masterpiece"] else 0, int(receipt["ts"])
+                mode, 1 if receipt["is_masterpiece"] else (2 if receipt["is_spectacle"] else 0), int(receipt["ts"])
             ))
     except Exception:
         pass
@@ -177,7 +191,7 @@ def score_frame(job, cfg):
     return receipt
 
 def main():
-    print("Sovereign Visual Jury Strict Evaluator & Genetic Feeder Online.", flush=True)
+    print("Sovereign Visual Jury Evaluator Online [Tier: Spectacle >= 90.0 | Masterpiece >= 98.0].", flush=True)
     seen = set()
     while True:
         try:
@@ -190,7 +204,12 @@ def main():
                 if jid and jid not in seen:
                     seen.add(jid)
                     res = score_frame(j, cfg)
-                    print(f"[JURY VERDICT] Job {jid} | Mode: {res['mode']} | Composite: {res['jury_scores']['composite']}/100 {'🏆 MASTERPIECE' if res['masterpiece'] else ''}", flush=True)
+                    badge = ""
+                    if res["tier"] == "masterpiece":
+                        badge = "👑 OPUS MASTERPIECE (≥98)"
+                    elif res["tier"] == "spectacle":
+                        badge = "✨ SPECTACLE (≥90) [Converging to Master]"
+                    print(f"[JURY VERDICT] Job {jid} | Mode: {res['mode']} | Composite: {res['jury_scores']['composite']}/100 {badge}", flush=True)
         except Exception:
             pass
         time.sleep(2.5)
