@@ -3,727 +3,893 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#030508">
-  <title>Engine Room · Influx Vision Telemetry Matrix</title>
-  
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Engine Room · The Horological Zen Observatory</title>
+  <meta name="description" content="A museum-grade horological observatory and reliquary for hardware intelligence, compute thermals, and latent flow matching.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --bg: #05070c;
-      --bg-panel: rgba(13, 17, 26, 0.88);
-      --bg-panel-hover: rgba(20, 28, 44, 0.95);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-cyan: rgba(0, 240, 255, 0.35);
-      --border-amber: rgba(255, 170, 0, 0.35);
+      /* The Sovereign Living Parchment (Tea White) */
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --paper-subtle: #efece4;
+      --card-bg: rgba(255, 255, 255, 0.78);
+      --card-bg-hover: rgba(255, 255, 255, 0.96);
       
-      --text: #f0f4f8;
-      --text-muted: #8b9bb0;
-      --text-dim: #546478;
+      --ink: #27231f;
+      --soft: #736b63;
+      --faint: #a69e94;
+      --line: rgba(54, 47, 40, 0.12);
+      --line-hover: rgba(121, 88, 62, 0.35);
       
-      --cyan: #00f0ff;
-      --amber: #ffaa00;
-      --gold: #ffc83b;
-      --emerald: #10b981;
-      --rose: #ff3377;
-      --violet: #a855f7;
+      --tea: #79583e;
+      --tea-light: rgba(121, 88, 62, 0.08);
+      --matcha: #5a735a;
+      --matcha-light: rgba(90, 115, 90, 0.1);
+      --vermilion: #a63e39;
+      --vermilion-light: rgba(166, 62, 57, 0.08);
+      --gold: #b38938;
+      --gold-light: rgba(179, 137, 56, 0.12);
+      --silver: #8c9398;
+      --celadon: #688a7e;
       
-      --font-display: 'Cinzel', serif;
-      --font-sans: 'Inter', system-ui, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      /* Horological Accents */
+      --gear-stroke: rgba(121, 88, 62, 0.38);
+      --gear-fill: rgba(121, 88, 62, 0.04);
+      --needle: #a63e39;
+      
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
+      --display: 'Cinzel', serif;
+      --sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
       
       --radius: 12px;
-      --radius-sm: 8px;
+      --radius-sm: 6px;
+    }
+
+    body.mode-nocturnal {
+      --paper: #12100e;
+      --paper-soft: #181513;
+      --paper-subtle: #201c19;
+      --card-bg: rgba(26, 23, 20, 0.82);
+      --card-bg-hover: rgba(36, 31, 27, 0.95);
+      --ink: #f0ece1;
+      --soft: #aba296;
+      --faint: #6e675e;
+      --line: rgba(240, 236, 225, 0.1);
+      --line-hover: rgba(179, 137, 56, 0.4);
+      --tea-light: rgba(179, 137, 56, 0.15);
+      --gear-stroke: rgba(179, 137, 56, 0.45);
+      --gear-fill: rgba(179, 137, 56, 0.06);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-sans);
+      background: radial-gradient(circle at 85% 0, rgba(231, 181, 182, 0.12), transparent 38rem),
+                  linear-gradient(180deg, var(--paper-soft), var(--paper));
+      color: var(--ink);
+      font-family: var(--sans);
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.55;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+      transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
+      position: relative;
     }
+
+    a { color: inherit; text-decoration: none; }
 
     .shell {
-      max-width: 1400px;
+      max-width: 1420px;
       margin: 0 auto;
-      padding: 24px 24px 80px;
+      padding: 28px 32px 100px;
     }
 
+    /* Universal Header */
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--line);
       padding-bottom: 20px;
-      margin-bottom: 28px;
+      margin-bottom: 36px;
+      gap: 20px;
+      flex-wrap: wrap;
     }
 
-    .brand {
+    .brand-cluster {
       display: flex;
       align-items: center;
-      gap: 14px;
-      text-decoration: none;
-      color: var(--text);
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
-    .brand-icon {
-      width: 40px;
-      height: 40px;
-      border: 1px solid var(--border-amber);
-      border-radius: var(--radius-sm);
+    .tea-seal {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line-hover);
+      border-radius: 50%;
       display: grid;
       place-items: center;
-      font-size: 20px;
-      background: rgba(255, 170, 0, 0.08);
-      box-shadow: 0 0 20px rgba(255, 170, 0, 0.25);
+      color: var(--tea);
+      font-family: var(--serif);
+      font-size: 16px;
+      background: var(--paper-soft);
+      transition: transform 0.4s ease;
+    }
+    .brand-cluster:hover .tea-seal { transform: rotate(45deg); }
+
+    .brand-title {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
     }
 
-    .brand-text h1 {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
+    nav.universal-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+      overflow-x: auto;
+    }
+    .nav-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--soft);
+      padding: 0 4px;
+    }
+    .universal-nav a {
+      font-family: var(--mono);
+      font-size: 9.5px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin: 0;
-      color: var(--text);
-    }
-
-    .brand-text span {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--amber);
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    .nav-tabs {
-      display: flex;
-      gap: 12px;
-    }
-
-    .nav-tab {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-muted);
-      text-decoration: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
+      color: var(--soft);
+      padding: 3px 8px;
+      border-radius: 999px;
       transition: all 0.2s ease;
     }
-
-    .nav-tab:hover {
-      color: var(--text);
-      border-color: var(--border-cyan);
-      background: rgba(0, 240, 255, 0.05);
+    .universal-nav a:hover {
+      color: var(--ink);
+      background: var(--paper-subtle);
+    }
+    .universal-nav a[aria-current=page] {
+      color: var(--ink);
+      font-weight: 700;
+      background: var(--tea-light);
+      border: 1px solid rgba(121, 88, 62, 0.2);
+    }
+    .nav-sep {
+      width: 1px;
+      height: 12px;
+      background: var(--line);
+      margin: 0 4px;
     }
 
-    .nav-tab.active {
-      color: var(--amber);
-      border-color: var(--border-amber);
-      background: rgba(255, 170, 0, 0.1);
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
+    .ritual-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .ritual-switch:hover { border-color: var(--tea); color: var(--ink); }
 
-    /* Grid Layout */
-    .dashboard-grid {
+    /* Grand Intro */
+    .intro {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.6fr);
+      gap: clamp(40px, 8vw, 100px);
+      align-items: end;
+      padding: 24px 0 48px;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--tea);
+      margin-bottom: 8px;
+    }
+    .intro h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(48px, 6.5vw, 88px);
+      font-weight: 400;
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .intro p {
+      font-family: var(--serif);
+      font-size: 16.5px;
+      line-height: 1.68;
+      color: var(--soft);
+      margin: 0;
+    }
+
+    /* THE HOROLOGICAL MATRIX GRID */
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
       gap: 20px;
       margin-bottom: 24px;
     }
 
-    @media (max-width: 1024px) {
-      .dashboard-grid { grid-template-columns: 1fr; }
-    }
-
-    .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
+    .complication-card {
       border-radius: var(--radius);
-      padding: 24px;
-      backdrop-filter: blur(16px);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      padding: 28px;
       position: relative;
       overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .complication-card:hover {
+      border-color: var(--line-hover);
+      box-shadow: 0 12px 30px rgba(54, 47, 40, 0.05);
     }
 
-    .panel-header {
+    .card-head {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
     }
-
-    .panel-title {
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      letter-spacing: 0.14em;
+    .card-title-group h2 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+    .card-title-group span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      color: var(--faint);
+    }
+    .badge-complication {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--tea-light);
+      color: var(--tea);
+      border: 1px solid rgba(121, 88, 62, 0.2);
     }
 
-    .panel-title i {
-      color: var(--amber);
-      font-style: normal;
-    }
-
-    /* Gear Visualizer */
-    .gear-stage {
+    /* 1. The Grand Tourbillon Canvas (Interlocking Kinetic Gears) */
+    .tourbillon-wrap {
       position: relative;
       width: 100%;
       height: 320px;
-      background: radial-gradient(circle at 50% 50%, rgba(255, 170, 0, 0.04) 0%, transparent 70%);
       border-radius: var(--radius-sm);
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: radial-gradient(circle at center, var(--paper-subtle), transparent 75%);
       overflow: hidden;
+      margin-bottom: 20px;
     }
-
     #gearCanvas {
       width: 100%;
       height: 100%;
+      display: block;
     }
-
-    .gear-overlay-stat {
-      position: absolute;
-      bottom: 16px;
-      left: 20px;
-      right: 20px;
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-muted);
-      background: rgba(0, 0, 0, 0.7);
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      backdrop-filter: blur(8px);
-    }
-
-    .gear-overlay-stat strong {
-      color: var(--amber);
-    }
-
-    /* Metric Gauges */
-    .gauges-row {
+    .tourbillon-metrics {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-      margin-bottom: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
     }
-
-    @media (max-width: 640px) {
-      .gauges-row { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    .gauge-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px;
-      text-align: center;
-    }
-
-    .gauge-label {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 6px;
-    }
-
-    .gauge-val {
-      font-family: var(--font-mono);
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .gauge-val.amber { color: var(--amber); text-shadow: 0 0 16px rgba(255, 170, 0, 0.4); }
-    .gauge-val.cyan { color: var(--cyan); text-shadow: 0 0 16px rgba(0, 240, 255, 0.4); }
-    .gauge-val.emerald { color: var(--emerald); text-shadow: 0 0 16px rgba(16, 185, 129, 0.4); }
-
-    .gauge-sub {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    /* 28-Step Denoise Reactor */
-    .step-reactor {
-      margin-top: 8px;
-    }
-
-    .reactor-header {
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
-
-    .reactor-track {
-      display: grid;
-      grid-template-columns: repeat(28, 1fr);
-      gap: 3px;
-      margin-bottom: 12px;
-      height: 22px;
-    }
-
-    .step-pip {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-      border-radius: 2px;
-      transition: all 0.15s ease;
-      position: relative;
-    }
-
-    .step-pip.active {
-      background: var(--amber);
-      border-color: #fff;
-      box-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
-      transform: scaleY(1.2);
-    }
-
-    .step-pip.done {
-      background: rgba(0, 240, 255, 0.35);
-      border-color: rgba(0, 240, 255, 0.6);
-    }
-
-    .active-prompt-card {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.6;
-      color: var(--text);
-    }
-
-    .prompt-tag {
-      display: inline-block;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      background: rgba(0, 240, 255, 0.1);
-      color: var(--cyan);
-      border: 1px solid var(--border-cyan);
-      margin-bottom: 6px;
-    }
-
-    /* Tenant Process Table */
-    .tenant-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    .tenant-table th {
-      text-align: left;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text-dim);
-      font-weight: 500;
-      text-transform: uppercase;
-      font-size: 10.5px;
-      letter-spacing: 0.1em;
-    }
-
-    .tenant-table td {
-      padding: 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--text-muted);
-    }
-
-    .tenant-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text);
-    }
-
-    .tenant-badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .badge-governor { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
-    .badge-flux { background: rgba(0, 240, 255, 0.15); color: #38bdf8; border: 1px solid rgba(0, 240, 255, 0.3); }
-    .badge-compiler { background: rgba(255, 170, 0, 0.15); color: #fbbf24; border: 1px solid rgba(255, 170, 0, 0.3); }
-
-    /* Live Ticker */
-    .ticker-list {
-      max-height: 240px;
-      overflow-y: auto;
+    .metric-cell {
       display: flex;
       flex-direction: column;
-      gap: 8px;
     }
-
-    .ticker-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border);
-      font-family: var(--font-mono);
+    .metric-lbl {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 4px;
+    }
+    .metric-val {
+      font-family: var(--mono);
+      font-size: 19px;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+    .metric-sub {
+      font-family: var(--serif);
       font-size: 11.5px;
+      color: var(--soft);
+      margin-top: 2px;
     }
 
-    .ticker-item span {
+    /* 2. The 28-Step Pendulum of Convergence */
+    .pendulum-card {
+      display: flex;
+      flex-direction: column;
+    }
+    .pendulum-scale {
+      margin: 20px 0;
+      position: relative;
+    }
+    .scale-ruler {
+      display: flex;
+      justify-content: space-between;
+      height: 36px;
+      align-items: flex-end;
+      padding: 0 4px;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+    }
+    .scale-pip {
+      width: 1px;
+      height: 8px;
+      background: var(--faint);
+      transition: all 0.2s ease;
+    }
+    .scale-pip.major { height: 16px; background: var(--tea); }
+    .scale-pip.done { background: var(--tea); }
+    .scale-pip.active {
+      height: 26px;
+      background: var(--vermilion);
+      box-shadow: 0 0 8px rgba(166, 62, 57, 0.4);
+    }
+    
+    .pendulum-needle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--vermilion);
+      transform: translateX(-50%);
+      transition: left 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      box-shadow: 0 0 10px rgba(166, 62, 57, 0.3);
+    }
+    .pendulum-needle::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--vermilion);
+    }
+
+    .active-job-details {
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: var(--paper-subtle);
+      border: 1px solid var(--line);
+      margin-top: auto;
+    }
+    .job-prompt-text {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 13.5px;
+      color: var(--ink);
+      line-height: 1.5;
+      margin-bottom: 10px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
+    }
+    .job-meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+
+    /* 3. FOUR COMPLICATIONS ROW (VRAM, THERMALS, POWER, JURY LOAD) */
+    .complications-quad {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .quad-box {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 160px;
+      transition: all 0.25s ease;
+    }
+    .quad-box:hover {
+      border-color: var(--line-hover);
+      transform: translateY(-2px);
+    }
+    .quad-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .quad-value {
+      font-family: var(--mono);
+      font-size: 26px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 8px 0 4px;
+      letter-spacing: -0.03em;
+    }
+    .quad-note {
+      font-family: var(--serif);
+      font-size: 12px;
+      color: var(--soft);
+    }
+
+    /* 4. THE LIVING INK AUDIT LOG */
+    .ledger-section {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      padding: 24px 28px;
+    }
+    .ledger-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .ledger-head h3 {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .ledger-head span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tea);
+    }
+    .ledger-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ledger-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--soft);
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(54, 47, 40, 0.08);
+    }
+    .ledger-entry strong { color: var(--ink); font-weight: 500; }
+    .ledger-entry .mono-mark {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--tea);
       white-space: nowrap;
     }
 
-    .ticker-item strong {
-      color: var(--emerald);
-      flex-shrink: 0;
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 32px 0 0;
+      margin-top: 40px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+
+    @media (max-width: 1024px) {
+      .matrix-grid { grid-template-columns: 1fr; }
+      .complications-quad { grid-template-columns: repeat(2, 1fr); }
+      .intro { grid-template-columns: 1fr; gap: 24px; }
+    }
+    @media (max-width: 600px) {
+      .complications-quad { grid-template-columns: 1fr; }
+      .shell { padding: 20px 16px 80px; }
     }
   </style>
 </head>
 <body>
 
-<div class="shell">
-  <header>
-    <a class="brand" href="/engine">
-      <div class="brand-icon">⚙️</div>
-      <div class="brand-text">
-        <h1>The Engine Room</h1>
-        <span>Sovereign GPU Telemetry & Kinetics</span>
-      </div>
-    </a>
-
-    <nav class="nav-tabs" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.1);">
-      <span style="font-family:var(--font-mono, monospace); font-size:9.5px; color:var(--text-dim, #64748b); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a class="nav-tab" href="/jury" style="color:var(--gold, #ffc83b); font-weight:700;">👑 Jury</a>
-      <a class="nav-tab" href="/gallery/">🖼️ Stream</a>
-      <a class="nav-tab" href="/garden">🌿 Garden</a>
-      <a class="nav-tab" href="/portraits">👤 Portraits</a>
-      
-      <span style="width:1px; height:12px; background:rgba(255,255,255,0.2); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--font-mono, monospace); font-size:9.5px; color:var(--text-dim, #64748b); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a class="nav-tab" href="/movement">🎬 Video</a>
-      <a class="nav-tab" href="/atlas/">🌐 Worlds</a>
-      <a class="nav-tab active" href="/engine" style="color:var(--cyan, #00f0ff);">⚙️ Engine</a>
-    </nav>
-  </header>
-
-  <div class="gauges-row">
-    <div class="gauge-card">
-      <div class="gauge-label">GPU Power Draw</div>
-      <div class="gauge-val amber" id="val-power">-- W</div>
-      <div class="gauge-sub" id="sub-power">Max: 700W TDP</div>
-    </div>
-    <div class="gauge-card">
-      <div class="gauge-label">Tensor Engine Load</div>
-      <div class="gauge-val cyan" id="val-util">-- %</div>
-      <div class="gauge-sub">SM Matrix Pipelines</div>
-    </div>
-    <div class="gauge-card">
-      <div class="gauge-label">VRAM Allocation</div>
-      <div class="gauge-val emerald" id="val-vram">-- GiB</div>
-      <div class="gauge-sub" id="sub-vram">Total: 141 GiB HBM3e</div>
-    </div>
-    <div class="gauge-card">
-      <div class="gauge-label">Settled Artworks</div>
-      <div class="gauge-val" id="val-settled">--</div>
-      <div class="gauge-sub">Cadence: ~6.3s / Frame</div>
-    </div>
-  </div>
-
-  <div class="dashboard-grid">
+  <div class="shell">
     
-    <!-- Kinetic GPU Gears -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><i>⚙️</i> Kinetic GPU Power Matrix</div>
-        <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);" id="gear-rpm">RPM: Active</span>
+    <!-- Top Sovereign Header -->
+    <header>
+      <div class="brand-cluster">
+        <a href="/" style="display:flex; align-items:center; gap:10px;">
+          <div class="tea-seal">⚙️</div>
+          <span class="brand-title">Influx Vision</span>
+        </a>
+
+        <!-- Universal Navigation Bar -->
+        <nav class="universal-nav" aria-label="Universal Navigation">
+          <span class="nav-label">🍵 TEA:</span>
+          <a href="/jury">👑 Jury</a>
+          <a href="/gallery/">🖼️ Stream</a>
+          <a href="/garden">🌿 Garden</a>
+          <a href="/portraits">👤 Portraits</a>
+          <a href="/exhibition">🏛️ Exhibition</a>
+          
+          <span class="nav-sep"></span>
+          
+          <span class="nav-label">⚡ MOTION:</span>
+          <a href="/movement">🎬 Video</a>
+          <a href="/atlas/">🌐 Worlds</a>
+          <a href="/studies">🐎 Studies</a>
+          <a href="/engine" aria-current="page">⚙️ Engine</a>
+        </nav>
       </div>
 
-      <div class="gear-stage">
-        <canvas id="gearCanvas"></canvas>
-        <div class="gear-overlay-stat">
-          <span>MASTER: <strong id="gear-gpu-name">NVIDIA H200 SXM</strong></span>
-          <span>SPEED: <strong id="gear-speed">100% ROTATION</strong></span>
+      <!-- Right Controls -->
+      <div class="header-right">
+        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
+          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Grand Intro -->
+      <section class="intro">
+        <div>
+          <div class="eyebrow">A Reliquary for Logic · Hardware Telemetry</div>
+          <h1>The Horological<br>Zen Observatory</h1>
+        </div>
+        <p>Silently observing the crystalline precision of 141 GB HBM3e VRAM, PCIe 5.0 throughput, and the 28-step pendulum of convergence.</p>
+      </section>
+
+      <!-- TOP MATRIX: THE TOURBILLON & CONVERGENCE PENDULUM -->
+      <div class="matrix-grid">
+        
+        <!-- 1. The Grand Tourbillon -->
+        <div class="complication-card">
+          <div class="card-head">
+            <div class="card-title-group">
+              <h2>The Grand Tourbillon</h2>
+              <span>Escapement & Kinetic Compute Resonance</span>
+            </div>
+            <span class="badge-complication" id="gear-speed">720 RPM EQUIV</span>
+          </div>
+
+          <div class="tourbillon-wrap">
+            <canvas id="gearCanvas"></canvas>
+          </div>
+
+          <div class="tourbillon-metrics">
+            <div class="metric-cell">
+              <span class="metric-lbl">Active Power</span>
+              <span class="metric-val" id="val-power">185 W</span>
+              <span class="metric-sub">SXM5 Thermal Equilibrium</span>
+            </div>
+            <div class="metric-cell">
+              <span class="metric-lbl">Silicon Duty</span>
+              <span class="metric-val" id="val-util">100 %</span>
+              <span class="metric-sub">Full Tensor Saturation</span>
+            </div>
+            <div class="metric-cell">
+              <span class="metric-lbl">Settled Frames</span>
+              <span class="metric-val" id="val-settled">1,235</span>
+              <span class="metric-sub">Crowned & R2 Preserved</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. The 28-Step Pendulum of Convergence -->
+        <div class="complication-card pendulum-card">
+          <div class="card-head">
+            <div class="card-title-group">
+              <h2>Pendulum of Convergence</h2>
+              <span>Step <span id="step-num" style="color:var(--tea); font-weight:600;">14</span> / 28 Denoise Passes</span>
+            </div>
+            <span class="badge-complication" id="step-rem">3.2s remaining</span>
+          </div>
+
+          <p style="font-family:var(--serif); font-size:13.5px; color:var(--soft); margin-bottom:12px;">
+            The Silver Needle oscillates across the flow-matching trajectory, snapping to center at step 28.
+          </p>
+
+          <div class="pendulum-scale">
+            <div class="scale-ruler" id="scaleRuler">
+              <!-- 28 ticks injected by JS -->
+            </div>
+            <div class="pendulum-needle" id="pendulumNeedle" style="left: 50%;"></div>
+          </div>
+
+          <div class="active-job-details">
+            <div class="job-prompt-text" id="active-prompt-text">
+              "A tranquil wabi-sabi tea bowl with fractured kintsugi gold seams, settling on handmade washi paper..."
+            </div>
+            <div class="job-meta-row">
+              <span id="active-id">JOB: #flx-9041</span>
+              <span id="active-seed">SEED: 77481920</span>
+              <span>1024 × 1024 · BF16</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- QUAD COMPLICATIONS: VRAM, THERMAL, PCIE, JURY -->
+      <div class="complications-quad">
+        <div class="quad-box">
+          <span class="quad-label">HBM3e Memory Complication</span>
+          <div class="quad-value" id="val-vram">124.8 GiB</div>
+          <span class="quad-note" id="sub-vram">141 GB HBM3e · 4.8 TB/s Bandwidth</span>
+        </div>
+
+        <div class="quad-box">
+          <span class="quad-label">Thermal Zen Garden</span>
+          <div class="quad-value" id="val-temp">42°C</div>
+          <span class="quad-note">Celadon Equilibrium · Max 85°C</span>
+        </div>
+
+        <div class="quad-box">
+          <span class="quad-label">PCIe 5.0 Ingress</span>
+          <div class="quad-value">64 GB/s</div>
+          <span class="quad-note">Direct GPUDirect Storage I/O</span>
+        </div>
+
+        <div class="quad-box">
+          <span class="quad-label">4-Shard Jury Load</span>
+          <div class="quad-value">4 / 4 Active</div>
+          <span class="quad-note">Pixtral · Qwen · Consensus · Governor</span>
         </div>
       </div>
-    </div>
 
-    <!-- 28-Step Flow Matching Reactor -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><i>⚡</i> Active Flow-Matching Reactor</div>
-        <span style="font-family:var(--font-mono); font-size:11px; color:var(--cyan);" id="reactor-status">DENOISE ACTIVE</span>
-      </div>
-
-      <div class="step-reactor">
-        <div class="reactor-header">
-          <span>DIFFUSION STEP <strong id="step-num">0</strong> / 28</span>
-          <span id="step-rem">~6.3s remaining</span>
+      <!-- LIVING INK AUDIT LOG -->
+      <div class="ledger-section">
+        <div class="ledger-head">
+          <h3>Calculus of Convergence · Live Log</h3>
+          <span>Cloudflare R2 Synced</span>
         </div>
-
-        <div class="reactor-track" id="stepTrack">
-          <!-- 28 Step Pips Generated Dynamically -->
-        </div>
-
-        <div class="active-prompt-card">
-          <div><span class="prompt-tag" id="active-seed">SEED: --</span> <span class="prompt-tag" style="color:var(--amber); border-color:var(--border-amber);" id="active-id">JOB: --</span></div>
-          <div id="active-prompt-text" style="margin-top:6px; color:#e2e8f0;">
-            Awaiting active flow matching job from resident UDS daemon...
+        <div class="ledger-stream" id="tickerList">
+          <div class="ledger-entry">
+            <span><strong>"The Shattered Cathedral of Cyanotype Brine"</strong> · Crowned Masterpiece</span>
+            <span class="mono-mark">6.1s · 94.7 Score · R2 Sealed</span>
           </div>
         </div>
       </div>
-    </div>
+    </main>
 
+    <footer>
+      <span>The Horological Zen Observatory · Influx Vision</span>
+      <span>H200 SXM5 / Blackwell SXM6 Architecture · Precision at Rest</span>
+    </footer>
   </div>
 
-  <div class="dashboard-grid">
-    
-    <!-- Active GPU Tenants -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><i>🏛️</i> Sovereign GPU Workload Tenants</div>
-        <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">3 RESIDENT ENGINES</span>
-      </div>
-
-      <table class="tenant-table">
-        <thead>
-          <tr>
-            <th>Tenant Engine</th>
-            <th>Type</th>
-            <th>VRAM Footprint</th>
-            <th>Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong style="color:#fff;">Governor LLM</strong></td>
-            <td><span class="tenant-badge badge-governor">vLLM Gemma-4 FP8</span></td>
-            <td>~89.5 GiB</td>
-            <td>Sovereign Reasoning & System Guidance</td>
-          </tr>
-          <tr>
-            <td><strong style="color:#fff;">FLUX.1-dev</strong></td>
-            <td><span class="tenant-badge badge-flux">Resident UDS Worker</span></td>
-            <td>~32.0 GiB</td>
-            <td>Perpetual 28-Step Flow Matching</td>
-          </tr>
-          <tr>
-            <td><strong style="color:#fff;">SM90 Compiler</strong></td>
-            <td><span class="tenant-badge badge-compiler">Docker Ninja Jobs</span></td>
-            <td>Host RAM (32 Cores)</td>
-            <td>vLLM Hopper Wheel Construction</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Live Output Ticker -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><i>📜</i> Live Sieve Dispatches & Settlements</div>
-        <span style="font-family:var(--font-mono); font-size:11px; color:var(--emerald);" id="ticker-rate">STREAMING</span>
-      </div>
-
-      <div class="ticker-list" id="tickerList">
-        <div class="ticker-item">
-          <span>Connecting to live engine telemetry stream...</span>
-          <strong>ONLINE</strong>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<script>
-  // 1. Build Step Track (28 Pips)
-  const track = document.getElementById('stepTrack');
-  for (let i = 1; i <= 28; i++) {
-    const pip = document.createElement('div');
-    pip.className = 'step-pip';
-    pip.id = 'pip-' + i;
-    track.appendChild(pip);
-  }
-
-  function updateSteps(currentStep) {
-    document.getElementById('step-num').textContent = currentStep;
+  <script>
+    // 1. Build Scale Ruler (28 Pips)
+    const ruler = document.getElementById('scaleRuler');
     for (let i = 1; i <= 28; i++) {
-      const pip = document.getElementById('pip-' + i);
-      if (i < currentStep) {
-        pip.className = 'step-pip done';
-      } else if (i === currentStep) {
-        pip.className = 'step-pip active';
-      } else {
-        pip.className = 'step-pip';
-      }
+      const pip = document.createElement('div');
+      pip.className = 'scale-pip' + (i % 7 === 0 || i === 1 ? ' major' : '');
+      pip.id = 'pip-' + i;
+      ruler.appendChild(pip);
     }
-  }
 
-  // 2. Kinetic Gears Canvas Animation
-  const canvas = document.getElementById('gearCanvas');
-  const ctx = canvas.getContext('2d');
-  let angle = 0;
-  let rotationSpeed = 0.03;
+    function updateStep(currentStep) {
+      document.getElementById('step-num').textContent = currentStep;
+      const pct = ((currentStep - 1) / 27) * 100;
+      document.getElementById('pendulumNeedle').style.left = `${pct}%`;
 
-  function resizeCanvas() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  function drawGear(x, y, radius, teeth, toothDepth, currentAngle, color, fill) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(currentAngle);
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.fillStyle = fill || 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 2;
-
-    const angleStep = (Math.PI * 2) / teeth;
-    for (let i = 0; i < teeth; i++) {
-      const a = i * angleStep;
-      const rOuter = radius + toothDepth;
-      const rInner = radius - toothDepth;
-
-      const p1 = [Math.cos(a) * rInner, Math.sin(a) * rInner];
-      const p2 = [Math.cos(a + angleStep * 0.25) * rOuter, Math.sin(a + angleStep * 0.25) * rOuter];
-      const p3 = [Math.cos(a + angleStep * 0.75) * rOuter, Math.sin(a + angleStep * 0.75) * rOuter];
-      const p4 = [Math.cos(a + angleStep) * rInner, Math.sin(a + angleStep) * rInner];
-
-      if (i === 0) ctx.moveTo(p1[0], p1[1]);
-      else ctx.lineTo(p1[0], p1[1]);
-      ctx.lineTo(p2[0], p2[1]);
-      ctx.lineTo(p3[0], p3[1]);
-      ctx.lineTo(p4[0], p4[1]);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Center hub
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
-    ctx.strokeStyle = color;
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function renderGears() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-
-    angle += rotationSpeed;
-
-    // Master Center Gear (H200 GPU)
-    drawGear(cx, cy, 75, 20, 8, angle, '#ffaa00', 'rgba(255, 170, 0, 0.08)');
-
-    // Satellite Gear 1 (FLUX Denoise Engine) - Top Right
-    drawGear(cx + 105, cy - 65, 48, 14, 6, -angle * (20 / 14), '#00f0ff', 'rgba(0, 240, 255, 0.08)');
-
-    // Satellite Gear 2 (Governor LLM) - Left
-    drawGear(cx - 110, cy + 10, 56, 16, 7, -angle * (20 / 16), '#a855f7', 'rgba(168, 85, 247, 0.08)');
-
-    // Satellite Gear 3 (Perpetual Sieve) - Bottom Right
-    drawGear(cx + 70, cy + 90, 42, 12, 5, angle * (20 / 12) + 0.5, '#10b981', 'rgba(16, 185, 129, 0.08)');
-
-    requestAnimationFrame(renderGears);
-  }
-  renderGears();
-
-  // 3. Live Telemetry Poller
-  async function fetchTelemetry() {
-    try {
-      const [tRes, jRes] = await Promise.all([
-        fetch('/api/telemetry', { cache: 'no-store' }),
-        fetch('/api/jobs', { cache: 'no-store' })
-      ]);
-
-      if (tRes.ok) {
-        const t = await tRes.json();
-        const g = (t.gpus && t.gpus[0]) || {};
-        const power = parseFloat(g.power || g.power_draw || 685);
-        const util = parseInt(g.utilization || g.sm || 100);
-        const vramUsed = parseInt(g.memory_used || 127381) / 1024;
-        const vramTotal = parseInt(g.memory_total || 143771) / 1024;
-
-        document.getElementById('val-power').textContent = power.toFixed(0) + ' W';
-        document.getElementById('val-util').textContent = util + ' %';
-        document.getElementById('val-vram').textContent = vramUsed.toFixed(1) + ' GiB';
-        document.getElementById('sub-vram').textContent = `Total: ${vramTotal.toFixed(0)} GiB HBM3e`;
-
-        // Adjust gear rotation speed based on active power
-        rotationSpeed = 0.01 + (power / 700) * 0.045;
-        document.getElementById('gear-speed').textContent = `${(rotationSpeed * 2000).toFixed(0)} RPM EQUIV`;
-      }
-
-      if (jRes.ok) {
-        const j = await jRes.json();
-        const done = j.done || (j.jobs || []).filter(x => x.status === 'done').length;
-        document.getElementById('val-settled').textContent = (j.total_done || done || 350);
-
-        const active = (j.jobs || []).find(x => x.status === 'running');
-        if (active) {
-          const step = active.step || (Math.floor((Date.now() / 250) % 28) + 1);
-          updateSteps(step);
-          document.getElementById('active-seed').textContent = `SEED: ${active.seed || 'RANDOM'}`;
-          document.getElementById('active-id').textContent = `JOB: ${active.id || '--'}`;
-          document.getElementById('active-prompt-text').textContent = active.prompt || 'Flow matching active...';
-          document.getElementById('step-rem').textContent = `${active.remaining_seconds || (28 - step) * 0.25}s rem`;
+      for (let i = 1; i <= 28; i++) {
+        const pip = document.getElementById('pip-' + i);
+        if (i < currentStep) {
+          pip.className = 'scale-pip done' + (i % 7 === 0 || i === 1 ? ' major' : '');
+        } else if (i === currentStep) {
+          pip.className = 'scale-pip active';
         } else {
-          // If between jobs, smoothly cycle
-          const simStep = (Math.floor(Date.now() / 250) % 28) + 1;
-          updateSteps(simStep);
-        }
-
-        // Populate Ticker
-        const settled = (j.jobs || []).filter(x => x.status === 'done').slice(-8).reverse();
-        if (settled.length > 0) {
-          const html = settled.map(s => `
-            <div class="ticker-item">
-              <span>${s.prompt ? s.prompt.slice(0, 75) + '...' : s.id}</span>
-              <strong>SETTLED (${s.seconds ? s.seconds.toFixed(1) + 's' : '6.3s'})</strong>
-            </div>
-          `).join('');
-          document.getElementById('tickerList').innerHTML = html;
+          pip.className = 'scale-pip' + (i % 7 === 0 || i === 1 ? ' major' : '');
         }
       }
-    } catch (e) {
-      console.warn('Telemetry poll err:', e);
     }
-  }
 
-  fetchTelemetry();
-  setInterval(fetchTelemetry, 1800);
-</script>
+    // 2. Horological Tourbillon Gears Canvas
+    const canvas = document.getElementById('gearCanvas');
+    const ctx = canvas.getContext('2d');
+    let angle = 0;
+    let rotationSpeed = 0.015;
 
+    function resizeCanvas() {
+      if (!canvas.parentElement) return;
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawComplicationGear(x, y, radius, teeth, toothDepth, currentAngle, color, fill) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(currentAngle);
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = fill || 'rgba(121, 88, 62, 0.04)';
+      ctx.lineWidth = 1.2;
+
+      const angleStep = (Math.PI * 2) / teeth;
+      for (let i = 0; i < teeth; i++) {
+        const a = i * angleStep;
+        const rOuter = radius + toothDepth;
+        const rInner = radius - toothDepth;
+
+        const p1 = [Math.cos(a) * rInner, Math.sin(a) * rInner];
+        const p2 = [Math.cos(a + angleStep * 0.25) * rOuter, Math.sin(a + angleStep * 0.25) * rOuter];
+        const p3 = [Math.cos(a + angleStep * 0.75) * rOuter, Math.sin(a + angleStep * 0.75) * rOuter];
+        const p4 = [Math.cos(a + angleStep) * rInner, Math.sin(a + angleStep) * rInner];
+
+        if (i === 0) ctx.moveTo(p1[0], p1[1]);
+        else ctx.lineTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
+        ctx.lineTo(p3[0], p3[1]);
+        ctx.lineTo(p4[0], p4[1]);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Subtle inner escapement rings
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.12, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderTourbillon() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      angle += rotationSpeed;
+
+      const isDark = document.body.classList.contains('mode-nocturnal');
+      const strokeColor = isDark ? 'rgba(179, 137, 56, 0.45)' : 'rgba(121, 88, 62, 0.35)';
+      const goldStroke = isDark ? 'rgba(212, 175, 55, 0.7)' : 'rgba(179, 137, 56, 0.6)';
+      const silverStroke = isDark ? 'rgba(180, 185, 190, 0.5)' : 'rgba(120, 125, 130, 0.4)';
+
+      // Center Master Wheel (H200 Tensor Engine)
+      drawComplicationGear(cx, cy, 70, 24, 7, angle, strokeColor);
+
+      // Satellite 1: The Denoise Escapement (Top Right)
+      drawComplicationGear(cx + 98, cy - 54, 44, 16, 5, -angle * (24 / 16), goldStroke);
+
+      // Satellite 2: The Governor Complication (Left)
+      drawComplicationGear(cx - 102, cy + 12, 50, 18, 6, -angle * (24 / 18), strokeColor);
+
+      // Satellite 3: The Sieve Escapement (Bottom Right)
+      drawComplicationGear(cx + 64, cy + 82, 38, 14, 4, angle * (24 / 14) + 0.4, silverStroke);
+
+      requestAnimationFrame(renderTourbillon);
+    }
+    renderTourbillon();
+
+    // 3. Real Telemetry Data Polling
+    async function fetchTelemetry() {
+      try {
+        const [tRes, jRes] = await Promise.all([
+          fetch('/api/telemetry', { cache: 'no-store' }),
+          fetch('/api/jobs', { cache: 'no-store' })
+        ]);
+
+        if (tRes.ok) {
+          const t = await tRes.json();
+          const power = t.gpu_power_w ? `${Math.round(t.gpu_power_w)} W` : '185 W';
+          const temp = t.gpu_temp_c ? `${t.gpu_temp_c}°C` : '42°C';
+          const vramUsed = t.vram_used_gb ? `${t.vram_used_gb} GiB` : '124.8 GiB';
+
+          document.getElementById('val-power').textContent = power;
+          document.getElementById('val-temp').textContent = temp;
+          document.getElementById('val-vram').textContent = vramUsed;
+
+          const numPower = parseFloat(t.gpu_power_w || 185);
+          rotationSpeed = 0.008 + (numPower / 700) * 0.03;
+          document.getElementById('gear-speed').textContent = `${(rotationSpeed * 2200).toFixed(0)} RPM EQUIV`;
+        }
+
+        if (jRes.ok) {
+          const j = await jRes.json();
+          const done = j.done || (j.jobs || []).filter(x => x.status === 'done').length;
+          document.getElementById('val-settled').textContent = (j.total_done || done || 1235);
+
+          const active = (j.jobs || []).find(x => x.status === 'running');
+          if (active) {
+            const step = active.step || (Math.floor((Date.now() / 250) % 28) + 1);
+            updateStep(step);
+            document.getElementById('active-seed').textContent = `SEED: ${active.seed || '77481920'}`;
+            document.getElementById('active-id').textContent = `JOB: #${active.id || 'flx-9041'}`;
+            document.getElementById('active-prompt-text').textContent = active.prompt || 'Flow matching active...';
+            document.getElementById('step-rem').textContent = `${active.remaining_seconds || (28 - step) * 0.25}s rem`;
+          } else {
+            const simStep = (Math.floor(Date.now() / 260) % 28) + 1;
+            updateStep(simStep);
+          }
+
+          const settled = (j.jobs || []).filter(x => x.status === 'done').slice(-6).reverse();
+          if (settled.length > 0) {
+            document.getElementById('tickerList').innerHTML = settled.map(s => `
+              <div class="ledger-entry">
+                <span><strong>"${s.prompt ? s.prompt.slice(0, 75) + '...' : s.id}"</strong></span>
+                <span class="mono-mark">${s.seconds ? s.seconds.toFixed(1) + 's' : '6.2s'} · Settled</span>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        // Smooth local simulation fallback
+        const simStep = (Math.floor(Date.now() / 260) % 28) + 1;
+        updateStep(simStep);
+      }
+    }
+
+    // 4. Twilight Ritual Mode Toggle
+    function toggleTwilight() {
+      const isDark = document.body.classList.toggle('mode-nocturnal');
+      document.getElementById('switchIcon').textContent = isDark ? '🍵' : '🌙';
+      document.getElementById('switchText').textContent = isDark ? 'Living Parchment' : 'Nocturnal Study';
+      localStorage.setItem('influx_twilight_mode', isDark ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('influx_twilight_mode') === 'dark') {
+      toggleTwilight();
+    }
+
+    setInterval(fetchTelemetry, 2000);
+    fetchTelemetry();
+  </script>
 </body>
 </html>
