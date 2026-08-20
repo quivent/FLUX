@@ -21,6 +21,7 @@ import (
 	"local/flux/internal/config"
 	"local/flux/internal/daemon"
 	"local/flux/internal/history"
+	"local/flux/internal/jury"
 	"local/flux/internal/prompt"
 	"local/flux/internal/runner"
 	"local/flux/internal/server"
@@ -5680,18 +5681,187 @@ func filenameFromArgs(args []string) string {
 }
 
 func juryCmd(cfg config.Config, args []string) error {
-	fmt.Println(ui.Accent("=== FLUX Sovereign Visual Jury Matrix ==="))
-	fmt.Println("Authority: Governor (31B) + Qwen3-VL (8B) + Pixtral (12B) + Gemma Decoder (12B)")
-	fmt.Println("Blueprint: /root/CLIs/flux/jury_continuum.toml")
-	fmt.Println("Audit Log: /root/Models/flux-output/audit.jsonl")
-	fmt.Println("Web View:  https://motion.influx.vision/jury")
-
-	if len(args) > 0 && args[0] == "provision" {
-		cmd := exec.Command("/root/CLIs/flux/provision_jury.sh")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+	outDir := cfg.OutputDir
+	if outDir == "" {
+		outDir = "/root/Models/flux-output"
 	}
+
+	if len(args) > 0 {
+		sub := args[0]
+		switch sub {
+		case "provision":
+			cmd := exec.Command("/root/CLIs/flux/provision_jury.sh")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			return cmd.Run()
+
+		case "sync", "r2", "backup":
+			fmt.Println(ui.Accent("==> Backing up jury.sqlite3 to Cloudflare R2 (state/jury.sqlite3)..."))
+			if err := jury.SyncToR2(outDir); err != nil {
+				return fmt.Errorf("sync failed: %w", err)
+			}
+			fmt.Println(ui.Accent("✓ Successfully backed up jury.sqlite3 to Cloudflare R2."))
+			return nil
+
+		case "mode", "strategy":
+			if len(args) < 2 {
+				c, _ := jury.GetConfig(outDir)
+				fmt.Printf("Current Execution Mode: %s\n", ui.Accent(c.Mode))
+				return nil
+			}
+			mode := strings.ToLower(args[1])
+			if mode != "parallel" && mode != "sequential" {
+				return fmt.Errorf("invalid mode '%s': must be 'parallel' or 'sequential'", mode)
+			}
+			c, _ := jury.GetConfig(outDir)
+			c.Mode = mode
+			if err := jury.SaveConfig(outDir, c); err != nil {
+				return err
+			}
+			fmt.Printf("✓ Jury Execution Strategy set to %s (persisted to SQLite)\n", ui.Accent(mode))
+			return nil
+
+		case "weight", "weights":
+			if len(args) < 3 {
+				c, _ := jury.GetConfig(outDir)
+				fmt.Println(ui.Accent("Current Judge Weights:"))
+				for k, v := range c.Weights {
+					fmt.Printf("  %s: %.2f (%.0f%%)\n", k, v, v*100)
+				}
+				return nil
+			}
+			judge := strings.ToLower(args[1])
+			val, err := strconv.ParseFloat(args[2], 64)
+			if err != nil {
+				return fmt.Errorf("invalid weight float: %w", err)
+			}
+			if val > 1.0 {
+				val = val / 100.0 // allow passing 35 or 0.35
+			}
+			c, _ := jury.GetConfig(outDir)
+			c.Weights[judge] = val
+			if err := jury.SaveConfig(outDir, c); err != nil {
+				return err
+			}
+			fmt.Printf("✓ Set %s weight to %.2f (%.0f%%) in SQLite\n", judge, val, val*100)
+			return nil
+
+		case "strict", "strictness", "gamma":
+			if len(args) < 3 {
+				c, _ := jury.GetConfig(outDir)
+				fmt.Println(ui.Accent("Current Judge Strictness Multipliers (γ):"))
+				for k, v := range c.Strictness {
+					fmt.Printf("  %s: %.2fγ\n", k, v)
+				}
+				return nil
+			}
+			judge := strings.ToLower(args[1])
+			val, err := strconv.ParseFloat(args[2], 64)
+			if err != nil {
+				return fmt.Errorf("invalid strictness float: %w", err)
+			}
+			c, _ := jury.GetConfig(outDir)
+			if c.Strictness == nil {
+				c.Strictness = jury.DefaultConfig().Strictness
+			}
+			c.Strictness[judge] = val
+			if err := jury.SaveConfig(outDir, c); err != nil {
+				return err
+			}
+			fmt.Printf("✓ Set %s strictness multiplier to %.2fγ in SQLite\n", judge, val)
+			return nil
+
+		case "adversarial", "inquisitor":
+			c, _ := jury.GetConfig(outDir)
+			if len(args) < 2 {
+				fmt.Printf("Adversarial Inquisitor Mode: %v\n", c.AdversarialMode)
+				return nil
+			}
+			val := strings.ToLower(args[1])
+			c.AdversarialMode = (val == "on" || val == "true" || val == "1" || val == "enable")
+			if err := jury.SaveConfig(outDir, c); err != nil {
+				return err
+			}
+			fmt.Printf("✓ Adversarial Inquisitor Mode set to %v (persisted to SQLite)\n", c.AdversarialMode)
+			return nil
+
+		case "order", "sequence":
+			if len(args) < 2 {
+				c, _ := jury.GetConfig(outDir)
+				fmt.Printf("Current Execution Order: %s\n", strings.Join(c.Order, " -> "))
+				return nil
+			}
+			newOrder := args[1:]
+			if len(newOrder) == 1 && strings.Contains(newOrder[0], ",") {
+				newOrder = strings.Split(newOrder[0], ",")
+			}
+			c, _ := jury.GetConfig(outDir)
+			c.Order = newOrder
+			if err := jury.SaveConfig(outDir, c); err != nil {
+				return err
+			}
+			fmt.Printf("✓ Jury Execution Order updated: %s\n", strings.Join(c.Order, " -> "))
+			return nil
+
+		case "preset", "presets":
+			if len(args) > 1 {
+				action := args[1]
+				if action == "save" && len(args) > 2 {
+					name := strings.Join(args[2:], " ")
+					c, _ := jury.GetConfig(outDir)
+					p := jury.JuryPreset{
+						Name:        name,
+						Description: "Custom user profile saved via CLI",
+						Mode:        c.Mode,
+						Order:       c.Order,
+						Weights:     c.Weights,
+					}
+					if err := jury.SavePreset(outDir, p); err != nil {
+						return err
+					}
+					fmt.Printf("✓ Saved active configuration as preset '%s' in SQLite\n", name)
+					return nil
+				}
+				if action == "load" && len(args) > 2 {
+					name := strings.Join(args[2:], " ")
+					presets, _ := jury.ListPresets(outDir)
+					for _, p := range presets {
+						if strings.EqualFold(p.Name, name) {
+							c := jury.JuryConfig{
+								Mode:    p.Mode,
+								Order:   p.Order,
+								Weights: p.Weights,
+							}
+							if err := jury.SaveConfig(outDir, c); err != nil {
+								return err
+							}
+							fmt.Printf("✓ Loaded preset profile '%s' (Mode: %s)\n", p.Name, p.Mode)
+							return nil
+						}
+					}
+					return fmt.Errorf("preset '%s' not found", name)
+				}
+			}
+			presets, _ := jury.ListPresets(outDir)
+			fmt.Println(ui.Accent("Available Jury Presets:"))
+			for _, p := range presets {
+				fmt.Printf("  • %s (%s): %v\n", p.Name, p.Mode, p.Weights)
+			}
+			return nil
+		}
+	}
+
+	// Default display: overview + status
+	jCfg, _ := jury.GetConfig(outDir)
+	fmt.Println(ui.Accent("=== FLUX Sovereign Visual Jury Matrix ==="))
+	fmt.Println("Authority:   Governor (31B) + Qwen3-VL (8B) + Pixtral (12B) + Gemma Decoder (12B)")
+	fmt.Printf("Strategy:    %s\n", ui.Accent(strings.ToUpper(jCfg.Mode)))
+	fmt.Printf("Inquisitor:  %v\n", jCfg.AdversarialMode)
+	fmt.Printf("Pipeline:    %s\n", strings.Join(jCfg.Order, " -> "))
+	fmt.Println("Weights:    ", jCfg.Weights)
+	fmt.Println("Strictness: ", jCfg.Strictness)
+	fmt.Println("Database:    /root/Models/flux-output/jury.sqlite3 (Synced with Cloudflare R2)")
+	fmt.Println("Web View:    https://motion.influx.vision/jury")
 
 	raw, err := os.ReadFile("/root/Models/flux-output/audit.jsonl")
 	if err == nil {

@@ -14,21 +14,25 @@ import (
 )
 
 type JuryConfig struct {
-	ID        string             `json:"id"`
-	Mode      string             `json:"mode"` // "parallel" or "sequential"
-	Order     []string           `json:"order"`
-	Weights   map[string]float64 `json:"weights"`
-	UpdatedAt int64              `json:"updated_at"`
-	R2Synced  bool               `json:"r2_synced"`
+	ID              string             `json:"id"`
+	Mode            string             `json:"mode"` // "parallel" or "sequential"
+	Order           []string           `json:"order"`
+	Weights         map[string]float64 `json:"weights"`
+	Strictness      map[string]float64 `json:"strictness"`
+	AdversarialMode bool               `json:"adversarial_mode"`
+	UpdatedAt       int64              `json:"updated_at"`
+	R2Synced        bool               `json:"r2_synced"`
 }
 
 type JuryPreset struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Mode        string             `json:"mode"`
-	Order       []string           `json:"order"`
-	Weights     map[string]float64 `json:"weights"`
-	CreatedAt   int64              `json:"created_at"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	Mode            string             `json:"mode"`
+	Order           []string           `json:"order"`
+	Weights         map[string]float64 `json:"weights"`
+	Strictness      map[string]float64 `json:"strictness"`
+	AdversarialMode bool               `json:"adversarial_mode"`
+	CreatedAt       int64              `json:"created_at"`
 }
 
 var (
@@ -38,61 +42,78 @@ var (
 
 func DefaultConfig() JuryConfig {
 	return JuryConfig{
-		ID:        "active",
-		Mode:      "parallel",
-		Order:     []string{"pixtral", "qwen", "decoder", "governor"},
+		ID:    "active",
+		Mode:  "parallel",
+		Order: []string{"pixtral", "qwen", "decoder", "governor"},
 		Weights: map[string]float64{
 			"pixtral":  0.35,
 			"qwen":     0.35,
 			"decoder":  0.15,
 			"governor": 0.15,
 		},
-		UpdatedAt: time.Now().Unix(),
-		R2Synced:  false,
+		Strictness: map[string]float64{
+			"pixtral":  2.0, // Strict colorist / aesthetic gamma
+			"qwen":     1.2, // Naturally critical anatomical scan
+			"decoder":  1.5, // Strict representation consensus
+			"governor": 2.2, // Rigorous semantic & prompt adherence
+		},
+		AdversarialMode: true,
+		UpdatedAt:       time.Now().Unix(),
+		R2Synced:        false,
 	}
 }
 
 func BuiltinPresets() []JuryPreset {
 	return []JuryPreset{
 		{
-			Name:        "Balanced Harmony (Default)",
-			Description: "Equal artistic and structural evaluation with balanced governance.",
-			Mode:        "parallel",
-			Order:       []string{"pixtral", "qwen", "decoder", "governor"},
-			Weights:     map[string]float64{"pixtral": 0.35, "qwen": 0.35, "decoder": 0.15, "governor": 0.15},
-			CreatedAt:   time.Now().Unix(),
+			Name:            "Balanced Harmony (Default)",
+			Description:     "Equal artistic and structural evaluation with balanced governance.",
+			Mode:            "parallel",
+			Order:           []string{"pixtral", "qwen", "decoder", "governor"},
+			Weights:         map[string]float64{"pixtral": 0.35, "qwen": 0.35, "decoder": 0.15, "governor": 0.15},
+			Strictness:      map[string]float64{"pixtral": 1.5, "qwen": 1.2, "decoder": 1.3, "governor": 1.5},
+			AdversarialMode: false,
+			CreatedAt:       time.Now().Unix(),
 		},
 		{
-			Name:        "Anatomical Strict (Qwen Heavy)",
-			Description: "Prioritizes zero geometrical deformations, sharp contours, and line stability.",
-			Mode:        "parallel",
-			Order:       []string{"qwen", "pixtral", "decoder", "governor"},
-			Weights:     map[string]float64{"qwen": 0.50, "pixtral": 0.25, "governor": 0.15, "decoder": 0.10},
-			CreatedAt:   time.Now().Unix(),
+			Name:            "Inquisitorial Strict (Museum Grade)",
+			Description:     "Unsparing adversarial rubrics; only flawless frames exceed 90.0.",
+			Mode:            "parallel",
+			Order:           []string{"qwen", "pixtral", "governor", "decoder"},
+			Weights:         map[string]float64{"pixtral": 0.35, "qwen": 0.35, "decoder": 0.15, "governor": 0.15},
+			Strictness:      map[string]float64{"pixtral": 2.4, "qwen": 2.0, "decoder": 1.8, "governor": 2.5},
+			AdversarialMode: true,
+			CreatedAt:       time.Now().Unix(),
 		},
 		{
-			Name:        "Artistic Colorist (Pixtral Heavy)",
-			Description: "Prioritizes palette mood, lighting temperature, and medium authenticity.",
-			Mode:        "parallel",
-			Order:       []string{"pixtral", "qwen", "decoder", "governor"},
-			Weights:     map[string]float64{"pixtral": 0.55, "qwen": 0.20, "governor": 0.15, "decoder": 0.10},
-			CreatedAt:   time.Now().Unix(),
+			Name:            "Anatomical Strict (Qwen Heavy)",
+			Description:     "Prioritizes zero geometrical deformations, sharp contours, and line stability.",
+			Mode:            "parallel",
+			Order:           []string{"qwen", "pixtral", "decoder", "governor"},
+			Weights:         map[string]float64{"qwen": 0.50, "pixtral": 0.25, "governor": 0.15, "decoder": 0.10},
+			Strictness:      map[string]float64{"pixtral": 1.5, "qwen": 2.2, "decoder": 1.3, "governor": 1.5},
+			AdversarialMode: true,
+			CreatedAt:       time.Now().Unix(),
 		},
 		{
-			Name:        "Semantic Faithful (Governor Heavy)",
-			Description: "Strict prompt item adherence and macro compositional compliance.",
-			Mode:        "parallel",
-			Order:       []string{"governor", "decoder", "pixtral", "qwen"},
-			Weights:     map[string]float64{"governor": 0.50, "pixtral": 0.20, "qwen": 0.20, "decoder": 0.10},
-			CreatedAt:   time.Now().Unix(),
+			Name:            "Artistic Colorist (Pixtral Heavy)",
+			Description:     "Prioritizes palette mood, lighting temperature, and medium authenticity.",
+			Mode:            "parallel",
+			Order:           []string{"pixtral", "qwen", "decoder", "governor"},
+			Weights:         map[string]float64{"pixtral": 0.55, "qwen": 0.20, "governor": 0.15, "decoder": 0.10},
+			Strictness:      map[string]float64{"pixtral": 2.5, "qwen": 1.2, "decoder": 1.4, "governor": 1.6},
+			AdversarialMode: true,
+			CreatedAt:       time.Now().Unix(),
 		},
 		{
-			Name:        "Cascade Pipeline (Sequential)",
-			Description: "Sequential pipeline: Structural inspection passes evidence to Art Critic, then Synthesizer.",
-			Mode:        "sequential",
-			Order:       []string{"qwen", "pixtral", "decoder", "governor"},
-			Weights:     map[string]float64{"qwen": 0.35, "pixtral": 0.35, "decoder": 0.15, "governor": 0.15},
-			CreatedAt:   time.Now().Unix(),
+			Name:            "Semantic Faithful (Governor Heavy)",
+			Description:     "Strict prompt item adherence and macro compositional compliance.",
+			Mode:            "parallel",
+			Order:           []string{"governor", "decoder", "pixtral", "qwen"},
+			Weights:         map[string]float64{"governor": 0.50, "pixtral": 0.20, "qwen": 0.20, "decoder": 0.10},
+			Strictness:      map[string]float64{"pixtral": 1.4, "qwen": 1.2, "decoder": 1.3, "governor": 2.8},
+			AdversarialMode: true,
+			CreatedAt:       time.Now().Unix(),
 		},
 	}
 }
@@ -120,6 +141,8 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			mode TEXT NOT NULL,
 			order_json TEXT NOT NULL,
 			weights_json TEXT NOT NULL,
+			strictness_json TEXT,
+			adversarial_mode INTEGER DEFAULT 0,
 			updated_at INTEGER NOT NULL,
 			r2_synced INTEGER DEFAULT 0
 		);`,
@@ -129,6 +152,8 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			mode TEXT NOT NULL,
 			order_json TEXT NOT NULL,
 			weights_json TEXT NOT NULL,
+			strictness_json TEXT,
+			adversarial_mode INTEGER DEFAULT 0,
 			created_at INTEGER NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS jury_verdicts (
@@ -149,6 +174,12 @@ func InitDB(outputDir string) (*sql.DB, error) {
 		}
 	}
 
+	// Migrations for existing tables
+	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN strictness_json TEXT;")
+	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN adversarial_mode INTEGER DEFAULT 0;")
+	_, _ = db.Exec("ALTER TABLE jury_presets ADD COLUMN strictness_json TEXT;")
+	_, _ = db.Exec("ALTER TABLE jury_presets ADD COLUMN adversarial_mode INTEGER DEFAULT 0;")
+
 	// Seed default config if empty
 	var count int
 	_ = db.QueryRow("SELECT COUNT(*) FROM jury_config").Scan(&count)
@@ -156,25 +187,29 @@ func InitDB(outputDir string) (*sql.DB, error) {
 		def := DefaultConfig()
 		ord, _ := json.Marshal(def.Order)
 		wei, _ := json.Marshal(def.Weights)
-		_, _ = db.Exec("INSERT INTO jury_config (id, mode, order_json, weights_json, updated_at, r2_synced) VALUES (?, ?, ?, ?, ?, ?)",
-			def.ID, def.Mode, string(ord), string(wei), def.UpdatedAt, 0)
-	}
-
-	// Seed builtin presets if empty
-	var pCount int
-	_ = db.QueryRow("SELECT COUNT(*) FROM jury_presets").Scan(&pCount)
-	if pCount == 0 {
-		for _, p := range BuiltinPresets() {
-			ord, _ := json.Marshal(p.Order)
-			wei, _ := json.Marshal(p.Weights)
-			_, _ = db.Exec("INSERT OR IGNORE INTO jury_presets (name, description, mode, order_json, weights_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-				p.Name, p.Description, p.Mode, string(ord), string(wei), p.CreatedAt)
+		strc, _ := json.Marshal(def.Strictness)
+		adv := 0
+		if def.AdversarialMode {
+			adv = 1
 		}
+		_, _ = db.Exec("INSERT INTO jury_config (id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			def.ID, def.Mode, string(ord), string(wei), string(strc), adv, def.UpdatedAt, 0)
 	}
 
-	// Also write JSON fallback for quick daemon reads
-	_ = ExportConfigJSON(outputDir)
+	// Seed builtin presets
+	for _, p := range BuiltinPresets() {
+		ord, _ := json.Marshal(p.Order)
+		wei, _ := json.Marshal(p.Weights)
+		strc, _ := json.Marshal(p.Strictness)
+		adv := 0
+		if p.AdversarialMode {
+			adv = 1
+		}
+		_, _ = db.Exec("INSERT OR REPLACE INTO jury_presets (name, description, mode, order_json, weights_json, strictness_json, adversarial_mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			p.Name, p.Description, p.Mode, string(ord), string(wei), string(strc), adv, p.CreatedAt)
+	}
 
+	_ = ExportConfigJSON(outputDir)
 	return db, nil
 }
 
@@ -186,15 +221,22 @@ func GetConfig(outputDir string) (JuryConfig, error) {
 
 	var cfg JuryConfig
 	var ordStr, weiStr string
-	var synced int
-	err = d.QueryRow("SELECT id, mode, order_json, weights_json, updated_at, r2_synced FROM jury_config WHERE id = 'active'").
-		Scan(&cfg.ID, &cfg.Mode, &ordStr, &weiStr, &cfg.UpdatedAt, &synced)
+	var strcStr sql.NullString
+	var advInt, synced int
+	err = d.QueryRow("SELECT id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced FROM jury_config WHERE id = 'active'").
+		Scan(&cfg.ID, &cfg.Mode, &ordStr, &weiStr, &strcStr, &advInt, &cfg.UpdatedAt, &synced)
 	if err != nil {
 		return DefaultConfig(), nil
 	}
 
 	_ = json.Unmarshal([]byte(ordStr), &cfg.Order)
 	_ = json.Unmarshal([]byte(weiStr), &cfg.Weights)
+	if strcStr.Valid && strcStr.String != "" {
+		_ = json.Unmarshal([]byte(strcStr.String), &cfg.Strictness)
+	} else {
+		cfg.Strictness = DefaultConfig().Strictness
+	}
+	cfg.AdversarialMode = (advInt == 1)
 	cfg.R2Synced = (synced == 1)
 	return cfg, nil
 }
@@ -209,19 +251,30 @@ func SaveConfig(outputDir string, cfg JuryConfig) error {
 	cfg.UpdatedAt = time.Now().Unix()
 	cfg.R2Synced = false
 
+	if cfg.Strictness == nil {
+		cfg.Strictness = DefaultConfig().Strictness
+	}
+
 	ordStr, _ := json.Marshal(cfg.Order)
 	weiStr, _ := json.Marshal(cfg.Weights)
+	strcStr, _ := json.Marshal(cfg.Strictness)
+	adv := 0
+	if cfg.AdversarialMode {
+		adv = 1
+	}
 
 	_, err = d.Exec(`
-		INSERT INTO jury_config (id, mode, order_json, weights_json, updated_at, r2_synced)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO jury_config (id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			mode = excluded.mode,
 			order_json = excluded.order_json,
 			weights_json = excluded.weights_json,
+			strictness_json = excluded.strictness_json,
+			adversarial_mode = excluded.adversarial_mode,
 			updated_at = excluded.updated_at,
 			r2_synced = excluded.r2_synced
-	`, cfg.ID, cfg.Mode, string(ordStr), string(weiStr), cfg.UpdatedAt, 0)
+	`, cfg.ID, cfg.Mode, string(ordStr), string(weiStr), string(strcStr), adv, cfg.UpdatedAt, 0)
 	if err != nil {
 		return err
 	}
@@ -236,7 +289,7 @@ func ListPresets(outputDir string) ([]JuryPreset, error) {
 		return BuiltinPresets(), err
 	}
 
-	rows, err := d.Query("SELECT name, description, mode, order_json, weights_json, created_at FROM jury_presets ORDER BY created_at ASC")
+	rows, err := d.Query("SELECT name, description, mode, order_json, weights_json, strictness_json, adversarial_mode, created_at FROM jury_presets ORDER BY created_at ASC")
 	if err != nil {
 		return BuiltinPresets(), nil
 	}
@@ -246,9 +299,17 @@ func ListPresets(outputDir string) ([]JuryPreset, error) {
 	for rows.Next() {
 		var p JuryPreset
 		var ordStr, weiStr string
-		if err := rows.Scan(&p.Name, &p.Description, &p.Mode, &ordStr, &weiStr, &p.CreatedAt); err == nil {
+		var strcStr sql.NullString
+		var advInt int
+		if err := rows.Scan(&p.Name, &p.Description, &p.Mode, &ordStr, &weiStr, &strcStr, &advInt, &p.CreatedAt); err == nil {
 			_ = json.Unmarshal([]byte(ordStr), &p.Order)
 			_ = json.Unmarshal([]byte(weiStr), &p.Weights)
+			if strcStr.Valid && strcStr.String != "" {
+				_ = json.Unmarshal([]byte(strcStr.String), &p.Strictness)
+			} else {
+				p.Strictness = DefaultConfig().Strictness
+			}
+			p.AdversarialMode = (advInt == 1)
 			presets = append(presets, p)
 		}
 	}
@@ -262,19 +323,29 @@ func SavePreset(outputDir string, p JuryPreset) error {
 	}
 
 	p.CreatedAt = time.Now().Unix()
+	if p.Strictness == nil {
+		p.Strictness = DefaultConfig().Strictness
+	}
 	ordStr, _ := json.Marshal(p.Order)
 	weiStr, _ := json.Marshal(p.Weights)
+	strcStr, _ := json.Marshal(p.Strictness)
+	adv := 0
+	if p.AdversarialMode {
+		adv = 1
+	}
 
 	_, err = d.Exec(`
-		INSERT INTO jury_presets (name, description, mode, order_json, weights_json, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO jury_presets (name, description, mode, order_json, weights_json, strictness_json, adversarial_mode, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET
 			description = excluded.description,
 			mode = excluded.mode,
 			order_json = excluded.order_json,
 			weights_json = excluded.weights_json,
+			strictness_json = excluded.strictness_json,
+			adversarial_mode = excluded.adversarial_mode,
 			created_at = excluded.created_at
-	`, p.Name, p.Description, p.Mode, string(ordStr), string(weiStr), p.CreatedAt)
+	`, p.Name, p.Description, p.Mode, string(ordStr), string(weiStr), string(strcStr), adv, p.CreatedAt)
 	return err
 }
 

@@ -82,8 +82,40 @@ def get_queue_depth():
     except Exception as e:
         return 0
 
+WINNING_GENOME_LOG = "/root/Models/flux-output/winning_genome.jsonl"
+
+def sample_winning_traits():
+    try:
+        if os.path.exists(WINNING_GENOME_LOG):
+            with open(WINNING_GENOME_LOG, "r") as f:
+                lines = [line.strip() for line in f if line.strip()]
+                if lines:
+                    recent = lines[-30:] # sample from recent 30 masterpieces
+                    chosen = json.loads(random.choice(recent))
+                    return chosen.get("prompt", "")
+    except Exception:
+        pass
+    return ""
+
 def generate_unique_prompt():
     global seen_prompts
+    
+    # 35% chance to mutate from a proven Masterpiece genome
+    if random.random() < 0.35:
+        winning_prompt = sample_winning_traits()
+        if winning_prompt:
+            parts = [p.strip() for p in winning_prompt.split(",") if p.strip()]
+            if len(parts) >= 3:
+                # Mutate 1 component (e.g. swap lighting or medium)
+                subj = parts[0]
+                media = random.choice(MEDIA_STYLES) if random.random() < 0.5 else parts[1]
+                light = random.choice(LIGHTING) if random.random() < 0.5 else (parts[2] if len(parts) > 2 else random.choice(LIGHTING))
+                comp = random.choice(COMPOSITIONS)
+                mutated = f"{subj}, {media}, {light}, {comp}"
+                if mutated not in seen_prompts:
+                    seen_prompts.add(mutated)
+                    return mutated
+
     for _ in range(50):
         subj = random.choice(SUBJECTS)
         media = random.choice(MEDIA_STYLES)
