@@ -15,7 +15,27 @@
 </head>
 <body>
 <div class="shell">
-<header><a class="brand" href="/"><span class="seal" aria-hidden="true">茶</span>Tea</a><nav aria-label="Site"><a href="/garden">Garden</a><a href="/gallery/">Gallery</a><a href="/portraits">Portraits</a><a href="/movement">Motion Work</a><a href="/exhibition">Exhibition</a></nav></header>
+<header>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <a class="brand" href="/"><span class="seal" aria-hidden="true">茶</span>Tea</a>
+    <nav aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.06); padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,0.08);">
+      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
+      <a href="/jury" style="color:#a63e39; font-weight:700;">👑 Jury</a>
+      <a href="/gallery/">🖼️ Stream</a>
+      <a href="/garden">🌿 Garden</a>
+      <a href="/portraits">👤 Portraits</a>
+      <a href="/exhibition">🏛️ Exhibition</a>
+      
+      <span style="width:1px; height:12px; background:rgba(0,0,0,0.15); margin:0 4px;"></span>
+      
+      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
+      <a href="/movement">🎬 Video</a>
+      <a href="/atlas/">🌐 Worlds</a>
+      <a href="/studies" style="color:var(--ink); font-weight:700;">🐎 Studies</a>
+      <a href="/engine">⚙️ Engine</a>
+    </nav>
+  </div>
+</header>
 <main>
   <section class="intro"><div><div class="eyebrow">The work beneath the work</div><h1>Studies</h1></div><p>Motion here begins as a field of possibilities: paths through latent space, tests of continuity, and small changes observed long enough to become a work.</p></section>
   <div class="view-tabs" role="tablist" aria-label="Studies views"><button class="active" id="library-tab" role="tab" aria-selected="true" aria-controls="library-view">Study library</button><button id="gallery-tab" role="tab" aria-selected="false" aria-controls="gallery-view">Results gallery <span id="gallery-total"></span></button></div>

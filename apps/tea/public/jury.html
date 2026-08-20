@@ -598,17 +598,30 @@
 <body>
 
 <div class="shell">
-  <!-- Minimalist Header -->
+  <!-- Minimalist Universal Header -->
   <header>
     <div class="brand">
-      <h1>The Jury Chamber</h1>
-      <span>Visual Spectacle Arena</span>
+      <h1><span style="color:var(--gold); font-family:var(--font-serif); margin-right:4px;">茶</span> The Jury Chamber</h1>
+      <span>Sovereign Visual Criticism Arena</span>
     </div>
 
-    <div class="header-actions">
-      <a class="nav-link" href="/portal">Portal</a>
-      <a class="nav-link" href="/gallery/">Gallery</a>
-      <a class="nav-link" href="/engine">Engine Room</a>
+    <!-- Universal Bipartition Navigation -->
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+      <nav class="universal-nav" style="display:flex; gap:5px; align-items:center; background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.1);">
+        <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-dim); text-transform:uppercase; padding:0 2px; letter-spacing:0.08em;">🍵 TEA:</span>
+        <a class="nav-link" style="color:var(--gold); border-color:rgba(255,200,59,0.5); background:rgba(255,200,59,0.12); font-weight:700;" href="/jury">👑 Jury</a>
+        <a class="nav-link" href="/gallery/">🖼️ Stream</a>
+        <a class="nav-link" href="/garden">🌿 Garden</a>
+        <a class="nav-link" href="/portraits">👤 Portraits</a>
+        
+        <span style="width:1px; height:12px; background:rgba(255,255,255,0.2); margin:0 4px;"></span>
+        
+        <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-dim); text-transform:uppercase; padding:0 2px; letter-spacing:0.08em;">⚡ MOTION:</span>
+        <a class="nav-link" href="/movement">🎬 Video</a>
+        <a class="nav-link" href="/atlas/">🌐 Worlds</a>
+        <a class="nav-link" href="/engine">⚙️ Engine</a>
+      </nav>
+
       <button class="btn-toggle-tuning" onclick="toggleTuning()">
         <span>⚙️</span> Calibrate Jury
       </button>

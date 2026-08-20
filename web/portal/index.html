@@ -422,13 +422,39 @@
     </section>
 
     <div class="matrix-title">
-      <h3>Active Constellation Surfaces</h3>
-      <span>6 DEPLOYABLE SURFACES</span>
+      <h3>🍵 PILLAR I — TEA & BEAUTY</h3>
+      <span>CONTEMPLATIVE AESTHETICS & JURY SIEVE</span>
     </div>
 
-    <div class="app-grid">
+    <div class="app-grid" style="margin-bottom: 48px;">
 
-      <!-- 1. Live Visual Gallery -->
+      <!-- 1. The Jury Chamber (Flagship) -->
+      <a class="app-card card-jury" href="/jury" style="--card-accent: var(--gold); --card-glow: var(--gold-glow); border-color: rgba(255,190,46,0.3);">
+        <div>
+          <div class="card-top">
+            <span class="app-badge" style="color:var(--gold); border-color:rgba(255,190,46,0.4); background:rgba(255,190,46,0.08);">👑 Flagship Sovereign Arena</span>
+            <span class="app-route">/jury</span>
+          </div>
+          <div class="card-body">
+            <h4>The Jury Chamber <span class="arrow" style="color:var(--gold);">→</span></h4>
+            <p>
+              Autonomous 4-Shard Visual Jury (Pixtral-12B, Qwen-2.5-VL, Decoder, Governor Gemma 31B),
+              live empirical percentile curve calibration, and human sovereign crowning & re-ranking.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/jury">👑 Chamber UI</a>
+            <a class="subroute-tag" href="/api/jury/spectacles">/api/jury/spectacles</a>
+            <a class="subroute-tag" href="/api/jury/config">/api/jury/config</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span style="color:var(--gold);">RUBRIC: 4-Shard Sovereign Sieve</span>
+          <span>EMPIRICAL CDF %ILE</span>
+        </div>
+      </a>
+
+      <!-- 2. Live Visual Stream -->
       <a class="app-card card-gallery" href="/gallery/">
         <div>
           <div class="card-top">
@@ -439,7 +465,7 @@
             <h4>Live Gallery <span class="arrow">→</span></h4>
             <p>
               Live streaming feed of all settled GPU generation frames, full-resolution PNG downloads,
-              generation latencies (~6.4s per image), and complete creative prompt lineages.
+              generation latencies (~6.3s per image), and complete creative prompt lineages.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
@@ -448,85 +474,68 @@
           </div>
         </div>
         <div class="card-footer">
-          <span>STREAM: Perpetual Denoise</span>
+          <span>STREAM: Perpetual Sieve</span>
           <span>LIVE ARCHIVE</span>
         </div>
       </a>
 
-      <!-- 2. The Living Garden -->
+      <!-- 3. The Living Garden -->
       <a class="app-card card-garden" href="/garden">
         <div>
           <div class="card-top">
-            <span class="app-badge">Living Garden · Motion Lab</span>
+            <span class="app-badge">Living Garden · Salon</span>
             <span class="app-route">/garden</span>
           </div>
           <div class="card-body">
-            <h4>The Living Garden <span class="arrow">→</span></h4>
+            <h4>The Tea Garden <span class="arrow">→</span></h4>
             <p>
               A practice in seeing. A living image garden with authored Sakura aesthetics, portrait suites,
-              and the 7,584-cell Stallion motion-graph benchmark laboratory.
+              and contemplative ambient atmospheres.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/garden/studies.html">Studies</a>
-            <a class="subroute-tag" href="/garden/stallion-lab.html">Stallion Lab</a>
-            <a class="subroute-tag" href="/garden/movement.html">Motion</a>
+            <a class="subroute-tag" href="/garden">Garden</a>
+            <a class="subroute-tag" href="/portraits">Portraits</a>
+            <a class="subroute-tag" href="/exhibition">Exhibition</a>
           </div>
         </div>
         <div class="card-footer">
-          <span>RUNNER: flux serve garden</span>
-          <span>PORT 7861</span>
+          <span>ATMOSPHERE: Stillness & Soul</span>
+          <span>CURATED BEAUTY</span>
         </div>
       </a>
 
-      <!-- 3. FLUX Studio Engine -->
-      <a class="app-card card-studio" href="/app">
-        <div>
-          <div class="card-top">
-            <span class="app-badge">Resident CUDA Cockpit</span>
-            <span class="app-route">/app</span>
-          </div>
-          <div class="card-body">
-            <h4>FLUX Studio <span class="arrow">→</span></h4>
-            <p>
-              Direct HTTP & WebSocket control surface over the resident Python UDS daemon.
-              Provides interactive prompt dispatch, step and guidance controls, and live step metrics.
-            </p>
-          </div>
-          <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/app">Studio Cockpit</a>
-            <a class="subroute-tag" href="/api/health">/api/health</a>
-            <a class="subroute-tag" href="/api/jobs">/api/jobs</a>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span>SOCKET: .fluxd/flux-gpu0.sock</span>
-          <span>PORT 7861</span>
-        </div>
-      </a>
+    </div>
 
-      <!-- 4. Atelier Synthesis Cockpit -->
-      <a class="app-card card-atelier" href="/atelier">
+    <div class="matrix-title">
+      <h3>⚡ PILLAR II — MOTION & WORLDS</h3>
+      <span>KINEMATICS, VIDEO & 3D SPHEREMAPS</span>
+    </div>
+
+    <div class="app-grid">
+
+      <!-- 4. Motion Diffusion Lab -->
+      <a class="app-card card-movement" href="/movement" style="--card-accent: var(--rose); --card-glow: var(--rose-glow);">
         <div>
           <div class="card-top">
-            <span class="app-badge">Synthesis & Duel Arena</span>
-            <span class="app-route">/atelier</span>
+            <span class="app-badge" style="color:var(--rose);">Temporal Video Diffusion</span>
+            <span class="app-route">/movement</span>
           </div>
           <div class="card-body">
-            <h4>Atelier Studio <span class="arrow">→</span></h4>
+            <h4>Motion Work <span class="arrow" style="color:var(--rose);">→</span></h4>
             <p>
-              Interactive Koyomi synthesis cockpit, prompt tournament arena, aesthetic scoring engine,
-              and continuous evolution loop monitor for autonomous visual research.
+              Video generation, multi-state latent paths, dynamic camera trajectories,
+              and continuous temporal interpolation suites.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/atelier">Studio UI</a>
-            <a class="subroute-tag" href="http://127.0.0.1:9732" target="_blank">:9732 Direct</a>
+            <a class="subroute-tag" href="/movement">Live Path</a>
+            <a class="subroute-tag" href="/studies">Studies Index</a>
           </div>
         </div>
         <div class="card-footer">
-          <span>COORDINATOR: Kiro (:9820)</span>
-          <span>STUDIO FORGE</span>
+          <span>ENGINE: WAN 2.1 / FLUX Path</span>
+          <span>TEMPORAL KINETICS</span>
         </div>
       </a>
 
@@ -534,19 +543,19 @@
       <a class="app-card card-atlas" href="/atlas/motion-atlas/">
         <div>
           <div class="card-top">
-            <span class="app-badge">3D Sphere · Latent Navigator</span>
+            <span class="app-badge">3D Sphere · World Navigator</span>
             <span class="app-route">/atlas/</span>
           </div>
           <div class="card-body">
             <h4>Motion Atlas 3D <span class="arrow">→</span></h4>
             <p>
-              Interactive 3D spherical latent trajectory navigator. Connects to real-time Optics raytracing,
-              batch queues, and dedicated Governor and Visionary web consoles.
+              Interactive 3D spherical world generator and latent trajectory navigator.
+              Connects to real-time Optics raytracing and continuous 360° environments.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
             <a class="subroute-tag" href="/atlas/motion-atlas/">3D Sphere</a>
-            <a class="subroute-tag" href="/atlas/motion-atlas/optics.html">Optics</a>
+            <a class="subroute-tag" href="/studies">Studies</a>
           </div>
         </div>
         <div class="card-footer">
@@ -555,54 +564,29 @@
         </div>
       </a>
 
-      <!-- 6. Rosarium Museum -->
-      <a class="app-card card-rosarium" href="/rosarium/">
+      <!-- 6. The Engine Room & Telemetry -->
+      <a class="app-card card-engine" href="/engine" style="--card-accent: var(--cyan); --card-glow: var(--cyan-glow);">
         <div>
           <div class="card-top">
-            <span class="app-badge">Visual Vault · 7,218 Works</span>
-            <span class="app-route">/rosarium/</span>
-          </div>
-          <div class="card-body">
-            <h4>Rosarium Museum <span class="arrow">→</span></h4>
-            <p>
-              The recovered grand museum and visual catalog. Contains 7,218 curated works,
-              full-resolution Arcane Princess portraiture, and the 4D Rotunda salon.
-            </p>
-          </div>
-          <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/rosarium/">/rosarium/</a>
-            <a class="subroute-tag" href="/rosarium/rotunda.html">Rotunda 4D</a>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span>ESTATE: 7,218 Curated Works</span>
-          <span>STATIC VAULT</span>
-        </div>
-      </a>
-
-      <!-- 7. The Engine Room -->
-      <a class="app-card card-engine" href="/engine">
-        <div>
-          <div class="card-top">
-            <span class="app-badge">GPU Kinetics & Telemetry</span>
+            <span class="app-badge" style="color:var(--cyan);">GPU Telemetry & Sockets</span>
             <span class="app-route">/engine</span>
           </div>
           <div class="card-body">
-            <h4>The Engine Room <span class="arrow">→</span></h4>
+            <h4>The Engine Room <span class="arrow" style="color:var(--cyan);">→</span></h4>
             <p>
-              Kinetic GPU power matrix, spinning mechanical gear train, live 28-step flow-matching reactor,
-              active power draw (~690W), and workload tenant monitors.
+              Live hardware telemetry cockpit, Blackwell/Hopper VRAM allocators,
+              resident UDS worker daemon metrics, and batch queue orchestrators.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/engine">Gears & Kinetics</a>
-            <a class="subroute-tag" href="/api/telemetry">/api/telemetry</a>
-            <a class="subroute-tag" href="/api/jobs">/api/jobs</a>
+            <a class="subroute-tag" href="/engine">Telemetry UI</a>
+            <a class="subroute-tag" href="/sentinel">Sentinel</a>
+            <a class="subroute-tag" href="/app">Studio Cockpit</a>
           </div>
         </div>
         <div class="card-footer">
-          <span>HARDWARE: NVIDIA H200 SXM</span>
-          <span>LIVE DIALS</span>
+          <span>SOCKET: .fluxd/flux-gpu0.sock</span>
+          <span>PORT 7861</span>
         </div>
       </a>
 

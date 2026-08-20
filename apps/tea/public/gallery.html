@@ -110,8 +110,24 @@
 </style>
 
 <header>
-  <a class="word" href="/">TEA <b>GALLERY</b></a>
-  <nav class="room-nav" aria-label="Gallery rooms"><a href="/garden">Garden</a><a href="/gallery/">Gallery</a><a href="/portraits">Portraits</a><a href="/movement">Motion Work</a><a href="/studies">Studies</a><a href="/exhibition">Exhibition</a></nav>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <a class="word" href="/">TEA <b>GALLERY</b></a>
+    <nav class="room-nav" aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.08);">
+      <span style="font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
+      <a href="/jury" style="color:#ffc83b; font-weight:700;">👑 Jury</a>
+      <a href="/gallery/" style="color:#fff;">🖼️ Stream</a>
+      <a href="/garden">🌿 Garden</a>
+      <a href="/portraits">👤 Portraits</a>
+      <a href="/exhibition">🏛️ Exhibition</a>
+      
+      <span style="width:1px; height:12px; background:rgba(255,255,255,0.18); margin:0 4px;"></span>
+      
+      <span style="font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
+      <a href="/movement">🎬 Video</a>
+      <a href="/atlas/">🌐 Worlds</a>
+      <a href="/engine">⚙️ Engine</a>
+    </nav>
+  </div>
   <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
 </header>
 
