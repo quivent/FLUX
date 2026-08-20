@@ -3431,7 +3431,25 @@ func (s Server) output(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid output path")
 		return
 	}
-	http.ServeFile(w, r, fileAbs)
+
+	// 1. Serve from local filesystem if present
+	if info, err := os.Stat(fileAbs); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, fileAbs)
+		return
+	}
+
+	// 2. On-Demand R2 Fallback: If deployed on a fresh node, pull instantly from Cloudflare R2
+	r2Key := "outputs/" + strings.TrimPrefix(name, "/")
+	_ = os.MkdirAll(filepath.Dir(fileAbs), 0755)
+	pullCmd := exec.Command("gemstone", "r2", "pull", r2Key, fileAbs)
+	if err := pullCmd.Run(); err == nil {
+		if info, err := os.Stat(fileAbs); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, fileAbs)
+			return
+		}
+	}
+
+	http.NotFound(w, r)
 }
 
 func (s Server) staged(w http.ResponseWriter, r *http.Request) {
