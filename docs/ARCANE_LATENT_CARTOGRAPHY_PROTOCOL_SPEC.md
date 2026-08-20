@@ -125,7 +125,7 @@ Every generated cell must pass through the **4-Shard Consensus Matrix** before e
 sequenceDiagram
     participant F as FLUX Forge
     participant P as Shard 1: Pixtral 12B
-    participant Q as Shard 2: Qwen 2.5-VL
+    participant Q as Shard 2: Qwen 3-VL 8B
     participant C as Shard 3: Consensus Engine
     participant G as Shard 4: Governor Gemma 31B
     participant R as Cloudflare R2 Vault
