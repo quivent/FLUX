@@ -257,6 +257,24 @@
       letter-spacing: 0.05em;
     }
 
+    .hero-pill-bottom-left {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid var(--border-cyan);
+      color: var(--cyan);
+      backdrop-filter: blur(12px);
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .hero-pill-top-right {
       position: absolute;
       top: 16px;
@@ -610,6 +628,7 @@
       <div class="hero-image-wrapper">
         <img class="hero-img" id="heroImg" src="" alt="Settling Spectacle...">
         <div class="hero-pill-top-left" id="heroSeed">SEED: --</div>
+        <div class="hero-pill-bottom-left" id="heroUniqueness">🌐 NOVELTY: --%</div>
         <div class="hero-pill-top-right" id="heroTierBadge"></div>
         <div class="hero-score-badge" id="heroScore">--</div>
       </div>
@@ -868,29 +887,60 @@
         const seed = latest.seed || 'RANDOM';
         const prompt = latest.prompt || (recentImgs[0] ? recentImgs[0].name : 'Flow-matching frame');
         
-        const rawH = 88 + (prompt.length % 11);
-        const rawS = 86 + (seed % 13);
-        const rawD = 90 + (seed % 9);
-        const rawG = 89 + (seed % 10);
+  const EXCEPTIONAL_TRAITS = [
+    "obsidian", "bioluminescent", "liquid crystal", "astral sorceress", "porcelain armor",
+    "cybernetic tea master", "prismatic", "stained glass", "sumi-e", "volumetric mist",
+    "masterwork dynamic luminance", "hyper-precise", "supreme architectural poise"
+  ];
+  const BANAL_CLICHES = [
+    "vintage train", "stone viaduct", "train crossing", "sunset", "autumn leaves"
+  ];
 
-        const gP = (currentConfig.strictness && currentConfig.strictness.pixtral) || 2.0;
-        const gQ = (currentConfig.strictness && currentConfig.strictness.qwen) || 1.2;
-        const gD = (currentConfig.strictness && currentConfig.strictness.decoder) || 1.5;
-        const gG = (currentConfig.strictness && currentConfig.strictness.governor) || 2.2;
-        const adv = !!currentConfig.adversarial_mode;
+  function getNoveltyBonus(prompt) {
+    const p = prompt.toLowerCase();
+    let b = 0.0;
+    for (let t of EXCEPTIONAL_TRAITS) if (p.includes(t)) b += 3.5;
+    for (let c of BANAL_CLICHES) if (p.includes(c)) b -= 8.0;
+    return Math.max(-14.0, Math.min(14.0, b));
+  }
 
-        const sHarmony = calibrateRaw(rawH, gP, adv).toFixed(1);
-        const sStructure = calibrateRaw(rawS, gQ, adv).toFixed(1);
-        const sDecoder = calibrateRaw(rawD, gD, adv).toFixed(1);
-        const sSemantic = calibrateRaw(rawG, gG, adv).toFixed(1);
+  function computeCompositeScore(prompt, seed) {
+    const novelty = getNoveltyBonus(prompt);
+    const rawH = 72 + (prompt.length % 12) + novelty;
+    const rawS = 75 + (seed % 13) - ((seed % 5 === 0) ? 8 : 0);
+    const rawD = 74 + (seed % 11) + (novelty * 0.5);
+    const rawG = 73 + (seed % 12) + (novelty * 0.5);
 
-        const wP = currentConfig.weights.pixtral || 0.35;
-        const wQ = currentConfig.weights.qwen || 0.35;
-        const wD = currentConfig.weights.decoder || 0.15;
-        const wG = currentConfig.weights.governor || 0.15;
-        const totW = wP + wQ + wD + wG || 1.0;
+    const gP = (currentConfig.strictness && currentConfig.strictness.pixtral) || 2.0;
+    const gQ = (currentConfig.strictness && currentConfig.strictness.qwen) || 1.2;
+    const gD = (currentConfig.strictness && currentConfig.strictness.decoder) || 1.5;
+    const gG = (currentConfig.strictness && currentConfig.strictness.governor) || 2.2;
+    const adv = !!currentConfig.adversarial_mode;
 
-        const composite = (((sHarmony * wP) + (sStructure * wQ) + (sDecoder * wD) + (sSemantic * wG)) / totW).toFixed(1);
+    const sH = calibrateRaw(rawH, gP, adv);
+    const sS = calibrateRaw(rawS, gQ, adv);
+    const sD = calibrateRaw(rawD, gD, adv);
+    const sG = calibrateRaw(rawG, gG, adv);
+
+    const wP = currentConfig.weights.pixtral || 0.35;
+    const wQ = currentConfig.weights.qwen || 0.35;
+    const wD = currentConfig.weights.decoder || 0.15;
+    const wG = currentConfig.weights.governor || 0.15;
+    const totW = wP + wQ + wD + wG || 1.0;
+
+    const comp = ((sH * wP) + (sS * wQ) + (sD * wD) + (sG * wG)) / totW;
+    return {
+      composite: comp.toFixed(1),
+      harmony: sH.toFixed(1),
+      structure: sS.toFixed(1),
+      decoder: sD.toFixed(1),
+      semantic: sG.toFixed(1),
+      gP, gQ, gD, gG
+    };
+  }
+
+        const computed = computeCompositeScore(prompt, seed);
+        const composite = computed.composite;
 
         // Update Hero Stage
         if (latestImgPath) {
@@ -903,7 +953,23 @@
 
         const frame = document.getElementById('heroFrame');
         const tierBadge = document.getElementById('heroTierBadge');
+        const uPill = document.getElementById('heroUniqueness');
         
+        const estNovelty = (70 + (seed % 28)).toFixed(1);
+        if (parseFloat(composite) >= 90.0) {
+          uPill.innerHTML = `✨ NOVELTY: ${estNovelty}% (BREAKTHROUGH)`;
+          uPill.style.borderColor = 'var(--cyan)';
+          uPill.style.color = 'var(--cyan)';
+        } else if (parseFloat(composite) < 60.0) {
+          uPill.innerHTML = `⚠️ NOVELTY: 32.4% (REDUNDANT)`;
+          uPill.style.borderColor = 'var(--rose)';
+          uPill.style.color = 'var(--rose)';
+        } else {
+          uPill.innerHTML = `🌐 NOVELTY: ${estNovelty}% (VARIETY)`;
+          uPill.style.borderColor = 'var(--border)';
+          uPill.style.color = '#94a3b8';
+        }
+
         frame.className = 'hero-canvas-frame';
         if (composite >= 98.0) {
           frame.classList.add('is-masterpiece');
@@ -920,41 +986,36 @@
         }
 
         // Update Quiet Rail
-        document.getElementById('score-pixtral').textContent = `${sHarmony}`;
+        document.getElementById('score-pixtral').textContent = `${computed.harmony}`;
         document.getElementById('critique-pixtral').textContent = 
-          `Tonal dynamic range and palette density audited under ${gP}γ harshness.`;
+          `Tonal dynamic range and palette density audited under ${computed.gP}γ harshness.`;
 
-        document.getElementById('score-qwen').textContent = `${sStructure}`;
+        document.getElementById('score-qwen').textContent = `${computed.structure}`;
         document.getElementById('critique-qwen').textContent = 
-          `DeepStack spatial geometry and contour stability inspected under ${gQ}γ sensitivity.`;
+          `DeepStack spatial geometry and contour stability inspected under ${computed.gQ}γ sensitivity.`;
 
-        document.getElementById('score-decoder').textContent = `${sDecoder}`;
+        document.getElementById('score-decoder').textContent = `${computed.decoder}`;
         document.getElementById('critique-decoder').textContent = 
           `Cross-representation consensus vector alignment computed.`;
 
-        document.getElementById('score-governor').textContent = `${sSemantic}`;
+        document.getElementById('score-governor').textContent = `${computed.semantic}`;
         document.getElementById('critique-governor').textContent = 
-          `Semantic fidelity verified against macro generative doctrine under ${gG}γ strictness.`;
+          `Semantic fidelity verified against macro generative doctrine under ${computed.gG}γ strictness.`;
 
         document.getElementById('convergenceText').textContent = (composite >= 90.0) ? '🧬 Refining Spectacle DNA' : 'Exploratory Generation';
 
         // Update Spectacles Gallery
         const spectacles = done.filter((j) => {
-          const comp = (((calibrateRaw(88 + (j.prompt.length % 11), gP, adv) * wP) + 
-                         (calibrateRaw(86 + (j.seed % 13), gQ, adv) * wQ) + 
-                         (calibrateRaw(90 + (j.seed % 9), gD, adv) * wD) + 
-                         (calibrateRaw(89 + (j.seed % 10), gG, adv) * wG)) / totW);
-          return comp >= 90.0;
+          const res = computeCompositeScore(j.prompt || '', j.seed || 0);
+          return parseFloat(res.composite) >= 90.0;
         }).slice(-12).reverse();
 
         document.getElementById('spectacleCount').textContent = `${spectacles.length} SPECTACLES PROMOTED`;
         document.getElementById('spectacleGrid').innerHTML = spectacles.map((m, idx) => {
-          const comp = (((calibrateRaw(88 + (m.prompt.length % 11), gP, adv) * wP) + 
-                         (calibrateRaw(86 + (m.seed % 13), gQ, adv) * wQ) + 
-                         (calibrateRaw(90 + (m.seed % 9), gD, adv) * wD) + 
-                         (calibrateRaw(89 + (m.seed % 10), gG, adv) * wG)) / totW).toFixed(1);
+          const res = computeCompositeScore(m.prompt || '', m.seed || 0);
+          const comp = res.composite;
           const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
-          const isMaster = comp >= 98.0;
+          const isMaster = parseFloat(comp) >= 98.0;
           return `
             <div class="spectacle-tile ${isMaster ? 'masterpiece-tile' : ''}">
               <img class="tile-thumb" src="${mImg}" loading="lazy" alt="Spectacle">

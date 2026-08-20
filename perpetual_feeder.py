@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Perpetual GPU Sieve & Movement Towards Master Engine.
+"""Perpetual GPU Sieve & Movement Towards Master Engine with Orthogonal Anti-Collapse.
 
-Generative Hierarchy:
-1. Macro Strategy: Set by Governor Gemma 31B (Council Shard).
-2. Exploratory Generation: High-variety combinatorial grammar across subjects & mediums.
-3. Movement Towards Master: When a frame achieves Spectacle status (≥90.0), this engine
-   initiates targeted mastery convergence iterations to push quality past ≥98.0 (Masterpiece).
+Generative Sieve Architecture:
+1. Macro Strategy: Governed by Gemma 31B (Council Shards).
+2. Uniqueness Watchdog: If uniqueness tracker flags Mode Collapse, forces an Orthogonal Jump.
+3. Movement Towards Master: When a Spectacle (≥90.0) is identified, triggers targeted convergence.
 """
 import json
 import os
@@ -14,6 +13,7 @@ import secrets
 import subprocess
 import time
 import urllib.request
+import uniqueness_tracker
 
 STOP_FILE = "/root/STOP"
 SPECTACLE_LOG = "/root/Models/flux-output/spectacle_genome.jsonl"
@@ -37,24 +37,20 @@ SUBJECTS = [
     "a delicate paper origami dragon soaring through a sunlit cloudscape",
     "an alchemist workshop filled with glowing amber vials and brass astrolabes",
     "a majestic cybernetic stag with crystalline antlers in a snowy forest",
-    "a vintage train crossing a colossal stone viaduct into a starry twilight",
     "a deep-sea diver discovering a luminous sunken cathedral of mirrors",
     "a towering biomechanical golem standing guardian over an ancient ruin"
 ]
 
-MEDIA_STYLES = [
-    "90s anime film still, hand-painted background, soft film grain, warm analogue colour",
-    "sumi-e ink wash, wet black ink blooming into absorbent paper, decisive stroke",
-    "woodblock print, carved flat colour planes, bold outlines, bare paper highlights",
-    "risograph print, two inks slightly misregistered, coarse halftone texture",
-    "cinematic 35mm film still, Kodak Portra 400, shallow depth of field, dramatic rim lighting",
-    "octane render, volumetric mist, iridescent subsurface scattering, 8k masterpiece",
+# Disjoint style buckets for orthogonal jumping
+ORTHOGONAL_MEDIUMS = [
     "stained glass panel, black leading, saturated transmitted light, flat jewel colour",
-    "gouache painting, opaque matte pigment, ragged brush edges, simplified shapes",
-    "charcoal drawing, rough black strokes, smudged tone, textured paper tooth",
+    "cyanotype print, deep Prussian blue, crisp silhouettes, brush-coated edges",
+    "sumi-e ink wash, wet black ink blooming into absorbent paper, decisive stroke",
+    "risograph print, two inks slightly misregistered, coarse halftone texture",
     "tintype photograph, silver halation, shallow focus, hand-poured chemical edges",
     "haute-couture surrealist oil painting, rich impasto texture, dark romanticism",
-    "cyanotype print, deep Prussian blue, crisp silhouettes, brush-coated edges"
+    "octane render, volumetric mist, iridescent subsurface scattering, 8k masterpiece",
+    "gouache painting, opaque matte pigment, ragged brush edges, simplified shapes"
 ]
 
 LIGHTING = [
@@ -110,8 +106,20 @@ def sample_spectacle_genome():
 def generate_unique_prompt():
     global seen_prompts
     
-    # 40% Chance: Movement Towards Master (Refining a Spectacle into a Masterpiece)
-    if random.random() < 0.40:
+    # 1. Anti-Mode Collapse: Force Orthogonal Jump if uniqueness has dipped
+    if uniqueness_tracker.is_mode_collapsed():
+        print("[ANTI-COLLAPSE] Visual mode collapse detected! Forcing Orthogonal Vector Shift...", flush=True)
+        subj = random.choice(SUBJECTS)
+        media = random.choice(ORTHOGONAL_MEDIUMS)
+        light = random.choice(LIGHTING)
+        comp = random.choice(COMPOSITIONS)
+        refiner = "orthogonal aesthetic breakthrough, high dynamic range tension, hyper-novel palette"
+        prompt = f"{subj}, {media}, {light}, {comp}, {refiner}"
+        seen_prompts.add(prompt)
+        return prompt
+
+    # 2. Movement Towards Master (35% chance if Spectacles exist)
+    if random.random() < 0.35:
         base_spectacle = sample_spectacle_genome()
         if base_spectacle:
             parts = [p.strip() for p in base_spectacle.split(",") if p.strip()]
@@ -122,16 +130,15 @@ def generate_unique_prompt():
                 mastery_refiner = random.choice(MASTERY_REFINERS)
                 comp = parts[3] if len(parts) > 3 else random.choice(COMPOSITIONS)
                 
-                # Polish into Master candidate
                 master_prompt = f"{subj}, {media}, {light}, {comp}, {mastery_refiner}"
                 if master_prompt not in seen_prompts:
                     seen_prompts.add(master_prompt)
                     return master_prompt
 
-    # Exploratory Generation
+    # 3. Exploratory Generation
     for _ in range(50):
         subj = random.choice(SUBJECTS)
-        media = random.choice(MEDIA_STYLES)
+        media = random.choice(ORTHOGONAL_MEDIUMS)
         light = random.choice(LIGHTING)
         comp = random.choice(COMPOSITIONS)
         prompt = f"{subj}, {media}, {light}, {comp}"
@@ -152,20 +159,24 @@ def queue_prompt(prompt):
         print(f"Error queueing prompt: {e}", flush=True)
 
 def main():
-    print("Perpetual GPU Sieve & Movement Towards Master online.", flush=True)
+    print("Perpetual GPU Sieve & Movement Towards Master online [Anti-Collapse Active].", flush=True)
     while True:
-        if os.path.exists(STOP_FILE):
-            print(f"Stop signal ({STOP_FILE}) detected. Pausing...", flush=True)
-            time.sleep(5)
-            continue
-        
-        depth = get_queue_depth()
-        if depth < 3:
-            p = generate_unique_prompt()
-            queue_prompt(p)
-            time.sleep(1.0)
-        else:
-            time.sleep(2.0)
+        try:
+            if os.path.exists(STOP_FILE):
+                print(f"Stop signal ({STOP_FILE}) detected. Pausing...", flush=True)
+                time.sleep(5)
+                continue
+            
+            depth = get_queue_depth()
+            if depth < 3:
+                p = generate_unique_prompt()
+                queue_prompt(p)
+                time.sleep(1.0)
+            else:
+                time.sleep(2.0)
+        except Exception as e:
+            print(f"Feeder loop err: {e}", flush=True)
+            time.sleep(3)
 
 if __name__ == "__main__":
     main()
