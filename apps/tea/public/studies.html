@@ -1,75 +1,1054 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Tea studies: motion paths, latent atlases, continuity experiments, and works in progress.">
-<title>Studies — Tea</title>
-<style>
-:root{--paper:#fbfaf7;--ink:#25231f;--soft:#746e65;--faint:#aaa198;--line:rgba(54,47,40,.14);--blossom:#eeb7bd;--leaf:#667968;--tea:#7c6045;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Baskerville,Georgia,serif;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 82% 3%,rgba(238,183,189,.17),transparent 27rem),linear-gradient(180deg,#fff,var(--paper));font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit}.shell{width:min(1240px,calc(100% - 48px));margin:auto}header{min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:28px;border-bottom:1px solid var(--line)}.brand{display:inline-flex;align-items:center;gap:12px;text-decoration:none;font:500 15px/1 var(--serif);letter-spacing:.3em;text-transform:uppercase}.seal{display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(124,96,69,.42);border-radius:50%;color:var(--tea);font:400 17px/1 var(--serif)}nav{display:flex;align-items:center;gap:25px;overflow-x:auto}nav a{flex:0 0 auto;color:var(--soft);text-decoration:none;font-size:10px;letter-spacing:.15em;text-transform:uppercase}nav a[aria-current=page]{color:var(--ink);border-bottom:1px solid var(--tea);padding-bottom:5px}.intro{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.65fr);gap:clamp(40px,9vw,150px);align-items:end;padding:100px 0 74px}.eyebrow{color:var(--soft);font-size:10px;letter-spacing:.27em;text-transform:uppercase}.intro h1{margin:18px 0 0;font:400 clamp(62px,9vw,124px)/.83 var(--serif);letter-spacing:-.055em}.intro p{margin:0;color:var(--soft);font:400 19px/1.7 var(--serif)}.feature{display:grid;grid-template-columns:minmax(280px,.75fr) minmax(0,1.25fr);min-height:410px;margin-bottom:84px;border:1px solid var(--line);background:rgba(255,255,255,.72)}.feature-image{position:relative;min-height:360px;overflow:hidden;background:#ece7df}.feature-image img{width:100%;height:100%;object-fit:cover;filter:saturate(.86) contrast(.98)}.feature-image:after{content:"P3 · SPHERE";position:absolute;left:22px;bottom:20px;padding:8px 10px;color:white;background:rgba(37,35,31,.78);font-size:9px;letter-spacing:.2em}.feature-copy{display:flex;flex-direction:column;justify-content:center;padding:clamp(35px,6vw,78px)}.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--tea);font-size:9px;letter-spacing:.18em;text-transform:uppercase}.feature h2{margin:19px 0 17px;font:400 clamp(40px,5vw,68px)/.96 var(--serif);letter-spacing:-.035em}.feature p{max-width:670px;margin:0;color:var(--soft);font:17px/1.68 var(--serif)}.progress{height:3px;margin:28px 0 12px;background:var(--line)}.progress i{display:block;width:11.57%;height:100%;background:var(--tea)}.progress-note{display:flex;justify-content:space-between;color:var(--faint);font-size:9px;letter-spacing:.14em;text-transform:uppercase}.feature-link{align-self:flex-start;margin-top:30px;text-decoration:none;border-bottom:1px solid var(--tea);padding-bottom:6px;font-size:10px;letter-spacing:.18em;text-transform:uppercase}.catalog-head{display:flex;align-items:end;justify-content:space-between;gap:30px;padding-top:72px;border-top:1px solid var(--line)}.catalog-head h2{margin:10px 0 0;font:400 clamp(38px,5vw,64px)/1 var(--serif);letter-spacing:-.035em}.count{color:var(--soft);font:13px/1.5 var(--serif)}.filters{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 38px}.filters button{appearance:none;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.6);color:var(--soft);font:9px/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;cursor:pointer}.filters button.active{border-color:var(--ink);background:var(--ink);color:#fff}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding-bottom:100px}.card{min-height:370px;display:flex;flex-direction:column;padding:29px;border:1px solid var(--line);background:rgba(255,255,255,.62);transition:transform .2s ease,border-color .2s ease}.card:hover{transform:translateY(-3px);border-color:rgba(124,96,69,.42)}.card-top{display:flex;justify-content:space-between;gap:12px;color:var(--faint);font-size:8px;letter-spacing:.16em;text-transform:uppercase}.card-top span:first-child{color:var(--tea)}.card h3{margin:25px 0 13px;font:400 29px/1.03 var(--serif);letter-spacing:-.025em}.subject{margin:0 0 19px;color:var(--ink);font:italic 15px/1.45 var(--serif)}.prompt{display:-webkit-box;overflow:hidden;-webkit-line-clamp:4;-webkit-box-orient:vertical;margin:0;color:var(--soft);font:14px/1.58 var(--serif)}.specs{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:auto;padding-top:24px;color:var(--faint);font-size:8px;letter-spacing:.12em;text-transform:uppercase}.card-link{margin-top:19px;color:var(--tea);font-size:9px;letter-spacing:.15em;text-decoration:none;text-transform:uppercase}.empty{grid-column:1/-1;padding:70px;border:1px solid var(--line);color:var(--soft);text-align:center;font:18px/1.5 var(--serif)}footer{display:flex;justify-content:space-between;gap:20px;padding:34px 0 46px;border-top:1px solid var(--line);color:var(--faint);font-size:9px;letter-spacing:.16em;text-transform:uppercase}@media(max-width:900px){.intro,.feature{grid-template-columns:1fr}.intro{padding:70px 0 55px}.feature-image{min-height:310px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}header{align-items:flex-start;flex-direction:column;padding:20px 0}nav{width:100%;padding-bottom:6px}}@media(max-width:620px){.shell{width:min(100% - 28px,1240px)}.cards{grid-template-columns:1fr}.catalog-head{align-items:flex-start;flex-direction:column}.feature-copy{padding:32px}.card{min-height:330px}}
-</style>
-<style>
-.view-tabs{display:flex;gap:8px;margin:-34px 0 52px;padding-bottom:15px;border-bottom:1px solid var(--line)}.view-tabs button{appearance:none;border:0;border-bottom:1px solid transparent;background:transparent;padding:11px 3px;margin-right:24px;color:var(--soft);font:10px var(--sans);letter-spacing:.18em;text-transform:uppercase;cursor:pointer}.view-tabs button.active{border-color:var(--tea);color:var(--ink)}[hidden]{display:none!important}.gallery-head{display:flex;align-items:end;justify-content:space-between;gap:30px;margin-bottom:26px}.gallery-head h2{margin:10px 0 0;font:400 clamp(38px,5vw,64px)/1 var(--serif);letter-spacing:-.035em}.gallery-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}.gallery-tools button{appearance:none;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.6);color:var(--soft);font:9px var(--sans);letter-spacing:.14em;text-transform:uppercase;cursor:pointer}.gallery-tools button.active{border-color:var(--ink);background:var(--ink);color:#fff}.film-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding-bottom:100px}.film{appearance:none;min-width:0;padding:0;overflow:hidden;border:1px solid var(--line);background:rgba(255,255,255,.68);color:var(--ink);text-align:left;cursor:pointer}.film:hover{border-color:rgba(124,96,69,.52)}.film-image{position:relative;aspect-ratio:1;overflow:hidden;background:#ece7df}.film-image img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s ease}.film:hover img{transform:scale(1.018)}.play{position:absolute;inset:auto 12px 12px auto;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:rgba(37,35,31,.82);color:#fff;font-size:12px}.film-body{padding:15px}.film-kicker{display:flex;justify-content:space-between;gap:8px;color:var(--faint);font:8px/1.3 var(--sans);letter-spacing:.12em;text-transform:uppercase}.film h3{margin:10px 0 7px;font:400 20px/1.05 var(--serif)}.film-metrics{display:flex;flex-wrap:wrap;gap:5px 10px;color:var(--soft);font:8px/1.4 ui-monospace,monospace;text-transform:uppercase}.run-strip{display:flex;gap:12px;overflow-x:auto;margin:0 0 18px;padding:0 0 10px}.run-chip{flex:0 0 auto;color:var(--faint);font:8px ui-monospace,monospace;letter-spacing:.08em}.viewer{width:min(980px,calc(100% - 30px));padding:0;border:1px solid rgba(255,255,255,.25);background:#171513;color:#fff}.viewer::backdrop{background:rgba(20,17,14,.82);backdrop-filter:blur(7px)}.viewer video{display:block;width:100%;max-height:76vh;background:#000}.viewer-copy{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:16px 18px}.viewer-copy h3{margin:0;font:400 22px var(--serif)}.viewer-close{appearance:none;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;padding:8px 11px;cursor:pointer}.gallery-empty{grid-column:1/-1;padding:70px;border:1px solid var(--line);color:var(--soft);text-align:center;font:18px/1.5 var(--serif)}@media(max-width:1000px){.film-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:760px){.film-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gallery-head{align-items:flex-start;flex-direction:column}}@media(max-width:470px){.film-grid{grid-template-columns:1fr}.view-tabs{margin-top:-20px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <meta name="description" content="Tea studies: motion paths, latent atlases, continuity experiments, and works in progress.">
+  <title>Studies — Tea & Motion</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --paper-subtle: #efece4;
+      --card-bg: rgba(255, 255, 255, 0.76);
+      --card-bg-hover: rgba(255, 255, 255, 0.96);
+      
+      --ink: #27231f;
+      --soft: #736b63;
+      --faint: #a69e94;
+      --line: rgba(54, 47, 40, 0.12);
+      --line-hover: rgba(121, 88, 62, 0.35);
+      
+      --tea: #79583e;
+      --tea-light: rgba(121, 88, 62, 0.08);
+      --matcha: #5a735a;
+      --vermilion: #a63e39;
+      --vermilion-light: rgba(166, 62, 57, 0.08);
+      --gold: #b38938;
+      --gold-light: rgba(179, 137, 56, 0.1);
+      
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
+      --sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
+      
+      --radius: 12px;
+      --radius-sm: 6px;
+    }
+
+    body.mode-nocturnal {
+      --paper: #12100e;
+      --paper-soft: #181513;
+      --paper-subtle: #201c19;
+      --card-bg: rgba(28, 24, 21, 0.78);
+      --card-bg-hover: rgba(38, 33, 29, 0.95);
+      --ink: #f0ece1;
+      --soft: #aba296;
+      --faint: #6e675e;
+      --line: rgba(240, 236, 225, 0.1);
+      --line-hover: rgba(179, 137, 56, 0.4);
+      --tea-light: rgba(179, 137, 56, 0.15);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: radial-gradient(circle at 85% 0, rgba(231, 181, 182, 0.14), transparent 38rem),
+                  linear-gradient(180deg, var(--paper-soft), var(--paper));
+      color: var(--ink);
+      font-family: var(--sans);
+      min-height: 100vh;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
+      position: relative;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .shell {
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 28px 32px 100px;
+    }
+
+    /* Universal Two-Tier Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 36px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tea-seal {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line-hover);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--tea);
+      font-family: var(--serif);
+      font-size: 16px;
+      background: var(--paper-soft);
+      transition: transform 0.4s ease;
+    }
+    .brand-cluster:hover .tea-seal { transform: rotate(45deg); }
+
+    .brand-title {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    /* Navigation Bar */
+    nav.universal-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+      overflow-x: auto;
+    }
+    .nav-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--soft);
+      padding: 0 4px;
+    }
+    .universal-nav a {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--soft);
+      padding: 3px 8px;
+      border-radius: 999px;
+      transition: all 0.2s ease;
+    }
+    .universal-nav a:hover {
+      color: var(--ink);
+      background: var(--paper-subtle);
+    }
+    .universal-nav a[aria-current=page] {
+      color: var(--ink);
+      font-weight: 700;
+      background: var(--tea-light);
+      border: 1px solid rgba(121, 88, 62, 0.2);
+    }
+    .nav-sep {
+      width: 1px;
+      height: 12px;
+      background: var(--line);
+      margin: 0 4px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ritual-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .ritual-switch:hover { border-color: var(--tea); color: var(--ink); }
+
+    /* Intro Section */
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.65fr);
+      gap: clamp(40px, 8vw, 120px);
+      align-items: end;
+      padding: 36px 0 54px;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--tea);
+      margin-bottom: 8px;
+    }
+    .intro h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(54px, 8vw, 100px);
+      font-weight: 400;
+      line-height: 0.88;
+      letter-spacing: -0.045em;
+      color: var(--ink);
+    }
+    .intro p {
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.65;
+      color: var(--soft);
+      margin: 0;
+    }
+
+    /* Tabs Bar */
+    .view-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 40px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .view-tabs button {
+      appearance: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      padding: 8px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--soft);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .view-tabs button.active {
+      border-color: var(--tea);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    /* Featured Study Card (The Stallion) */
+    .feature {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+      margin-bottom: 60px;
+      position: relative;
+    }
+    .feature-image {
+      position: relative;
+      min-height: 380px;
+      background: #ece7df;
+      overflow: hidden;
+    }
+    .feature-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .feature:hover .feature-image img { transform: scale(1.03); }
+    .feature-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: clamp(32px, 5vw, 64px);
+    }
+    .feature-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--tea);
+      margin-bottom: 12px;
+    }
+    .feature h2 {
+      font-family: var(--serif);
+      font-size: clamp(36px, 4vw, 54px);
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      margin-bottom: 14px;
+    }
+    .feature p {
+      font-family: var(--serif);
+      font-size: 15.5px;
+      color: var(--soft);
+      line-height: 1.65;
+      max-width: 620px;
+      margin-bottom: 24px;
+    }
+    .progress-wrap {
+      height: 3px;
+      background: var(--paper-subtle);
+      margin-bottom: 8px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--tea);
+      width: 100%;
+    }
+    .progress-note {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 24px;
+    }
+    .feature-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .feature-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: var(--tea);
+      color: #fff;
+      transition: all 0.2s ease;
+    }
+    .feature-btn:hover { background: #5c432f; }
+    .feature-btn.secondary {
+      background: var(--paper-subtle);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .feature-btn.secondary:hover { border-color: var(--tea); }
+
+    /* Filter Controls */
+    .catalog-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 40px;
+      border-top: 1px solid var(--line);
+      margin-bottom: 20px;
+    }
+    .catalog-head h2 {
+      font-family: var(--serif);
+      font-size: 32px;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .count {
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--soft);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    .filters button, .gallery-tools button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 14px;
+      background: var(--card-bg);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filters button.active, .gallery-tools button.active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--paper-soft);
+      font-weight: 600;
+    }
+
+    /* Study Cards Grid */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      padding-bottom: 80px;
+    }
+    .card {
+      position: relative;
+      min-height: 340px;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--line-hover);
+      box-shadow: 0 10px 24px rgba(54, 47, 40, 0.06);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .card-top span:first-child { color: var(--tea); font-weight: 600; }
+    .card h3 {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--ink);
+      margin: 18px 0 10px;
+      line-height: 1.1;
+    }
+    .subject {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 13.5px;
+      color: var(--ink);
+      margin-bottom: 14px;
+    }
+    .prompt {
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--soft);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .specs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      margin-top: auto;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .card-link {
+      margin-top: 14px;
+      color: var(--tea);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Film Gallery View */
+    .film-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      padding-bottom: 80px;
+    }
+    .film {
+      appearance: none;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .film:hover {
+      border-color: var(--line-hover);
+      transform: translateY(-3px);
+    }
+    .film-image {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+      background: #ece7df;
+    }
+    .film-image img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+    .film:hover img { transform: scale(1.03); }
+    .play {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(39, 35, 31, 0.85);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+    }
+    .film-body { padding: 16px; flex: 1; display: flex; flex-direction: column; }
+    .film-kicker {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 6px;
+    }
+    .film h3 {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+    .film-metrics {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      color: var(--soft);
+      text-transform: uppercase;
+    }
+    .run-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+      padding-bottom: 6px;
+    }
+    .run-chip {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--paper-subtle);
+      border: 1px solid var(--line);
+      color: var(--soft);
+      white-space: nowrap;
+    }
+
+    /* Standard Light Copy Button (Top-Right on Hover) */
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, background 0.2s ease, transform 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .copy-btn svg { width: 11px; height: 11px; fill: currentColor; }
+    .card:hover .copy-btn, .film:hover .copy-btn, .feature:hover .copy-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .copy-btn:hover { background: #fff; transform: scale(1.04); }
+    .copy-btn.copied {
+      background: rgba(90, 115, 90, 0.9);
+      color: #fff;
+      opacity: 1 !important;
+    }
+
+    /* Video Viewer Dialog */
+    .viewer {
+      width: min(980px, calc(100% - 32px));
+      padding: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: #171513;
+      color: #fff;
+      margin: auto;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+    .viewer::backdrop {
+      background: rgba(20, 17, 14, 0.82);
+      backdrop-filter: blur(8px);
+    }
+    .viewer video {
+      display: block;
+      width: 100%;
+      max-height: 76vh;
+      background: #000;
+    }
+    .viewer-copy {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+    }
+    .viewer-copy h3 {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 400;
+      margin: 0;
+    }
+    .viewer-close {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 999px;
+      background: transparent;
+      color: #fff;
+      padding: 6px 14px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 28px 0;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+
+    @media (max-width: 980px) {
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .film-grid { grid-template-columns: repeat(2, 1fr); }
+      .feature { grid-template-columns: 1fr; }
+      .intro { grid-template-columns: 1fr; gap: 24px; padding: 24px 0 36px; }
+    }
+    @media (max-width: 600px) {
+      .cards { grid-template-columns: 1fr; }
+      .film-grid { grid-template-columns: 1fr; }
+      .shell { padding: 20px 16px 80px; }
+    }
+  </style>
 </head>
 <body>
-<div class="shell">
-<header>
-  <div style="display:flex; align-items:center; gap:16px;">
-    <a class="brand" href="/"><span class="seal" aria-hidden="true">茶</span>Tea</a>
-    <nav aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.06); padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,0.08);">
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a href="/jury" style="color:#a63e39; font-weight:700;">👑 Jury</a>
-      <a href="/gallery/">🖼️ Stream</a>
-      <a href="/garden">🌿 Garden</a>
-      <a href="/portraits">👤 Portraits</a>
-      <a href="/exhibition">🏛️ Exhibition</a>
-      
-      <span style="width:1px; height:12px; background:rgba(0,0,0,0.15); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a href="/movement">🎬 Video</a>
-      <a href="/atlas/">🌐 Worlds</a>
-      <a href="/studies" style="color:var(--ink); font-weight:700;">🐎 Studies</a>
-      <a href="/engine">⚙️ Engine</a>
-    </nav>
-  </div>
-</header>
-<main>
-  <section class="intro"><div><div class="eyebrow">The work beneath the work</div><h1>Studies</h1></div><p>Motion here begins as a field of possibilities: paths through latent space, tests of continuity, and small changes observed long enough to become a work.</p></section>
-  <div class="view-tabs" role="tablist" aria-label="Studies views"><button class="active" id="library-tab" role="tab" aria-selected="true" aria-controls="library-view">Study library</button><button id="gallery-tab" role="tab" aria-selected="false" aria-controls="gallery-view">Results gallery <span id="gallery-total"></span></button></div>
-  <div id="library-view" role="tabpanel" aria-labelledby="library-tab">
-  <article class="feature" id="stallion-feature">
-    <div class="feature-image"><img src="/exhibition/stallion-atlas-contact.jpg" alt="Contact sheet from the Stallion latent sphere"></div>
-    <div class="feature-copy"><div class="meta"><span>Atlas sphere</span><span>Complete study</span><span>Seed 7</span></div><h2>The Stallion</h2><p>A completed 1,024 × 64 latent sphere around one white stallion and one Sakura meadow. Tea currently presents an authored 7,584-cell exhibition snapshot from the full corpus.</p><div class="progress"><i style="width:100%"></i></div><div class="progress-note"><span>65,536 cells complete</span><span>Full sphere</span></div><a class="feature-link" href="/studies/stallion">Open the motion lab →</a><a class="feature-link" style="margin-left:20px" href="/exhibition/stallion">Open the exhibition →</a></div>
-  </article>
-  <section aria-labelledby="catalog-title"><div class="catalog-head"><div><div class="eyebrow">Atlas drafts · motion experiments</div><h2 id="catalog-title">Study index</h2></div><div class="count" id="count">Reading the archive</div></div><div class="filters" id="filters"><button class="active" data-filter="all">All</button><button data-filter="motion">Motion</button><button data-filter="atlas">Atlas</button><button data-filter="continuity">Continuity</button><button data-filter="scout">Scouts</button></div><div class="cards" id="cards"><div class="empty">Gathering studies…</div></div></section>
-  </div>
-  <section id="gallery-view" role="tabpanel" aria-labelledby="gallery-tab" hidden><div class="gallery-head"><div><div class="eyebrow">Generated evidence · every completed run</div><h2>Studies gallery</h2></div><div class="count" id="gallery-count">Reading generated work</div></div><div class="run-strip" id="run-strip"></div><div class="gallery-tools" id="gallery-filters"><button class="active" data-mode="all">All motion</button><button data-mode="spectral_loop">Spectral loops</button><button data-mode="continuity">Continuity</button><button data-mode="kinetic">Kinetic</button></div><div class="film-grid" id="film-grid"><div class="gallery-empty">Gathering generated studies…</div></div></section>
-</main>
-<footer><span>Tea · a practice in seeing</span><span>Studies remain visible, including unfinished ones</span></footer>
-</div>
-<dialog class="viewer" id="viewer"><video id="viewer-video" controls muted loop playsinline></video><div class="viewer-copy"><h3 id="viewer-title">Motion study</h3><button class="viewer-close" id="viewer-close" aria-label="Close film">Close</button></div></dialog>
-<script>
-const cards=document.getElementById('cards'),count=document.getElementById('count'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let studies=[],active='all',historyLoaded=false,galleryMode='all',films=[];
-function matches(s){if(active==='all')return true;const hay=(s.kind+' '+s.sample_mode+' '+s.label+' '+s.subject).toLowerCase();return hay.includes(active)}
-function spec(s,label,value){return value?`<span>${esc(label)} ${esc(value)}</span>`:''}
-function render(){const shown=studies.filter(matches);count.textContent=`${shown.length} ${shown.length===1?'study':'studies'} shown · ${studies.length} recorded`;cards.innerHTML=shown.map(s=>`<article class="card"><div class="card-top"><span>${esc(s.kind||'study')}</span><span>${esc(s.status||'draft')}</span></div><h3>${esc(s.label)}</h3><p class="subject">${esc(s.subject||'Latent sphere study')}</p><p class="prompt">${esc(s.note||s.prompt||'Study record')}</p><div class="specs">${spec(s,'grid',s.grid)}${spec(s,'rendered',s.render_count?Number(s.render_count).toLocaleString():'')}${spec(s,'size',s.size?s.size+'px':'')}${spec(s,'steps',s.steps)}${spec(s,'mode',s.mode)}${spec(s,'sample',s.sample_mode)}</div>${s.url?`<a class="card-link" href="${esc(s.url)}">Open related work →</a>`:''}</article>`).join('')||'<div class="empty">No studies match this view.</div>'}
-document.getElementById('filters').addEventListener('click',event=>{const button=event.target.closest('button[data-filter]');if(!button)return;active=button.dataset.filter;document.querySelectorAll('#filters button').forEach(x=>x.classList.toggle('active',x===button));render()});
-fetch('/api/studies',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Study archive unavailable');return r.json()}).then(data=>{studies=data.studies||[];render()}).catch(error=>{count.textContent='Archive unavailable';cards.innerHTML=`<div class="empty">${esc(error.message)}</div>`});
 
-const libraryTab=document.getElementById('library-tab'),galleryTab=document.getElementById('gallery-tab'),libraryView=document.getElementById('library-view'),galleryView=document.getElementById('gallery-view'),filmGrid=document.getElementById('film-grid'),viewer=document.getElementById('viewer'),viewerVideo=document.getElementById('viewer-video');
-function switchView(name,updateHash=true){const gallery=name==='gallery';libraryTab.classList.toggle('active',!gallery);galleryTab.classList.toggle('active',gallery);libraryTab.setAttribute('aria-selected',String(!gallery));galleryTab.setAttribute('aria-selected',String(gallery));libraryView.hidden=gallery;galleryView.hidden=!gallery;if(updateHash)history.replaceState(null,'',gallery?'#gallery':'#library');if(gallery&&!historyLoaded)loadGallery()}
-libraryTab.onclick=()=>switchView('library');galleryTab.onclick=()=>switchView('gallery');
-function shortRun(id){return String(id||'').replace('stallion-motion-','').replace(/-(\d{3})$/,'')}
-function filmMetric(label,value){return value==null?'':`<span>${esc(label)} ${esc(value)}</span>`}
-function renderGallery(){const shown=films.filter(f=>galleryMode==='all'||f.mode===galleryMode);document.getElementById('gallery-count').textContent=`${shown.length} films shown · ${films.length} generated`;filmGrid.innerHTML=shown.map(f=>{const m=f.metrics||{},g=f.gpu_review||{},mode=String(f.mode||'study').replaceAll('_',' ');return `<button class="film" data-video="${esc(f.video_url)}" data-title="${esc(`#${f.rank||'—'} · ${mode} · round ${f.round||'—'}`)}"><div class="film-image"><img loading="lazy" src="${esc(f.poster_url)}" alt="Preview of ${esc(mode)} motion study"><span class="play">▶</span></div><div class="film-body"><div class="film-kicker"><span>${esc(mode)} · family ${esc(f.family??'—')}</span><span>${esc(shortRun(f.run_id))}</span></div><h3>#${esc(f.rank||'—')} · Round ${esc(f.round||'—')}</h3><div class="film-metrics">${filmMetric('score',Number(f.selection_score||0).toFixed(3))}${g.neural_score==null?'':filmMetric('neural',Number(g.neural_score).toFixed(3))}${filmMetric('worst',Number(m.worst_visual_jump||0).toFixed(3))}${m.loop_seam_jump==null?'':filmMetric('seam',Number(m.loop_seam_jump).toFixed(3))}${filmMetric('reversals',m.direction_reversals||0)}</div></div></button>`}).join('')||'<div class="gallery-empty">No generated studies match this view.</div>'}
-async function loadGallery(){historyLoaded=true;try{const r=await fetch('/api/studies/stallion-motion?history=1',{cache:'no-store'});if(!r.ok)throw Error('Generated study archive unavailable');const data=await r.json();films=(data.runs||[]).flatMap(run=>(run.results||[]).map(result=>({...result,run_id:run.run_id})));document.getElementById('gallery-total').textContent=films.length?`· ${films.length}`:'';document.getElementById('run-strip').innerHTML=(data.runs||[]).map(run=>`<span class="run-chip">${esc(shortRun(run.run_id))} · ${esc(run.result_count)} films · ${esc(run.state)}</span>`).join('');renderGallery()}catch(error){document.getElementById('gallery-count').textContent='Archive unavailable';filmGrid.innerHTML=`<div class="gallery-empty">${esc(error.message)}</div>`}}
-document.getElementById('gallery-filters').onclick=event=>{const button=event.target.closest('button[data-mode]');if(!button)return;galleryMode=button.dataset.mode;document.querySelectorAll('#gallery-filters button').forEach(x=>x.classList.toggle('active',x===button));renderGallery()};
-filmGrid.onclick=event=>{const card=event.target.closest('[data-video]');if(!card)return;viewerVideo.src=card.dataset.video;document.getElementById('viewer-title').textContent=card.dataset.title;viewer.showModal();viewerVideo.play().catch(()=>{})};
-function closeViewer(){viewerVideo.pause();viewerVideo.removeAttribute('src');viewerVideo.load();viewer.close()}document.getElementById('viewer-close').onclick=closeViewer;viewer.addEventListener('click',event=>{if(event.target===viewer)closeViewer()});viewer.addEventListener('close',()=>{viewerVideo.pause();viewerVideo.removeAttribute('src');viewerVideo.load()});
-switchView(location.hash==='#gallery'?'gallery':'library',false);
-</script>
+  <div class="shell">
+    
+    <!-- Top Header -->
+    <header>
+      <div class="brand-cluster">
+        <a href="/" style="display:flex; align-items:center; gap:10px;">
+          <div class="tea-seal">茶</div>
+          <span class="brand-title">Tea</span>
+        </a>
+
+        <!-- Universal Navigation Bar -->
+        <nav class="universal-nav" aria-label="Universal Navigation">
+          <span class="nav-label">🍵 TEA:</span>
+          <a href="/jury">👑 Jury</a>
+          <a href="/gallery/">🖼️ Stream</a>
+          <a href="/garden">🌿 Garden</a>
+          <a href="/portraits">👤 Portraits</a>
+          <a href="/exhibition">🏛️ Exhibition</a>
+          
+          <span class="nav-sep"></span>
+          
+          <span class="nav-label">⚡ MOTION:</span>
+          <a href="/movement">🎬 Video</a>
+          <a href="/atlas/">🌐 Worlds</a>
+          <a href="/studies" aria-current="page">🐎 Studies</a>
+          <a href="/engine">⚙️ Engine</a>
+        </nav>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="header-right">
+        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
+          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div>
+          <div class="eyebrow">The work beneath the work</div>
+          <h1>Studies</h1>
+        </div>
+        <p>Motion here begins as a field of possibilities: paths through latent space, tests of continuity, and small changes observed long enough to become a work.</p>
+      </section>
+
+      <div class="view-tabs" role="tablist" aria-label="Studies views">
+        <button class="active" id="library-tab" role="tab" aria-selected="true" aria-controls="library-view">Study Library</button>
+        <button id="gallery-tab" role="tab" aria-selected="false" aria-controls="gallery-view">Results Gallery <span id="gallery-total"></span></button>
+      </div>
+
+      <!-- Tab 1: Study Library -->
+      <div id="library-view" role="tabpanel" aria-labelledby="library-tab">
+        <article class="feature" id="stallion-feature">
+          <div class="feature-image">
+            <img src="/exhibition/stallion-atlas-contact.jpg" alt="Contact sheet from the Stallion latent sphere">
+            <button class="copy-btn" onclick="copyItemLink(event, '/exhibition/stallion-atlas-contact.jpg')" title="Copy Link">
+              <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="feature-copy">
+            <div class="feature-meta">
+              <span>Atlas Sphere</span>
+              <span>Complete Study</span>
+              <span>Seed 7</span>
+            </div>
+            <h2>The Stallion</h2>
+            <p>A completed 1,024 × 64 latent sphere around one white stallion and one Sakura meadow. Tea currently presents an authored 7,584-cell exhibition snapshot from the full corpus.</p>
+            <div class="progress-wrap"><div class="progress-fill"></div></div>
+            <div class="progress-note">
+              <span>65,536 cells complete</span>
+              <span>Full Sphere</span>
+            </div>
+            <div class="feature-actions">
+              <a class="feature-btn" href="/studies/stallion">Open the Motion Lab →</a>
+              <a class="feature-btn secondary" href="/exhibition/stallion">Open the Exhibition →</a>
+            </div>
+          </div>
+        </article>
+
+        <section aria-labelledby="catalog-title">
+          <div class="catalog-head">
+            <div>
+              <div class="eyebrow">Atlas drafts · motion experiments</div>
+              <h2 id="catalog-title">Study Index</h2>
+            </div>
+            <div class="count" id="count">Reading the archive...</div>
+          </div>
+
+          <div class="filters" id="filters">
+            <button class="active" data-filter="all">All</button>
+            <button data-filter="motion">Motion</button>
+            <button data-filter="atlas">Atlas</button>
+            <button data-filter="continuity">Continuity</button>
+            <button data-filter="scout">Scouts</button>
+          </div>
+
+          <div class="cards" id="cards">
+            <div class="empty">Gathering studies…</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab 2: Results Gallery -->
+      <section id="gallery-view" role="tabpanel" aria-labelledby="gallery-tab" hidden>
+        <div class="catalog-head">
+          <div>
+            <div class="eyebrow">Generated evidence · every completed run</div>
+            <h2>Studies Gallery</h2>
+          </div>
+          <div class="count" id="gallery-count">Reading generated work...</div>
+        </div>
+
+        <div class="run-strip" id="run-strip"></div>
+
+        <div class="gallery-tools" id="gallery-filters">
+          <button class="active" data-mode="all">All Motion</button>
+          <button data-mode="spectral_loop">Spectral Loops</button>
+          <button data-mode="continuity">Continuity</button>
+          <button data-mode="kinetic">Kinetic</button>
+        </div>
+
+        <div class="film-grid" id="film-grid">
+          <div class="empty">Gathering generated studies…</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Tea · A practice in seeing</span>
+      <span>Studies remain visible, including unfinished ones</span>
+    </footer>
+  </div>
+
+  <!-- Video Viewer Modal -->
+  <dialog class="viewer" id="viewer">
+    <video id="viewer-video" controls muted loop playsinline></video>
+    <div class="viewer-copy">
+      <h3 id="viewer-title">Motion Study</h3>
+      <button class="viewer-close" id="viewer-close" aria-label="Close film">Close ✕</button>
+    </div>
+  </dialog>
+
+  <script>
+    const cards = document.getElementById('cards');
+    const count = document.getElementById('count');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let studies = [], active = 'all', historyLoaded = false, galleryMode = 'all', films = [];
+
+    function matches(s) {
+      if (active === 'all') return true;
+      const hay = (s.kind + ' ' + s.sample_mode + ' ' + s.label + ' ' + s.subject).toLowerCase();
+      return hay.includes(active);
+    }
+
+    function spec(s, label, value) {
+      return value ? `<span>${esc(label)} ${esc(value)}</span>` : '';
+    }
+
+    function copyItemLink(event, url) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const fullUrl = url.startsWith('http') ? url : (window.location.origin + url);
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        const btn = event?.currentTarget;
+        if (btn) {
+          btn.classList.add('copied');
+          const span = btn.querySelector('span');
+          if (span) span.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            if (span) span.textContent = 'Copy';
+          }, 1800);
+        }
+      }).catch(() => {});
+    }
+
+    function render() {
+      const shown = studies.filter(matches);
+      count.textContent = `${shown.length} ${shown.length === 1 ? 'study' : 'studies'} shown · ${studies.length} recorded`;
+      cards.innerHTML = shown.map(s => `
+        <article class="card">
+          <button class="copy-btn" onclick="copyItemLink(event, '${esc(s.url || window.location.href)}')" title="Copy Link">
+            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+            <span>Copy</span>
+          </button>
+          <div class="card-top">
+            <span>${esc(s.kind || 'study')}</span>
+            <span>${esc(s.status || 'draft')}</span>
+          </div>
+          <h3>${esc(s.label)}</h3>
+          <p class="subject">${esc(s.subject || 'Latent sphere study')}</p>
+          <p class="prompt">${esc(s.note || s.prompt || 'Study record')}</p>
+          <div class="specs">
+            ${spec(s, 'grid', s.grid)}
+            ${spec(s, 'rendered', s.render_count ? Number(s.render_count).toLocaleString() : '')}
+            ${spec(s, 'size', s.size ? s.size + 'px' : '')}
+            ${spec(s, 'steps', s.steps)}
+            ${spec(s, 'mode', s.mode)}
+            ${spec(s, 'sample', s.sample_mode)}
+          </div>
+          ${s.url ? `<a class="card-link" href="${esc(s.url)}">Open related work →</a>` : ''}
+        </article>
+      `).join('') || '<div class="empty">No studies match this view.</div>';
+    }
+
+    document.getElementById('filters').addEventListener('click', event => {
+      const button = event.target.closest('button[data-filter]');
+      if (!button) return;
+      active = button.dataset.filter;
+      document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('active', x === button));
+      render();
+    });
+
+    fetch('/api/studies', { cache: 'no-store' })
+      .then(r => {
+        if (!r.ok) throw Error('Study archive unavailable');
+        return r.json();
+      })
+      .then(data => {
+        studies = data.studies || [];
+        render();
+      })
+      .catch(error => {
+        count.textContent = 'Archive unavailable';
+        cards.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+      });
+
+    const libraryTab = document.getElementById('library-tab');
+    const galleryTab = document.getElementById('gallery-tab');
+    const libraryView = document.getElementById('library-view');
+    const galleryView = document.getElementById('gallery-view');
+    const filmGrid = document.getElementById('film-grid');
+    const viewer = document.getElementById('viewer');
+    const viewerVideo = document.getElementById('viewer-video');
+
+    function switchView(name, updateHash = true) {
+      const gallery = name === 'gallery';
+      libraryTab.classList.toggle('active', !gallery);
+      galleryTab.classList.toggle('active', gallery);
+      libraryTab.setAttribute('aria-selected', String(!gallery));
+      galleryTab.setAttribute('aria-selected', String(gallery));
+      libraryView.hidden = gallery;
+      galleryView.hidden = !gallery;
+      if (updateHash) history.replaceState(null, '', gallery ? '#gallery' : '#library');
+      if (gallery && !historyLoaded) loadGallery();
+    }
+
+    libraryTab.onclick = () => switchView('library');
+    galleryTab.onclick = () => switchView('gallery');
+
+    function shortRun(id) {
+      return String(id || '').replace('stallion-motion-', '').replace(/-(\d{3})$/, '');
+    }
+
+    function filmMetric(label, value) {
+      return value == null ? '' : `<span>${esc(label)} ${esc(value)}</span>`;
+    }
+
+    function renderGallery() {
+      const shown = films.filter(f => galleryMode === 'all' || f.mode === galleryMode);
+      document.getElementById('gallery-count').textContent = `${shown.length} films shown · ${films.length} generated`;
+      filmGrid.innerHTML = shown.map(f => {
+        const m = f.metrics || {};
+        const g = f.gpu_review || {};
+        const mode = String(f.mode || 'study').replaceAll('_', ' ');
+        return `
+          <button class="film" data-video="${esc(f.video_url)}" data-title="${esc(`#${f.rank || '—'} · ${mode} · round ${f.round || '—'}`)}">
+            <div class="copy-btn" onclick="copyItemLink(event, '${esc(f.video_url)}')" title="Copy Link">
+              <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Copy</span>
+            </div>
+            <div class="film-image">
+              <img loading="lazy" src="${esc(f.poster_url)}" alt="Preview of ${esc(mode)} motion study">
+              <span class="play">▶</span>
+            </div>
+            <div class="film-body">
+              <div class="film-kicker">
+                <span>${esc(mode)} · family ${esc(f.family ?? '—')}</span>
+                <span>${esc(shortRun(f.run_id))}</span>
+              </div>
+              <h3>#${esc(f.rank || '—')} · Round ${esc(f.round || '—')}</h3>
+              <div class="film-metrics">
+                ${filmMetric('score', Number(f.selection_score || 0).toFixed(3))}
+                ${g.neural_score == null ? '' : filmMetric('neural', Number(g.neural_score).toFixed(3))}
+                ${filmMetric('worst', Number(m.worst_visual_jump || 0).toFixed(3))}
+                ${m.loop_seam_jump == null ? '' : filmMetric('seam', Number(m.loop_seam_jump).toFixed(3))}
+                ${filmMetric('reversals', m.direction_reversals || 0)}
+              </div>
+            </div>
+          </button>
+        `;
+      }).join('') || '<div class="empty">No generated studies match this view.</div>';
+    }
+
+    async function loadGallery() {
+      historyLoaded = true;
+      try {
+        const r = await fetch('/api/studies/stallion-motion?history=1', { cache: 'no-store' });
+        if (!r.ok) throw Error('Generated study archive unavailable');
+        const data = await r.json();
+        films = (data.runs || []).flatMap(run => (run.results || []).map(result => ({ ...result, run_id: run.run_id })));
+        document.getElementById('gallery-total').textContent = films.length ? `· ${films.length}` : '';
+        document.getElementById('run-strip').innerHTML = (data.runs || []).map(run => `<span class="run-chip">${esc(shortRun(run.run_id))} · ${esc(run.result_count)} films · ${esc(run.state)}</span>`).join('');
+        renderGallery();
+      } catch (error) {
+        document.getElementById('gallery-count').textContent = 'Archive unavailable';
+        filmGrid.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('gallery-filters').onclick = event => {
+      const button = event.target.closest('button[data-mode]');
+      if (!button) return;
+      galleryMode = button.dataset.mode;
+      document.querySelectorAll('#gallery-filters button').forEach(x => x.classList.toggle('active', x === button));
+      renderGallery();
+    };
+
+    filmGrid.onclick = event => {
+      const card = event.target.closest('[data-video]');
+      if (!card) return;
+      viewerVideo.src = card.dataset.video;
+      document.getElementById('viewer-title').textContent = card.dataset.title;
+      viewer.showModal();
+      viewerVideo.play().catch(() => {});
+    };
+
+    function closeViewer() {
+      viewerVideo.pause();
+      viewerVideo.removeAttribute('src');
+      viewerVideo.load();
+      viewer.close();
+    }
+    document.getElementById('viewer-close').onclick = closeViewer;
+    viewer.addEventListener('click', event => { if (event.target === viewer) closeViewer(); });
+    viewer.addEventListener('close', () => { viewerVideo.pause(); viewerVideo.removeAttribute('src'); viewerVideo.load(); });
+
+    // Twilight Ritual Mode
+    function toggleTwilight() {
+      const isDark = document.body.classList.toggle('mode-nocturnal');
+      document.getElementById('switchIcon').textContent = isDark ? '🍵' : '🌙';
+      document.getElementById('switchText').textContent = isDark ? 'Living Parchment' : 'Nocturnal Study';
+      localStorage.setItem('influx_twilight_mode', isDark ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('influx_twilight_mode') === 'dark') {
+      toggleTwilight();
+    }
+
+    switchView(location.hash === '#gallery' ? 'gallery' : 'library', false);
+  </script>
 </body>
 </html>
