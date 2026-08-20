@@ -449,22 +449,45 @@
 </div>
 
 <script>
-  let lastJobId = null;
+  function getImageUrl(job) {
+    if (job.output_url) {
+      try { return new URL(job.output_url).pathname; } catch(e) {}
+    }
+    if (job.output) {
+      return '/outputs/' + job.output.split('/').pop();
+    }
+    if (job.filename) {
+      return '/outputs/' + job.filename;
+    }
+    return '';
+  }
 
   async function pollJury() {
     try {
-      const res = await fetch('/api/jobs', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const done = (data.jobs || []).filter(x => x.status === 'done');
-      if (done.length === 0) return;
+      const [jRes, rRes] = await Promise.all([
+        fetch('/api/jobs', { cache: 'no-store' }),
+        fetch('/api/recent-images?limit=12', { cache: 'no-store' })
+      ]);
+      
+      let recentImgs = [];
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        recentImgs = rData.images || [];
+      }
 
-      const latest = done[done.length - 1];
-      if (latest.id !== lastJobId) {
+      if (!jRes.ok) return;
+      const data = await jRes.json();
+      const done = (data.jobs || []).filter(x => x.status === 'done');
+      if (done.length === 0 && recentImgs.length === 0) return;
+
+      const latest = done[done.length - 1] || {};
+      const latestImgPath = getImageUrl(latest) || (recentImgs[0] ? recentImgs[0].path : '');
+      
+      if (latest.id !== lastJobId || !document.getElementById('witnessImg').src) {
         lastJobId = latest.id;
         
-        const seed = latest.seed || 0;
-        const prompt = latest.prompt || '';
+        const seed = latest.seed || 'RANDOM';
+        const prompt = latest.prompt || (recentImgs[0] ? recentImgs[0].name : 'Flow-matching frame');
         
         const sHarmony = 86 + (prompt.length % 12);
         const sStructure = 84 + (seed % 15);
@@ -472,11 +495,13 @@
         const composite = ((sHarmony * 0.35) + (sStructure * 0.35) + (sSemantic * 0.3)).toFixed(1);
 
         // Update Frame
-        document.getElementById('witnessImg').src = `/outputs/${latest.id}.png`;
+        if (latestImgPath) {
+          document.getElementById('witnessImg').src = latestImgPath;
+        }
         document.getElementById('witnessSeed').textContent = `SEED: ${seed}`;
         document.getElementById('witnessComposite').textContent = `${composite} / 100`;
         document.getElementById('witnessPrompt').textContent = prompt;
-        document.getElementById('witnessJobId').textContent = `JOB: ${latest.id}`;
+        document.getElementById('witnessJobId').textContent = `JOB: ${latest.id || 'LIVE'}`;
 
         // Update Pixtral
         document.getElementById('score-pixtral').textContent = `HARMONY: ${sHarmony}/100`;
@@ -506,11 +531,12 @@
         }).slice(-8).reverse();
 
         document.getElementById('vaultCount').textContent = `${masterpieces.length} PROMOTED`;
-        document.getElementById('masterpieceGrid').innerHTML = masterpieces.map(m => {
+        document.getElementById('masterpieceGrid').innerHTML = masterpieces.map((m, idx) => {
           const comp = ((86 + (m.prompt.length % 12)) * 0.35 + (84 + (m.seed % 15)) * 0.35 + (88 + (m.seed % 11)) * 0.3).toFixed(1);
+          const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
           return `
             <div class="masterpiece-card">
-              <img class="masterpiece-thumb" src="/outputs/${m.id}.png" loading="lazy">
+              <img class="masterpiece-thumb" src="${mImg}" loading="lazy" alt="Masterpiece">
               <div class="masterpiece-meta">
                 <span class="masterpiece-score">★ ${comp}</span>
                 <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); max-width:140px;">${m.prompt}</div>
