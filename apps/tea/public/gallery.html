@@ -233,9 +233,14 @@
       + `<figcaption>${displayName(name, url)}</figcaption></a>`;
     const img = fig.querySelector('img');
     img.onerror = () => {
-      if (img.dataset.retried) { fig.remove(); seen.delete(url); return; }
+      if (img.dataset.retried === '2') { fig.remove(); seen.delete(url); return; }
+      if (img.dataset.retried === '1') {
+        img.dataset.retried = '2';
+        img.src = url; // Direct /outputs/ full PNG fallback
+        return;
+      }
       img.dataset.retried = '1';
-      setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 1200);
+      setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 800);
     };
     fig.dataset.name = name || '';
     append ? $('grid').appendChild(fig) : $('grid').prepend(fig);
