@@ -31,6 +31,7 @@ import (
 	"local/flux/internal/config"
 	"local/flux/internal/daemon"
 	"local/flux/internal/fleet"
+	"local/flux/internal/jury"
 	"local/flux/internal/prompt"
 
 	_ "modernc.org/sqlite"
@@ -307,6 +308,9 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/collection/picks", s.collectionPicks)
 	mux.HandleFunc("/api/collection/delete", s.deleteCollection)
 	mux.HandleFunc("/api/recent-images", s.recentImages)
+	mux.HandleFunc("/api/jury/config", s.juryConfigAPI)
+	mux.HandleFunc("/api/jury/presets", s.juryPresetsAPI)
+	mux.HandleFunc("/api/jury/sync-r2", s.jurySyncR2API)
 	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
 	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
@@ -573,6 +577,68 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "jury.html"))
+}
+
+func (s Server) juryConfigAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var cfg jury.JuryConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := jury.SaveConfig(s.cfg.OutputDir, cfg); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "config": cfg})
+		return
+	}
+	cfg, err := jury.GetConfig(s.cfg.OutputDir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	presets, _ := jury.ListPresets(s.cfg.OutputDir)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "config": cfg, "presets": presets})
+}
+
+func (s Server) juryPresetsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var p jury.JuryPreset
+		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := jury.SavePreset(s.cfg.OutputDir, p); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "preset": p})
+		return
+	}
+	presets, err := jury.ListPresets(s.cfg.OutputDir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "presets": presets})
+}
+
+func (s Server) jurySyncR2API(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	if err := jury.SyncToR2(s.cfg.OutputDir); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "synced": true, "message": "Backed up jury.sqlite3 to Cloudflare R2"})
 }
 
 // app keeps the production console available without asking a public landing

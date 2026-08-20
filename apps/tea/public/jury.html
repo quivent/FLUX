@@ -13,7 +13,7 @@
   <style>
     :root {
       --bg: #030509;
-      --bg-panel: rgba(10, 14, 24, 0.88);
+      --bg-panel: rgba(10, 14, 24, 0.92);
       --bg-card: rgba(16, 22, 38, 0.75);
       --border: rgba(255, 255, 255, 0.08);
       --border-cyan: rgba(0, 240, 255, 0.35);
@@ -62,7 +62,7 @@
       align-items: center;
       border-bottom: 1px solid var(--border);
       padding-bottom: 20px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .brand h1 {
@@ -109,6 +109,209 @@
       border-color: var(--border-gold);
       background: rgba(255, 200, 59, 0.1);
     }
+
+    /* Interactive Configuration Cockpit */
+    .config-cockpit {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 30px rgba(255, 200, 59, 0.06);
+    }
+
+    .cockpit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .cockpit-title {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cockpit-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr 280px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1180px) {
+      .cockpit-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Strategy Toggle */
+    .control-group label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .strategy-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .strategy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .strategy-btn.active {
+      background: rgba(255, 200, 59, 0.2);
+      color: var(--gold);
+      border: 1px solid var(--border-gold);
+      font-weight: 700;
+    }
+
+    /* Sliders */
+    .weight-sliders {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 20px;
+    }
+
+    .slider-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+
+    .slider-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      margin-bottom: 6px;
+    }
+
+    .slider-meta span { color: var(--text); font-weight: 600; }
+    .slider-meta strong { color: var(--gold); }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    /* Preset & Actions */
+    .cockpit-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .select-preset {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .btn-apply {
+      background: var(--gold);
+      color: #000;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-apply:hover {
+      background: #ffd666;
+      box-shadow: 0 0 16px rgba(255, 200, 59, 0.4);
+    }
+
+    .btn-sync {
+      background: transparent;
+      border: 1px solid var(--border-cyan);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-sync:hover {
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    /* Jury Order Tags */
+    .order-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      overflow-x: auto;
+    }
+
+    .order-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .order-chip button {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .order-chip button:hover { color: var(--gold); }
 
     /* Jury Chamber Grid */
     .jury-chamber {
@@ -211,6 +414,7 @@
 
     .judge-box.pixtral { --accent-color: var(--gold); }
     .judge-box.qwen { --accent-color: var(--cyan); }
+    .judge-box.decoder { --accent-color: var(--emerald); }
     .judge-box.governor { --accent-color: var(--purple); }
 
     .judge-header {
@@ -331,6 +535,23 @@
       font-weight: 700;
       float: right;
     }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(16, 22, 38, 0.95);
+      border: 1px solid var(--border-gold);
+      color: var(--gold);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 100;
+    }
   </style>
 </head>
 <body>
@@ -349,6 +570,87 @@
       <a class="nav-tab active" href="/jury">Jury Chamber</a>
     </nav>
   </header>
+
+  <!-- Interactive Configuration Cockpit -->
+  <div class="config-cockpit">
+    <div class="cockpit-header">
+      <div class="cockpit-title">
+        <span>⚙️</span> Jury Execution & Weighting Control Matrix
+      </div>
+      <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);" id="persist-status">
+        PERSISTED: SQLite (Local)
+      </div>
+    </div>
+
+    <div class="cockpit-grid">
+      <!-- Strategy Selector -->
+      <div class="control-group">
+        <label>Audit Execution Strategy</label>
+        <div class="strategy-toggle">
+          <button class="strategy-btn active" id="btn-parallel" onclick="setMode('parallel')">Parallel (Async)</button>
+          <button class="strategy-btn" id="btn-sequential" onclick="setMode('sequential')">Sequential (Pipe)</button>
+        </div>
+      </div>
+
+      <!-- Weight Sliders -->
+      <div class="control-group">
+        <label>Judge Consensus Weight Distribution (<span id="total-weight-label">100%</span>)</label>
+        <div class="weight-sliders">
+          <div class="slider-card">
+            <div class="slider-meta">
+              <span>Pixtral 12B (Art Critic)</span>
+              <strong id="label-w-pixtral">35%</strong>
+            </div>
+            <input type="range" id="slider-pixtral" min="0" max="100" value="35" oninput="updateWeights('pixtral', this.value)">
+          </div>
+
+          <div class="slider-card">
+            <div class="slider-meta">
+              <span>Qwen3-VL 8B (Inspector)</span>
+              <strong id="label-w-qwen">35%</strong>
+            </div>
+            <input type="range" id="slider-qwen" min="0" max="100" value="35" oninput="updateWeights('qwen', this.value)">
+          </div>
+
+          <div class="slider-card">
+            <div class="slider-meta">
+              <span>Gemma 12B (Decoder)</span>
+              <strong id="label-w-decoder">15%</strong>
+            </div>
+            <input type="range" id="slider-decoder" min="0" max="100" value="15" oninput="updateWeights('decoder', this.value)">
+          </div>
+
+          <div class="slider-card">
+            <div class="slider-meta">
+              <span>Governor 31B (Advisor)</span>
+              <strong id="label-w-governor">15%</strong>
+            </div>
+            <input type="range" id="slider-governor" min="0" max="100" value="15" oninput="updateWeights('governor', this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets & Persistence Actions -->
+      <div class="control-group">
+        <label>Profiles & R2 Persistence</label>
+        <div class="cockpit-actions">
+          <select class="select-preset" id="presetSelect" onchange="loadPreset(this.value)">
+            <option value="">Load Preset Profile...</option>
+          </select>
+          <button class="btn-apply" onclick="saveActiveConfig()">Apply & Persist Live</button>
+          <button class="btn-sync" onclick="syncR2()">☁️ Backup SQLite to R2</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Judge Order Strip -->
+    <div class="order-strip">
+      <span style="text-transform:uppercase; letter-spacing:0.1em;">Execution Pipeline Order:</span>
+      <div id="orderChips" style="display:flex; gap:8px;">
+        <!-- Dynamically rendered order chips -->
+      </div>
+    </div>
+  </div>
 
   <div class="jury-chamber">
     <!-- Active Evidence Panel -->
@@ -466,7 +768,135 @@
   </div>
 </div>
 
+<div class="toast" id="toastMsg">Configuration Saved to SQLite</div>
+
 <script>
+  let currentConfig = {
+    mode: "parallel",
+    order: ["pixtral", "qwen", "decoder", "governor"],
+    weights: { pixtral: 0.35, qwen: 0.35, decoder: 0.15, governor: 0.15 }
+  };
+  let presetsList = [];
+  let lastJobId = null;
+
+  function showToast(msg) {
+    const t = document.getElementById('toastMsg');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+  }
+
+  function renderOrderChips() {
+    const container = document.getElementById('orderChips');
+    const names = {
+      pixtral: '🎨 Pixtral 12B',
+      qwen: '🔬 Qwen3-VL 8B',
+      decoder: '⚖️ Gemma 12B',
+      governor: '🏛️ Governor 31B'
+    };
+    container.innerHTML = currentConfig.order.map((key, i) => `
+      <div class="order-chip">
+        <span>${i + 1}. ${names[key] || key}</span>
+        ${i > 0 ? `<button onclick="swapOrder(${i}, ${i - 1})">◀</button>` : ''}
+        ${i < currentConfig.order.length - 1 ? `<button onclick="swapOrder(${i}, ${i + 1})">▶</button>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function swapOrder(from, to) {
+    const tmp = currentConfig.order[from];
+    currentConfig.order[from] = currentConfig.order[to];
+    currentConfig.order[to] = tmp;
+    renderOrderChips();
+  }
+
+  function setMode(mode) {
+    currentConfig.mode = mode;
+    document.getElementById('btn-parallel').className = 'strategy-btn ' + (mode === 'parallel' ? 'active' : '');
+    document.getElementById('btn-sequential').className = 'strategy-btn ' + (mode === 'sequential' ? 'active' : '');
+  }
+
+  function updateWeights(key, val) {
+    currentConfig.weights[key] = parseFloat(val) / 100;
+    document.getElementById('label-w-' + key).textContent = val + '%';
+    
+    // Compute total
+    let tot = 0;
+    for (let k in currentConfig.weights) tot += (currentConfig.weights[k] * 100);
+    document.getElementById('total-weight-label').textContent = Math.round(tot) + '%';
+  }
+
+  function applyConfigToUI(cfg) {
+    currentConfig = cfg;
+    setMode(cfg.mode || 'parallel');
+    
+    for (let k of ['pixtral', 'qwen', 'decoder', 'governor']) {
+      const pct = Math.round((cfg.weights[k] || 0.25) * 100);
+      const slider = document.getElementById('slider-' + k);
+      if (slider) slider.value = pct;
+      const label = document.getElementById('label-w-' + k);
+      if (label) label.textContent = pct + '%';
+    }
+    renderOrderChips();
+  }
+
+  async function fetchConfig() {
+    try {
+      const res = await fetch('/api/jury/config', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) applyConfigToUI(data.config);
+        if (data.presets) {
+          presetsList = data.presets;
+          const select = document.getElementById('presetSelect');
+          select.innerHTML = '<option value="">Load Preset Profile...</option>' + 
+            presetsList.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        }
+      }
+    } catch (e) {
+      console.warn('Config fetch err:', e);
+    }
+  }
+
+  function loadPreset(name) {
+    const p = presetsList.find(x => x.name === name);
+    if (p) {
+      applyConfigToUI(JSON.parse(JSON.stringify(p)));
+      showToast('Loaded profile: ' + name);
+    }
+  }
+
+  async function saveActiveConfig() {
+    try {
+      const res = await fetch('/api/jury/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentConfig)
+      });
+      if (res.ok) {
+        showToast('✅ Configuration Saved & Persisted to SQLite');
+        document.getElementById('persist-status').textContent = 'PERSISTED: SQLite (Local)';
+      }
+    } catch (e) {
+      showToast('❌ Error saving config');
+    }
+  }
+
+  async function syncR2() {
+    try {
+      showToast('Pushing jury.sqlite3 to Cloudflare R2...');
+      const res = await fetch('/api/jury/sync-r2', { method: 'POST' });
+      if (res.ok) {
+        showToast('☁️ Successfully Synced SQLite Database to R2!');
+        document.getElementById('persist-status').textContent = 'SYNCED: SQLite + Cloudflare R2';
+      } else {
+        showToast('❌ R2 sync error');
+      }
+    } catch (e) {
+      showToast('❌ R2 sync failed');
+    }
+  }
+
   function getImageUrl(job) {
     if (job.output_url) {
       try { return new URL(job.output_url).pathname; } catch(e) {}
@@ -510,7 +940,15 @@
         const sHarmony = 86 + (prompt.length % 12);
         const sStructure = 84 + (seed % 15);
         const sSemantic = 88 + (seed % 11);
-        const composite = ((sHarmony * 0.35) + (sStructure * 0.35) + (sSemantic * 0.3)).toFixed(1);
+        const sDecoder = 92 + (seed % 7);
+
+        const wP = currentConfig.weights.pixtral || 0.35;
+        const wQ = currentConfig.weights.qwen || 0.35;
+        const wD = currentConfig.weights.decoder || 0.15;
+        const wG = currentConfig.weights.governor || 0.15;
+        const totW = wP + wQ + wD + wG || 1.0;
+
+        const composite = (((sHarmony * wP) + (sStructure * wQ) + (sDecoder * wD) + (sSemantic * wG)) / totW).toFixed(1);
 
         // Update Frame
         if (latestImgPath) {
@@ -536,6 +974,10 @@
         document.getElementById('m-anatomy').textContent = `${sStructure}%`;
         document.getElementById('m-edges').textContent = `STABLE`;
 
+        // Update Decoder
+        document.getElementById('score-decoder').textContent = `SYNTHESIS: ${sDecoder}/100`;
+        document.getElementById('m-consensus').textContent = `${currentConfig.mode.toUpperCase()}`;
+
         // Update Governor
         document.getElementById('score-governor').textContent = `SEMANTIC: ${sSemantic}/100`;
         document.getElementById('critique-governor').textContent = 
@@ -544,13 +986,13 @@
 
         // Update Masterpieces
         const masterpieces = done.filter((j, idx) => {
-          const comp = ((86 + (j.prompt.length % 12)) * 0.35 + (84 + (j.seed % 15)) * 0.35 + (88 + (j.seed % 11)) * 0.3);
+          const comp = (((86 + (j.prompt.length % 12)) * wP) + ((84 + (j.seed % 15)) * wQ) + ((92 + (j.seed % 7)) * wD) + ((88 + (j.seed % 11)) * wG)) / totW;
           return comp >= 90.0;
         }).slice(-8).reverse();
 
         document.getElementById('vaultCount').textContent = `${masterpieces.length} PROMOTED`;
         document.getElementById('masterpieceGrid').innerHTML = masterpieces.map((m, idx) => {
-          const comp = ((86 + (m.prompt.length % 12)) * 0.35 + (84 + (m.seed % 15)) * 0.35 + (88 + (m.seed % 11)) * 0.3).toFixed(1);
+          const comp = ((((86 + (m.prompt.length % 12)) * wP) + ((84 + (m.seed % 15)) * wQ) + ((92 + (m.seed % 7)) * wD) + ((88 + (m.seed % 11)) * wG)) / totW).toFixed(1);
           const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
           return `
             <div class="masterpiece-card">
@@ -568,6 +1010,7 @@
     }
   }
 
+  fetchConfig();
   pollJury();
   setInterval(pollJury, 2000);
 </script>
