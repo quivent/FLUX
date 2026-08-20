@@ -64,6 +64,8 @@ func main() {
 		err = atlas(cfg, os.Args[2:])
 	case "anime":
 		err = anime(cfg, os.Args[2:])
+	case "arcane", "fortiche":
+		err = arcaneCmd(cfg, os.Args[2:])
 	case "ane":
 		err = ane(cfg, os.Args[2:])
 	case "bench", "benchmark":
@@ -888,6 +890,38 @@ func anime(cfg config.Config, args []string) error {
 		return animeProductions(cfg, args[1:])
 	default:
 		return fmt.Errorf("unknown anime command %q; use productions", args[0])
+	}
+}
+
+func arcaneCmd(cfg config.Config, args []string) error {
+	if len(args) == 0 {
+		ui.Header("arcane", "Fortiche Arcane world forge & character studio")
+		ui.Suite("usage", ui.Teal, []ui.PairRow{
+			{"arcane <prompt>", "render Fortiche Arcane hero character visual"},
+			{"arcane zaun <prompt>", "render Zaun undercity chemtech atmosphere"},
+			{"arcane piltover <prompt>", "render Piltover gilded architectural grandeur"},
+			{"arcane turn <prompt>", "render 64-frame character turnaround cell"},
+			{"arcane serve", "launch Arcane Production Studio dashboard"},
+		})
+		return nil
+	}
+
+	sub := strings.ToLower(args[0])
+	switch sub {
+	case "serve", "studio":
+		return serve(cfg, []string{"studio", "--addr", "0.0.0.0:7860"})
+	case "zaun":
+		rem := strings.Join(args[1:], " ")
+		return render(cfg, []string{"--preset", "arcane-zaun", rem})
+	case "piltover":
+		rem := strings.Join(args[1:], " ")
+		return render(cfg, []string{"--preset", "arcane-piltover", rem})
+	case "turn", "turntable":
+		rem := strings.Join(args[1:], " ")
+		return render(cfg, []string{"--preset", "arcane-turn", rem})
+	default:
+		promptText := strings.Join(args, " ")
+		return render(cfg, []string{"--preset", "arcane-hero", promptText})
 	}
 }
 
