@@ -38,6 +38,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", choices=["auto", "mps", "cuda", "cpu"], default="auto")
     parser.add_argument("--dtype", choices=["bf16", "fp16", "fp32"], default="bf16")
     parser.add_argument("--filename", default=None)
+    parser.add_argument("--save-intermediates", action="store_true", help="Save intermediate latents and step previews")
+    parser.add_argument("--intermediates-dir", default=None, help="Directory to save step previews")
     return parser.parse_args()
 
 
@@ -68,15 +70,31 @@ def main() -> int:
     if args.seed is not None:
         generator = torch.Generator(device="cpu").manual_seed(args.seed)
 
+    intermediates = []
+    def step_callback(pipe_ref, step_index, timestep, callback_kwargs):
+        if args.save_intermediates:
+            latents = callback_kwargs.get("latents")
+            if latents is not None:
+                inter_dir = pathlib.Path(args.intermediates_dir or (out_dir / "intermediates"))
+                inter_dir.mkdir(parents=True, exist_ok=True)
+                step_path = inter_dir / f"latent_step_{step_index:03d}.pt"
+                torch.save(latents.cpu(), step_path)
+                intermediates.append(str(step_path))
+        return callback_kwargs
+
     started = time.time()
-    image = pipe(
-        prompt=args.prompt,
-        width=args.width,
-        height=args.height,
-        guidance_scale=args.guidance,
-        num_inference_steps=args.steps,
-        generator=generator,
-    ).images[0]
+    call_kwargs = {
+        "prompt": args.prompt,
+        "width": args.width,
+        "height": args.height,
+        "guidance_scale": args.guidance,
+        "num_inference_steps": args.steps,
+        "generator": generator,
+    }
+    if args.save_intermediates:
+        call_kwargs["callback_on_step_end"] = step_callback
+
+    image = pipe(**call_kwargs).images[0]
 
     filename = args.filename
     if filename is None:
@@ -88,6 +106,8 @@ def main() -> int:
 
     elapsed = time.time() - started
     print(f"saved={output_path}")
+    if intermediates:
+        print(f"intermediates={len(intermediates)} steps saved to {out_dir / 'intermediates'}")
     print(f"seconds={elapsed:.1f}")
     return 0
 
