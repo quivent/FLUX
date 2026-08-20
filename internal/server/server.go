@@ -3489,7 +3489,12 @@ func (s Server) output(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid output path")
 		return
 	}
-	outputDir, err := filepath.Abs(s.cfg.OutputDir)
+	outputDir, err := filepath.EvalSymlinks(s.cfg.OutputDir)
+	if err != nil {
+		outputDir, err = filepath.Abs(s.cfg.OutputDir)
+	} else {
+		outputDir, err = filepath.Abs(outputDir)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -4056,7 +4061,12 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		Modified int64
 	}
 	items := make([]recentImage, 0, limit)
-	outputDir, err := filepath.Abs(s.cfg.OutputDir)
+	outputDir, err := filepath.EvalSymlinks(s.cfg.OutputDir)
+	if err != nil {
+		outputDir, err = filepath.Abs(s.cfg.OutputDir)
+	} else {
+		outputDir, err = filepath.Abs(outputDir)
+	}
 	if err == nil {
 		_ = filepath.WalkDir(outputDir, func(file string, entry os.DirEntry, err error) error {
 			if err != nil {
@@ -4594,8 +4604,14 @@ func (s Server) atlas(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodGet)
 		return
 	}
-	jobID := path.Base(strings.TrimPrefix(r.URL.Path, "/atlas/"))
-	if jobID == "." || jobID == "/" || strings.Contains(jobID, "/") {
+	clean := strings.Trim(strings.TrimPrefix(r.URL.Path, "/atlas"), "/")
+	if clean == "" || clean == "." {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(atlasStudioHTML(s.cfg)))
+		return
+	}
+	jobID := path.Base(clean)
+	if strings.Contains(clean, "/") {
 		writeError(w, http.StatusBadRequest, "invalid atlas id")
 		return
 	}
