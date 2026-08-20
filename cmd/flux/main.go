@@ -48,8 +48,10 @@ func main() {
 		return
 	case "install":
 		err = install(cfg)
-	case "setup", "provision":
+	case "setup":
 		err = setup(cfg)
+	case "provision":
+		err = provisionCmd(cfg, os.Args[2:])
 	case "doctor", "check":
 		err = doctor(cfg)
 	case "accel", "hardware", "backends":
@@ -943,6 +945,13 @@ func arcaneCmd(cfg config.Config, args []string) error {
 		promptText := strings.Join(args, " ")
 		return render(cfg, []string{"--preset", "arcane-hero", promptText})
 	}
+}
+
+func provisionCmd(cfg config.Config, args []string) error {
+	if len(args) == 0 || args[0] == "arcane" || args[0] == "arcahe" {
+		return provisionArcane(cfg)
+	}
+	return setup(cfg)
 }
 
 func provisionArcane(cfg config.Config) error {
