@@ -895,8 +895,13 @@ func anime(cfg config.Config, args []string) error {
 
 func arcaneCmd(cfg config.Config, args []string) error {
 	if len(args) == 0 {
+		return render(cfg, []string{"--preset", "arcane-hero", "A solitary Arcane vigilante in the rain-soaked alleys of Zaun, mechanical arm glowing with chemtech emerald light, sharp angular jawline, visible gouache brushwork"})
+	}
+
+	if args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
 		ui.Header("arcane", "Fortiche Arcane world forge & character studio")
 		ui.Suite("usage", ui.Teal, []ui.PairRow{
+			{"arcane", "render signature Arcane Fortiche visual"},
 			{"arcane <prompt>", "render Fortiche Arcane hero character visual"},
 			{"arcane zaun <prompt>", "render Zaun undercity chemtech atmosphere"},
 			{"arcane piltover <prompt>", "render Piltover gilded architectural grandeur"},
