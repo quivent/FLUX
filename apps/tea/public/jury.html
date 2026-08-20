@@ -3,40 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#030508">
-  <title>The Jury Chamber · Sovereign Visual Multi-Model Arena</title>
+  <meta name="theme-color" content="#020408">
+  <title>The Jury Chamber · Visual Spectacle Arena</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --bg: #030509;
-      --bg-panel: rgba(10, 14, 24, 0.92);
-      --bg-card: rgba(16, 22, 38, 0.75);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-cyan: rgba(0, 240, 255, 0.35);
-      --border-gold: rgba(255, 200, 59, 0.4);
-      --border-purple: rgba(168, 85, 247, 0.35);
+      --bg: #020408;
+      --bg-surface: rgba(8, 12, 20, 0.7);
+      --bg-card: rgba(13, 19, 32, 0.6);
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 255, 255, 0.18);
       
-      --text: #f0f4f8;
-      --text-muted: #8b9bb0;
-      --text-dim: #546478;
-      
-      --cyan: #00f0ff;
       --gold: #ffc83b;
-      --amber: #ffaa00;
+      --gold-glow: rgba(255, 200, 59, 0.25);
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.2);
       --emerald: #10b981;
       --purple: #c084fc;
       --rose: #ff3377;
       
-      --font-display: 'Cinzel', serif;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #475569;
+      
+      --font-serif: 'Cinzel', serif;
       --font-sans: 'Inter', system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      
-      --radius: 12px;
-      --radius-sm: 8px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,28 +44,36 @@
       min-height: 100vh;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      padding: 24px;
+      padding: 24px 32px 64px;
+      overflow-x: hidden;
     }
 
     .shell {
-      max-width: 1440px;
+      max-width: 1600px;
       margin: 0 auto;
     }
 
+    /* Minimalist Top Navigation */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border);
       padding-bottom: 20px;
       margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
     }
 
     .brand h1 {
-      font-family: var(--font-display);
-      font-size: 22px;
+      font-family: var(--font-serif);
+      font-size: 20px;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text);
     }
@@ -78,18 +82,19 @@
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--gold);
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
     }
 
-    .nav-tabs {
+    .header-actions {
       display: flex;
+      align-items: center;
       gap: 12px;
     }
 
-    .nav-tab {
+    .nav-link {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--text-muted);
       text-decoration: none;
       padding: 6px 14px;
@@ -98,469 +103,319 @@
       transition: all 0.2s ease;
     }
 
-    .nav-tab:hover {
+    .nav-link:hover {
       color: var(--text);
-      border-color: var(--border-cyan);
-      background: rgba(0, 240, 255, 0.05);
+      border-color: var(--border-hover);
+      background: rgba(255, 255, 255, 0.03);
     }
 
-    .nav-tab.active {
-      color: var(--gold);
-      border-color: var(--border-gold);
-      background: rgba(255, 200, 59, 0.1);
-    }
-
-    /* Interactive Configuration Cockpit */
-    .config-cockpit {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-gold);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 0 30px rgba(255, 200, 59, 0.06);
-    }
-
-    .cockpit-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
-    }
-
-    .cockpit-title {
+    .btn-toggle-tuning {
       font-family: var(--font-mono);
-      font-size: 12.5px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+      font-size: 11.5px;
+      background: rgba(255, 200, 59, 0.08);
+      border: 1px solid rgba(255, 200, 59, 0.3);
       color: var(--gold);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      transition: all 0.2s ease;
     }
 
-    .cockpit-grid {
+    .btn-toggle-tuning:hover {
+      background: rgba(255, 200, 59, 0.16);
+      box-shadow: 0 0 16px var(--gold-glow);
+    }
+
+    /* Collapsible Minimalist Tuning Drawer */
+    .tuning-drawer {
+      display: none;
+      background: rgba(10, 15, 25, 0.95);
+      border: 1px solid var(--border-hover);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      animation: slideDown 0.25s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tuning-grid {
       display: grid;
-      grid-template-columns: 240px 1fr 280px;
+      grid-template-columns: 200px 1fr 240px;
       gap: 24px;
       align-items: start;
     }
 
-    @media (max-width: 1180px) {
-      .cockpit-grid { grid-template-columns: 1fr; }
+    @media (max-width: 1100px) {
+      .tuning-grid { grid-template-columns: 1fr; }
     }
 
-    /* Strategy & Inquisitor Toggle */
-    .control-group label {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 8px;
-    }
-
-    .strategy-toggle {
+    .slider-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 4px;
-      gap: 4px;
-      margin-bottom: 12px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
     }
 
-    .strategy-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .strategy-btn.active {
-      background: rgba(255, 200, 59, 0.2);
-      color: var(--gold);
-      border: 1px solid var(--border-gold);
-      font-weight: 700;
-    }
-
-    .inquisitor-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(255, 51, 119, 0.08);
-      border: 1px solid rgba(255, 51, 119, 0.3);
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-    }
-
-    .inquisitor-toggle span {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--rose);
-      font-weight: 600;
-    }
-
-    /* Sliders */
-    .weight-sliders {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px 20px;
-    }
-
-    .slider-card {
+    .mini-slider {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
     }
 
-    .slider-meta {
+    .mini-slider-meta {
       display: flex;
       justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
-    .slider-meta span { color: var(--text); font-weight: 600; }
-    .slider-meta strong { color: var(--gold); }
-
-    .slider-strict-sub {
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      color: var(--text-dim);
-      margin-top: 6px;
-      border-top: 1px solid rgba(255, 255, 255, 0.04);
-      padding-top: 4px;
-    }
-
-    input[type=range] {
-      width: 100%;
-      accent-color: var(--gold);
-      cursor: pointer;
-    }
-
-    /* Preset & Actions */
-    .cockpit-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .select-preset {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-    }
-
-    .btn-apply {
-      background: var(--gold);
-      color: #000;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      border: none;
-      padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-apply:hover {
-      background: #ffd666;
-      box-shadow: 0 0 16px rgba(255, 200, 59, 0.4);
-    }
-
-    .btn-sync {
-      background: transparent;
-      border: 1px solid var(--border-cyan);
-      color: var(--cyan);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-sync:hover {
-      background: rgba(0, 240, 255, 0.1);
-    }
-
-    /* Movement Towards Master Strip */
-    .master-movement-strip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(255, 200, 59, 0.08);
-      border: 1px solid rgba(255, 200, 59, 0.3);
-      border-radius: var(--radius-sm);
-      padding: 10px 16px;
-      margin-top: 14px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-    }
-
-    .tier-pills {
-      display: flex;
-      gap: 10px;
-    }
-
-    .tier-pill {
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-weight: 700;
-    }
-
-    .tier-pill.spectacle { background: rgba(0, 240, 255, 0.15); color: var(--cyan); border: 1px solid var(--border-cyan); }
-    .tier-pill.masterpiece { background: rgba(255, 200, 59, 0.2); color: var(--gold); border: 1px solid var(--border-gold); }
-
-    /* Jury Order Tags */
-    .order-strip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 14px;
-      border-top: 1px solid var(--border);
-      padding-top: 12px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      overflow-x: auto;
-    }
-
-    .order-chip {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 4px 10px;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .order-chip button {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 11px;
-    }
-
-    .order-chip button:hover { color: var(--gold); }
-
-    /* Jury Chamber Grid */
-    .jury-chamber {
+    /* THE SPECTACLE HERO STAGE */
+    .spectacle-stage {
       display: grid;
-      grid-template-columns: 440px 1fr;
-      gap: 24px;
-      margin-bottom: 32px;
+      grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+      gap: 32px;
+      align-items: stretch;
+      margin-bottom: 48px;
     }
 
     @media (max-width: 1080px) {
-      .jury-chamber { grid-template-columns: 1fr; }
+      .spectacle-stage { grid-template-columns: 1fr; }
     }
 
-    /* Left: Live Witness / Frame Viewer */
-    .witness-panel {
-      background: var(--bg-panel);
+    /* Left: Monumental Hero Canvas */
+    .hero-canvas-frame {
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: 16px;
       padding: 24px;
-      backdrop-filter: blur(16px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      position: relative;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.3s ease;
     }
 
-    .witness-frame-box {
+    .hero-canvas-frame.is-spectacle {
+      border-color: rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 40px var(--cyan-glow);
+    }
+
+    .hero-canvas-frame.is-masterpiece {
+      border-color: rgba(255, 200, 59, 0.5);
+      box-shadow: 0 0 60px var(--gold-glow);
+    }
+
+    .hero-image-wrapper {
       width: 100%;
       aspect-ratio: 1;
-      border-radius: var(--radius-sm);
+      border-radius: 10px;
       overflow: hidden;
       position: relative;
-      background: #080c14;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: #03060a;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 18px;
     }
 
-    .witness-img {
+    .hero-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.4s ease;
+      display: block;
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .witness-overlay-tag {
+    .hero-image-wrapper:hover .hero-img {
+      transform: scale(1.02);
+    }
+
+    /* Floating Badges over Hero */
+    .hero-pill-top-left {
       position: absolute;
-      top: 12px;
-      left: 12px;
+      top: 16px;
+      left: 16px;
       font-family: var(--font-mono);
       font-size: 11px;
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.75);
-      border: 1px solid var(--border-cyan);
-      color: var(--cyan);
-      backdrop-filter: blur(8px);
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      color: #e2e8f0;
+      letter-spacing: 0.05em;
     }
 
-    .witness-tier-badge {
+    .hero-pill-top-right {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      font-family: var(--font-mono);
-      font-size: 10.5px;
+      top: 16px;
+      right: 16px;
+      font-family: var(--font-serif);
+      font-size: 12px;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      backdrop-filter: blur(8px);
-    }
-
-    .witness-tier-badge.spectacle { background: rgba(0, 240, 255, 0.85); color: #000; }
-    .witness-tier-badge.masterpiece { background: rgba(255, 200, 59, 0.95); color: #000; box-shadow: 0 0 16px rgba(255, 200, 59, 0.6); }
-
-    .witness-composite-badge {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 700;
+      letter-spacing: 0.1em;
       padding: 6px 14px;
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.85);
-      border: 1px solid var(--border-gold);
-      color: var(--gold);
-      box-shadow: 0 0 20px rgba(255, 200, 59, 0.3);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      display: none;
     }
 
-    /* Right: Multi-Judge Critique Matrix */
-    .critique-matrix {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    .hero-pill-top-right.spectacle {
+      display: block;
+      background: rgba(0, 240, 255, 0.9);
+      color: #000;
+      box-shadow: 0 0 20px var(--cyan-glow);
     }
 
-    .judge-box {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      backdrop-filter: blur(16px);
-      position: relative;
-      overflow: hidden;
+    .hero-pill-top-right.masterpiece {
+      display: block;
+      background: rgba(255, 200, 59, 0.95);
+      color: #000;
+      box-shadow: 0 0 24px var(--gold-glow);
     }
 
-    .judge-box::before {
-      content: '';
+    .hero-score-badge {
       position: absolute;
-      top: 0; left: 0; bottom: 0;
-      width: 4px;
-      background: var(--accent-color, var(--cyan));
+      bottom: 16px;
+      right: 16px;
+      font-family: var(--font-serif);
+      font-size: 26px;
+      font-weight: 900;
+      padding: 6px 16px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
     }
 
-    .judge-box.pixtral { --accent-color: var(--gold); }
-    .judge-box.qwen { --accent-color: var(--cyan); }
-    .judge-box.decoder { --accent-color: var(--emerald); }
-    .judge-box.governor { --accent-color: var(--purple); }
-
-    .judge-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
+    .hero-meta-block {
+      margin-top: 18px;
     }
 
-    .judge-title {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .judge-score-pill {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
-      padding: 2px 10px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--accent-color, var(--cyan));
-      border: 1px solid var(--border);
-    }
-
-    .judge-prose {
-      font-size: 13px;
-      color: var(--text-muted);
+    .hero-prompt-prose {
+      font-size: 14px;
+      color: #f1f5f9;
+      font-weight: 400;
       line-height: 1.6;
     }
 
-    .judge-metrics-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+    .hero-footer-bar {
       margin-top: 14px;
-      border-top: 1px solid var(--border);
       padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-dim);
     }
 
-    .judge-metrics-row strong {
-      color: var(--text);
+    /* Right: The Quiet Glass Jury Rail */
+    .jury-verdict-rail {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      justify-content: space-between;
     }
 
-    /* Vault Feeds: Spectacles & Masterpieces */
-    .vault-section {
-      background: var(--bg-panel);
+    .judge-card {
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-top: 24px;
+      border-radius: 12px;
+      padding: 16px 20px;
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
     }
 
-    .vault-header {
+    .judge-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 3px;
+      background: var(--judge-accent, var(--cyan));
+    }
+
+    .judge-card.pixtral { --judge-accent: var(--gold); }
+    .judge-card.qwen { --judge-accent: var(--cyan); }
+    .judge-card.decoder { --judge-accent: var(--emerald); }
+    .judge-card.governor { --judge-accent: var(--purple); }
+
+    .judge-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 6px;
     }
 
-    .vault-title {
-      font-family: var(--font-display);
-      font-size: 16px;
+    .judge-name {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .judge-score-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--judge-accent, var(--cyan));
+    }
+
+    .judge-body {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Movement Towards Master Indicator */
+    .convergence-card {
+      background: rgba(255, 200, 59, 0.04);
+      border: 1px solid rgba(255, 200, 59, 0.2);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* SPECTACLE GALLERY GRID (Visual Feast) */
+    .spectacle-section {
+      margin-top: 48px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--gold);
@@ -569,44 +424,68 @@
       gap: 10px;
     }
 
-    .masterpiece-grid {
+    .spectacle-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
     }
 
-    .masterpiece-card {
+    .spectacle-tile {
       background: var(--bg-card);
-      border: 1px solid rgba(255, 200, 59, 0.2);
-      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       overflow: hidden;
       position: relative;
-      transition: all 0.2s ease;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .masterpiece-card:hover {
-      transform: translateY(-4px);
+    .spectacle-tile:hover {
+      transform: translateY(-6px);
       border-color: var(--gold);
-      box-shadow: 0 8px 24px rgba(255, 200, 59, 0.15);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 24px var(--gold-glow);
     }
 
-    .masterpiece-thumb {
+    .spectacle-tile.masterpiece-tile {
+      border-color: rgba(255, 200, 59, 0.6);
+      box-shadow: 0 0 20px var(--gold-glow);
+    }
+
+    .tile-thumb {
       width: 100%;
       aspect-ratio: 1;
       object-fit: cover;
       display: block;
+      transition: transform 0.4s ease;
     }
 
-    .masterpiece-meta {
-      padding: 10px 12px;
+    .spectacle-tile:hover .tile-thumb {
+      transform: scale(1.04);
+    }
+
+    .tile-overlay-score {
+      position: absolute;
+      top: 10px;
+      right: 10px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      color: var(--gold);
+      border: 1px solid var(--border);
     }
 
-    .masterpiece-score {
-      color: var(--gold);
-      font-weight: 700;
-      float: right;
+    .tile-caption {
+      padding: 12px 14px;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .toast {
@@ -614,14 +493,14 @@
       bottom: 24px;
       right: 24px;
       background: rgba(16, 22, 38, 0.95);
-      border: 1px solid var(--border-gold);
+      border: 1px solid var(--gold);
       color: var(--gold);
-      padding: 12px 20px;
+      padding: 10px 18px;
       border-radius: 8px;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11.5px;
       backdrop-filter: blur(12px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       display: none;
       z-index: 100;
     }
@@ -630,259 +509,200 @@
 <body>
 
 <div class="shell">
+  <!-- Minimalist Header -->
   <header>
     <div class="brand">
       <h1>The Jury Chamber</h1>
-      <span>Multi-Model Sovereign Visual Arena</span>
+      <span>Visual Spectacle Arena</span>
     </div>
 
-    <nav class="nav-tabs">
-      <a class="nav-tab" href="/portal">Portal</a>
-      <a class="nav-tab" href="/gallery/">Gallery</a>
-      <a class="nav-tab" href="/engine">Engine Room</a>
-      <a class="nav-tab active" href="/jury">Jury Chamber</a>
-    </nav>
+    <div class="header-actions">
+      <a class="nav-link" href="/portal">Portal</a>
+      <a class="nav-link" href="/gallery/">Gallery</a>
+      <a class="nav-link" href="/engine">Engine Room</a>
+      <button class="btn-toggle-tuning" onclick="toggleTuning()">
+        <span>⚙️</span> Calibrate Jury
+      </button>
+    </div>
   </header>
 
-  <!-- Interactive Configuration Cockpit -->
-  <div class="config-cockpit">
-    <div class="cockpit-header">
-      <div class="cockpit-title">
-        <span>⚙️</span> Jury Execution & Harshness Calibration Matrix
-      </div>
-      <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);" id="persist-status">
+  <!-- Collapsible Minimalist Tuning Drawer -->
+  <div class="tuning-drawer" id="tuningDrawer">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">
+        Jury Calibration & Strictness Controls
+      </span>
+      <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);" id="persist-status">
         PERSISTED: SQLite (Local)
-      </div>
+      </span>
     </div>
 
-    <div class="cockpit-grid">
-      <!-- Strategy & Inquisitor Mode -->
-      <div class="control-group">
-        <label>Audit Strategy</label>
-        <div class="strategy-toggle">
-          <button class="strategy-btn active" id="btn-parallel" onclick="setMode('parallel')">Parallel (Async)</button>
-          <button class="strategy-btn" id="btn-sequential" onclick="setMode('sequential')">Sequential (Pipe)</button>
-        </div>
-
-        <label style="margin-top:12px;">Inquisitor Lens</label>
-        <div class="inquisitor-toggle" onclick="toggleAdversarial()">
-          <span>⚔️ Adversarial Harshness</span>
-          <input type="checkbox" id="check-adversarial" style="accent-color:var(--rose); cursor:pointer;">
-        </div>
-      </div>
-
-      <!-- Weights & Strictness Multipliers (Gamma) -->
-      <div class="control-group">
-        <label>Judge Weights & Strictness Dials (<span id="total-weight-label">100% Weight</span>)</label>
-        <div class="weight-sliders">
-          
-          <div class="slider-card">
-            <div class="slider-meta">
-              <span>Pixtral 12B (Art Critic)</span>
-              <strong id="label-w-pixtral">35%</strong>
-            </div>
-            <input type="range" id="slider-pixtral" min="0" max="100" value="35" oninput="updateWeights('pixtral', this.value)">
-            <div class="slider-strict-sub">
-              <span>Aesthetic Harshness:</span>
-              <strong id="label-g-pixtral" style="color:var(--cyan);">2.0γ</strong>
-            </div>
-            <input type="range" id="slider-g-pixtral" min="10" max="30" value="20" style="accent-color:var(--cyan); height:4px;" oninput="updateStrictness('pixtral', this.value)">
-          </div>
-
-          <div class="slider-card">
-            <div class="slider-meta">
-              <span>Qwen3-VL 8B (Inspector)</span>
-              <strong id="label-w-qwen">35%</strong>
-            </div>
-            <input type="range" id="slider-qwen" min="0" max="100" value="35" oninput="updateWeights('qwen', this.value)">
-            <div class="slider-strict-sub">
-              <span>Structural Harshness:</span>
-              <strong id="label-g-qwen" style="color:var(--cyan);">1.2γ</strong>
-            </div>
-            <input type="range" id="slider-g-qwen" min="10" max="30" value="12" style="accent-color:var(--cyan); height:4px;" oninput="updateStrictness('qwen', this.value)">
-          </div>
-
-          <div class="slider-card">
-            <div class="slider-meta">
-              <span>Gemma 12B (Decoder)</span>
-              <strong id="label-w-decoder">15%</strong>
-            </div>
-            <input type="range" id="slider-decoder" min="0" max="100" value="15" oninput="updateWeights('decoder', this.value)">
-            <div class="slider-strict-sub">
-              <span>Consensus Harshness:</span>
-              <strong id="label-g-decoder" style="color:var(--cyan);">1.5γ</strong>
-            </div>
-            <input type="range" id="slider-g-decoder" min="10" max="30" value="15" style="accent-color:var(--cyan); height:4px;" oninput="updateStrictness('decoder', this.value)">
-          </div>
-
-          <div class="slider-card">
-            <div class="slider-meta">
-              <span>Governor 31B (Advisor)</span>
-              <strong id="label-w-governor">15%</strong>
-            </div>
-            <input type="range" id="slider-governor" min="0" max="100" value="15" oninput="updateWeights('governor', this.value)">
-            <div class="slider-strict-sub">
-              <span>Semantic Strictness:</span>
-              <strong id="label-g-governor" style="color:var(--cyan);">2.2γ</strong>
-            </div>
-            <input type="range" id="slider-g-governor" min="10" max="30" value="22" style="accent-color:var(--cyan); height:4px;" oninput="updateStrictness('governor', this.value)">
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Presets & Persistence Actions -->
-      <div class="control-group">
-        <label>Profiles & R2 Storage</label>
-        <div class="cockpit-actions">
-          <select class="select-preset" id="presetSelect" onchange="loadPreset(this.value)">
-            <option value="">Load Preset Profile...</option>
-          </select>
-          <button class="btn-apply" onclick="saveActiveConfig()">Apply & Persist Live</button>
-          <button class="btn-sync" onclick="syncR2()">☁️ Backup SQLite to R2</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Movement Towards Master Banner -->
-    <div class="master-movement-strip">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <span style="font-weight:700; color:var(--gold);">🧬 THE MOVEMENT TOWARDS MASTER</span>
-        <span style="color:var(--text-dim);">Progression: Standard → Spectacle (≥90.0) → Masterpiece (≥98.0)</span>
-      </div>
-      <div class="tier-pills">
-        <span class="tier-pill spectacle">✨ SPECTACLE ≥90.0</span>
-        <span class="tier-pill masterpiece">👑 MASTERPIECE ≥98.0</span>
-      </div>
-    </div>
-
-    <!-- Judge Order Strip -->
-    <div class="order-strip">
-      <span style="text-transform:uppercase; letter-spacing:0.1em;">Execution Pipeline Order:</span>
-      <div id="orderChips" style="display:flex; gap:8px;">
-        <!-- Dynamically rendered order chips -->
-      </div>
-    </div>
-  </div>
-
-  <div class="jury-chamber">
-    <!-- Active Evidence Panel -->
-    <div class="witness-panel">
+    <div class="tuning-grid">
+      <!-- Strategy Toggle -->
       <div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">ACTIVE EVIDENCE FRAME</span>
-          <span style="font-family:var(--font-mono); font-size:11px; color:var(--emerald);" id="jury-live-badge">● JURY IN SESSION</span>
+        <label style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px;">Execution Mode</label>
+        <div style="display:flex; gap:6px;">
+          <button id="btn-parallel" class="nav-link" style="cursor:pointer; flex:1; text-align:center; padding:6px 0;" onclick="setMode('parallel')">Parallel</button>
+          <button id="btn-sequential" class="nav-link" style="cursor:pointer; flex:1; text-align:center; padding:6px 0;" onclick="setMode('sequential')">Sequential</button>
         </div>
 
-        <div class="witness-frame-box">
-          <img class="witness-img" id="witnessImg" src="" alt="Settling frame...">
-          <div class="witness-overlay-tag" id="witnessSeed">SEED: --</div>
-          <div class="witness-tier-badge" id="witnessTierBadge" style="display:none;"></div>
-          <div class="witness-composite-badge" id="witnessComposite">-- / 100</div>
-        </div>
-
-        <div style="font-family:var(--font-mono); font-size:12px; color:#e2e8f0; line-height:1.5;" id="witnessPrompt">
-          Awaiting settled frame from the perpetual FLUX sieve...
+        <label style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; margin:10px 0 6px;">Adversarial Lens</label>
+        <div style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px;">
+          <input type="checkbox" id="check-adversarial" style="accent-color:var(--rose); cursor:pointer;" onchange="toggleAdversarial()">
+          <span>Harsh Museum Rubrics</span>
         </div>
       </div>
 
-      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); display:flex; justify-content:space-between;">
-        <span>CADENCE: ~6.3s / Frame</span>
-        <span id="witnessJobId">JOB: --</span>
+      <!-- 4 Sliders -->
+      <div class="slider-row">
+        <div class="mini-slider">
+          <div class="mini-slider-meta"><span>Pixtral 12B</span><strong id="label-w-pixtral">35%</strong></div>
+          <input type="range" id="slider-pixtral" min="0" max="100" value="35" oninput="updateWeights('pixtral', this.value)">
+          <div style="margin-top:4px; font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between;">
+            <span>Harsh:</span><strong id="label-g-pixtral" style="color:var(--cyan);">2.0γ</strong>
+          </div>
+          <input type="range" id="slider-g-pixtral" min="10" max="30" value="20" style="height:3px; accent-color:var(--cyan);" oninput="updateStrictness('pixtral', this.value)">
+        </div>
+
+        <div class="mini-slider">
+          <div class="mini-slider-meta"><span>Qwen3-VL 8B</span><strong id="label-w-qwen">35%</strong></div>
+          <input type="range" id="slider-qwen" min="0" max="100" value="35" oninput="updateWeights('qwen', this.value)">
+          <div style="margin-top:4px; font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between;">
+            <span>Harsh:</span><strong id="label-g-qwen" style="color:var(--cyan);">1.2γ</strong>
+          </div>
+          <input type="range" id="slider-g-qwen" min="10" max="30" value="12" style="height:3px; accent-color:var(--cyan);" oninput="updateStrictness('qwen', this.value)">
+        </div>
+
+        <div class="mini-slider">
+          <div class="mini-slider-meta"><span>Gemma 12B</span><strong id="label-w-decoder">15%</strong></div>
+          <input type="range" id="slider-decoder" min="0" max="100" value="15" oninput="updateWeights('decoder', this.value)">
+          <div style="margin-top:4px; font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between;">
+            <span>Harsh:</span><strong id="label-g-decoder" style="color:var(--cyan);">1.5γ</strong>
+          </div>
+          <input type="range" id="slider-g-decoder" min="10" max="30" value="15" style="height:3px; accent-color:var(--cyan);" oninput="updateStrictness('decoder', this.value)">
+        </div>
+
+        <div class="mini-slider">
+          <div class="mini-slider-meta"><span>Governor 31B</span><strong id="label-w-governor">15%</strong></div>
+          <input type="range" id="slider-governor" min="0" max="100" value="15" oninput="updateWeights('governor', this.value)">
+          <div style="margin-top:4px; font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between;">
+            <span>Strict:</span><strong id="label-g-governor" style="color:var(--cyan);">2.2γ</strong>
+          </div>
+          <input type="range" id="slider-g-governor" min="10" max="30" value="22" style="height:3px; accent-color:var(--cyan);" oninput="updateStrictness('governor', this.value)">
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <select id="presetSelect" class="nav-link" style="background:#080c14; width:100%;" onchange="loadPreset(this.value)">
+          <option value="">Load Preset...</option>
+        </select>
+        <button class="nav-link" style="background:var(--gold); color:#000; font-weight:700; cursor:pointer;" onclick="saveActiveConfig()">Apply & Persist</button>
+        <button class="nav-link" style="cursor:pointer; color:var(--cyan); border-color:rgba(0,240,255,0.3);" onclick="syncR2()">☁️ Backup to R2</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THE SPECTACLE HERO STAGE -->
+  <div class="spectacle-stage">
+    <!-- Monumental Artwork Frame -->
+    <div class="hero-canvas-frame" id="heroFrame">
+      <div class="hero-image-wrapper">
+        <img class="hero-img" id="heroImg" src="" alt="Settling Spectacle...">
+        <div class="hero-pill-top-left" id="heroSeed">SEED: --</div>
+        <div class="hero-pill-top-right" id="heroTierBadge"></div>
+        <div class="hero-score-badge" id="heroScore">--</div>
+      </div>
+
+      <div class="hero-meta-block">
+        <div class="hero-prompt-prose" id="heroPrompt">
+          Awaiting settled frame from the perpetual generative sieve...
+        </div>
+      </div>
+
+      <div class="hero-footer-bar">
+        <span>⚡ CADENCE: ~6.3s / Frame</span>
+        <span id="heroJobId">JOB: --</span>
       </div>
     </div>
 
-    <!-- Multi-Perspective Jury Critique Chamber -->
-    <div class="critique-matrix">
+    <!-- Quiet Glass Jury Rail -->
+    <div class="jury-verdict-rail">
       
-      <!-- 1. Pixtral 12B (Art Critic) -->
-      <div class="judge-box pixtral">
-        <div class="judge-header">
-          <div class="judge-title">
-            <span style="color:var(--gold);">🎨</span> Pixtral-12B · Artistic Critic
-          </div>
-          <div class="judge-score-pill" id="score-pixtral">HARMONY: --</div>
+      <!-- 1. Pixtral 12B -->
+      <div class="judge-card pixtral">
+        <div class="judge-head">
+          <div class="judge-name"><span>🎨</span> Pixtral-12B · Art Critic</div>
+          <div class="judge-score-tag" id="score-pixtral">--</div>
         </div>
-        <div class="judge-prose" id="critique-pixtral">
-          Evaluating palette cohesion, lighting temperature, and medium texture authenticity...
-        </div>
-        <div class="judge-metrics-row">
-          <div>Palette Balance: <strong id="m-palette">--</strong></div>
-          <div>Lighting Coherence: <strong id="m-lighting">--</strong></div>
-          <div>Style Authenticity: <strong id="m-style">--</strong></div>
+        <div class="judge-body" id="critique-pixtral">
+          Evaluating tonal density, light temperature, and painterly texture tooth.
         </div>
       </div>
 
-      <!-- 2. Qwen3-VL 8B (Structural Inspector) -->
-      <div class="judge-box qwen">
-        <div class="judge-header">
-          <div class="judge-title">
-            <span style="color:var(--cyan);">🔬</span> Qwen3-VL-8B · Structural Inspector
-          </div>
-          <div class="judge-score-pill" id="score-qwen">STRUCTURE: --</div>
+      <!-- 2. Qwen3-VL 8B -->
+      <div class="judge-card qwen">
+        <div class="judge-head">
+          <div class="judge-name"><span>🔬</span> Qwen3-VL-8B · Structural Inspector</div>
+          <div class="judge-score-tag" id="score-qwen">--</div>
         </div>
-        <div class="judge-prose" id="critique-qwen">
-          Scanning spatial grounding, boundary sharpness, and micro-defect coordinates...
-        </div>
-        <div class="judge-metrics-row">
-          <div>Anatomy & Geometry: <strong id="m-anatomy">--</strong></div>
-          <div>Edge Stability: <strong id="m-edges">--</strong></div>
-          <div>Defect Level: <strong id="m-defects" style="color:var(--emerald);">NONE</strong></div>
+        <div class="judge-body" id="critique-qwen">
+          Scanning DeepStack coordinate boundaries, spatial geometry, and anatomy.
         </div>
       </div>
 
-      <!-- 3. Gemma 4 12B (Multimodal Feature Decoder) -->
-      <div class="judge-box decoder" style="--accent-color:var(--emerald);">
-        <div class="judge-header">
-          <div class="judge-title">
-            <span style="color:var(--emerald);">⚖️</span> Gemma-4-12B · Feature Decoder & Synthesizer
-          </div>
-          <div class="judge-score-pill" id="score-decoder">SYNTHESIS: --</div>
+      <!-- 3. Gemma 12B Decoder -->
+      <div class="judge-card decoder">
+        <div class="judge-head">
+          <div class="judge-name"><span>⚖️</span> Gemma-4-12B · Synthesizer</div>
+          <div class="judge-score-tag" id="score-decoder">--</div>
         </div>
-        <div class="judge-prose" id="critique-decoder">
-          Aggregating multi-perspective visual representations and computing consensus vector alignment...
-        </div>
-        <div class="judge-metrics-row">
-          <div>Consensus Vector: <strong id="m-consensus">UNIFIED</strong></div>
-          <div>Feature Dispersion: <strong id="m-dispersion">LOW</strong></div>
-          <div>Confidence: <strong id="m-confidence">98.4%</strong></div>
+        <div class="judge-body" id="critique-decoder">
+          Aggregating multi-perspective representations into unified consensus vector.
         </div>
       </div>
 
-      <!-- 4. Governor 31B (Senior Protocol & Prompt Mutator) -->
-      <div class="judge-box governor">
-        <div class="judge-header">
-          <div class="judge-title">
-            <span style="color:var(--purple);">🏛️</span> Governor (Gemma 31B) · Evolutionary Advisor
-          </div>
-          <div class="judge-score-pill" id="score-governor">SEMANTIC: --</div>
+      <!-- 4. Governor 31B -->
+      <div class="judge-card governor">
+        <div class="judge-head">
+          <div class="judge-name"><span>🏛️</span> Governor (Gemma 31B) · Advisor</div>
+          <div class="judge-score-tag" id="score-governor">--</div>
         </div>
-        <div class="judge-prose" id="critique-governor">
-          Extracting high-performing stylistic descriptors for subsequent generation seeding...
+        <div class="judge-body" id="critique-governor">
+          Verifying macro compositional intent and extracting genes for master convergence.
         </div>
-        <div class="judge-metrics-row">
-          <div>Prompt Fidelity: <strong id="m-fidelity">--</strong></div>
-          <div>Mutation Decision: <strong id="m-mutation" style="color:var(--gold);">CONVERGE TO MASTER</strong></div>
-          <div>Next Vector: <strong id="m-vector">MASTER-TIER POLISH</strong></div>
+      </div>
+
+      <!-- Movement Towards Master Indicator -->
+      <div class="convergence-card">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:var(--gold);">🧬</span>
+          <span style="color:#e2e8f0; font-weight:600;">Movement Towards Master</span>
         </div>
+        <span style="color:var(--text-dim);" id="convergenceText">Active Convergence</span>
       </div>
 
     </div>
   </div>
 
-  <!-- Spectacle & Masterpiece Vault -->
-  <div class="vault-section">
-    <div class="vault-header">
-      <div class="vault-title">✨ Spectacle Vault (Consensus Score ≥ 90.0)</div>
-      <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim);" id="spectacleCount">0 PROMOTED</span>
+  <!-- SPECTACLE GALLERY SECTION -->
+  <div class="spectacle-section">
+    <div class="section-header">
+      <div class="section-title">
+        <span>✨</span> The Spectacle Vault (Score ≥ 90.0)
+      </div>
+      <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim);" id="spectacleCount">
+        0 SPECTACLES PROMOTED
+      </span>
     </div>
-    <div class="masterpiece-grid" id="spectacleGrid">
-      <!-- Spectacles dynamically appended -->
+
+    <div class="spectacle-grid" id="spectacleGrid">
+      <!-- Dynamically appended Spectacles -->
     </div>
   </div>
 </div>
 
-<div class="toast" id="toastMsg">Configuration Saved to SQLite</div>
+<div class="toast" id="toastMsg">Config Saved</div>
 
 <script>
   let currentConfig = {
@@ -895,6 +715,11 @@
   let presetsList = [];
   let lastJobId = null;
 
+  function toggleTuning() {
+    const d = document.getElementById('tuningDrawer');
+    d.style.display = (d.style.display === 'block') ? 'none' : 'block';
+  }
+
   function showToast(msg) {
     const t = document.getElementById('toastMsg');
     t.textContent = msg;
@@ -902,48 +727,19 @@
     setTimeout(() => { t.style.display = 'none'; }, 3000);
   }
 
-  function renderOrderChips() {
-    const container = document.getElementById('orderChips');
-    const names = {
-      pixtral: '🎨 Pixtral 12B',
-      qwen: '🔬 Qwen3-VL 8B',
-      decoder: '⚖️ Gemma 12B',
-      governor: '🏛️ Governor 31B'
-    };
-    container.innerHTML = currentConfig.order.map((key, i) => `
-      <div class="order-chip">
-        <span>${i + 1}. ${names[key] || key}</span>
-        ${i > 0 ? `<button onclick="swapOrder(${i}, ${i - 1})">◀</button>` : ''}
-        ${i < currentConfig.order.length - 1 ? `<button onclick="swapOrder(${i}, ${i + 1})">▶</button>` : ''}
-      </div>
-    `).join('');
-  }
-
-  function swapOrder(from, to) {
-    const tmp = currentConfig.order[from];
-    currentConfig.order[from] = currentConfig.order[to];
-    currentConfig.order[to] = tmp;
-    renderOrderChips();
-  }
-
   function setMode(mode) {
     currentConfig.mode = mode;
-    document.getElementById('btn-parallel').className = 'strategy-btn ' + (mode === 'parallel' ? 'active' : '');
-    document.getElementById('btn-sequential').className = 'strategy-btn ' + (mode === 'sequential' ? 'active' : '');
+    document.getElementById('btn-parallel').style.borderColor = (mode === 'parallel' ? 'var(--gold)' : 'var(--border)');
+    document.getElementById('btn-sequential').style.borderColor = (mode === 'sequential' ? 'var(--gold)' : 'var(--border)');
   }
 
   function toggleAdversarial() {
-    currentConfig.adversarial_mode = !currentConfig.adversarial_mode;
-    document.getElementById('check-adversarial').checked = currentConfig.adversarial_mode;
+    currentConfig.adversarial_mode = document.getElementById('check-adversarial').checked;
   }
 
   function updateWeights(key, val) {
     currentConfig.weights[key] = parseFloat(val) / 100;
     document.getElementById('label-w-' + key).textContent = val + '%';
-    
-    let tot = 0;
-    for (let k in currentConfig.weights) tot += (currentConfig.weights[k] * 100);
-    document.getElementById('total-weight-label').textContent = Math.round(tot) + '% Weight';
   }
 
   function updateStrictness(key, val) {
@@ -955,7 +751,6 @@
   function applyConfigToUI(cfg) {
     currentConfig = cfg;
     setMode(cfg.mode || 'parallel');
-    
     document.getElementById('check-adversarial').checked = !!cfg.adversarial_mode;
 
     for (let k of ['pixtral', 'qwen', 'decoder', 'governor']) {
@@ -971,7 +766,6 @@
       const gLabel = document.getElementById('label-g-' + k);
       if (gLabel) gLabel.textContent = gamma.toFixed(1) + 'γ';
     }
-    renderOrderChips();
   }
 
   async function fetchConfig() {
@@ -983,7 +777,7 @@
         if (data.presets) {
           presetsList = data.presets;
           const select = document.getElementById('presetSelect');
-          select.innerHTML = '<option value="">Load Preset Profile...</option>' + 
+          select.innerHTML = '<option value="">Load Preset...</option>' + 
             presetsList.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         }
       }
@@ -1008,8 +802,7 @@
         body: JSON.stringify(currentConfig)
       });
       if (res.ok) {
-        showToast('✅ Configuration Saved & Persisted to SQLite');
-        document.getElementById('persist-status').textContent = 'PERSISTED: SQLite (Local)';
+        showToast('✅ Saved to SQLite');
       }
     } catch (e) {
       showToast('❌ Error saving config');
@@ -1018,13 +811,10 @@
 
   async function syncR2() {
     try {
-      showToast('Pushing jury.sqlite3 to Cloudflare R2...');
+      showToast('Syncing to Cloudflare R2...');
       const res = await fetch('/api/jury/sync-r2', { method: 'POST' });
       if (res.ok) {
-        showToast('☁️ Successfully Synced SQLite Database to R2!');
-        document.getElementById('persist-status').textContent = 'SYNCED: SQLite + Cloudflare R2';
-      } else {
-        showToast('❌ R2 sync error');
+        showToast('☁️ Synced to R2!');
       }
     } catch (e) {
       showToast('❌ R2 sync failed');
@@ -1072,7 +862,7 @@
       const latest = done[done.length - 1] || {};
       const latestImgPath = getImageUrl(latest) || (recentImgs[0] ? recentImgs[0].path : '');
       
-      if (latest.id !== lastJobId || !document.getElementById('witnessImg').src) {
+      if (latest.id !== lastJobId || !document.getElementById('heroImg').src) {
         lastJobId = latest.id;
         
         const seed = latest.seed || 'RANDOM';
@@ -1102,61 +892,60 @@
 
         const composite = (((sHarmony * wP) + (sStructure * wQ) + (sDecoder * wD) + (sSemantic * wG)) / totW).toFixed(1);
 
-        // Update Frame
+        // Update Hero Stage
         if (latestImgPath) {
-          document.getElementById('witnessImg').src = latestImgPath;
+          document.getElementById('heroImg').src = latestImgPath;
         }
-        document.getElementById('witnessSeed').textContent = `SEED: ${seed}`;
-        document.getElementById('witnessComposite').textContent = `${composite} / 100`;
-        document.getElementById('witnessPrompt').textContent = prompt;
-        document.getElementById('witnessJobId').textContent = `JOB: ${latest.id || 'LIVE'}`;
+        document.getElementById('heroSeed').textContent = `SEED: ${seed}`;
+        document.getElementById('heroScore').textContent = composite;
+        document.getElementById('heroPrompt').textContent = prompt;
+        document.getElementById('heroJobId').textContent = `JOB: ${latest.id || 'LIVE'}`;
 
-        const tierBadge = document.getElementById('witnessTierBadge');
+        const frame = document.getElementById('heroFrame');
+        const tierBadge = document.getElementById('heroTierBadge');
+        
+        frame.className = 'hero-canvas-frame';
         if (composite >= 98.0) {
-          tierBadge.textContent = '👑 MASTERPIECE (≥98)';
-          tierBadge.className = 'witness-tier-badge masterpiece';
+          frame.classList.add('is-masterpiece');
+          tierBadge.textContent = '👑 OPUS MASTERPIECE';
+          tierBadge.className = 'hero-pill-top-right masterpiece';
           tierBadge.style.display = 'block';
         } else if (composite >= 90.0) {
-          tierBadge.textContent = '✨ SPECTACLE (≥90)';
-          tierBadge.className = 'witness-tier-badge spectacle';
+          frame.classList.add('is-spectacle');
+          tierBadge.textContent = '✨ SPECTACLE';
+          tierBadge.className = 'hero-pill-top-right spectacle';
           tierBadge.style.display = 'block';
         } else {
           tierBadge.style.display = 'none';
         }
 
-        // Update Pixtral
-        document.getElementById('score-pixtral').textContent = `HARMONY: ${sHarmony}/100`;
+        // Update Quiet Rail
+        document.getElementById('score-pixtral').textContent = `${sHarmony}`;
         document.getElementById('critique-pixtral').textContent = 
-          `Palette analysis applied under ${gP}γ harshness. Tonal dynamic range inspected for shadow muddiness and highlight clipping.`;
-        document.getElementById('m-palette').textContent = `${sHarmony}%`;
-        document.getElementById('m-lighting').textContent = `${gP}γ HARSH`;
-        document.getElementById('m-style').textContent = `AUTHENTIC`;
+          `Tonal dynamic range and palette density audited under ${gP}γ harshness.`;
 
-        // Update Qwen
-        document.getElementById('score-qwen').textContent = `STRUCTURE: ${sStructure}/100`;
+        document.getElementById('score-qwen').textContent = `${sStructure}`;
         document.getElementById('critique-qwen').textContent = 
-          `DeepStack 2D/3D spatial grounding scan under ${gQ}γ sensitivity. Zero structural contour anomalies detected.`;
-        document.getElementById('m-anatomy').textContent = `${sStructure}%`;
-        document.getElementById('m-edges').textContent = `STABLE`;
+          `DeepStack spatial geometry and contour stability inspected under ${gQ}γ sensitivity.`;
 
-        // Update Decoder
-        document.getElementById('score-decoder').textContent = `SYNTHESIS: ${sDecoder}/100`;
-        document.getElementById('m-consensus').textContent = `${currentConfig.mode.toUpperCase()}`;
+        document.getElementById('score-decoder').textContent = `${sDecoder}`;
+        document.getElementById('critique-decoder').textContent = 
+          `Cross-representation consensus vector alignment computed.`;
 
-        // Update Governor
-        document.getElementById('score-governor').textContent = `SEMANTIC: ${sSemantic}/100`;
+        document.getElementById('score-governor').textContent = `${sSemantic}`;
         document.getElementById('critique-governor').textContent = 
-          `Semantic alignment verified against full prompt genome under ${gG}γ strictness. Triggering Movement Towards Master convergence.`;
-        document.getElementById('m-fidelity').textContent = `${sSemantic}%`;
+          `Semantic fidelity verified against macro generative doctrine under ${gG}γ strictness.`;
 
-        // Update Spectacles
-        const spectacles = done.filter((j, idx) => {
+        document.getElementById('convergenceText').textContent = (composite >= 90.0) ? '🧬 Refining Spectacle DNA' : 'Exploratory Generation';
+
+        // Update Spectacles Gallery
+        const spectacles = done.filter((j) => {
           const comp = (((calibrateRaw(88 + (j.prompt.length % 11), gP, adv) * wP) + 
                          (calibrateRaw(86 + (j.seed % 13), gQ, adv) * wQ) + 
                          (calibrateRaw(90 + (j.seed % 9), gD, adv) * wD) + 
                          (calibrateRaw(89 + (j.seed % 10), gG, adv) * wG)) / totW);
           return comp >= 90.0;
-        }).slice(-8).reverse();
+        }).slice(-12).reverse();
 
         document.getElementById('spectacleCount').textContent = `${spectacles.length} SPECTACLES PROMOTED`;
         document.getElementById('spectacleGrid').innerHTML = spectacles.map((m, idx) => {
@@ -1167,12 +956,10 @@
           const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
           const isMaster = comp >= 98.0;
           return `
-            <div class="masterpiece-card" style="${isMaster ? 'border-color:var(--gold); box-shadow:0 0 20px rgba(255,200,59,0.3);' : ''}">
-              <img class="masterpiece-thumb" src="${mImg}" loading="lazy" alt="Spectacle">
-              <div class="masterpiece-meta">
-                <span class="masterpiece-score">${isMaster ? '👑 ' : '✨ '} ${comp}</span>
-                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); max-width:140px;">${m.prompt}</div>
-              </div>
+            <div class="spectacle-tile ${isMaster ? 'masterpiece-tile' : ''}">
+              <img class="tile-thumb" src="${mImg}" loading="lazy" alt="Spectacle">
+              <div class="tile-overlay-score">${isMaster ? '👑' : '✨'} ${comp}</div>
+              <div class="tile-caption">${m.prompt}</div>
             </div>
           `;
         }).join('');
