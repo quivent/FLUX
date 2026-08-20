@@ -316,6 +316,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/portraits", s.portraits)
 	mux.HandleFunc("/portraits/", s.portraits)
+	mux.HandleFunc("/movement", s.movement)
+	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/motion-work", s.movement)
+	mux.HandleFunc("/motion-work/", s.movement)
 	mux.HandleFunc("/portal", s.portalPage)
 	mux.HandleFunc("/portal/", s.portalPage)
 	mux.HandleFunc("/garden", s.gardenPage)
@@ -612,7 +616,11 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 // movement presents one live authored path. The exhibition is a second,
 // collection-level surface that places it beside the Stallion atlas.
 func (s Server) movement(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/movement/" {
+	if r.URL.Path == "/movement/" || r.URL.Path == "/motion-work/" {
+		http.Redirect(w, r, "/movement", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path == "/motion-work" {
 		http.Redirect(w, r, "/movement", http.StatusPermanentRedirect)
 		return
 	}
