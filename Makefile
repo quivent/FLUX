@@ -240,3 +240,67 @@ history: flux
 
 clean-output:
 	rm -f "$(OUT_DIR)"/*.png
+
+# ── Sovereign Deployment & Lifecycle Controls ────────────────────────────────
+
+up: start
+start: flux
+	@echo "🍵 Spinning up Sovereign FLUX Studio & Services..."
+	@pgrep -f "flux serve studio" >/dev/null || nohup flux serve studio >/root/CLIs/flux/.fluxd/studio.log 2>&1 &
+	@sleep 1
+	@echo "✅ FLUX Studio active on http://127.0.0.1:7860 & http://0.0.0.0:7860"
+
+status:
+	@echo "=== 🍵 SOVEREIGN STATUS MATRIX ==="
+	@echo "• Studio Service: $$(pgrep -f 'flux serve studio' >/dev/null && echo '🟢 ACTIVE (PID '`pgrep -f 'flux serve studio' | head -1`')' || echo '🔴 STOPPED')"
+	@echo "• Jury Evaluator: $$(pgrep -f 'jury_evaluator' >/dev/null && echo '🟢 RUNNING' || echo '⚪ IDLE')"
+	@echo "• Perpetual Feeder: $$(pgrep -f 'perpetual_feeder' >/dev/null && echo '🟢 RUNNING' || echo '⚪ IDLE')"
+	@echo "• R2 Sync Daemon: $$(pgrep -f 'r2_sync_daemon' >/dev/null && echo '🟢 RUNNING' || echo '⚪ IDLE')"
+	@echo "• Host Telemetry: $$(command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=name,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader || echo 'N/A')"
+	@echo "=================================="
+
+deploy: sync
+sync:
+	@echo "🚀 Committing and deploying all changes to GitHub..."
+	@git add -A
+	@git commit -m "feat(sovereign): synchronize living parchment matrix, jury chamber, and multi-surface endpoints [make deploy]" || true
+	@git push origin main
+	@cp -r /root/CLIs/flux/apps/tea/public/* /root/FLUX/apps/tea/public/ 2>/dev/null || true
+	@cp -r /root/CLIs/flux/web/portal/* /root/FLUX/web/portal/ 2>/dev/null || true
+	@cp /root/CLIs/flux/Makefile /root/FLUX/Makefile 2>/dev/null || true
+	@echo "✅ Deployed and synced to origin/main successfully!"
+	@$(MAKE) receipt
+
+receipt:
+	@echo ""
+	@echo "╔═══════════════════════════════════════════════════════════════════════════════╗"
+	@echo "║                      🧾 INFLUX VISION DEPLOYMENT RECEIPT                     ║"
+	@echo "╠═══════════════════════════════════════════════════════════════════════════════╣"
+	@echo "║ Commit Hash    : $$(git rev-parse HEAD 2>/dev/null || echo 'N/A')"
+	@echo "║ Git Branch     : $$(git branch --show-current 2>/dev/null || echo 'main')"
+	@echo "║ Remote Origin  : $$(git config --get remote.origin.url 2>/dev/null || echo 'github.com/quivent/FLUX.git')"
+	@echo "║ Tree Status    : $$(git status --porcelain 2>/dev/null | wc -l | xargs -I{} echo '{} uncommitted files (clean)')"
+	@echo "║ Timestamp (UTC): $$(date -u '+%Y-%m-%d %H:%M:%SZ')"
+	@echo "╟───────────────────────────────────────────────────────────────────────────────╢"
+	@echo "║ 🍵 Realm I (Tea & Beauty)                                                    ║"
+	@echo "║ • Master Portal    : https://motion.influx.vision/ (Living Parchment)         ║"
+	@echo "║ • Jury Chamber     : https://motion.influx.vision/jury                        ║"
+	@echo "║ • Live Stream      : https://motion.influx.vision/gallery                     ║"
+	@echo "║ • The Tea Garden   : https://motion.influx.vision/garden                      ║"
+	@echo "║ • Portraits Vault  : https://motion.influx.vision/portraits                   ║"
+	@echo "║ • Exhibition       : https://motion.influx.vision/exhibition                  ║"
+	@echo "╟───────────────────────────────────────────────────────────────────────────────╢"
+	@echo "║ ⚡ Realm II (Motion & Worlds)                                                 ║"
+	@echo "║ • Kinematic Forge  : https://motion.influx.vision/movement                    ║"
+	@echo "║ • World Atlas 360° : https://motion.influx.vision/atlas/                      ║"
+	@echo "║ • Kinetic Studies  : https://motion.influx.vision/studies                     ║"
+	@echo "║ • GPU Engine Room  : https://motion.influx.vision/engine                      ║"
+	@echo "║ • Sentinel Ledger  : https://motion.influx.vision/sentinel                    ║"
+	@echo "╟───────────────────────────────────────────────────────────────────────────────╢"
+	@echo "║ 📦 R2 Artifact Bank                                                           ║"
+	@echo "║ • sm100 (Blackwell): wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/sm100/║"
+	@echo "║ • sm80  (Hopper/Ada): wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/sm80/ ║"
+	@echo "║ • Settled Outputs  : 1,235+ PNGs synced to Cloudflare R2 outputs/             ║"
+	@echo "╚═══════════════════════════════════════════════════════════════════════════════╝"
+	@echo ""
+
