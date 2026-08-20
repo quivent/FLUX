@@ -924,6 +924,12 @@ func arcaneCmd(cfg config.Config, args []string) error {
 		return download(cfg, args[1:])
 	case "provision", "setup", "install":
 		return provisionArcane(cfg)
+	case "plan":
+		rem := "A solitary Arcane vigilante in the rain-soaked alleys of Zaun, mechanical arm glowing with chemtech emerald light, sharp angular jawline, visible gouache brushwork"
+		if len(args) > 1 {
+			rem = strings.Join(args[1:], " ")
+		}
+		return render(cfg, []string{"--preset", "arcane-hero", "--dry-run", "--echo", rem})
 	case "zaun":
 		rem := strings.Join(args[1:], " ")
 		return render(cfg, []string{"--preset", "arcane-zaun", rem})
