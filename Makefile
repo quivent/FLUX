@@ -271,6 +271,11 @@ sync:
 	@echo "✅ Deployed and synced to origin/main successfully!"
 	@$(MAKE) receipt
 
+deploy-b300: sync
+	@echo "👑 Deploying and launching latest protocol on B300 node (95.133.254.17)..."
+	@ssh -o BatchMode=yes root@95.133.254.17 'cd /root/FLUX && git pull origin main && go build -o /usr/local/bin/flux ./cmd/flux && pkill -f "flux serve" || true && sleep 1 && nohup /usr/local/bin/flux serve studio --unsafe-no-auth --addr 0.0.0.0:7860 > /root/FLUX/.fluxd/studio.log 2>&1 &'
+	@echo "✅ B300 Sovereign Node successfully updated & running live at https://b300.influx.vision/"
+
 receipt:
 	@echo ""
 	@echo "╔═══════════════════════════════════════════════════════════════════════════════╗"
