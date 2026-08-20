@@ -958,16 +958,20 @@ func provisionArcane(cfg config.Config) error {
 	ui.Header("provision arcane", "provisioning Fortiche Arcane production environment")
 	
 	// 1. Check & link models
-	hfSnapshot := filepath.Join(cfg.Root, ".cache", "huggingface", "hub", "models--black-forest-labs--FLUX.1-dev", "snapshots")
-	matches, _ := filepath.Glob(filepath.Join(hfSnapshot, "*"))
-	if len(matches) > 0 {
-		target := matches[0]
-		_ = os.MkdirAll("/models", 0777)
-		_ = os.Remove("/models/flux1")
-		_ = os.Symlink(target, "/models/flux1")
-		ui.KV("model", "/models/flux1 -> "+target)
+	if info, err := os.Stat("/models/flux1"); err == nil && info.IsDir() {
+		ui.KV("model", ui.State("/models/flux1 active"))
 	} else {
-		ui.KV("model", ui.Warn("snapshot not found in cache; run `flux download`"))
+		hfSnapshot := filepath.Join(cfg.Root, ".cache", "huggingface", "hub", "models--black-forest-labs--FLUX.1-dev", "snapshots")
+		matches, _ := filepath.Glob(filepath.Join(hfSnapshot, "*"))
+		if len(matches) > 0 {
+			target := matches[0]
+			_ = os.MkdirAll("/models", 0777)
+			_ = os.Remove("/models/flux1")
+			_ = os.Symlink(target, "/models/flux1")
+			ui.KV("model", "/models/flux1 -> "+target)
+		} else {
+			ui.KV("model", ui.Warn("snapshot not found in cache; run `flux download`"))
+		}
 	}
 
 	// 2. Check GPU & Python environment
