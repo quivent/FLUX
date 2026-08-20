@@ -2844,7 +2844,7 @@ func everythingCmd(cfg config.Config) error {
 	
 	// 1. FLUX.1-dev resident status
 	client := daemon.New(cfg)
-	if client.Running() {
+	if _, err := client.Request(map[string]any{"op": "ping"}); err == nil {
 		ui.KV("flux1-dev", ui.State("RESIDENT IN VRAM (32.8 GiB)")+" - "+ui.Soft("already loaded, skipping reload"))
 	} else {
 		ui.KV("flux1-dev", ui.State("starting resident worker..."))
