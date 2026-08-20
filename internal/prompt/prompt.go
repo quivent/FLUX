@@ -162,6 +162,12 @@ var OrderedPresets = []Preset{
 	{"arcane-zaun", "arcane", "ominous", "wide", 30, 3.6, "Zaun undercity chemtech atmosphere"},
 	{"arcane-piltover", "fortiche", "optimistic", "wide", 30, 3.5, "Piltover gilded architectural grandeur"},
 	{"arcane-turn", "arcane", "clinical", "square", 28, 3.5, "64-frame character turnaround cell"},
+	{"arcane-jinx", "arcane", "fever", "poster", 30, 3.5, "chaotic loose cannon, electric blue braids, neon graffiti haze, gouache brushwork"},
+	{"arcane-vi", "arcane", "electric", "poster", 30, 3.5, "athletic underground brawler, hydraulic gauntlets, pink undercut, amber chiaroscuro"},
+	{"arcane-viktor", "arcane", "melancholy", "portrait", 30, 3.4, "brilliant frail alchemist, glowing violet hexcore cane, textured oil impasto"},
+	{"arcane-jayce", "fortiche", "optimistic", "wide", 30, 3.5, "gilded high defender, hextech warhammer, gold-trimmed white armor, radiant rim light"},
+	{"arcane-silco", "arcane", "nocturne", "portrait", 32, 3.6, "scarred crime lord, glowing orange prosthetic eye, toxic emerald shadows"},
+	{"arcane-ekko", "arcane", "electric", "wide", 30, 3.5, "firelight leader, hourglass face paint, kinetic hoverboard action, vibrant neon rim"},
 }
 
 func Compose(base string, s Shape) (string, error) {
