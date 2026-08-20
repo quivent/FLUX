@@ -363,6 +363,7 @@
     .card-atelier { --card-accent: var(--gold); --card-glow: var(--gold-glow); }
     .card-atlas { --card-accent: #38bdf8; --card-glow: rgba(56, 189, 248, 0.18); }
     .card-rosarium { --card-accent: var(--rose); --card-glow: var(--rose-glow); }
+    .card-engine { --card-accent: var(--gold); --card-glow: var(--gold-glow); }
 
     footer {
       border-top: 1px solid var(--border);
@@ -576,6 +577,32 @@
         <div class="card-footer">
           <span>ESTATE: 7,218 Curated Works</span>
           <span>STATIC VAULT</span>
+        </div>
+      </a>
+
+      <!-- 7. The Engine Room -->
+      <a class="app-card card-engine" href="/engine">
+        <div>
+          <div class="card-top">
+            <span class="app-badge">GPU Kinetics & Telemetry</span>
+            <span class="app-route">/engine</span>
+          </div>
+          <div class="card-body">
+            <h4>The Engine Room <span class="arrow">→</span></h4>
+            <p>
+              Kinetic GPU power matrix, spinning mechanical gear train, live 28-step flow-matching reactor,
+              active power draw (~690W), and workload tenant monitors.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/engine">Gears & Kinetics</a>
+            <a class="subroute-tag" href="/api/telemetry">/api/telemetry</a>
+            <a class="subroute-tag" href="/api/jobs">/api/jobs</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>HARDWARE: NVIDIA H200 SXM</span>
+          <span>LIVE DIALS</span>
         </div>
       </a>
 
