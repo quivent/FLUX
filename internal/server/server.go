@@ -326,6 +326,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/movement/", s.movement)
 	mux.HandleFunc("/motion-work", s.movement)
 	mux.HandleFunc("/motion-work/", s.movement)
+	mux.HandleFunc("/arcane", s.arcanePage)
+	mux.HandleFunc("/arcane/", s.arcanePage)
 	mux.HandleFunc("/engine", s.enginePage)
 	mux.HandleFunc("/engine/", s.enginePage)
 	mux.HandleFunc("/engine-room", s.enginePage)
@@ -398,6 +400,7 @@ var readOnlyPaths = []string{
 	"/portraits",
 	"/movement",
 	"/studies",
+	"/arcane",
 	"/sentinel",
 	"/exhibition",
 	"/atelier",
@@ -552,6 +555,21 @@ func (s Server) portalPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "portal", "index.html"))
+}
+
+func (s Server) arcanePage(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/arcane")
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "index.html" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "arcane.html"))
+		return
+	}
+	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
+	if info, err := os.Stat(file); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, file)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "arcane.html"))
 }
 
 func (s Server) enginePage(w http.ResponseWriter, r *http.Request) {
