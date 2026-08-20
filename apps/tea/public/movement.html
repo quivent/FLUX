@@ -58,4 +58,4 @@ function route(url,name){accept(url,name);acceptLate(url);acceptStep(url)}
 async function bootstrap(){try{let offset=0,all=[];while(true){const r=await fetch('/api/recent-images?scope=movement&limit=200&offset='+offset,{cache:'no-store'}),j=await r.json(),page=j.images||[];all.push(...page);offset+=page.length;if(!page.length||offset>=Number(j.total||0))break}all.reverse().forEach(x=>route(x.path||x.url,x.name))}catch(_){$('state-text').textContent='Waiting for the first state'}connect()}
 function connect(){socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/assets/ws');socket.onmessage=message=>{try{const event=JSON.parse(message.data),asset=event.asset||event;route(asset.access_url||asset.url,asset.name)}catch(_){}};socket.onclose=()=>setTimeout(connect,1800);socket.onerror=()=>socket.close();sentinel=new EventSource('/api/sentinel/events');sentinel.addEventListener('sentinel',event=>{try{acceptQueue(JSON.parse(event.data).queue)}catch(_){}})}
 renderJobs();bootstrap();
-</script></body></html>
+</script><script src="/assets/sensory.js"></script></body></html>

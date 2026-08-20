@@ -69,5 +69,5 @@ async function bootstrap(){try{const r=await fetch('/api/recent-images?scope=mov
 function connect(){socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/assets/ws');socket.onmessage=message=>{try{const event=JSON.parse(message.data),asset=event.asset||event;accept(asset.access_url||asset.url,asset.name)}catch(_){}};socket.onclose=()=>setTimeout(connect,1800);socket.onerror=()=>socket.close()}
 bootstrap();
 </script>
-</body>
+<script src="/assets/sensory.js"></script></body>
 </html>
