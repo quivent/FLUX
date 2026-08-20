@@ -23,7 +23,7 @@ VENV_PY := $(VENV)/bin/python
 GMAN_FLUX := scripts/gman-flux.sh
 NODE ?= flux-worker
 
-.PHONY: tea-setup tea-check tea-dev tea-rubric chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
+.PHONY: beauty-build beauty-warm beauty-pull beauty-up beauty-doctor tea-setup tea-check tea-dev tea-rubric chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
 
 help:
 	@echo "Targets:"
@@ -36,6 +36,13 @@ help:
 	@echo "  make tea-check  Run Tea, server, and object-motion rubric checks"
 	@echo "  make tea-dev    Serve Tea locally on DEV_ADDR"
 	@echo "  make tea-rubric Run the fail-closed Stallion adversarial fixtures"
+	@echo ""
+	@echo "Beauty studies stack (deploy/beauty/Dockerfile):"
+	@echo "  make beauty-build   Build the stack image from the repo Dockerfile"
+	@echo "  make beauty-warm    Build with model weights baked in (needs HF_TOKEN)"
+	@echo "  make beauty-pull    Fetch the prebuilt 10.5 GiB archive from R2"
+	@echo "  make beauty-doctor  Check container posture vs governor and card"
+	@echo "  make beauty-up      Run the stack with a persistent model cache"
 	@echo "  make motion-install  Install all Motion Atlas dependencies and model"
 	@echo "  make motion-dev      Install and serve Motion Atlas locally"
 	@echo "  make motion-prod     Install and serve Motion Atlas on PROD_ADDR (auth required)"
@@ -170,6 +177,30 @@ flux: go-build
 	./flux install
 
 install: flux
+
+# The beauty studies stack. deploy/beauty/Dockerfile is the source of truth;
+# the R2 archive (containers/h200-beauty-studies-latest.tar.zst) is a snapshot
+# of one build and carries the defects recorded in beauty.manifest.json.
+beauty-stage: go-build
+	@mkdir -p deploy/beauty/bin
+	@cp flux deploy/beauty/bin/flux
+	@command -v gemstone >/dev/null 2>&1 && cp "$$(command -v gemstone)" deploy/beauty/bin/gemstone \
+		|| echo "gemstone not on PATH; stage deploy/beauty/bin/gemstone by hand"
+
+beauty-build: beauty-stage
+	./flux beauty build
+
+beauty-warm: beauty-stage
+	./flux beauty warm
+
+beauty-pull: go-build
+	./flux beauty pull
+
+beauty-doctor: go-build
+	./flux beauty doctor
+
+beauty-up: go-build
+	./flux beauty up
 
 tea-setup: setup go-build
 	./flux tea setup

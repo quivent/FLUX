@@ -62,6 +62,8 @@ func main() {
 		err = atelier(cfg, os.Args[2:])
 	case "tea":
 		err = tea(cfg, os.Args[2:])
+	case "beauty", "studies":
+		err = beauty(cfg, os.Args[2:])
 	case "atlas":
 		err = atlas(cfg, os.Args[2:])
 	case "anime":
@@ -5833,7 +5835,12 @@ func juryCmd(cfg config.Config, args []string) error {
 		sub := args[0]
 		switch sub {
 		case "provision":
-			cmd := exec.Command("/root/CLIs/flux/provision_jury.sh")
+			script := filepath.Join(cfg.Root, "provision_jury.sh")
+			if _, err := os.Stat(script); err != nil {
+				return fmt.Errorf("jury provisioning script not found at %s: %w", script, err)
+			}
+			cmd := exec.Command("bash", script)
+			cmd.Dir = cfg.Root
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			return cmd.Run()

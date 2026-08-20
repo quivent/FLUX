@@ -10,3 +10,7 @@ outputs/
 serve.log
 .build_num
 *.log
+
+# beauty stack build context: binaries are staged, never committed
+deploy/beauty/bin/
+.beauty/

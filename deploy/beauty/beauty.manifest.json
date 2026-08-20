@@ -1,0 +1,67 @@
+{
+  "apiVersion": "flux.influx.vision/v1alpha1",
+  "kind": "BeautyStack",
+  "metadata": {
+    "name": "h200-beauty-studies",
+    "purpose": "Unified beauty-studies stack: FLUX Tea surface, governor gateway, and the aesthetic jury models",
+    "note": "governor.json on the governor node describes the governor's own deployment, not the beauty stack. The beauty stack's governor posture is declared here and graded against the deployment card."
+  },
+  "image": {
+    "tag": "h200-beauty-studies:latest",
+    "base": "vllm/vllm-openai:cu129-nightly-65b7662d3fcb773afaf751ab29ac6960a0cf011d",
+    "r2Bucket": "governor",
+    "r2Archive": "containers/h200-beauty-studies-latest.tar.zst",
+    "r2BuildContext": "containers/h200-beauty-studies/"
+  },
+  "ports": {
+    "tea": 7861,
+    "governorGateway": 8000,
+    "governorVllm": 9000,
+    "coder": 8001,
+    "vision": 8002
+  },
+  "models": {
+    "flux": {
+      "id": "black-forest-labs/FLUX.1-dev",
+      "role": "generative engine",
+      "approxGiB": 24,
+      "required": true
+    },
+    "governor": {
+      "id": "RedHatAI/gemma-4-31B-it-FP8-dynamic",
+      "drafter": "google/gemma-4-31B-it-assistant",
+      "role": "governor brain",
+      "approxGiB": 33,
+      "required": true,
+      "source": "provision_jury.sh, jury_continuum.toml, and the image inventory all name the FP8 build for the H200. Do NOT take this from a governor.json whose card_profile is a100 \u2014 that file carries the W4A16 4-bit cut, which exists only because an 80 GiB A100 cannot hold FP8."
+    },
+    "coder": {
+      "id": "Qwen/Qwen3.8-27B-FP8",
+      "role": "code assistant",
+      "required": false,
+      "disabledReason": "",
+      "source": "Verified on the Hub: Qwen/Qwen3.8-27B-FP8 resolves (qwen3_5, image-text-to-text). An earlier note in this file called it fabricated; that was wrong."
+    },
+    "vision": {
+      "id": "mistralai/Pixtral-12B-2409",
+      "role": "visual witness",
+      "approxGiB": 25,
+      "required": false
+    }
+  },
+  "knownDefects": [
+    "GPU fractions are not additive shares: vLLM reads --gpu-memory-utilization as an absolute fraction of the whole card and subtracts memory other processes hold. The shipped 0.40/0.22/0.20 are per-process absolutes, so co-resident servers mis-size and crashloop.",
+    "All vLLM programs autostart simultaneously, so each profiles free memory while the others are still allocating. Aux servers must wait for the governor to be healthy.",
+    "No model weights baked in and no cache mount, so every container restart re-downloads >100 GiB.",
+    "supervisord.conf omits [unix_http_server]/[rpcinterface]/[supervisorctl], so supervisorctl cannot connect and the entrypoint's shutdown trap can never fire.",
+    "Tea is served with --unsafe-no-auth bound to 0.0.0.0.",
+    "NOT a defect (verified 2026-08-20): the lowercased repo id redhatai/gemma-4-31b-it-fp8-dynamic resolves fine; the Hub 307-redirects to the canonical casing."
+  ],
+  "deployment": {
+    "host": "root@95.133.254.33",
+    "hostname": "deploygpu-a6f03f65",
+    "card": "NVIDIA H200",
+    "cardGiB": 140.4,
+    "note": "The beauty stack runs on the H200 deploy node. The local a100 box is the governor's own card (see ~/.gemstone/governor.json, card_profile a100) and is not a beauty target; do not grade the beauty VRAM budget against it."
+  }
+}

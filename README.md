@@ -68,11 +68,27 @@ cd /Users/joshkornreich/FLUX
 make flux
 ```
 
+### Beauty studies stack (container)
+
+The Tea surface, governor gateway, and aesthetic jury run together as one
+container, built from `deploy/beauty/Dockerfile`:
+
+```zsh
+make beauty-doctor   # posture vs governor.json and the card in this box
+make beauty-build    # weights stay outside the image
+make beauty-up       # run with a persistent model cache
+```
+
+A prebuilt snapshot exists at `containers/h200-beauty-studies-latest.tar.zst`
+in the `governor` R2 bucket, but it predates the current governor posture and
+carries known defects — see `deploy/beauty/README.md`. Prefer building.
+
 Once installed, use the CLI for various controls:
 
 ```zsh
 flux doctor
 flux accel
+flux beauty doctor
 flux atlas motion
 flux jobs
 ```

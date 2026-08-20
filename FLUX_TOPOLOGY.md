@@ -28,6 +28,15 @@ All visual surfaces are served via standardized CLI commands and mapped to canon
 8. **API Gateway** (`https://flux.influx.vision/api/`):
    Endpoints `/api/health`, `/api/jobs`, `/api/render`, `/api/warm`, `/api/stop`, `/outputs/*`.
 
+### Containerized Beauty Studies Stack
+The Tea surface, the Gemstone governor gateway, and the aesthetic jury models are
+packaged as a single container declared in `deploy/beauty/Dockerfile` and described
+by `deploy/beauty/beauty.manifest.json`. It is driven by `flux beauty`
+(`build`, `warm`, `pull`, `up`, `doctor`). `~/.gemstone/governor.json` is the
+authority for the governor's model and VRAM posture; the archived R2 snapshot at
+`containers/h200-beauty-studies-latest.tar.zst` predates it and is not the source
+of truth.
+
 ## 3. The 5-Phase Pipeline Execution Graph
 
 ### Phase 1: Environment Provisioning (`setup`)
