@@ -1025,26 +1025,34 @@
 
         document.getElementById('convergenceText').textContent = (composite >= 90.0) ? '🧬 Refining Spectacle DNA' : 'Exploratory Generation';
 
-        // Update Spectacles Gallery
-        const spectacles = done.filter((j) => {
-          const res = computeCompositeScore(j.prompt || '', j.seed || 0);
-          return parseFloat(res.composite) >= 90.0;
-        }).slice(-12).reverse();
-
-        document.getElementById('spectacleCount').textContent = `${spectacles.length} SPECTACLES PROMOTED`;
-        document.getElementById('spectacleGrid').innerHTML = spectacles.map((m, idx) => {
-          const res = computeCompositeScore(m.prompt || '', m.seed || 0);
-          const comp = res.composite;
-          const mImg = getImageUrl(m) || (recentImgs[idx] ? recentImgs[idx].path : '');
-          const isMaster = parseFloat(comp) >= 98.0;
-          return `
-            <div class="spectacle-tile ${isMaster ? 'masterpiece-tile' : ''}">
-              <img class="tile-thumb" src="${mImg}" loading="lazy" alt="Spectacle">
-              <div class="tile-overlay-score">${isMaster ? '👑' : '✨'} ${comp}</div>
-              <div class="tile-caption">${m.prompt}</div>
-            </div>
-          `;
-        }).join('');
+        // Update Spectacles Gallery directly from verified SQLite records
+        try {
+          const specRes = await fetch('/api/jury/spectacles', { cache: 'no-store' });
+          if (specRes.ok) {
+            const specData = await specRes.json();
+            const verifiedSpectacles = (specData.spectacles || []).slice(0, 18);
+            if (verifiedSpectacles.length > 0) {
+              document.getElementById('spectacleCount').textContent = `${specData.count || verifiedSpectacles.length} SPECTACLES PROMOTED (≥90th %ile)`;
+              document.getElementById('spectacleGrid').innerHTML = verifiedSpectacles.map((m) => {
+                const comp = (m.composite_score || 90.0).toFixed(1);
+                const isMaster = m.masterpiece === 1 || (m.percentile_rank && m.percentile_rank >= 98.0);
+                const imgPath = m.image_url || ('/outputs/' + m.job_id + '.png');
+                const pct = m.percentile_rank ? `Top ${(100 - m.percentile_rank).toFixed(1)}%` : '≥90%ile';
+                return `
+                  <div class="spectacle-tile ${isMaster ? 'masterpiece-tile' : ''}">
+                    <a href="${imgPath}" target="_blank" rel="noreferrer" style="text-decoration:none; color:inherit; display:block;">
+                      <img class="tile-thumb" src="${imgPath}" loading="lazy" alt="Spectacle" onerror="this.onerror=null; this.src='/outputs/' + this.src.split('/').pop();">
+                      <div class="tile-overlay-score">${isMaster ? '👑' : '✨'} ${comp} <span style="font-size:10px; opacity:0.85;">· ${pct}</span></div>
+                      <div class="tile-caption"><strong>SEED ${m.seed}:</strong> ${m.prompt}</div>
+                    </a>
+                  </div>
+                `;
+              }).join('');
+            }
+          }
+        } catch(err) {
+          console.warn('Error fetching verified spectacles:', err);
+        }
       }
     } catch(e) {
       console.warn('Jury poll error:', e);

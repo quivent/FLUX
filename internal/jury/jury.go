@@ -372,3 +372,56 @@ func SyncToR2(outputDir string) error {
 	}
 	return nil
 }
+
+type SpectacleItem struct {
+	JobID          string  `json:"job_id"`
+	Seed           string  `json:"seed"`
+	Prompt         string  `json:"prompt"`
+	CompositeScore float64 `json:"composite_score"`
+	RawScore       float64 `json:"raw_score"`
+	PercentileRank float64 `json:"percentile_rank"`
+	Masterpiece    int     `json:"masterpiece"`
+	CreatedAt      int64   `json:"created_at"`
+	ImageURL       string  `json:"image_url"`
+}
+
+func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
+	d, err := InitDB(outputDir)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 36
+	}
+
+	rows, err := d.Query(`
+		SELECT job_id, seed, prompt, composite_score, COALESCE(raw_score, composite_score), COALESCE(percentile_rank, composite_score), masterpiece, created_at
+		FROM jury_verdicts
+		WHERE composite_score >= 90.0 OR percentile_rank >= 90.0 OR masterpiece > 0
+		ORDER BY created_at DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []SpectacleItem
+	for rows.Next() {
+		var it SpectacleItem
+		if err := rows.Scan(&it.JobID, &it.Seed, &it.Prompt, &it.CompositeScore, &it.RawScore, &it.PercentileRank, &it.Masterpiece, &it.CreatedAt); err != nil {
+			continue
+		}
+		pattern1 := filepath.Join(outputDir, fmt.Sprintf("*%s*.png", it.JobID))
+		pattern2 := filepath.Join(outputDir, fmt.Sprintf("*seed-%s*.png", it.Seed))
+		matches, _ := filepath.Glob(pattern1)
+		if len(matches) == 0 {
+			matches, _ = filepath.Glob(pattern2)
+		}
+		if len(matches) > 0 {
+			it.ImageURL = "/outputs/" + filepath.Base(matches[0])
+		}
+		items = append(items, it)
+	}
+	return items, nil
+}

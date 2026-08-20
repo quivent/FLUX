@@ -311,6 +311,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jury/config", s.juryConfigAPI)
 	mux.HandleFunc("/api/jury/presets", s.juryPresetsAPI)
 	mux.HandleFunc("/api/jury/sync-r2", s.jurySyncR2API)
+	mux.HandleFunc("/api/jury/spectacles", s.jurySpectaclesAPI)
 	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
 	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
@@ -639,6 +640,20 @@ func (s Server) jurySyncR2API(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "synced": true, "message": "Backed up jury.sqlite3 to Cloudflare R2"})
+}
+
+func (s Server) jurySpectaclesAPI(w http.ResponseWriter, r *http.Request) {
+	items, err := jury.GetSpectacles(s.cfg.OutputDir, 48)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":         true,
+		"count":      len(items),
+		"spectacles": items,
+	})
 }
 
 // app keeps the production console available without asking a public landing
