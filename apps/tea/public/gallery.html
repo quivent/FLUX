@@ -125,7 +125,7 @@
 <script>
   // Paged, not capped. The wall held 1,184 frames while showing 96, so the
   // body of work was unreachable from the page that exists to show it.
-  const PAGE = 18, FIRST_REVEAL = 6, REVEAL_MS = 70, PORTRAITS = location.pathname.startsWith('/portraits');
+  const PAGE = 24, FIRST_REVEAL = 12, REVEAL_MS = 0, PORTRAITS = location.pathname.startsWith('/portraits');
   let offset = 0, total = 0;
   let fetching = false, opened = false;
   const $ = (id) => document.getElementById(id);
@@ -187,9 +187,6 @@
     fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
       + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
       + `<figcaption>${displayName(name, url)}</figcaption></a>`;
-    // An asset can be announced a beat before its thumbnail is renderable, and
-    // a broken-image glyph on the wall is worse than one fewer tile. Retry once,
-    // then drop it silently rather than leave a hole that looks like a failure.
     const img = fig.querySelector('img');
     img.onerror = () => {
       if (img.dataset.retried) { fig.remove(); seen.delete(url); return; }
@@ -218,16 +215,10 @@
 
   async function revealSequentially(images, firstPage) {
     if (firstPage) {
-      const first = images.slice(0, FIRST_REVEAL);
-      await Promise.race([
-        Promise.all(first.map(preload)),
-        new Promise((resolve) => setTimeout(resolve, 2200)),
-      ]);
       finishOpening(images.length > 0);
     }
     for (const im of images) {
       addCell(im.path || im.url, im.name, false, true);
-      await new Promise((resolve) => setTimeout(resolve, REVEAL_MS));
     }
   }
 
@@ -292,17 +283,54 @@
 
   function sse() {
     const es = new EventSource('/api/assets/events');
-    // The server deliberately names this stream event `asset`; onmessage only
-    // receives unnamed events and left the fallback connected but inert.
     es.addEventListener('asset', (m) => onAsset(m.data));
     es.onerror = () => { es.close(); setTimeout(stream, 2000); };
+  }
+
+  function setupJobsLiveStream() {
+    if (window.EventSource) {
+      const jobES = new EventSource('/api/jobs/events');
+      jobES.addEventListener('jobs', (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
+          for (const j of doneJobs) {
+            const url = j.output_url || ('/outputs/' + (j.output || '').split('/').pop());
+            if (url && !seen.has(url)) {
+              addCell(url, j.prompt || j.id, true, false); // Prepend to top-left!
+              total += 1;
+              $('s-collection').textContent = total;
+              updateShown();
+            }
+          }
+        } catch (_) {}
+      });
+    }
+
+    // High frequency 2.5s live sync so newly completed frames shift the wall immediately
+    setInterval(async () => {
+      try {
+        const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=12&offset=0');
+        const imgs = j.images || [];
+        for (let i = imgs.length - 1; i >= 0; i--) {
+          const im = imgs[i];
+          const url = im.path || im.url;
+          if (url && !seen.has(url)) {
+            addCell(url, im.name, true, false); // Prepend to slot 0!
+            total = j.total || (total + 1);
+            $('s-collection').textContent = total;
+            updateShown();
+          }
+        }
+      } catch (_) {}
+    }, 2500);
   }
 
   function onAsset(raw) {
     let ev;
     try { ev = JSON.parse(raw); } catch { return; }
     if (ev.event && ev.event !== 'ASSET_READY') return;
-    if (ev.replay || Number(ev.ts || 0) < streamStartedAt - 1) return; // replay never increments the collection
+    if (ev.replay || Number(ev.ts || 0) < streamStartedAt - 1) return;
     if (!baselineReady) { pendingAssets.push(ev); return; }
     onAssetEvent(ev);
   }
@@ -313,14 +341,12 @@
     if (!url) return;
     const isPortrait = String(url).startsWith('/outputs/collections/');
     if (PORTRAITS !== isPortrait || String(url).startsWith('/outputs/atlas/')) return;
-    // The public wall grows from its top-left corner. History appends below;
-    // a newly landed work enters first and the existing collection makes room.
-    if (!addCell(url, asset.name, true)) return;
+    if (!addCell(url, asset.name, true, false)) return; // Prepend to top
     total += 1;
     offset += 1;
     $('s-collection').textContent = total;
     updateShown();
   }
 
-  backfill(); stream();
+  backfill(); stream(); setupJobsLiveStream();
 </script>

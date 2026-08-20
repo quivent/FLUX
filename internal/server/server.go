@@ -316,8 +316,12 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/gallery/", s.gallery)
 	mux.HandleFunc("/portraits", s.portraits)
 	mux.HandleFunc("/portraits/", s.portraits)
-	mux.HandleFunc("/movement", s.movement)
-	mux.HandleFunc("/movement/", s.movement)
+	mux.HandleFunc("/portal", s.portalPage)
+	mux.HandleFunc("/portal/", s.portalPage)
+	mux.HandleFunc("/garden", s.gardenPage)
+	mux.HandleFunc("/garden/", s.gardenPage)
+	mux.HandleFunc("/tea", s.gardenPage)
+	mux.HandleFunc("/tea/", s.gardenPage)
 	mux.HandleFunc("/studies", s.teaStudiesPage)
 	mux.HandleFunc("/studies/", s.teaStudiesPage)
 	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
@@ -482,6 +486,49 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+func (s Server) gardenPage(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/garden")
+	rel = strings.TrimPrefix(rel, "/tea")
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "index.html" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+		return
+	}
+	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
+	if info, err := os.Stat(file); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, file)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+func (s Server) portalPage(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/portal")
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "index.html" {
+		for _, candidate := range []string{
+			filepath.Join(s.cfg.Root, "web", "portal", "index.html"),
+			filepath.Join(s.cfg.Root, "apps", "portal", "public", "index.html"),
+		} {
+			if _, err := os.Stat(candidate); err == nil {
+				http.ServeFile(w, r, candidate)
+				return
+			}
+		}
+	}
+	for _, dir := range []string{
+		filepath.Join(s.cfg.Root, "web", "portal"),
+		filepath.Join(s.cfg.Root, "apps", "portal", "public"),
+	} {
+		file := filepath.Join(dir, filepath.FromSlash(rel))
+		if info, err := os.Stat(file); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, file)
+			return
+		}
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "web", "portal", "index.html"))
 }
 
 // app keeps the production console available without asking a public landing

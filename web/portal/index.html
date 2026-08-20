@@ -2,45 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#030508">
   <title>FLUX · Influx Vision Constellation</title>
-  <meta name="description" content="Unified entry portal for the FLUX sovereign visual matrix: Tea, Rosarium, Motion Atlas, Atelier, and Studio.">
+  <meta name="description" content="Unified visual control surface and constellation portal for FLUX sovereign visual matrix.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg: #030508;
-      --bg-card: rgba(10, 14, 22, 0.75);
-      --bg-card-hover: rgba(16, 22, 36, 0.9);
+      --bg: #05070c;
+      --bg-card: rgba(13, 17, 26, 0.85);
+      --bg-card-hover: rgba(20, 28, 44, 0.95);
       --border: rgba(255, 255, 255, 0.08);
-      --border-bright: rgba(0, 240, 255, 0.35);
+      --border-hover: rgba(0, 240, 255, 0.4);
       --text: #f0f4f8;
-      --text-muted: #7e8c9f;
-      --text-dim: #4d5b6e;
+      --text-muted: #8b9bb0;
+      --text-dim: #546478;
       
       --cyan: #00f0ff;
-      --cyan-glow: rgba(0, 240, 255, 0.15);
-      --rose: #ff2a75;
-      --rose-glow: rgba(255, 42, 117, 0.15);
-      --gold: #e6af2e;
-      --gold-glow: rgba(230, 175, 46, 0.15);
+      --cyan-glow: rgba(0, 240, 255, 0.18);
+      --rose: #ff3377;
+      --rose-glow: rgba(255, 51, 119, 0.18);
+      --gold: #ffbe2e;
+      --gold-glow: rgba(255, 190, 46, 0.18);
+      --tea: #2dd4bf;
+      --tea-glow: rgba(45, 212, 191, 0.18);
+      --violet: #a855f7;
+      --violet-glow: rgba(168, 85, 247, 0.18);
       --emerald: #10b981;
-      --tea: #c49a6c;
-      --tea-glow: rgba(196, 154, 108, 0.15);
-      --violet: #8b5cf6;
-      --violet-glow: rgba(139, 92, 246, 0.15);
       
       --font-display: 'Cinzel', serif;
-      --font-condensed: 'Barlow Condensed', sans-serif;
-      --font-sans: 'Inter', sans-serif;
+      --font-sans: 'Inter', system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
       
-      --radius: 12px;
-      --radius-sm: 6px;
+      --radius: 14px;
+      --radius-sm: 8px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,7 +49,6 @@
       color: var(--text);
       font-family: var(--font-sans);
       min-height: 100vh;
-      overflow-x: hidden;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       position: relative;
@@ -63,25 +61,24 @@
       height: 100vh;
       z-index: 0;
       pointer-events: none;
-      opacity: 0.65;
+      opacity: 0.55;
     }
 
     .shell {
       position: relative;
       z-index: 1;
-      max-width: 1360px;
+      max-width: 1320px;
       margin: 0 auto;
-      padding: 0 28px 80px;
+      padding: 36px 28px 80px;
     }
 
-    /* Topbar Navigation */
     header {
-      height: 90px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 50px;
+      padding-bottom: 28px;
+      margin-bottom: 48px;
     }
 
     .brand {
@@ -93,48 +90,49 @@
     }
 
     .sigil {
-      width: 40px;
-      height: 40px;
-      border: 1px solid var(--border-bright);
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--border-hover);
       border-radius: var(--radius-sm);
       display: grid;
       place-items: center;
       font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 20px;
+      font-weight: 900;
+      font-size: 22px;
       color: var(--cyan);
-      background: rgba(0, 240, 255, 0.05);
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+      background: rgba(0, 240, 255, 0.06);
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.25);
     }
 
     .brand-text h1 {
-      font-family: var(--font-condensed);
-      font-size: 24px;
+      font-family: var(--font-sans);
+      font-size: 20px;
       font-weight: 700;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       margin: 0;
-      line-height: 1;
+      line-height: 1.2;
     }
 
     .brand-text span {
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-muted);
-      letter-spacing: 0.2em;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
     }
 
     .status-dock {
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 14px;
     }
 
     .telemetry-badge {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 16px;
+      padding: 8px 18px;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: rgba(255, 255, 255, 0.03);
@@ -145,8 +143,8 @@
     }
 
     .status-orb {
-      width: 8px;
-      height: 8px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
       background: #71717a;
       transition: all 0.3s ease;
@@ -154,65 +152,63 @@
 
     .status-orb.online {
       background: var(--emerald);
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.8);
     }
 
-    /* Hero Section */
     .hero {
-      margin-bottom: 60px;
+      margin-bottom: 48px;
       max-width: 960px;
     }
 
-    .hero-eyebrow {
+    .hero-tag {
       display: inline-flex;
       align-items: center;
       gap: 10px;
       font-family: var(--font-mono);
       font-size: 11.5px;
       text-transform: uppercase;
-      letter-spacing: 0.25em;
+      letter-spacing: 0.2em;
       color: var(--cyan);
       margin-bottom: 16px;
       padding: 4px 12px;
-      border-radius: 4px;
-      background: rgba(0, 240, 255, 0.06);
-      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
     }
 
     .hero h2 {
       font-family: var(--font-display);
-      font-size: clamp(38px, 5.5vw, 68px);
+      font-size: clamp(34px, 4.5vw, 56px);
       font-weight: 700;
       letter-spacing: -0.02em;
-      line-height: 1.05;
-      margin-bottom: 20px;
-      background: linear-gradient(135deg, #ffffff 0%, #cfdbe6 60%, #7e8c9f 100%);
+      line-height: 1.1;
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 55%, #94a3b8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
     .hero p {
       color: var(--text-muted);
-      font-size: clamp(16px, 1.3vw, 19px);
-      line-height: 1.6;
-      max-width: 780px;
+      font-size: clamp(15px, 1.2vw, 17.5px);
+      line-height: 1.65;
+      max-width: 820px;
     }
 
-    /* Constellation Grid */
     .matrix-title {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 14px;
+      padding-bottom: 12px;
       margin-bottom: 28px;
     }
 
     .matrix-title h3 {
-      font-family: var(--font-condensed);
-      font-size: 20px;
+      font-family: var(--font-sans);
+      font-size: 18px;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text);
     }
@@ -220,14 +216,14 @@
     .matrix-title span {
       font-family: var(--font-mono);
       font-size: 12px;
-      color: var(--text-dim);
+      color: var(--cyan);
     }
 
     .app-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-      gap: 24px;
-      margin-bottom: 60px;
+      grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+      gap: 22px;
+      margin-bottom: 48px;
     }
 
     .app-card {
@@ -235,12 +231,12 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 32px 28px;
+      padding: 30px 26px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       backdrop-filter: blur(16px);
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       overflow: hidden;
       text-decoration: none;
       color: inherit;
@@ -255,14 +251,14 @@
       height: 3px;
       background: linear-gradient(90deg, transparent, var(--card-accent, var(--cyan)), transparent);
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.25s ease;
     }
 
     .app-card:hover {
       transform: translateY(-4px);
-      border-color: var(--border-bright);
+      border-color: var(--border-hover);
       background: var(--bg-card-hover);
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 30px var(--card-glow, var(--cyan-glow));
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 28px var(--card-glow, var(--cyan-glow));
     }
 
     .app-card:hover::before {
@@ -272,20 +268,20 @@
     .card-top {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
+      align-items: center;
+      margin-bottom: 18px;
     }
 
     .app-badge {
       font-family: var(--font-mono);
-      font-size: 10.5px;
-      letter-spacing: 0.15em;
+      font-size: 11px;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       padding: 4px 10px;
       border-radius: 4px;
       border: 1px solid var(--border);
       color: var(--card-accent, var(--cyan));
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.03);
     }
 
     .app-route {
@@ -297,7 +293,7 @@
 
     .card-body h4 {
       font-family: var(--font-display);
-      font-size: 26px;
+      font-size: 23px;
       font-weight: 700;
       margin-bottom: 10px;
       color: var(--text);
@@ -319,7 +315,7 @@
 
     .card-body p {
       color: var(--text-muted);
-      font-size: 14.5px;
+      font-size: 14px;
       line-height: 1.6;
       margin-bottom: 22px;
     }
@@ -328,25 +324,25 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
     .subroute-tag {
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-muted);
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 4px;
-      padding: 3px 8px;
+      padding: 4px 10px;
       text-decoration: none;
       transition: all 0.2s ease;
     }
 
     .subroute-tag:hover {
       color: var(--text);
-      border-color: var(--border-bright);
-      background: rgba(0, 240, 255, 0.08);
+      border-color: var(--border-hover);
+      background: rgba(0, 240, 255, 0.1);
     }
 
     .card-footer {
@@ -354,76 +350,36 @@
       justify-content: space-between;
       align-items: center;
       border-top: 1px solid var(--border);
-      padding-top: 16px;
+      padding-top: 14px;
       font-family: var(--font-mono);
       font-size: 11.5px;
       color: var(--text-dim);
     }
 
     /* Accent themes per card */
-    .card-tea { --card-accent: var(--tea); --card-glow: var(--tea-glow); }
-    .card-rosarium { --card-accent: var(--rose); --card-glow: var(--rose-glow); }
-    .card-atlas { --card-accent: var(--cyan); --card-glow: var(--cyan-glow); }
-    .card-atelier { --card-accent: var(--gold); --card-glow: var(--gold-glow); }
+    .card-gallery { --card-accent: var(--cyan); --card-glow: var(--cyan-glow); }
+    .card-garden { --card-accent: var(--tea); --card-glow: var(--tea-glow); }
     .card-studio { --card-accent: var(--violet); --card-glow: var(--violet-glow); }
-
-    /* CLI Diagnostic Console */
-    .terminal-section {
-      background: rgba(10, 12, 18, 0.85);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px 28px;
-      backdrop-filter: blur(12px);
-    }
-
-    .terminal-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .terminal-title {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--cyan);
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .terminal-body {
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      color: var(--text-muted);
-      line-height: 1.8;
-      overflow-x: auto;
-    }
-
-    .terminal-body code {
-      color: var(--cyan);
-    }
+    .card-atelier { --card-accent: var(--gold); --card-glow: var(--gold-glow); }
+    .card-atlas { --card-accent: #38bdf8; --card-glow: rgba(56, 189, 248, 0.18); }
+    .card-rosarium { --card-accent: var(--rose); --card-glow: var(--rose-glow); }
 
     footer {
-      margin-top: 60px;
-      padding-top: 24px;
       border-top: 1px solid var(--border);
+      padding-top: 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-dim);
     }
 
     @media (max-width: 768px) {
-      .shell { padding: 0 16px 40px; }
-      header { height: auto; padding: 20px 0; flex-direction: column; gap: 16px; align-items: flex-start; }
+      .shell { padding: 20px 16px 40px; }
+      header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 32px; }
       .app-grid { grid-template-columns: 1fr; }
+      footer { flex-direction: column; gap: 10px; align-items: flex-start; }
     }
   </style>
 </head>
@@ -432,77 +388,173 @@
 <canvas id="bgCanvas"></canvas>
 
 <div class="shell">
+  
   <header>
-    <a class="brand" href="/">
-      <div class="sigil">✦</div>
+    <a class="brand" href="/portal">
+      <div class="sigil">⚡</div>
       <div class="brand-text">
-        <h1>FLUX</h1>
-        <span>INFLUX VISION MATRIX</span>
+        <h1>Influx Vision</h1>
+        <span>Sovereign Visual Constellation</span>
       </div>
     </a>
-    
+
     <div class="status-dock">
       <div class="telemetry-badge">
-        <div class="status-orb" id="statusOrb"></div>
-        <span id="statusLabel">ENGINE ONLINE</span>
-      </div>
-      <div class="telemetry-badge">
-        <span>NODE: H200 (hop)</span>
+        <div class="status-orb online" id="statusOrb"></div>
+        <span id="statusLabel">ENGINE ONLINE · PERPETUAL SIEVE</span>
       </div>
     </div>
   </header>
 
   <main>
     <section class="hero">
-      <div class="hero-eyebrow">
-        <span>⚡ SOVEREIGN VISUAL MATRIX</span>
+      <div class="hero-tag">
+        <span>⚡ SOVEREIGN FLUX MATRIX</span>
         <span>·</span>
-        <span>FLUX.1-DEV BF16</span>
+        <span>BF16 PERPETUAL SIEVE</span>
       </div>
-      <h2>The Influx Visual Constellation</h2>
+      <h2>Visual Constellation Portal</h2>
       <p>
-        Unified control surface and visual museum ecosystem fronting resident GPU inference daemons,
-        motion laboratories, 3D latent trajectory navigators, and curated art preservation vaults.
+        Unified control surface and visual ecosystem fronting resident GPU inference daemons,
+        autonomous living gardens, 3D latent space trajectory navigators, and curated museum preservation vaults.
       </p>
     </section>
 
     <div class="matrix-title">
-      <h3>Active Web Applications & Suites</h3>
-      <span>5 DEPLOYABLE SURFACES</span>
+      <h3>Active Constellation Surfaces</h3>
+      <span>6 DEPLOYABLE SURFACES</span>
     </div>
 
     <div class="app-grid">
-      
-      <!-- 1. Tea Living Garden -->
-      <a class="app-card card-tea" href="/tea/">
+
+      <!-- 1. Live Visual Gallery -->
+      <a class="app-card card-gallery" href="/gallery/">
+        <div>
+          <div class="card-top">
+            <span class="app-badge">Real-Time Visual Stream</span>
+            <span class="app-route">/gallery/</span>
+          </div>
+          <div class="card-body">
+            <h4>Live Gallery <span class="arrow">→</span></h4>
+            <p>
+              Live streaming feed of all settled GPU generation frames, full-resolution PNG downloads,
+              generation latencies (~6.4s per image), and complete creative prompt lineages.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/gallery/">Gallery</a>
+            <a class="subroute-tag" href="/api/recent-images">/api/recent-images</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>STREAM: Perpetual Denoise</span>
+          <span>LIVE ARCHIVE</span>
+        </div>
+      </a>
+
+      <!-- 2. The Living Garden -->
+      <a class="app-card card-garden" href="/garden">
         <div>
           <div class="card-top">
             <span class="app-badge">Living Garden · Motion Lab</span>
-            <span class="app-route">/tea/</span>
+            <span class="app-route">/garden</span>
           </div>
           <div class="card-body">
-            <h4>Tea Garden <span class="arrow">→</span></h4>
+            <h4>The Living Garden <span class="arrow">→</span></h4>
             <p>
-              A practice in seeing. A living image garden with authored Sakura aesthetics, portrait suites, 
+              A practice in seeing. A living image garden with authored Sakura aesthetics, portrait suites,
               and the 7,584-cell Stallion motion-graph benchmark laboratory.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/tea/">/tea/</a>
-            <a class="subroute-tag" href="/tea/gallery.html">Gallery</a>
-            <a class="subroute-tag" href="/tea/movement.html">Motion</a>
-            <a class="subroute-tag" href="/tea/studies.html">Studies</a>
-            <a class="subroute-tag" href="/tea/stallion-lab.html">Stallion Lab</a>
-            <a class="subroute-tag" href="/tea/sentinel.html">Sentinel</a>
+            <a class="subroute-tag" href="/garden/studies.html">Studies</a>
+            <a class="subroute-tag" href="/garden/stallion-lab.html">Stallion Lab</a>
+            <a class="subroute-tag" href="/garden/movement.html">Motion</a>
           </div>
         </div>
         <div class="card-footer">
-          <span>RUNNER: flux tea serve</span>
+          <span>RUNNER: flux serve garden</span>
           <span>PORT 7861</span>
         </div>
       </a>
 
-      <!-- 2. Rosarium Museum -->
+      <!-- 3. FLUX Studio Engine -->
+      <a class="app-card card-studio" href="/app">
+        <div>
+          <div class="card-top">
+            <span class="app-badge">Resident CUDA Cockpit</span>
+            <span class="app-route">/app</span>
+          </div>
+          <div class="card-body">
+            <h4>FLUX Studio <span class="arrow">→</span></h4>
+            <p>
+              Direct HTTP & WebSocket control surface over the resident Python UDS daemon.
+              Provides interactive prompt dispatch, step and guidance controls, and live step metrics.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/app">Studio Cockpit</a>
+            <a class="subroute-tag" href="/api/health">/api/health</a>
+            <a class="subroute-tag" href="/api/jobs">/api/jobs</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>SOCKET: .fluxd/flux-gpu0.sock</span>
+          <span>PORT 7861</span>
+        </div>
+      </a>
+
+      <!-- 4. Atelier Synthesis Cockpit -->
+      <a class="app-card card-atelier" href="/atelier">
+        <div>
+          <div class="card-top">
+            <span class="app-badge">Synthesis & Duel Arena</span>
+            <span class="app-route">/atelier</span>
+          </div>
+          <div class="card-body">
+            <h4>Atelier Studio <span class="arrow">→</span></h4>
+            <p>
+              Interactive Koyomi synthesis cockpit, prompt tournament arena, aesthetic scoring engine,
+              and continuous evolution loop monitor for autonomous visual research.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/atelier">Studio UI</a>
+            <a class="subroute-tag" href="http://127.0.0.1:9732" target="_blank">:9732 Direct</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>COORDINATOR: Kiro (:9820)</span>
+          <span>STUDIO FORGE</span>
+        </div>
+      </a>
+
+      <!-- 5. Motion Atlas Sphere -->
+      <a class="app-card card-atlas" href="/atlas/motion-atlas/">
+        <div>
+          <div class="card-top">
+            <span class="app-badge">3D Sphere · Latent Navigator</span>
+            <span class="app-route">/atlas/</span>
+          </div>
+          <div class="card-body">
+            <h4>Motion Atlas 3D <span class="arrow">→</span></h4>
+            <p>
+              Interactive 3D spherical latent trajectory navigator. Connects to real-time Optics raytracing,
+              batch queues, and dedicated Governor and Visionary web consoles.
+            </p>
+          </div>
+          <div class="subroutes" onclick="event.stopPropagation()">
+            <a class="subroute-tag" href="/atlas/motion-atlas/">3D Sphere</a>
+            <a class="subroute-tag" href="/atlas/motion-atlas/optics.html">Optics</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span>PROTOCOL: Spherical Latent</span>
+          <span>WEBGL / OPTICS</span>
+        </div>
+      </a>
+
+      <!-- 6. Rosarium Museum -->
       <a class="app-card card-rosarium" href="/rosarium/">
         <div>
           <div class="card-top">
@@ -512,119 +564,22 @@
           <div class="card-body">
             <h4>Rosarium Museum <span class="arrow">→</span></h4>
             <p>
-              The recovered grand museum and visual catalog. Contains 7,218 curated works, 
-              full-resolution Arcane Princess haute-couture portraiture, and the 4D Rotunda salon.
+              The recovered grand museum and visual catalog. Contains 7,218 curated works,
+              full-resolution Arcane Princess portraiture, and the 4D Rotunda salon.
             </p>
           </div>
           <div class="subroutes" onclick="event.stopPropagation()">
             <a class="subroute-tag" href="/rosarium/">/rosarium/</a>
-            <a class="subroute-tag" href="/rosarium/arcane.html">Arcane</a>
-            <a class="subroute-tag" href="/rosarium/motion.html">Loops</a>
             <a class="subroute-tag" href="/rosarium/rotunda.html">Rotunda 4D</a>
           </div>
         </div>
         <div class="card-footer">
-          <span>ESTATE: atelier.geijutsu.work</span>
-          <span>STATIC RECOVERY</span>
-        </div>
-      </a>
-
-      <!-- 3. Motion Atlas Sphere -->
-      <a class="app-card card-atlas" href="/atlas/">
-        <div>
-          <div class="card-top">
-            <span class="app-badge">3D Sphere · Agent Console</span>
-            <span class="app-route">/atlas/</span>
-          </div>
-          <div class="card-body">
-            <h4>Motion Atlas Sphere <span class="arrow">→</span></h4>
-            <p>
-              Interactive 3D spherical latent trajectory navigator. Connects to real-time Optics raytracing, 
-              batch queues, and dedicated Governor and Visionary web consoles.
-            </p>
-          </div>
-          <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/atlas/">/atlas/</a>
-            <a class="subroute-tag" href="/atlas/optics.html">Optics</a>
-            <a class="subroute-tag" href="/atlas/queue.html">Queue</a>
-            <a class="subroute-tag" href="/atlas/governor.html">Governor</a>
-            <a class="subroute-tag" href="/atlas/visionary.html">Visionary</a>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span>PROTOCOL: Spherical Latent</span>
-          <span>WEBGL / OPTICS</span>
-        </div>
-      </a>
-
-      <!-- 4. Atelier Synthesis Cockpit -->
-      <a class="app-card card-atelier" href="/atelier/control.html">
-        <div>
-          <div class="card-top">
-            <span class="app-badge">Synthesis & Duel Arena</span>
-            <span class="app-route">/atelier/</span>
-          </div>
-          <div class="card-body">
-            <h4>Atelier Cockpit <span class="arrow">→</span></h4>
-            <p>
-              Interactive Koyomi synthesis cockpit, prompt tournament arena, aesthetic scoring engine, 
-              and continuous evolution loop monitor for autonomous visual research.
-            </p>
-          </div>
-          <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/atelier/control.html">Control Deck</a>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span>SUPERVISOR: governord.py</span>
-          <span>STUDIO FORGE</span>
-        </div>
-      </a>
-
-      <!-- 5. FLUX Studio Engine -->
-      <a class="app-card card-studio" href="/app">
-        <div>
-          <div class="card-top">
-            <span class="app-badge">Resident CUDA Worker</span>
-            <span class="app-route">/studio & /api/</span>
-          </div>
-          <div class="card-body">
-            <h4>FLUX Studio & API <span class="arrow">→</span></h4>
-            <p>
-              Direct HTTP & WebSocket control surface over the resident Python UDS daemon. 
-              Provides asynchronous job dispatch, seed burst generation, and live telemetry.
-            </p>
-          </div>
-          <div class="subroutes" onclick="event.stopPropagation()">
-            <a class="subroute-tag" href="/app">Studio UI</a>
-            <a class="subroute-tag" href="/api/health">/api/health</a>
-            <a class="subroute-tag" href="/api/jobs">/api/jobs</a>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span>SOCKET: .fluxd/flux.sock</span>
-          <span>PORT 7861</span>
+          <span>ESTATE: 7,218 Curated Works</span>
+          <span>STATIC VAULT</span>
         </div>
       </a>
 
     </div>
-
-    <!-- Quick CLI Terminal Reference -->
-    <section class="terminal-section">
-      <div class="terminal-head">
-        <div class="terminal-title">
-          <span>⚡</span>
-          <span>FLUX SOVEREIGN CLI QUICK COMMANDS</span>
-        </div>
-        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">~/.local/bin/flux</span>
-      </div>
-      <div class="terminal-body">
-        <div>$ <code>flux tree</code> <span style="color: var(--text-dim)"># Show complete command hierarchy and sub-suites</span></div>
-        <div>$ <code>flux studio</code> <span style="color: var(--text-dim)"># Inspect CUDA GPU posture, model lanes, and memory slots</span></div>
-        <div>$ <code>flux tea serve --addr 0.0.0.0:7861</code> <span style="color: var(--text-dim)"># Serve Tea Living Garden and Stallion Lab</span></div>
-        <div>$ <code>flux render "glass tea pavilion at dawn" --preset hero --async</code> <span style="color: var(--text-dim)"># Queue generation</span></div>
-      </div>
-    </section>
   </main>
 
   <footer>
@@ -634,7 +589,7 @@
 </div>
 
 <script>
-  // Particle Constellation Background Canvas
+  // Clean, subtle particle canvas background
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
   let width, height;
@@ -651,8 +606,8 @@
     constructor() {
       this.x = Math.random() * width;
       this.y = Math.random() * height;
-      this.vx = (Math.random() - 0.5) * 0.4;
-      this.vy = (Math.random() - 0.5) * 0.4;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = (Math.random() - 0.5) * 0.3;
       this.radius = Math.random() * 1.5 + 0.8;
       this.alpha = Math.random() * 0.5 + 0.2;
     }
@@ -667,12 +622,12 @@
     draw() {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0, 240, 255, ${this.alpha * 0.4})`;
+      ctx.fillStyle = `rgba(0, 240, 255, ${this.alpha * 0.35})`;
       ctx.fill();
     }
   }
 
-  for (let i = 0; i < 70; i++) particles.push(new Particle());
+  for (let i = 0; i < 50; i++) particles.push(new Particle());
 
   function animate() {
     ctx.clearRect(0, 0, width, height);
@@ -683,11 +638,11 @@
         const dx = particles[i].x - particles[j].x;
         const dy = particles[i].y - particles[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 130) {
+        if (dist < 120) {
           ctx.beginPath();
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(0, 240, 255, ${(1 - dist / 130) * 0.12})`;
+          ctx.strokeStyle = `rgba(0, 240, 255, ${(1 - dist / 120) * 0.08})`;
           ctx.stroke();
         }
       }
@@ -695,25 +650,6 @@
     requestAnimationFrame(animate);
   }
   animate();
-
-  // Real-time Health Telemetry Poller
-  const statusOrb = document.getElementById('statusOrb');
-  const statusLabel = document.getElementById('statusLabel');
-
-  function checkHealth() {
-    fetch('/api/health', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        statusOrb.className = 'status-orb online';
-        statusLabel.textContent = data.model_loaded ? 'ENGINE ONLINE · MODEL PREWARMED' : 'ENGINE ONLINE · STANDBY';
-      })
-      .catch(() => {
-        statusOrb.className = 'status-orb online';
-        statusLabel.textContent = 'GATEWAY ACTIVE · INGRESS READY';
-      });
-  }
-  checkHealth();
-  setInterval(checkHealth, 15000);
 </script>
 
 </body>
