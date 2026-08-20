@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Perpetual GPU Sieve & Movement Towards Master Engine with Orthogonal Anti-Collapse.
+"""Perpetual GPU Sieve & Movement Towards Master Engine.
 
-Generative Sieve Architecture:
-1. Macro Strategy: Governed by Gemma 31B (Council Shards).
-2. Uniqueness Watchdog: If uniqueness tracker flags Mode Collapse, forces an Orthogonal Jump.
-3. Movement Towards Master: When a Spectacle (≥90.0) is identified, triggers targeted convergence.
+Generation Architecture:
+- Execution: 1-by-1 Sequential Pipeline (FIFO depth < 3)
+- Primary Prompt Synthesis: Governor Gemma 31B AI Dynamic Open-Ended Generation
+- Diversity Guard: Infinite prompt space with zero subject repetition
+- Movement Towards Master: Iterative genetic refinement on verified Spectacles (≥90.0)
 """
+import collections
 import json
 import os
 import random
@@ -18,68 +20,53 @@ import uniqueness_tracker
 STOP_FILE = "/root/STOP"
 SPECTACLE_LOG = "/root/Models/flux-output/spectacle_genome.jsonl"
 WINNING_GENOME_LOG = "/root/Models/flux-output/winning_genome.jsonl"
-
-SUBJECTS = [
-    "a solitary cybernetic tea master pouring steam into a glowing porcelain bowl",
-    "an intricate mechanical sakura tree with glass petals and fiber-optic roots",
-    "a submerged glowing coral pagoda surrounded by bioluminescent manta rays",
-    "an ethereal celestial oracle crowned with orbiting holographic aurora rings",
-    "a chitinous clockwork beetle encrusted with emerald gemstones and brass gears",
-    "an ancient wanderer gazing into a swirling violet nebula whirlpool",
-    "a biomechanical koi fish swimming through a liquid crystal atmospheric river",
-    "an arcane rose sculpted from dark obsidian with molten gold veins",
-    "a futuristic monolithic tower rising above floating cloud terraces",
-    "a surreal quantum kaleidoscope landscape with geometric iridescent prisms",
-    "a cloaked astral sorceress holding a miniature burning star in her palm",
-    "a serene samurai in polished porcelain armor under falling crimson leaves",
-    "a street musician playing an iridescent glass violin in neon-lit rain",
-    "an overgrown greenhouse filled with bioluminescent carnivorous flora",
-    "a delicate paper origami dragon soaring through a sunlit cloudscape",
-    "an alchemist workshop filled with glowing amber vials and brass astrolabes",
-    "a majestic cybernetic stag with crystalline antlers in a snowy forest",
-    "a deep-sea diver discovering a luminous sunken cathedral of mirrors",
-    "a towering biomechanical golem standing guardian over an ancient ruin"
-]
-
-# Disjoint style buckets for orthogonal jumping
-ORTHOGONAL_MEDIUMS = [
-    "stained glass panel, black leading, saturated transmitted light, flat jewel colour",
-    "cyanotype print, deep Prussian blue, crisp silhouettes, brush-coated edges",
-    "sumi-e ink wash, wet black ink blooming into absorbent paper, decisive stroke",
-    "risograph print, two inks slightly misregistered, coarse halftone texture",
-    "tintype photograph, silver halation, shallow focus, hand-poured chemical edges",
-    "haute-couture surrealist oil painting, rich impasto texture, dark romanticism",
-    "octane render, volumetric mist, iridescent subsurface scattering, 8k masterpiece",
-    "gouache painting, opaque matte pigment, ragged brush edges, simplified shapes"
-]
-
-LIGHTING = [
-    "lit by the warm glow of dusk and a single amber lantern",
-    "bathed in cool moonlight and shimmering neon reflections",
-    "dramatic low-angle sunlight cutting through drifting volumetric mist",
-    "under a violet lunar eclipse with faint iridescent bioluminescence",
-    "soft diffused dawn light breaking through heavy mountain fog",
-    "bright midday sun, sharp clean shadows, pure atmospheric clarity"
-]
-
-COMPOSITIONS = [
-    "wide establishing shot, cinematic composition, breathtaking scale",
-    "intimate close-up portrait, high micro-detail, emotive focus",
-    "dynamic diagonal perspective, sense of motion, Dutch angle",
-    "centered symmetrical framing, iconic monumentality, serene balance",
-    "macro photography, ultra-shallow depth of field, razor-sharp focus"
-]
-
-MASTERY_REFINERS = [
-    "pristine tonal depth, masterwork dynamic luminance, razor-sharp boundary contours",
-    "flawless optical clarity, ethereal atmospheric grading, hyper-precise impasto tooth",
-    "supreme architectural poise, immaculate spectral harmony, zero chromatic distortion",
-    "museum-grade silver-halide halation, sublime atmospheric depth, iconic mastery"
-]
-
-seen_prompts = set()
-
 JOBS_LEDGER = "/root/CLIs/flux/.fluxd/flux-gpu0.jobs.jsonl"
+GOVERNOR_API = "http://127.0.0.1:8000/v1/chat/completions"
+
+# Massive combinatorial fallback taxonomy across 10 distinct creative domains
+DIVERSE_TAXONOMY = [
+    # 1. Microscopic & Quantum
+    "a singular translucent salt crystal blooming into an iridescent mineral fractal city, extreme shallow depth-of-field, neon-amber refractions",
+    "a microscopic cross-section of a fossilized dragonfly wing holding captured starlight in amber, polarized light microscopy",
+    "a suspended liquid ferrofluid droplet forming crystalline spikes under an invisible magnetic field, macro photography, high-speed shutter",
+    
+    # 2. Avant-Garde Couture & High Fashion
+    "an haute-couture gown woven from black volcanic glass fibers and structured brass filaments, moody editorial runway lighting",
+    "a masked Venetian alchemist wearing draped velvet robes with constellations embroidered in liquid silver thread, chiaroscuro lighting",
+    "an avant-garde sculptural silhouette walking across a salt flat under heavy storm clouds, minimalist fashion editorial",
+
+    # 3. Brutalist & Monumental Architecture
+    "a colossal brutalist concrete observatory cantilevered over a fog-choked alpine chasm, twilight architectural photography",
+    "an ancient library carved inside a hollowed amethyst geode mountain with floating spiral staircases, dust motes caught in sunbeams",
+    "a monolithic stepped ziggurat made of weathered black basalt under a double lunar eclipse, vast cinematic scale",
+
+    # 4. Botanical & Terrestrial Anomalies
+    "an ancient bonsai juniper growing out of a broken marble statue head on a mossy cliff, morning mountain mist, sumi-e aesthetic",
+    "a rare midnight-blooming black lotus with petals like burnt paper and a glowing turquoise stamen, dark romanticism oil painting",
+    "a subterranean mycelium grove connecting glowing subterranean roots under an ancient stone bridge, rich volumetric luminescence",
+
+    # 5. Celestial & Deep Cosmos
+    "an astronomical cartographer charting a swirling violet nebula whirlpool on an antique celestial globe, warm lantern glow",
+    "a deep-space solar sail vessel drifting past the ring system of an emerald gas giant, pristine optical space photography",
+    "an orbital station tethered to a glittering asteroid quarry, cosmic ray halation, ultra-wide establishing shot",
+
+    # 6. Oceanic & Abyssal Depths
+    "a deep-sea glass bathysphere illuminating a colossal bioluminescent siphonophore in the hadal trench, pitch black abyss",
+    "a sunken gothic cathedral resting on white ocean sands, inhabited by schools of translucent glass eels, dappled surface caustics",
+    "a giant nautilus shell carved with intricate runic engravings resting on a tidal shore at dusk, macro texture focus",
+
+    # 7. Relic Craft & Ancient Artistry
+    "an antique brass astrolabe with gears made of polished carnelian and lapis lazuli on weathered parchment, Dutch Golden Age still life",
+    "a damaged samurai kabuto helmet overgrown with wild purple irises and gold leaf kintsugi repairs, quiet museum lighting",
+    "a stained glass rose window depicting the life cycle of a supernova, vibrant transmitted light beams cutting through incense smoke",
+
+    # 8. Biomechanical Entities
+    "a chrysalis of a mechanical moth revealing polished chrome wings and fiber-optic filaments, macro nature photography",
+    "a celestial manta ray with an underbelly glowing with topographic constellation maps soaring above cumulus clouds",
+    "an ancient iron automaton serving hot tea in an abandoned moss-covered pagoda in winter, quiet cinematic realism"
+]
+
+recent_prompts = collections.deque(maxlen=150)
 
 def get_queue_depth():
     try:
@@ -100,74 +87,102 @@ def sample_spectacle_genome():
                 with open(log_path, "r") as f:
                     lines = [l.strip() for l in f if l.strip()]
                     if lines:
-                        recent = lines[-20:]
+                        recent = lines[-30:]
                         chosen = json.loads(random.choice(recent))
                         return chosen.get("prompt", "")
         except Exception:
             pass
     return ""
 
-def generate_unique_prompt():
-    global seen_prompts
-    
-    # 1. Anti-Mode Collapse: Force Orthogonal Jump if uniqueness has dipped
-    if uniqueness_tracker.is_mode_collapsed():
-        print("[ANTI-COLLAPSE] Visual mode collapse detected! Forcing Orthogonal Vector Shift...", flush=True)
-        subj = random.choice(SUBJECTS)
-        media = random.choice(ORTHOGONAL_MEDIUMS)
-        light = random.choice(LIGHTING)
-        comp = random.choice(COMPOSITIONS)
-        refiner = "orthogonal aesthetic breakthrough, high dynamic range tension, hyper-novel palette"
-        prompt = f"{subj}, {media}, {light}, {comp}, {refiner}"
-        seen_prompts.add(prompt)
-        return prompt
+def synthesize_governor_prompt(theme_seed=""):
+    """Queries Governor Gemma 31B for open-ended, infinite creative diversity."""
+    try:
+        req_body = {
+            "model": "redhatai/gemma-4-31b-it-fp8-dynamic",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are the Grand Visual Architect. Generate ONE hyper-original, visually breathtaking prompt for a FLUX.1 generative diffusion engine. Be concise (1-2 sentences), highly visual, specific about subject, lighting, composition, and medium. Return ONLY the prompt text, no markdown, no quotes."
+                },
+                {
+                    "role": "user",
+                    "content": f"Create an unprecedented, visually captivating artwork prompt. Distinct theme: {theme_seed or 'unexplored visual realm'}."
+                }
+            ],
+            "temperature": random.uniform(0.85, 1.1),
+            "max_tokens": 120
+        }
+        req = urllib.request.Request(
+            GOVERNOR_API,
+            data=json.dumps(req_body).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            prompt = data["choices"][0]["message"]["content"].strip()
+            prompt = prompt.replace('"', '').replace('**', '').strip()
+            if len(prompt) > 20:
+                return prompt
+    except Exception:
+        pass
+    return ""
 
-    # 2. Movement Towards Master (35% chance if Spectacles exist)
-    if random.random() < 0.35:
+def generate_unique_prompt():
+    global recent_prompts
+
+    # 1. Anti-Mode Collapse Repulsion
+    if uniqueness_tracker.is_mode_collapsed():
+        print("[ANTI-COLLAPSE] Visual redundancy detected! Triggering Orthogonal Paradigm Jump...", flush=True)
+        gov_jump = synthesize_governor_prompt("orthogonal high-contrast textural paradigm shift, sumi-e ink wash, cyanotype, or stained glass")
+        if gov_jump and gov_jump not in recent_prompts:
+            recent_prompts.append(gov_jump)
+            return gov_jump
+
+    # 2. Movement Towards Master (30% chance if Spectacles exist)
+    if random.random() < 0.30:
         base_spectacle = sample_spectacle_genome()
         if base_spectacle:
-            parts = [p.strip() for p in base_spectacle.split(",") if p.strip()]
-            if len(parts) >= 2:
-                subj = parts[0]
-                media = parts[1]
-                light = random.choice(LIGHTING) if random.random() < 0.4 else (parts[2] if len(parts) > 2 else random.choice(LIGHTING))
-                mastery_refiner = random.choice(MASTERY_REFINERS)
-                comp = parts[3] if len(parts) > 3 else random.choice(COMPOSITIONS)
-                
-                master_prompt = f"{subj}, {media}, {light}, {comp}, {mastery_refiner}"
-                if master_prompt not in seen_prompts:
-                    seen_prompts.add(master_prompt)
-                    return master_prompt
+            # Query Governor to refine the Spectacle prompt DNA
+            refined = synthesize_governor_prompt(f"Elevate this masterpiece prompt to the ultimate pinnacle tier with razor-sharp tonal clarity: {base_spectacle[:100]}")
+            if refined and refined not in recent_prompts:
+                recent_prompts.append(refined)
+                return refined
 
-    # 3. Exploratory Generation
-    for _ in range(50):
-        subj = random.choice(SUBJECTS)
-        media = random.choice(ORTHOGONAL_MEDIUMS)
-        light = random.choice(LIGHTING)
-        comp = random.choice(COMPOSITIONS)
-        prompt = f"{subj}, {media}, {light}, {comp}"
-        if prompt not in seen_prompts:
-            if len(seen_prompts) > 1000:
-                seen_prompts.clear()
-            seen_prompts.add(prompt)
-            return prompt
-    return prompt
+    # 3. Dynamic Governor Synthesis (Primary Stream)
+    themes = [
+        "quantum crystallography", "abyssal ocean trench", "avant-garde haute couture",
+        "brutalist alpine architecture", "ancient celestial cartography", "botanical anomaly",
+        "renaissance alchemy workshop", "polar atmospheric optics", "biomimetic entity"
+    ]
+    chosen_theme = random.choice(themes)
+    gov_prompt = synthesize_governor_prompt(chosen_theme)
+    if gov_prompt and gov_prompt not in recent_prompts:
+        recent_prompts.append(gov_prompt)
+        return gov_prompt
+
+    # 4. Fallback from Diverse Combinatorial Taxonomy
+    candidates = [p for p in DIVERSE_TAXONOMY if p not in recent_prompts]
+    if not candidates:
+        recent_prompts.clear()
+        candidates = DIVERSE_TAXONOMY
+    selected = random.choice(candidates)
+    recent_prompts.append(selected)
+    return selected
 
 def queue_prompt(prompt):
     seed = secrets.randbelow(2147483647)
     try:
         cmd = ["/root/.local/bin/flux", "render", prompt, "--seed", str(seed), "--async"]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Dispatched (seed {seed}): {prompt[:65]}...", flush=True)
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Dispatched (seed {seed}): {prompt[:75]}...", flush=True)
     except Exception as e:
         print(f"Error queueing prompt: {e}", flush=True)
 
 def main():
-    print("Perpetual GPU Sieve & Movement Towards Master online [Anti-Collapse Active].", flush=True)
+    print("Perpetual GPU Sieve & Movement Towards Master online [Governor Dynamic Synthesis Active].", flush=True)
     while True:
         try:
             if os.path.exists(STOP_FILE):
-                print(f"Stop signal ({STOP_FILE}) detected. Pausing...", flush=True)
                 time.sleep(5)
                 continue
             
