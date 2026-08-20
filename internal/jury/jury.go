@@ -417,6 +417,7 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	}
 	defer rows.Close()
 
+	seenImg := make(map[string]bool)
 	var items []SpectacleItem
 	for rows.Next() {
 		var it SpectacleItem
@@ -431,6 +432,12 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 		}
 		if len(matches) > 0 {
 			it.ImageURL = "/outputs/" + filepath.Base(matches[0])
+		}
+		if it.ImageURL != "" && seenImg[it.ImageURL] {
+			continue
+		}
+		if it.ImageURL != "" {
+			seenImg[it.ImageURL] = true
 		}
 		items = append(items, it)
 	}

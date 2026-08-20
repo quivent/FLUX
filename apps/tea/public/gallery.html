@@ -222,25 +222,36 @@
     return LEGACY_TITLES[(hash >>> 0) % LEGACY_TITLES.length];
   }
 
+  function normalizeKey(url) {
+    if (!url) return '';
+    return String(url).split('?')[0].split('#')[0].split('/').pop();
+  }
+
   function addCell(url, name, fresh, append) {
-    if (!url || seen.has(url)) return false;
-    seen.add(url);
+    if (!url) return false;
+    const fileKey = normalizeKey(url);
+    if (!fileKey || seen.has(fileKey)) return false;
+    seen.add(fileKey);
+
+    const canonicalUrl = (url.startsWith('http') || url.startsWith('/')) ? url : ('/outputs/' + fileKey);
+
     const fig = document.createElement('figure');
     fig.className = 'cell' + (fresh ? ' fresh' : '');
     fig.style.margin = '0';
-    fig.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer">`
-      + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
-      + `<figcaption>${displayName(name, url)}</figcaption></a>`;
+    fig.dataset.fileKey = fileKey;
+    fig.innerHTML = `<a href="${canonicalUrl}" target="_blank" rel="noreferrer">`
+      + `<img loading="lazy" decoding="async" src="${thumb(canonicalUrl)}" alt="">`
+      + `<figcaption>${displayName(name, canonicalUrl)}</figcaption></a>`;
     const img = fig.querySelector('img');
     img.onerror = () => {
-      if (img.dataset.retried === '2') { fig.remove(); seen.delete(url); return; }
+      if (img.dataset.retried === '2') { fig.remove(); seen.delete(fileKey); return; }
       if (img.dataset.retried === '1') {
         img.dataset.retried = '2';
-        img.src = url; // Direct /outputs/ full PNG fallback
+        img.src = canonicalUrl; // Direct /outputs/ full PNG fallback
         return;
       }
       img.dataset.retried = '1';
-      setTimeout(() => { img.src = thumb(url) + '&r=' + Date.now(); }, 800);
+      setTimeout(() => { img.src = thumb(canonicalUrl) + '&r=' + Date.now(); }, 800);
     };
     fig.dataset.name = name || '';
     append ? $('grid').appendChild(fig) : $('grid').prepend(fig);
@@ -345,11 +356,13 @@
           const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
           for (const j of doneJobs) {
             const url = j.output_url || ('/outputs/' + (j.output || '').split('/').pop());
-            if (url && !seen.has(url)) {
-              addCell(url, j.prompt || j.id, true, false); // Prepend to top-left!
-              total += 1;
-              $('s-collection').textContent = total;
-              updateShown();
+            const key = normalizeKey(url);
+            if (key && !seen.has(key)) {
+              if (addCell(url, j.prompt || j.id, true, false)) {
+                total += 1;
+                $('s-collection').textContent = total;
+                updateShown();
+              }
             }
           }
         } catch (_) {}
@@ -364,11 +377,13 @@
         for (let i = imgs.length - 1; i >= 0; i--) {
           const im = imgs[i];
           const url = im.path || im.url;
-          if (url && !seen.has(url)) {
-            addCell(url, im.name, true, false); // Prepend to slot 0!
-            total = j.total || (total + 1);
-            $('s-collection').textContent = total;
-            updateShown();
+          const key = normalizeKey(url);
+          if (key && !seen.has(key)) {
+            if (addCell(url, im.name, true, false)) {
+              total = j.total || (total + 1);
+              $('s-collection').textContent = total;
+              updateShown();
+            }
           }
         }
       } catch (_) {}
