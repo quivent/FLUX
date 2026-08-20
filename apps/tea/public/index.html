@@ -3,71 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#030508">
-  <title>Influx Vision · Sovereign Monolith</title>
-  <meta name="description" content="Symmetry in Tension — The unified portal of stillness, motion, and the autonomous army of beauty agents.">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Influx Vision · The Living Parchment</title>
+  <meta name="description" content="A sanctuary of stillness and motion — The minimalistic sovereign portal of the AI beauty jury and kinetic universe.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg: #030508;
-      --bg-card: rgba(10, 14, 24, 0.78);
-      --bg-card-hover: rgba(18, 26, 44, 0.92);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(0, 240, 255, 0.4);
-      --text: #f1f5f9;
-      --text-muted: #8b9bb0;
-      --text-dim: #546478;
+      /* The Sovereign Living Parchment (Tea White) */
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --paper-subtle: #efece4;
+      --card-bg: rgba(255, 255, 255, 0.76);
+      --card-bg-hover: rgba(255, 255, 255, 0.96);
       
-      --cyan: #00f0ff;
-      --cyan-glow: rgba(0, 240, 255, 0.22);
-      --magenta: #ff3388;
-      --magenta-glow: rgba(255, 51, 136, 0.22);
-      --gold: #ffbe2e;
-      --gold-glow: rgba(255, 190, 46, 0.25);
-      --tea: #2dd4bf;
-      --tea-glow: rgba(45, 212, 191, 0.22);
-      --purple: #a855f7;
-      --purple-glow: rgba(168, 85, 247, 0.22);
-      --emerald: #10b981;
+      --ink: #27231f;
+      --soft: #736b63;
+      --faint: #a69e94;
+      --line: rgba(54, 47, 40, 0.12);
+      --line-hover: rgba(121, 88, 62, 0.35);
       
-      --font-display: 'Cinzel', serif;
-      --font-serif: 'Noto Serif JP', serif;
-      --font-sans: 'Inter', system-ui, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --tea: #79583e;
+      --tea-light: rgba(121, 88, 62, 0.08);
+      --matcha: #5a735a;
+      --matcha-light: rgba(90, 115, 90, 0.1);
+      --vermilion: #a63e39;
+      --vermilion-light: rgba(166, 62, 57, 0.08);
+      --gold: #b38938;
+      --gold-light: rgba(179, 137, 56, 0.1);
       
-      --radius: 14px;
-      --radius-sm: 8px;
+      /* Urushi Lacquer (Motion Inlay) */
+      --urushi-bg: #151311;
+      --urushi-card: #1d1a17;
+      --urushi-card-hover: #26221e;
+      --urushi-line: rgba(179, 137, 56, 0.22);
+      --urushi-text: #f4f1ea;
+      --urushi-soft: #a8a196;
+      
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
+      --sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
+      
+      --radius: 12px;
+      --radius-sm: 6px;
     }
 
-    /* Sensory Modes */
-    body.mode-tea {
-      --bg: #040809;
-      --border: rgba(45, 212, 191, 0.12);
-    }
-    body.mode-warp {
-      --bg: #050209;
-      --border: rgba(0, 240, 255, 0.16);
+    /* Nocturnal Study State (Dark Mode Ritual) */
+    body.mode-nocturnal {
+      --paper: #12100e;
+      --paper-soft: #181513;
+      --paper-subtle: #201c19;
+      --card-bg: rgba(28, 24, 21, 0.78);
+      --card-bg-hover: rgba(38, 33, 29, 0.95);
+      --ink: #f0ece1;
+      --soft: #aba296;
+      --faint: #6e675e;
+      --line: rgba(240, 236, 225, 0.1);
+      --line-hover: rgba(179, 137, 56, 0.4);
+      --tea-light: rgba(179, 137, 56, 0.15);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-sans);
+      background: radial-gradient(circle at 85% 0, rgba(231, 181, 182, 0.14), transparent 38rem),
+                  linear-gradient(180deg, var(--paper-soft), var(--paper));
+      color: var(--ink);
+      font-family: var(--sans);
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.55;
       -webkit-font-smoothing: antialiased;
+      transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
       position: relative;
       overflow-x: hidden;
-      transition: background 0.8s ease;
     }
 
-    #bgCanvas {
+    /* Ambient Botanical Particle Canvas */
+    #ambientCanvas {
       position: fixed;
       inset: 0;
       width: 100vw;
@@ -80,660 +95,684 @@
     .shell {
       position: relative;
       z-index: 1;
-      max-width: 1440px;
+      max-width: 1380px;
       margin: 0 auto;
-      padding: 24px 28px 100px;
+      padding: 36px 32px 120px;
     }
 
-    /* Header & Sovereign HUD */
+    /* Sovereign Header */
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 20px;
-      margin-bottom: 28px;
-      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 24px;
+      margin-bottom: 38px;
+      gap: 20px;
       flex-wrap: wrap;
     }
 
-    .brand-cluster {
+    .brand-group {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       text-decoration: none;
-      color: var(--text);
+      color: inherit;
     }
 
-    .monolith-sigil {
-      width: 44px;
-      height: 44px;
-      border: 1px solid var(--border-hover);
-      border-radius: var(--radius-sm);
+    .tea-seal {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line-hover);
+      border-radius: 50%;
       display: grid;
       place-items: center;
-      font-family: var(--font-display);
+      color: var(--tea);
+      font-family: var(--serif);
+      font-size: 16px;
+      background: var(--paper-soft);
+      box-shadow: 0 2px 8px rgba(121, 88, 62, 0.08);
+      transition: transform 0.4s ease;
+    }
+    .brand-group:hover .tea-seal {
+      transform: rotate(45deg);
+    }
+
+    .brand-text h1 {
+      font-family: var(--serif);
       font-size: 18px;
-      font-weight: 900;
-      color: var(--gold);
-      background: linear-gradient(135deg, rgba(255,190,46,0.15), rgba(0,240,255,0.15));
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
-      animation: sigilGlow 6s ease-in-out infinite alternate;
-    }
-    @keyframes sigilGlow {
-      from { box-shadow: 0 0 16px var(--gold-glow); border-color: rgba(255,190,46,0.4); }
-      to { box-shadow: 0 0 24px var(--cyan-glow); border-color: rgba(0,240,255,0.4); }
-    }
-
-    .brand-title {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      background: linear-gradient(to right, #ffffff, #c7d2fe, var(--gold));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .brand-sub {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
-      letter-spacing: 0.16em;
+      font-weight: 500;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
+      color: var(--ink);
+    }
+    .brand-text span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--faint);
     }
 
-    /* Top Center: Equilibrium Gauge */
-    .equilibrium-hud {
+    /* Central Equilibrium Seal */
+    .equilibrium-seal {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 6px 16px;
+      padding: 6px 18px;
+      border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(10, 14, 24, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
     }
-    .eq-label {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
+    .eq-title {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
+      color: var(--soft);
     }
-    .eq-bar-wrap {
-      width: 120px;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.1);
+    .eq-bar {
+      width: 90px;
+      height: 4px;
+      background: var(--paper-subtle);
       border-radius: 999px;
       overflow: hidden;
       display: flex;
     }
     .eq-bar-tea {
+      width: 54%;
       height: 100%;
-      width: 52%;
-      background: linear-gradient(90deg, var(--tea), var(--gold));
-      transition: width 0.5s ease;
+      background: var(--tea);
+      transition: width 0.6s ease;
     }
     .eq-bar-motion {
+      width: 46%;
       height: 100%;
-      width: 48%;
-      background: linear-gradient(90deg, var(--cyan), var(--magenta));
-      transition: width 0.5s ease;
+      background: var(--matcha);
+      transition: width 0.6s ease;
     }
-    .eq-ratio {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--gold);
+    .eq-value {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--tea);
     }
 
-    /* Right Controls */
+    /* Header Actions */
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
-    .mode-btn {
+    .ritual-switch {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.25s ease;
-    }
-    .mode-btn.active {
-      border-color: var(--tea);
-      background: rgba(45, 212, 191, 0.14);
-      color: var(--tea);
-      box-shadow: 0 0 14px var(--tea-glow);
-    }
-    .mode-btn:hover {
-      border-color: rgba(255, 255, 255, 0.3);
-      color: #fff;
-    }
-
-    .telemetry-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
       padding: 6px 14px;
       border-radius: 999px;
-      background: rgba(0, 240, 255, 0.06);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      color: var(--cyan);
-      font-family: var(--font-mono);
-      font-size: 11px;
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
     }
-    .pulse-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 8px var(--cyan);
-      animation: pulseAnim 1.6s infinite ease-in-out;
+    .ritual-switch:hover {
+      border-color: var(--tea);
+      color: var(--ink);
     }
-    @keyframes pulseAnim {
-      0%, 100% { transform: scale(0.9); opacity: 0.7; }
-      50% { transform: scale(1.3); opacity: 1; }
+    .telemetry-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--tea);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--tea-light);
+      border: 1px solid rgba(121, 88, 62, 0.2);
     }
 
-    /* THE CARDINAL SENTINEL ROW (4-SHARD JURY AGENTS) */
-    .sentinel-strip {
+    /* THE 4-SHARD JURY COUNCIL SENTINELS (MINIMAL WABI-SABI CARDS) */
+    .jury-sentinels {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 24px;
+      gap: 14px;
+      margin-bottom: 32px;
     }
-    .sentinel-badge {
+    .sentinel-card {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      background: rgba(10, 14, 24, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
-      transition: all 0.25s ease;
+      gap: 12px;
+      transition: all 0.3s ease;
     }
-    .sentinel-badge:hover {
-      border-color: rgba(255, 255, 255, 0.25);
+    .sentinel-card:hover {
+      border-color: var(--line-hover);
+      background: var(--card-bg-hover);
       transform: translateY(-2px);
     }
-    .sentinel-icon {
+    .sentinel-glyph {
       width: 28px;
       height: 28px;
-      border-radius: 6px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .g-pixtral { background: var(--gold-light); color: var(--gold); border: 1px solid rgba(179, 137, 56, 0.3); }
+    .g-qwen { background: var(--matcha-light); color: var(--matcha); border: 1px solid rgba(90, 115, 90, 0.3); }
+    .g-decoder { background: var(--tea-light); color: var(--tea); border: 1px solid rgba(121, 88, 62, 0.3); }
+    .g-governor { background: var(--vermilion-light); color: var(--vermilion); border: 1px solid rgba(166, 62, 57, 0.3); }
+
+    .sentinel-info { flex: 1; min-width: 0; }
+    .sentinel-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .sentinel-desc {
+      font-family: var(--serif);
+      font-size: 11px;
+      color: var(--soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* THE GRAND BIPARTITION: STILLNESS VS VELOCITY */
+    .sanctuary-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 36px 1fr;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 40px;
+    }
+
+    /* Realm I: The Washi Chamber (Tea & Beauty) */
+    .realm-pillar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .pillar-heading {
+      padding: 20px 24px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), var(--paper-soft));
+    }
+    body.mode-nocturnal .pillar-heading {
+      background: linear-gradient(135deg, rgba(32, 28, 24, 0.8), var(--paper-soft));
+    }
+    .pillar-eyebrow {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--tea);
+      margin-bottom: 4px;
+    }
+    .pillar-title {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .pillar-desc {
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--soft);
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    /* Realm I Cards Grid */
+    .cards-flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .tea-card {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+    }
+    .tea-card:hover {
+      background: var(--card-bg-hover);
+      border-color: var(--line-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(54, 47, 40, 0.06);
+    }
+    .tea-card.card-masterpiece {
+      border-color: rgba(179, 137, 56, 0.3);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), var(--card-bg));
+    }
+    .tea-card.card-masterpiece:hover {
+      border-color: var(--gold);
+      box-shadow: 0 12px 28px rgba(179, 137, 56, 0.12);
+    }
+
+    .card-seal {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
       display: grid;
       place-items: center;
       font-size: 14px;
-      flex-shrink: 0;
-    }
-    .s-pixtral .sentinel-icon { background: rgba(255, 190, 46, 0.18); color: var(--gold); border: 1px solid rgba(255, 190, 46, 0.4); }
-    .s-qwen .sentinel-icon { background: rgba(0, 240, 255, 0.18); color: var(--cyan); border: 1px solid rgba(0, 240, 255, 0.4); }
-    .s-decoder .sentinel-icon { background: rgba(168, 85, 247, 0.18); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.4); }
-    .s-governor .sentinel-icon { background: rgba(16, 185, 129, 0.18); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.4); }
-    
-    .sentinel-meta { flex: 1; min-width: 0; }
-    .sentinel-name { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #fff; display: flex; justify-content: space-between; }
-    .sentinel-sub { font-size: 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* THE GREAT BIFURCATION (SPLIT VIEWPORT) */
-    .bifurcation-matrix {
-      display: grid;
-      grid-template-columns: 1fr 34px 1fr;
-      gap: 16px;
-      align-items: start;
-      margin-bottom: 32px;
-      position: relative;
-    }
-
-    /* Left Hemisphere: Tea & Beauty */
-    .realm-pane {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    
-    .realm-header {
-      padding: 16px 20px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      position: relative;
-      overflow: hidden;
-    }
-    .realm-tea-header {
-      background: linear-gradient(135deg, rgba(45, 212, 191, 0.12), rgba(255, 190, 46, 0.08));
-      border-color: rgba(45, 212, 191, 0.25);
-    }
-    .realm-motion-header {
-      background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(255, 51, 136, 0.08));
-      border-color: rgba(0, 240, 255, 0.25);
-    }
-    .realm-eyebrow {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    .realm-tea-header .realm-eyebrow { color: var(--tea); }
-    .realm-motion-header .realm-eyebrow { color: var(--cyan); }
-    .realm-title {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .realm-desc {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    /* Cards Grid within Realm */
-    .realm-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 12px;
-    }
-
-    .portal-card {
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      border-radius: var(--radius);
-      background: var(--bg-card);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
-      text-decoration: none;
-      color: inherit;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    .portal-card:hover {
-      background: var(--bg-card-hover);
-      border-color: var(--border-hover);
-      transform: translateY(-3px);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 20px var(--cyan-glow);
-    }
-    .portal-card.card-masterpiece:hover {
-      border-color: var(--gold);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 24px var(--gold-glow);
-    }
-
-    .card-icon {
-      font-size: 24px;
-      margin-bottom: 12px;
-      display: inline-block;
+      color: var(--tea);
+      margin-bottom: 14px;
+      background: var(--paper-soft);
     }
     .card-title {
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 4px;
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-    }
-    .card-desc {
-      font-size: 11.5px;
-      color: var(--text-muted);
-      line-height: 1.45;
-      margin-bottom: 12px;
-      flex: 1;
-    }
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-dim);
     }
     .card-badge {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       padding: 2px 7px;
-      border-radius: 4px;
-      font-size: 9.5px;
-      font-weight: 700;
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-muted);
+      border-radius: 999px;
+      background: var(--tea-light);
+      color: var(--tea);
+      border: 1px solid rgba(121, 88, 62, 0.2);
     }
-    .card-badge.badge-gold { background: rgba(255, 190, 46, 0.15); color: var(--gold); border: 1px solid rgba(255, 190, 46, 0.3); }
-    .card-badge.badge-cyan { background: rgba(0, 240, 255, 0.15); color: var(--cyan); border: 1px solid rgba(0, 240, 255, 0.3); }
+    .card-body {
+      font-family: var(--serif);
+      font-size: 12px;
+      color: var(--soft);
+      line-height: 1.55;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
 
-    /* CENTER ZERO-POINT MERIDIAN */
-    .zero-meridian {
+    /* CENTER ZERO-MERIDIAN (CALLIGRAPHY SUTURE) */
+    .calligraphy-meridian {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       height: 100%;
       min-height: 480px;
-      position: relative;
     }
-    .meridian-line {
+    .suture-stroke {
       flex: 1;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--tea), var(--gold), var(--cyan), var(--magenta));
-      opacity: 0.35;
-      border-radius: 999px;
-      position: relative;
-      box-shadow: 0 0 10px var(--cyan-glow);
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--tea), var(--gold), transparent);
+      opacity: 0.4;
     }
-    .meridian-node {
-      width: 26px;
-      height: 26px;
+    .suture-seal {
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
-      background: #070a12;
       border: 1px solid var(--gold);
+      background: var(--paper-soft);
       display: grid;
       place-items: center;
-      font-size: 11px;
-      box-shadow: 0 0 14px var(--gold-glow);
-      z-index: 2;
+      font-family: var(--serif);
+      font-size: 12px;
+      color: var(--tea);
+      box-shadow: 0 2px 8px var(--gold-light);
     }
-    .ticker-container {
+    .meridian-text {
       writing-mode: vertical-rl;
-      text-orientation: mixed;
-      font-family: var(--font-mono);
-      font-size: 9.5px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      white-space: nowrap;
+      text-orientation: upright;
+      font-family: var(--serif);
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--faint);
       user-select: none;
-      padding: 12px 0;
+      padding: 10px 0;
     }
 
-    /* LIVE JUDGMENT STREAM TICKER FOOTER */
-    .judgment-stream-block {
-      background: rgba(7, 10, 18, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
+    /* Realm II: The Urushi Lacquer Chamber (Motion & Worlds Inlay) */
+    .urushi-pillar .pillar-heading {
+      background: linear-gradient(135deg, var(--urushi-card), var(--urushi-bg));
+      border-color: var(--urushi-line);
+      color: var(--urushi-text);
+    }
+    .urushi-pillar .pillar-eyebrow { color: var(--gold); }
+    .urushi-pillar .pillar-title { color: #fff; }
+    .urushi-pillar .pillar-desc { color: var(--urushi-soft); }
+
+    .urushi-card {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
       border-radius: var(--radius);
-      padding: 14px 18px;
-      margin-bottom: 24px;
+      border: 1px solid var(--urushi-line);
+      background: var(--urushi-card);
+      color: var(--urushi-text);
+      text-decoration: none;
+      transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+    }
+    .urushi-card:hover {
+      background: var(--urushi-card-hover);
+      border-color: var(--gold);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 16px var(--gold-light);
+    }
+    .urushi-card .card-seal {
+      background: #26221e;
+      border-color: rgba(179, 137, 56, 0.3);
+      color: var(--gold);
+    }
+    .urushi-card .card-title { color: #fff; }
+    .urushi-card .card-body { color: var(--urushi-soft); }
+    .urushi-card .card-foot { border-color: rgba(255, 255, 255, 0.08); color: #7a7369; }
+    .urushi-card .card-badge {
+      background: rgba(179, 137, 56, 0.15);
+      color: var(--gold);
+      border-color: rgba(179, 137, 56, 0.3);
+    }
+
+    /* THE LIVING INK JUDGMENT TICKER */
+    .judgment-scroll {
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       gap: 16px;
-      overflow: hidden;
+      margin-bottom: 28px;
     }
-    .stream-tag {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      padding: 4px 8px;
+    .scroll-tag {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      background: var(--vermilion-light);
+      border: 1px solid rgba(166, 62, 57, 0.2);
+      padding: 3px 8px;
       border-radius: 4px;
-      background: rgba(255, 190, 46, 0.15);
-      color: var(--gold);
-      border: 1px solid rgba(255, 190, 46, 0.3);
       white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
-    .stream-feed {
+    .scroll-stream {
       flex: 1;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--text-muted);
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--soft);
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      gap: 12px;
     }
-    .stream-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      animation: fadeIn 0.4s ease;
-    }
-    .stream-item strong { color: #fff; }
-    .stream-item .score-gold { color: var(--gold); font-weight: 700; }
-    .stream-item .score-cyan { color: var(--cyan); font-weight: 700; }
+    .scroll-stream strong { color: var(--ink); font-weight: 500; }
+    .scroll-stream .score-mark { color: var(--tea); font-weight: 600; font-family: var(--mono); }
 
-    /* FLOATING SUTURE COMMAND DOCK */
+    /* THE SUTURE COMMAND BAR */
     .suture-dock {
       position: fixed;
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 100;
-      width: min(720px, calc(100vw - 32px));
+      width: min(680px, calc(100vw - 40px));
     }
-    .dock-inner {
+    .dock-tray {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 8px 14px;
-      background: rgba(9, 13, 22, 0.92);
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 999px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1);
+      box-shadow: 0 16px 36px rgba(54, 47, 40, 0.12);
       transition: all 0.25s ease;
     }
-    .dock-inner:focus-within {
-      border-color: var(--cyan);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 28px var(--cyan-glow);
+    body.mode-nocturnal .dock-tray {
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
     }
-    .dock-icon {
-      font-size: 16px;
-      color: var(--cyan);
-      flex-shrink: 0;
+    .dock-tray:focus-within {
+      border-color: var(--tea);
+      box-shadow: 0 18px 40px rgba(121, 88, 62, 0.18);
     }
     .dock-input {
       flex: 1;
       background: transparent;
       border: none;
       outline: none;
-      color: #fff;
-      font-family: var(--font-sans);
-      font-size: 13px;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 14px;
     }
     .dock-input::placeholder {
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
+      color: var(--faint);
+      font-family: var(--serif);
+      font-size: 13px;
     }
-    .dock-pills {
+    .dock-links {
       display: flex;
       align-items: center;
       gap: 6px;
-      flex-shrink: 0;
     }
-    .dock-pill {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      padding: 3px 8px;
+    .dock-btn {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 9px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s ease;
+      background: var(--tea-light);
+      color: var(--tea);
       text-decoration: none;
+      transition: all 0.2s ease;
     }
-    .dock-pill:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: #fff;
+    .dock-btn:hover {
+      background: rgba(121, 88, 62, 0.18);
+      color: var(--ink);
     }
     .dock-kbd {
-      padding: 2px 5px;
-      border-radius: 4px;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 9px;
-      color: var(--cyan);
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--line);
+      font-size: 8.5px;
     }
 
     @media (max-width: 960px) {
-      .bifurcation-matrix {
+      .sanctuary-grid {
         grid-template-columns: 1fr;
       }
-      .zero-meridian {
+      .calligraphy-meridian {
         display: none;
       }
-      .sentinel-strip {
+      .jury-sentinels {
         grid-template-columns: 1fr 1fr;
       }
     }
     @media (max-width: 600px) {
-      .sentinel-strip {
+      .jury-sentinels {
         grid-template-columns: 1fr;
+      }
+      .shell {
+        padding: 20px 16px 100px;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Particle Background Constellation -->
-  <canvas id="bgCanvas"></canvas>
+  <!-- Ambient Botanical Particle Canvas -->
+  <canvas id="ambientCanvas"></canvas>
 
   <div class="shell">
     
-    <!-- Top Sovereign HUD Header -->
+    <!-- Top Sovereign Header -->
     <header>
-      <a href="/" class="brand-cluster">
-        <div class="monolith-sigil">IV</div>
-        <div>
-          <h1 class="brand-title">INFLUX VISION</h1>
-          <div class="brand-sub">Sovereign Constellation · Symmetry in Tension</div>
+      <a href="/" class="brand-group">
+        <div class="tea-seal">🍵</div>
+        <div class="brand-text">
+          <h1>Influx Vision</h1>
+          <span>The Living Parchment · Stillness & Motion</span>
         </div>
       </a>
 
-      <!-- Equilibrium Gauge -->
-      <div class="equilibrium-hud" title="Live Balance: Realm I (Stillness) vs Realm II (Motion)">
-        <span class="eq-label">⚖️ Equilibrium</span>
-        <div class="eq-bar-wrap">
+      <!-- Equilibrium Seal -->
+      <div class="equilibrium-seal" title="Dynamic Equilibrium: Stillness vs Velocity">
+        <span class="eq-title">Equilibrium</span>
+        <div class="eq-bar">
           <div class="eq-bar-tea" id="eqTea"></div>
           <div class="eq-bar-motion" id="eqMotion"></div>
         </div>
-        <span class="eq-ratio" id="eqRatio">52 / 48</span>
+        <span class="eq-value" id="eqVal">54 · 46</span>
       </div>
 
-      <!-- Right Controls & Telemetry -->
+      <!-- Right Controls & Ritual Switch -->
       <div class="header-actions">
-        <button class="mode-btn active" id="btnModeTea" onclick="setSensoryMode('tea')">🍵 Tea Mode</button>
-        <button class="mode-btn" id="btnModeWarp" onclick="setSensoryMode('warp')">⚡ Warp Mode</button>
-        <div class="telemetry-pill">
-          <span class="pulse-dot"></span>
-          <span id="headerTelemetry">H200 · LIVE</span>
+        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilightRitual()">
+          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+        </button>
+        <div class="telemetry-tag" id="telemetryTag">
+          H200 · 185W · 42°C
         </div>
       </div>
     </header>
 
-    <!-- THE 4 CARDINAL SENTINEL ORBS (THE BEAUTY ARMY) -->
-    <div class="sentinel-strip">
-      <div class="sentinel-badge s-pixtral">
-        <div class="sentinel-icon">🟡</div>
-        <div class="sentinel-meta">
-          <div class="sentinel-name"><span>Pixtral 12B</span> <span style="color:var(--gold);">2.0γ</span></div>
-          <div class="sentinel-sub">Tonal Harmony & Palette Sieve</div>
+    <!-- THE 4-SHARD JURY COUNCIL SENTINELS -->
+    <div class="jury-sentinels">
+      <div class="sentinel-card">
+        <div class="sentinel-glyph g-pixtral">壱</div>
+        <div class="sentinel-info">
+          <div class="sentinel-header"><span>Pixtral 12B</span> <span style="color:var(--gold);">2.0γ</span></div>
+          <div class="sentinel-desc">Tonal Dynamic Range & Palette Sieve</div>
         </div>
       </div>
 
-      <div class="sentinel-badge s-qwen">
-        <div class="sentinel-icon">🔵</div>
-        <div class="sentinel-meta">
-          <div class="sentinel-name"><span>Qwen 2.5-VL</span> <span style="color:var(--cyan);">1.2γ</span></div>
-          <div class="sentinel-sub">Spatial Geometry & DeepStack</div>
+      <div class="sentinel-card">
+        <div class="sentinel-glyph g-qwen">弐</div>
+        <div class="sentinel-info">
+          <div class="sentinel-header"><span>Qwen 2.5-VL</span> <span style="color:var(--matcha);">1.2γ</span></div>
+          <div class="sentinel-desc">Spatial Geometry & Contour Stability</div>
         </div>
       </div>
 
-      <div class="sentinel-badge s-decoder">
-        <div class="sentinel-icon">🟣</div>
-        <div class="sentinel-meta">
-          <div class="sentinel-name"><span>Consensus Decoder</span> <span style="color:var(--purple);">1.5γ</span></div>
-          <div class="sentinel-sub">Cross-Latent Vector Stability</div>
+      <div class="sentinel-card">
+        <div class="sentinel-glyph g-decoder">参</div>
+        <div class="sentinel-info">
+          <div class="sentinel-header"><span>Consensus Decoder</span> <span style="color:var(--tea);">1.5γ</span></div>
+          <div class="sentinel-desc">Cross-Latent Vector Consistency</div>
         </div>
       </div>
 
-      <div class="sentinel-badge s-governor">
-        <div class="sentinel-icon">🟢</div>
-        <div class="sentinel-meta">
-          <div class="sentinel-name"><span>Governor 31B</span> <span style="color:var(--emerald);">2.2γ</span></div>
-          <div class="sentinel-sub">Macro Generative Law & Trace</div>
+      <div class="sentinel-card">
+        <div class="sentinel-glyph g-governor">肆</div>
+        <div class="sentinel-info">
+          <div class="sentinel-header"><span>Governor 31B</span> <span style="color:var(--vermilion);">2.2γ</span></div>
+          <div class="sentinel-desc">Macro-Generative Law & The Trace</div>
         </div>
       </div>
     </div>
 
-    <!-- THE GREAT BIFURCATION MATRIX -->
-    <div class="bifurcation-matrix">
+    <!-- THE GRAND SANCTUARY GRID -->
+    <div class="sanctuary-grid">
       
-      <!-- 🍵 LEFT HEMISPHERE: REALM I (TEA & BEAUTY) -->
-      <div class="realm-pane">
-        <div class="realm-header realm-tea-header">
-          <div class="realm-eyebrow">Realm I · Sovereign Stillness</div>
-          <h2 class="realm-title">🍵 Tea, Beauty & Curation</h2>
-          <p class="realm-desc">Aesthetic contemplation, high-purity portraits, and 4-shard jury arbitration.</p>
+      <!-- 🍵 LEFT PILLAR: REALM I (TEA & BEAUTY — LIVING WASHI) -->
+      <div class="realm-pillar">
+        <div class="pillar-heading">
+          <div class="pillar-eyebrow">Realm I · Sovereign Stillness</div>
+          <h2 class="pillar-title">Tea, Beauty & Curation</h2>
+          <p class="pillar-desc">Wabi-sabi contemplation, pristine portraits, and the 4-shard AI Jury Chamber.</p>
         </div>
 
-        <div class="realm-cards">
+        <div class="cards-flow">
           <!-- 1. The 4-Shard Jury Chamber -->
-          <a href="/jury" class="portal-card card-masterpiece">
-            <span class="card-icon">👑</span>
-            <div class="card-title">Jury Chamber <span class="card-badge badge-gold">Top 1%</span></div>
-            <p class="card-desc">4-shard autonomous aesthetic court. Real-time critique, strictness gamma dials, and human feedback.</p>
-            <div class="card-footer">
+          <a href="/jury" class="tea-card card-masterpiece">
+            <div class="card-seal">👑</div>
+            <div class="card-title">Jury Chamber <span class="card-badge">Top 1%</span></div>
+            <p class="card-body">4-shard autonomous aesthetic court. Real-time critique, strictness gamma dials, and human feedback.</p>
+            <div class="card-foot">
               <span>Arbitration Vault</span>
               <span>/jury ➔</span>
             </div>
           </a>
 
-          <!-- 2. The Live Gallery -->
-          <a href="/gallery" class="portal-card">
-            <span class="card-icon">🖼️</span>
+          <!-- 2. The Live Gallery Stream -->
+          <a href="/gallery" class="tea-card">
+            <div class="card-seal">🖼️</div>
             <div class="card-title">Live Stream</div>
-            <p class="card-desc">Continuous high-speed waterfall of settling flow-matching frames with instant copy triggers.</p>
-            <div class="card-footer">
-              <span id="galleryCount">1,230+ Assets</span>
+            <p class="card-body">Continuous flow of settling flow-matching frames with instant copy triggers.</p>
+            <div class="card-foot">
+              <span id="galleryCount">1,230+ Works</span>
               <span>/gallery ➔</span>
             </div>
           </a>
 
           <!-- 3. The Tea Garden -->
-          <a href="/garden" class="portal-card">
-            <span class="card-icon">🌿</span>
+          <a href="/garden" class="tea-card">
+            <div class="card-seal">🌿</div>
             <div class="card-title">Tea Garden</div>
-            <p class="card-desc">Meditative wabi-sabi garden. Curated tranquil prompts, botanical studies, and sumi-e wash.</p>
-            <div class="card-footer">
-              <span>Stillness Sanctuary</span>
+            <p class="card-body">Meditative wabi-sabi garden. Curated tranquil prompts, botanical studies, and sumi-e ink wash.</p>
+            <div class="card-foot">
+              <span>Sanctuary</span>
               <span>/garden ➔</span>
             </div>
           </a>
 
           <!-- 4. Sovereign Portraits -->
-          <a href="/portraits" class="portal-card">
-            <span class="card-icon">👤</span>
+          <a href="/portraits" class="tea-card">
+            <div class="card-seal">👤</div>
             <div class="card-title">Portraits Vault</div>
-            <p class="card-desc">Dedicated human & character archetype collections rendered under high-fidelity lighting.</p>
-            <div class="card-footer">
+            <p class="card-body">Archetypal character studies and serene portraiture rendered under soft natural lighting.</p>
+            <div class="card-foot">
               <span>Curated Personas</span>
               <span>/portraits ➔</span>
             </div>
           </a>
 
           <!-- 5. Masterpiece Exhibition -->
-          <a href="/exhibition" class="portal-card card-masterpiece">
-            <span class="card-icon">🏛️</span>
+          <a href="/exhibition" class="tea-card card-masterpiece">
+            <div class="card-seal">🏛️</div>
             <div class="card-title">Exhibition</div>
-            <p class="card-desc">Permanent museum of crowned masterpieces banked off-machine to Cloudflare R2.</p>
-            <div class="card-footer">
+            <p class="card-body">Permanent gallery of crowned masterpieces preserved off-machine to Cloudflare R2.</p>
+            <div class="card-foot">
               <span>Perpetual Archive</span>
               <span>/exhibition ➔</span>
             </div>
@@ -741,73 +780,73 @@
         </div>
       </div>
 
-      <!-- ZERO-POINT MERIDIAN -->
-      <div class="zero-meridian">
-        <div class="meridian-line"></div>
-        <div class="meridian-node">⚡</div>
-        <div class="ticker-container">ZERO-POINT MERIDIAN · SYMMETRY IN TENSION</div>
-        <div class="meridian-line"></div>
+      <!-- CENTER CALLIGRAPHY MERIDIAN -->
+      <div class="calligraphy-meridian">
+        <div class="suture-stroke"></div>
+        <div class="suture-seal">間</div>
+        <div class="meridian-text">静寂と運動の調和</div>
+        <div class="suture-stroke"></div>
       </div>
 
-      <!-- ⚡ RIGHT HEMISPHERE: REALM II (MOTION & WORLDS) -->
-      <div class="realm-pane">
-        <div class="realm-header realm-motion-header">
-          <div class="realm-eyebrow">Realm II · Sovereign Velocity</div>
-          <h2 class="realm-title">⚡ Motion, Worlds & Compute</h2>
-          <p class="realm-desc">Kinematic video generation, 360° spherical environments, and hardware engines.</p>
+      <!-- ⚡ RIGHT PILLAR: REALM II (MOTION & WORLDS — URUSHI LACQUER INLAY) -->
+      <div class="realm-pillar urushi-pillar">
+        <div class="pillar-heading">
+          <div class="pillar-eyebrow">Realm II · Sovereign Velocity</div>
+          <h2 class="pillar-title">Motion, Worlds & Compute</h2>
+          <p class="pillar-desc">Kinematic video synthesis, 360° spherical environments, and hardware engines.</p>
         </div>
 
-        <div class="realm-cards">
+        <div class="cards-flow">
           <!-- 1. Motion & Video Generation -->
-          <a href="/movement" class="portal-card">
-            <span class="card-icon">🎬</span>
-            <div class="card-title">Kinematic Forge <span class="card-badge badge-cyan">Motion</span></div>
-            <p class="card-desc">Camera trajectories, latent video interpolation, continuous sequence flow, and motion telemetry.</p>
-            <div class="card-footer">
+          <a href="/movement" class="urushi-card">
+            <div class="card-seal">🎬</div>
+            <div class="card-title">Kinematic Forge <span class="card-badge">Motion</span></div>
+            <p class="card-body">Camera trajectories, latent video interpolation, and continuous flow-matching sequences.</p>
+            <div class="card-foot">
               <span>Temporal Engine</span>
               <span>/movement ➔</span>
             </div>
           </a>
 
           <!-- 2. 360° Spheremap World Atlas -->
-          <a href="/atlas/" class="portal-card">
-            <span class="card-icon">🌐</span>
+          <a href="/atlas/" class="urushi-card">
+            <div class="card-seal">🌐</div>
             <div class="card-title">World Atlas 360°</div>
-            <p class="card-desc">Spherical equirectangular environment generator and interactive three.js panorama viewer.</p>
-            <div class="card-footer">
+            <p class="card-body">Spherical equirectangular environment generator and interactive Three.js panorama viewer.</p>
+            <div class="card-foot">
               <span>Infinite Horizons</span>
               <span>/atlas/ ➔</span>
             </div>
           </a>
 
           <!-- 3. Kinetic Studies -->
-          <a href="/studies" class="portal-card">
-            <span class="card-icon">🏃</span>
+          <a href="/studies" class="urushi-card">
+            <div class="card-seal">🏃</div>
             <div class="card-title">Kinetic Studies</div>
-            <p class="card-desc">High-speed physics, fluid dynamics, anatomical motion passes, and spatial vectors.</p>
-            <div class="card-footer">
+            <p class="card-body">High-speed physics, fluid dynamics, anatomical motion passes, and spatial vector mechanics.</p>
+            <div class="card-foot">
               <span>Vector Dynamics</span>
               <span>/studies ➔</span>
             </div>
           </a>
 
           <!-- 4. GPU Engine Room -->
-          <a href="/engine" class="portal-card">
-            <span class="card-icon">⚙️</span>
+          <a href="/engine" class="urushi-card">
+            <div class="card-seal">⚙️</div>
             <div class="card-title">GPU Engine Room</div>
-            <p class="card-desc">Live VRAM allocation, PCIe bandwidth, socket daemons, power curves, and thermals.</p>
-            <div class="card-footer">
+            <p class="card-body">Live VRAM allocation, PCIe bandwidth, socket daemons, power curves, and thermals.</p>
+            <div class="card-foot">
               <span id="engineVram">H200 · 141 GB</span>
               <span>/engine ➔</span>
             </div>
           </a>
 
           <!-- 5. Sentinel Audit Ledger -->
-          <a href="/sentinel" class="portal-card">
-            <span class="card-icon">📡</span>
+          <a href="/sentinel" class="urushi-card">
+            <div class="card-seal">📡</div>
             <div class="card-title">Sentinel Ledger</div>
-            <p class="card-desc">Cryptographic audit log, Cloudflare R2 backup stream, and deterministic provenance trails.</p>
-            <div class="card-footer">
+            <p class="card-body">Cryptographic audit log, Cloudflare R2 backup stream, and deterministic provenance trails.</p>
+            <div class="card-foot">
               <span>Durable Ledger</span>
               <span>/sentinel ➔</span>
             </div>
@@ -817,35 +856,33 @@
 
     </div>
 
-    <!-- LIVE JUDGMENT STREAM (CENTRAL AGENT ARMY FEED) -->
-    <div class="judgment-stream-block">
-      <div class="stream-tag"><span>⚡ AGENT STREAM</span></div>
-      <div class="stream-feed" id="judgmentFeed">
-        <div class="stream-item">
-          <span>[Jury-Shard-Pixtral]</span> ➔ Auditing live frame <strong class="score-gold">94.8 Score</strong> (Top 1.2%ile) · Banked to R2 Sentinel
-        </div>
+    <!-- THE LIVING INK JUDGMENT TICKER -->
+    <div class="judgment-scroll">
+      <div class="scroll-tag"><span>評定録 · JURY AUDIT</span></div>
+      <div class="scroll-stream" id="judgmentFeed">
+        <span>[Pixtral-12B]</span> ➔ Auditing tonal balance: <strong>"The Shattered Cathedral of Cyanotype Brine"</strong> · <span class="score-mark">94.7 Score</span> (Top 1.2%ile) · Sealed to R2
       </div>
     </div>
 
   </div>
 
-  <!-- FLOATING SUTURE COMMAND DOCK -->
+  <!-- THE SUTURE COMMAND DOCK -->
   <div class="suture-dock">
-    <div class="dock-inner">
-      <span class="dock-icon">⚡</span>
-      <input type="text" id="dockCommandInput" class="dock-input" placeholder="Broadcast directive to agent army (Press '/' to focus)..." onkeydown="handleDockKey(event)">
-      <div class="dock-pills">
-        <a href="/jury" class="dock-pill">👑 Jury <span class="dock-kbd">J</span></a>
-        <a href="/gallery" class="dock-pill">🖼️ Stream <span class="dock-kbd">G</span></a>
-        <a href="/movement" class="dock-pill">🎬 Motion <span class="dock-kbd">M</span></a>
-        <a href="/engine" class="dock-pill">⚙️ Engine <span class="dock-kbd">E</span></a>
+    <div class="dock-tray">
+      <span style="color:var(--tea); font-size:16px;">🍵</span>
+      <input type="text" id="commandInput" class="dock-input" placeholder="Whisper directive to the beauty agents (Press '/' to focus)..." onkeydown="handleCommandKey(event)">
+      <div class="dock-links">
+        <a href="/jury" class="dock-btn">👑 Jury <span class="dock-kbd">J</span></a>
+        <a href="/gallery" class="dock-btn">🖼️ Stream <span class="dock-kbd">G</span></a>
+        <a href="/movement" class="dock-btn">🎬 Motion <span class="dock-kbd">M</span></a>
+        <a href="/engine" class="dock-btn">⚙️ Engine <span class="dock-kbd">E</span></a>
       </div>
     </div>
   </div>
 
   <script>
-    // Particle Constellation Engine
-    const canvas = document.getElementById('bgCanvas');
+    // Ambient Botanical Drift
+    const canvas = document.getElementById('ambientCanvas');
     const ctx = canvas.getContext('2d');
     let width, height;
     let particles = [];
@@ -857,38 +894,37 @@
     window.addEventListener('resize', resize);
     resize();
 
-    class Particle {
-      constructor() {
-        this.reset();
-      }
+    class TeaLeaf {
+      constructor() { this.reset(); }
       reset() {
         this.x = Math.random() * width;
         this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 0.4;
-        this.vy = (Math.random() - 0.5) * 0.4;
-        this.radius = Math.random() * 1.5 + 0.5;
-        this.alpha = Math.random() * 0.5 + 0.1;
-        // Balance particles: left = gold/tea, right = cyan/magenta
-        this.color = (this.x < width / 2) 
-          ? (Math.random() > 0.5 ? '45, 212, 191' : '255, 190, 46') 
-          : (Math.random() > 0.5 ? '0, 240, 255' : '255, 51, 136');
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = Math.random() * 0.25 + 0.1;
+        this.radius = Math.random() * 2 + 1;
+        this.alpha = Math.random() * 0.4 + 0.1;
+        this.rot = Math.random() * Math.PI * 2;
+        this.vRot = (Math.random() - 0.5) * 0.01;
       }
       update() {
         this.x += this.vx;
         this.y += this.vy;
-        if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
-          this.reset();
-        }
+        this.rot += this.vRot;
+        if (this.y > height || this.x < 0 || this.x > width) this.reset();
       }
       draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rot);
+        ctx.fillStyle = `rgba(121, 88, 62, ${this.alpha})`;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+        ctx.ellipse(0, 0, this.radius * 2, this.radius, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
     }
 
-    for (let i = 0; i < 70; i++) particles.push(new Particle());
+    for (let i = 0; i < 45; i++) particles.push(new TeaLeaf());
 
     function animate() {
       ctx.clearRect(0, 0, width, height);
@@ -900,19 +936,25 @@
     }
     animate();
 
-    // Sensory Modes Toggle
-    function setSensoryMode(mode) {
-      document.body.className = (mode === 'tea') ? 'mode-tea' : 'mode-warp';
-      document.getElementById('btnModeTea').classList.toggle('active', mode === 'tea');
-      document.getElementById('btnModeWarp').classList.toggle('active', mode === 'warp');
+    // Twilight Ritual Toggle (Parchment White ↔ Nocturnal Study)
+    function toggleTwilightRitual() {
+      const isDark = document.body.classList.toggle('mode-nocturnal');
+      document.getElementById('switchIcon').textContent = isDark ? '🍵' : '🌙';
+      document.getElementById('switchText').textContent = isDark ? 'Living Parchment' : 'Nocturnal Study';
+      localStorage.setItem('influx_twilight_mode', isDark ? 'dark' : 'light');
+    }
+
+    // Restore saved mode if any
+    if (localStorage.getItem('influx_twilight_mode') === 'dark') {
+      toggleTwilightRitual();
     }
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement === document.getElementById('dockCommandInput')) return;
+      if (document.activeElement === document.getElementById('commandInput')) return;
       if (e.key === '/') {
         e.preventDefault();
-        document.getElementById('dockCommandInput').focus();
+        document.getElementById('commandInput').focus();
       } else if (e.key === 'j' || e.key === 'J') {
         window.location.href = '/jury';
       } else if (e.key === 'g' || e.key === 'G') {
@@ -924,74 +966,69 @@
       }
     });
 
-    async function handleDockKey(e) {
+    async function handleCommandKey(e) {
       if (e.key === 'Enter') {
         const val = e.target.value.trim();
         if (!val) return;
         try {
-          const res = await fetch('/api/generate', {
+          await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: val, count: 1 })
           });
           e.target.value = '';
-          e.target.placeholder = '⚡ Directive dispatched to GPU cluster!';
+          e.target.placeholder = '🍵 Directive received by the beauty council...';
           setTimeout(() => {
-            e.target.placeholder = "Broadcast directive to agent army (Press '/' to focus)...";
+            e.target.placeholder = "Whisper directive to the beauty agents (Press '/' to focus)...";
           }, 3000);
-        } catch (err) {
-          console.warn('Dispatch error:', err);
-        }
+        } catch (_) {}
       }
     }
 
-    // Live Telemetry & Judgment Stream
-    const AUDIT_LOGS = [
-      "Auditing tonal dynamic range under 2.0γ harshness",
-      "Verifying DeepStack contour stability & spatial geometry",
-      "Consensus vector alignment verified across latent shards",
+    // Live Telemetry Polling
+    const POETRY_LOGS = [
+      "Auditing tonal dynamic range and mist transparency under 2.0γ harshness",
+      "Validating DeepStack contour stability & anatomical spatial balance",
+      "Consensus vector alignment verified across latent representation shards",
       "Macro-generative doctrine trace settled with 94.7th %ile score",
-      "Masterpiece crowned ➔ Promoted to Sovereign Exhibition Vault",
-      "Flow-matching step 28/28 finalized ➔ Offloading to R2 Sentinel"
+      "Masterpiece crowned ➔ Preserved to Permanent Exhibition Vault",
+      "Perpetual flow-matching frame settled ➔ Banked to Cloudflare R2"
     ];
 
-    async function updateTelemetry() {
+    async function pollTelemetry() {
       try {
-        const [telRes, imgRes, specRes] = await Promise.all([
+        const [telRes, imgRes] = await Promise.all([
           fetch('/api/telemetry', { cache: 'no-store' }),
-          fetch('/api/recent-images?limit=1', { cache: 'no-store' }),
-          fetch('/api/jury/spectacles', { cache: 'no-store' })
+          fetch('/api/recent-images?limit=1', { cache: 'no-store' })
         ]);
 
         if (telRes.ok) {
           const t = await telRes.json();
           const power = t.gpu_power_w ? `${Math.round(t.gpu_power_w)}W` : '185W';
           const temp = t.gpu_temp_c ? `${t.gpu_temp_c}°C` : '42°C';
-          document.getElementById('headerTelemetry').textContent = `H200 · ${power} · ${temp}`;
+          document.getElementById('telemetryTag').textContent = `H200 · ${power} · ${temp}`;
           document.getElementById('engineVram').textContent = `H200 · ${t.vram_used_gb || '8.2'} / 141 GB`;
         }
 
         if (imgRes.ok) {
           const im = await imgRes.json();
           if (im.total) {
-            document.getElementById('galleryCount').textContent = `${im.total} Assets`;
+            document.getElementById('galleryCount').textContent = `${im.total} Works`;
           }
         }
 
-        // Rotate live judgment ticker
-        const randomAudit = AUDIT_LOGS[Math.floor(Math.random() * AUDIT_LOGS.length)];
+        // Rotate judgment stream
+        const log = POETRY_LOGS[Math.floor(Math.random() * POETRY_LOGS.length)];
         const agent = (Math.random() > 0.5) ? 'Pixtral-12B' : 'Qwen-2.5';
         const score = (91 + Math.random() * 8.5).toFixed(1);
         document.getElementById('judgmentFeed').innerHTML = `
-          <div class="stream-item">
-            <span>[Jury-Shard-${agent}]</span> ➔ ${randomAudit} · <strong class="score-gold">${score} Score</strong> · R2 Synced
-          </div>
+          <span>[Jury-Shard-${agent}]</span> ➔ ${log} · <span class="score-mark">${score} Score</span> · R2 Synced
         `;
       } catch (_) {}
     }
 
-    setInterval(updateTelemetry, 3500);
-    updateTelemetry();
+    setInterval(pollTelemetry, 3500);
+    pollTelemetry();
   </script>
 </body>
 </html>
