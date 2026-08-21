@@ -303,9 +303,89 @@ receipt:
 	@echo "║ • Sentinel Ledger  : https://motion.influx.vision/sentinel                    ║"
 	@echo "╟───────────────────────────────────────────────────────────────────────────────╢"
 	@echo "║ 📦 R2 Artifact Bank                                                           ║"
-	@echo "║ • sm100 (Blackwell): wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/sm100/║"
-	@echo "║ • sm80  (Hopper/Ada): wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/sm80/ ║"
+	@echo "║   base: wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/                 ║"
+	@echo "║ • sm100  Blackwell datacenter · B200/B300      : built                        ║"
+	@echo "║ • sm80   Ampere · A100                         : built                        ║"
+	@echo "║ • sm90   Hopper · H100/H200                    : NOT BUILT                    ║"
+	@echo "║ • sm120  Blackwell workstation · RTX PRO 6000  : NOT BUILT                    ║"
 	@echo "║ • Settled Outputs  : 1,235+ PNGs synced to Cloudflare R2 outputs/             ║"
 	@echo "╚═══════════════════════════════════════════════════════════════════════════════╝"
 	@echo ""
 
+
+# ── Arcane Pipeline ──────────────────────────────────────────────────────────
+# arcane_pipeline.py: draft -> atlas -> jury -> promote -> publish.
+#
+# ARCANE_PY picks the interpreter. Do NOT use a bare `python3` here: on at least
+# one dev machine the `python3` first on PATH is a Homebrew stub containing
+# nothing but `#!/bin/sh`, so it PRINTS NOTHING AND EXITS 0 for every invocation
+# -- including `python3 -m py_compile <file with a syntax error>`. Every check
+# run through it is a silent false pass. The order below prefers the project
+# venv, then a real interpreter by absolute path, then /usr/bin/python3 (a real
+# 3.9 on macOS), and only then whatever `python3` resolves to.
+ARCANE_VENVS := $(VENV_PY) $(HOME)/.venvs/mlx/bin/python3 /usr/bin/python3
+ARCANE_PY ?= $(firstword $(wildcard $(ARCANE_VENVS)) python3)
+
+ARCANE := $(CURDIR)/arcane_pipeline.py
+DRAFT ?= arcane_rose_princess_hybrid_64
+CELLS ?= 0
+KONTEXT ?= 0
+PROFILE ?=
+MODE ?=
+LAYOUT ?=
+SHARDS ?=
+SORTIE ?= 64
+DEPTH ?= 3
+
+# KONTEXT=1 is the only tenant toggle. Pixtral and the DINOv2/SigLIP gates are
+# mandatory in every profile and deliberately have no switch.
+ARCANE_FLAGS := $(if $(filter 1 true yes on,$(KONTEXT)),--kontext,--no-kontext) \
+	$(if $(PROFILE),--profile $(PROFILE),) \
+	$(if $(LAYOUT),--layout $(LAYOUT),)
+ARCANE_RUN_FLAGS := $(ARCANE_FLAGS) \
+	$(if $(filter-out 0,$(CELLS)),--cells $(CELLS),) \
+	$(if $(SHARDS),--shards $(SHARDS),) \
+	$(if $(MODE),--mode $(MODE),)
+
+.PHONY: arcane arcane-preflight arcane-status arcane-drafts arcane-perpetual \
+	arcane-character arcane-latent arcane-scenes arcane-dry arcane-check
+
+arcane-drafts:
+	@$(ARCANE_PY) $(ARCANE) drafts
+
+arcane-preflight:
+	@$(ARCANE_PY) $(ARCANE) preflight --draft "$(DRAFT)" $(ARCANE_FLAGS)
+
+# The main event. DRAFT= picks the study, CELLS= caps it, KONTEXT=1 adds the
+# refinement pass, SHARDS= fans it across GPUs. Mode comes from the draft.
+arcane:
+	@$(ARCANE_PY) $(ARCANE) run --draft "$(DRAFT)" $(ARCANE_RUN_FLAGS)
+
+arcane-character:
+	@$(ARCANE_PY) $(ARCANE) character --draft "$(DRAFT)" $(ARCANE_FLAGS) \
+		$(if $(filter-out 0,$(CELLS)),--cells $(CELLS),) $(if $(SHARDS),--shards $(SHARDS),)
+
+arcane-latent:
+	@$(ARCANE_PY) $(ARCANE) latent --draft "$(DRAFT)" $(ARCANE_FLAGS) \
+		$(if $(filter-out 0,$(CELLS)),--cells $(CELLS),) $(if $(SHARDS),--shards $(SHARDS),)
+
+arcane-scenes:
+	@$(ARCANE_PY) $(ARCANE) scenes --draft "$(DRAFT)" $(ARCANE_FLAGS) \
+		$(if $(filter-out 0,$(CELLS)),--cells $(CELLS),) $(if $(SHARDS),--shards $(SHARDS),)
+
+# Prints the exact payload that would go over the socket. Works with no GPU,
+# no daemon and no model weights -- this is how the run gets reviewed offline.
+arcane-dry:
+	@$(ARCANE_PY) $(ARCANE) run --draft "$(DRAFT)" --dry-run $(ARCANE_RUN_FLAGS)
+
+arcane-status:
+	@$(ARCANE_PY) $(ARCANE) status $(if $(DRAFT),--draft "$(DRAFT)",)
+
+arcane-perpetual:
+	@$(ARCANE_PY) $(ARCANE) perpetual --sortie $(SORTIE) --depth $(DEPTH) $(ARCANE_FLAGS) \
+		$(if $(MODE),--mode $(MODE),)
+
+arcane-check:
+	@$(ARCANE_PY) -m py_compile $(ARCANE) && echo "arcane_pipeline.py compiles under $(ARCANE_PY)"
+	@$(ARCANE_PY) $(ARCANE) drafts >/dev/null && echo "drafts ok"
+	@$(ARCANE_PY) $(ARCANE) run --draft "$(DRAFT)" --cells 8 --dry-run >/dev/null && echo "dry-run ok"

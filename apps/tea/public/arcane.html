@@ -1,638 +1,1456 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Arcane Production Studio · Influx Vision</title>
-  <meta name="description" content="Fortiche-grade Arcane anime production forge, 64-frame latent turntables, Piltover & Zaun world atlas, and AI beauty jury.">
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>The Arcane World Forge · Influx Vision</title>
+<meta name="description" content="The Arcane production surface: live atlas cartography, the four-shard jury's verdicts, the Fortiche conformance readout, and the crowned frames.">
+<!--
+  This page is deliberately self-contained: no CDN, no font host, no build step.
+  It must render honestly behind the public read-only listener, where the only
+  things it may reach are GET routes on the readOnlyPaths allowlist.
 
-  <style>
-    :root {
-      --paper: #f7f5f0;
-      --paper-soft: #fcfbf8;
-      --ink: #27231f;
-      --ink-soft: #635d55;
-      --ink-faint: #9c958a;
-      --border: #e6e2d8;
-      --border-dark: #2a2622;
-      --hojicha: #79583e;
-      --vermilion: #a63e39;
-      --celadon: #5a776a;
-      --hextech: #00d2ff;
-      --chemtech: #00ff88;
-      --zaun-rust: #8b4513;
-      --gold: #c5a059;
-      --bg-dark: #121110;
-      --card-dark: #1a1816;
-      --text-dark: #e8e4dc;
-      --text-dark-faint: #888277;
-    }
+  Two rules govern everything below.
 
-    body.mode-nocturnal {
-      --paper: #121110;
-      --paper-soft: #1a1816;
-      --ink: #e8e4dc;
-      --ink-soft: #a8a296;
-      --ink-faint: #6e675c;
-      --border: #2a2622;
-      --hojicha: #a47854;
-      --vermilion: #d05851;
-      --celadon: #78a08f;
-    }
+  1. A number is shown only when it was measured. The protocol spec's
+     "94.1% / 1.50 s per cell" is carried in the manifest as
+     `spec_claims_unverified` and is rendered as a claim, in the footnote, never
+     in a stat cell.
+  2. An unscored frame is never dressed up as a judged one. tier === "unscored"
+     means the jury was unreachable or returned nothing; such a frame is
+     desaturated, hatched, dashed, and labelled. See `.verdict.is-unscored`.
+-->
+<style>
+  :root {
+    /* Living Parchment -- the house ground, shared with index.html */
+    --paper:        #f7f5f0;
+    --paper-soft:   #fcfbf8;
+    --paper-subtle: #efece4;
+    --card:         rgba(255,255,255,0.72);
+    --card-hi:      rgba(255,255,255,0.94);
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--paper);
-      color: var(--ink);
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      transition: background 0.4s ease, color 0.4s ease;
-      min-height: 100vh;
-    }
+    --ink:    #27231f;
+    --soft:   #736b63;
+    --faint:  #a69e94;
+    --line:   rgba(54,47,40,0.12);
+    --line-2: rgba(54,47,40,0.22);
 
-    /* Universal Two-Tier Navigation */
-    .top-nav {
-      border-bottom: 1px solid var(--border);
-      background: var(--paper-soft);
-      padding: 10px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      backdrop-filter: blur(12px);
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--ink);
-      font-weight: 600;
-      font-size: 14px;
-      letter-spacing: 0.05em;
-    }
-    .brand-seal {
-      width: 22px;
-      height: 22px;
-      background: var(--vermilion);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 3px;
-      font-family: 'Noto Serif JP', serif;
-      font-size: 11px;
-    }
-    .nav-tiers {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 12px;
-    }
-    .nav-tier-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .nav-label {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--ink-faint);
-    }
-    .nav-link {
-      text-decoration: none;
-      color: var(--ink-soft);
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-    }
-    .nav-link:hover, .nav-link.active {
-      color: var(--ink);
-      background: rgba(0,0,0,0.04);
-    }
-    body.mode-nocturnal .nav-link:hover, body.mode-nocturnal .nav-link.active {
-      background: rgba(255,255,255,0.06);
-    }
-    .nav-divider {
-      color: var(--border);
-      font-weight: 300;
-    }
-    .ritual-switch {
-      background: none;
-      border: 1px solid var(--border);
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--ink);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    --tea:       #79583e;
+    --matcha:    #5a735a;
+    --vermilion: #a63e39;
+    --gold:      #b38938;
 
-    /* Main Container */
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 32px 24px;
-    }
+    /* Arcane accents. Used as thin signal, not as wallpaper. */
+    --chemtech: #0d8f5b;   /* Zaun emerald, darkened for parchment contrast */
+    --hextech:  #0d7d99;   /* Piltover cyan, darkened for parchment contrast */
+    --chem-raw: #00ff88;
+    --hex-raw:  #00d2ff;
+    --obsidian: #090809;
 
-    /* Arcane Hero Banner */
-    .arcane-hero {
-      border: 1px solid var(--border);
-      background: var(--paper-soft);
-      border-radius: 8px;
-      padding: 36px 40px;
-      margin-bottom: 32px;
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 32px;
-      align-items: center;
-      position: relative;
-      overflow: hidden;
-    }
-    .hero-title {
-      font-family: 'Cinzel', serif;
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      margin-bottom: 8px;
-      color: var(--ink);
-    }
-    .hero-subtitle {
-      font-family: 'Noto Serif JP', serif;
-      font-size: 15px;
-      color: var(--hojicha);
-      margin-bottom: 16px;
-    }
-    .hero-desc {
-      color: var(--ink-soft);
-      line-height: 1.7;
-      margin-bottom: 24px;
-      font-size: 13px;
-    }
-    .hero-tags {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .hero-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      background: rgba(0,0,0,0.03);
-      border: 1px solid var(--border);
-    }
-    body.mode-nocturnal .hero-tag { background: rgba(255,255,255,0.04); }
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
+    --jp: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", "Noto Sans CJK JP", "MS Mincho", serif;
+    --sans:  "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-    /* Dual-City Mode Selector */
-    .realm-switch {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    .city-btn {
-      flex: 1;
-      padding: 14px 20px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--paper-soft);
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      text-align: left;
-      transition: all 0.25s ease;
-    }
-    .city-btn.active.piltover {
-      border-color: var(--gold);
-      background: linear-gradient(135deg, rgba(197,160,89,0.08), transparent);
-      box-shadow: 0 0 20px rgba(197,160,89,0.15);
-    }
-    .city-btn.active.zaun {
-      border-color: var(--chemtech);
-      background: linear-gradient(135deg, rgba(0,255,136,0.08), transparent);
-      box-shadow: 0 0 20px rgba(0,255,136,0.15);
-    }
-    .city-name {
-      font-family: 'Cinzel', serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-    .city-meta {
-      font-size: 11px;
-      color: var(--ink-faint);
-      font-family: 'JetBrains Mono', monospace;
-    }
+    --radius: 12px;
+    --radius-sm: 6px;
+    --sheen: rgba(255,255,255,0.9);
+    --circadian: rgba(231,181,182,0.13);
+  }
 
-    /* Production Grid */
-    .production-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 32px;
-    }
+  body.mode-nocturnal {
+    --paper:        #12100e;
+    --paper-soft:   #181513;
+    --paper-subtle: #201c19;
+    --card:         rgba(28,24,21,0.78);
+    --card-hi:      rgba(38,33,29,0.95);
+    --ink:    #f0ece1;
+    --soft:   #aba296;
+    --faint:  #6e675e;
+    --line:   rgba(240,236,225,0.10);
+    --line-2: rgba(240,236,225,0.20);
+    --tea:    #b3893a;
+    --matcha: #7f9d7f;
+    --chemtech: #3ff0a4;
+    --hextech:  #4fd8f5;
+    --sheen: rgba(255,255,255,0.055);
+  }
 
-    /* Studio Card */
-    .studio-card {
-      border: 1px solid var(--border);
-      background: var(--paper-soft);
-      border-radius: 8px;
-      padding: 24px;
-      position: relative;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
-    }
-    .card-title {
-      font-family: 'Cinzel', serif;
-      font-size: 16px;
-      font-weight: 600;
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* 64-Frame Turntable Player */
-    .turntable-viewport {
-      width: 100%;
-      height: 440px;
-      background: #000;
-      border-radius: 6px;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      margin-bottom: 16px;
-      border: 1px solid var(--border);
-    }
-    .turntable-viewport img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .turntable-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .scrub-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .scrub-slider {
-      flex: 1;
-      accent-color: var(--vermilion);
-    }
-    .frame-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      background: rgba(0,0,0,0.05);
-      border: 1px solid var(--border);
-      min-width: 90px;
-      text-align: center;
-    }
+  html { scroll-behavior: smooth; }
 
-    /* Prompt Synthesizer */
-    .synth-group {
-      margin-bottom: 16px;
-    }
-    .synth-label {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--ink-faint);
-      margin-bottom: 6px;
-      display: block;
-    }
-    .synth-input, .synth-select {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--paper);
-      color: var(--ink);
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-    }
-    .synth-btn {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--border-dark);
-      background: var(--ink);
-      color: var(--paper);
-      font-family: 'Cinzel', serif;
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .synth-btn:hover {
-      background: var(--vermilion);
-      border-color: var(--vermilion);
-      color: #fff;
-    }
+  body {
+    background:
+      radial-gradient(circle at 84% -6%, var(--circadian), transparent 34rem),
+      linear-gradient(180deg, var(--paper-soft), var(--paper));
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.8s cubic-bezier(0.4,0,0.2,1), color 0.5s ease;
+  }
 
-    /* Fortiche Jury Matrix */
-    .jury-score-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-    }
-    .score-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
-      color: var(--celadon);
-    }
-    .verdict-seal {
-      margin-top: 16px;
-      padding: 14px;
-      border: 1px dashed var(--gold);
-      background: rgba(197,160,89,0.06);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .verdict-title {
-      font-family: 'Cinzel', serif;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--gold);
-    }
-    .verdict-quote {
-      font-size: 11px;
-      color: var(--ink-soft);
-      font-style: italic;
-    }
-  </style>
+  a { color: inherit; }
+
+  /* ---------------------------------------------------------------- nav */
+
+  .top-nav {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; flex-wrap: wrap;
+    padding: 12px 28px;
+    background: color-mix(in srgb, var(--paper-soft) 86%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(14px);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+  .seal {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center;
+    border: 1px solid var(--line-2); background: var(--paper-soft);
+    color: var(--tea); font-family: var(--jp); font-size: 12px;
+    transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .brand:hover .seal { transform: rotate(45deg); }
+  .brand b {
+    font-family: var(--serif); font-size: 14px; font-weight: 500;
+    letter-spacing: 0.19em; text-transform: uppercase;
+  }
+  .nav-tiers { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .tier { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .tier-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--faint); margin-right: 3px;
+  }
+  .nav-link {
+    text-decoration: none; color: var(--soft);
+    font-size: 12px; padding: 4px 9px; border-radius: var(--radius-sm);
+    border: 1px solid transparent; transition: all 0.22s ease; white-space: nowrap;
+  }
+  .nav-link:hover { color: var(--ink); background: var(--paper-subtle); }
+  .nav-link.active { color: var(--ink); border-color: var(--line-2); background: var(--card-hi); }
+  .divider { color: var(--line-2); }
+
+  .ritual {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    background: none; border: 1px solid var(--line); color: var(--soft);
+    padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: all 0.22s ease;
+  }
+  .ritual:hover { color: var(--ink); border-color: var(--line-2); }
+
+  /* ------------------------------------------------------ status ribbon */
+
+  .ribbon {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 9px 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper-subtle);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em;
+    color: var(--soft);
+  }
+  .pulse {
+    display: inline-flex; align-items: center; gap: 8px;
+    text-transform: uppercase; letter-spacing: 0.16em;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--faint); box-shadow: 0 0 0 0 transparent;
+  }
+  body[data-conn="live"] .dot {
+    background: var(--chemtech);
+    animation: breathe 3.4s ease-in-out infinite;
+  }
+  body[data-conn="reconnecting"] .dot { background: var(--gold); animation: breathe 1.6s ease-in-out infinite; }
+  body[data-conn="disconnected"] .dot { background: var(--vermilion); }
+  body[data-conn="idle"] .dot { background: var(--soft); }
+  @keyframes breathe {
+    0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--chemtech) 45%, transparent); }
+    50%     { box-shadow: 0 0 0 6px transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none !important; } }
+  .ribbon .sep { color: var(--line-2); }
+  .ribbon .quiet { color: var(--faint); }
+
+  /* ---------------------------------------------------------- structure */
+
+  .shell { max-width: 1340px; margin: 0 auto; padding: 46px 28px 120px; }
+
+  .shell > section, .shell > .split { margin-top: 58px; }
+  .shell > :first-child { margin-top: 0; }
+  .split > section { margin-top: 0; }
+
+  .head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding-bottom: 12px; margin-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .head h2 {
+    font-family: var(--serif); font-size: 17px; font-weight: 500;
+    letter-spacing: 0.13em; text-transform: uppercase;
+  }
+  .head .meta {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint);
+  }
+
+  /* Interactive paper sheen: a pointer-coupled diffuse light on washi. */
+  .leaf {
+    position: relative; overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.4s ease, background 0.4s ease;
+  }
+  .leaf::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    opacity: 0; transition: opacity 0.5s ease;
+    background: radial-gradient(220px circle at var(--mx,50%) var(--my,50%), var(--sheen), transparent 70%);
+  }
+  .leaf:hover::before { opacity: 1; }
+  .leaf:hover { border-color: var(--line-2); }
+
+  /* ------------------------------------------------------------- hero */
+
+  .hero { display: grid; grid-template-columns: 1.35fr 1fr; gap: 34px; align-items: end; }
+  .hero h1 {
+    font-family: var(--serif); font-size: clamp(30px, 4.2vw, 46px);
+    font-weight: 500; letter-spacing: 0.015em; line-height: 1.1;
+  }
+  .hero .kicker {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+    text-transform: uppercase; color: var(--tea); margin-bottom: 16px;
+  }
+  .hero .ma {
+    margin-top: 20px; max-width: 46ch;
+    font-family: var(--serif); font-size: 15px; line-height: 1.75; color: var(--soft);
+  }
+  .hero .ma em { font-style: normal; color: var(--ink); font-family: var(--jp); }
+
+  .picker { display: flex; flex-direction: column; gap: 12px; }
+  .picker label {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  select, .ghost-btn {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--paper-soft); color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+    padding: 9px 12px; width: 100%; cursor: pointer;
+  }
+  select:focus-visible, .ghost-btn:focus-visible, .ritual:focus-visible,
+  .realm-btn:focus-visible, .frame:focus-visible {
+    outline: 2px solid var(--tea); outline-offset: 2px;
+  }
+  .realms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .realm-btn {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.11em;
+    text-transform: uppercase; text-align: left;
+    padding: 10px 12px; cursor: pointer;
+    background: var(--paper-soft); color: var(--soft);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    transition: all 0.3s ease;
+  }
+  .realm-btn span { display: block; font-size: 9px; letter-spacing: 0.08em; color: var(--faint); margin-top: 3px; text-transform: none; }
+  .realm-btn[aria-pressed="true"] { color: var(--ink); }
+  .realm-btn.piltover[aria-pressed="true"] { border-color: var(--hextech); box-shadow: inset 3px 0 0 var(--hextech); }
+  .realm-btn.zaun[aria-pressed="true"]     { border-color: var(--chemtech); box-shadow: inset 3px 0 0 var(--chemtech); }
+
+  /* ------------------------------------------------------- stat cells */
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .stat { background: var(--paper-soft); padding: 20px 22px; }
+  .stat .k {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.19em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 9px;
+  }
+  .stat .v { font-family: var(--serif); font-size: 27px; font-weight: 500; line-height: 1.15; letter-spacing: 0.01em; }
+  .stat .u { font-family: var(--mono); font-size: 10.5px; color: var(--soft); margin-top: 6px; min-height: 1.2em; }
+  .is-absent { color: var(--faint); font-family: var(--mono) !important; font-size: 22px !important; }
+
+  .rail { height: 3px; background: var(--paper-subtle); border-radius: 999px; overflow: hidden; margin-top: 22px; }
+  .rail > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--hextech), var(--chemtech)); transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
+  .rail-note { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: 0.08em; }
+
+  .claim {
+    margin-top: 20px; padding-top: 14px; border-top: 1px dashed var(--line);
+    font-size: 11.5px; color: var(--faint); font-style: italic; line-height: 1.7;
+  }
+  .claim b { font-style: normal; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
+
+  /* ------------------------------------------------------------ split */
+
+  .split { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 28px; }
+
+  /* ---------------------------------------------------------- roster */
+
+  .profile-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .profile-line .name { font-family: var(--serif); font-size: 19px; }
+  .profile-line .sm { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
+  .profile-note { font-size: 12px; color: var(--soft); line-height: 1.65; margin-bottom: 18px; }
+
+  .tenant { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 11px 0; border-top: 1px solid var(--line); }
+  .tenant:first-of-type { border-top: none; }
+  .tenant .t-name { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .tenant .t-model { grid-column: 1 / 2; font-size: 11.5px; color: var(--soft); word-break: break-word; }
+  .tenant .t-vram { font-family: var(--mono); font-size: 12px; text-align: right; white-space: nowrap; }
+  .tenant .t-tag { grid-column: 2 / 3; text-align: right; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .tenant.off { opacity: 0.45; }
+  .tenant.off .t-tag { color: var(--faint); }
+
+  .budget { margin-top: 20px; }
+  .budget .bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--paper-subtle); border: 1px solid var(--line); }
+  .budget .bar i { display: block; height: 100%; }
+  .budget .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 11px; font-family: var(--mono); font-size: 10px; color: var(--soft); letter-spacing: 0.06em; }
+  .budget .legend b { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .budget .warn { margin-top: 12px; font-size: 11.5px; color: var(--vermilion); line-height: 1.6; }
+
+  /* ----------------------------------------------------- conformance */
+
+  .inv { display: grid; grid-template-columns: 26px 1fr 62px; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .inv:first-of-type { border-top: none; }
+  .inv .g { font-size: 15px; text-align: center; opacity: 0.85; }
+  .inv .n { font-size: 12.5px; }
+  .inv .n small { display: block; color: var(--faint); font-size: 10.5px; line-height: 1.5; margin-top: 2px; }
+  .inv .m { font-family: var(--mono); font-size: 13px; text-align: right; }
+  .inv .track { grid-column: 2 / 4; height: 2px; background: var(--paper-subtle); border-radius: 999px; overflow: hidden; margin-top: 8px; }
+  .inv .track i { display: block; height: 100%; width: 0; background: var(--matcha); transition: width 0.7s ease; }
+  .inv.low .track i { background: var(--vermilion); }
+  .inv.mid .track i { background: var(--gold); }
+  .inv.unmeasured .m, .inv.unmeasured .g { color: var(--faint); opacity: 0.5; }
+
+  /* -------------------------------------------------------- verdicts */
+
+  .verdicts { display: grid; grid-template-columns: repeat(auto-fill, minmax(266px, 1fr)); gap: 18px; }
+
+  .verdict {
+    position: relative; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 0;
+    display: flex; flex-direction: column;
+    transition: border-color 0.35s ease, transform 0.35s ease;
+  }
+  .verdict:hover { border-color: var(--line-2); }
+  .verdict .plate {
+    aspect-ratio: 1 / 1; background: var(--paper-subtle);
+    display: grid; place-items: center; overflow: hidden; cursor: zoom-in;
+  }
+  .verdict .plate img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .verdict .plate .void {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .verdict .body { padding: 15px 17px 17px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .v-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .v-cell { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); }
+  .v-score { font-family: var(--serif); font-size: 25px; line-height: 1; letter-spacing: 0.01em; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em;
+    text-transform: uppercase; padding: 4px 9px; border-radius: 999px;
+    border: 1px solid var(--line-2); color: var(--soft); white-space: nowrap;
+  }
+  .badge.crowned { border-color: var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 9%, transparent); }
+  .badge.kept    { border-color: var(--hextech); color: var(--hextech); background: color-mix(in srgb, var(--hextech) 8%, transparent); }
+  .badge.drift   { border-color: var(--line-2); color: var(--faint); }
+  .badge.unscored{ border-style: dashed; border-color: var(--vermilion); color: var(--vermilion); background: none; }
+
+  .judges { display: flex; flex-direction: column; gap: 4px; }
+  .judge { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 10.5px; }
+  .judge .jn { color: var(--soft); letter-spacing: 0.1em; text-transform: uppercase; }
+  .judge .jv { color: var(--ink); }
+  .judge.silent .jn, .judge.silent .jv { color: var(--faint); }
+  .judge.silent .jv { font-style: italic; }
+
+  .epigram { font-family: var(--serif); font-size: 12.5px; font-style: italic; color: var(--soft); line-height: 1.6; }
+
+  /* THE unscored treatment. A frame the jury never judged must never be able to
+     pass for one it did: desaturated, hatched, dashed, and said out loud. */
+  .verdict.is-unscored {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--vermilion) 45%, var(--line-2));
+    background: none;
+  }
+  .verdict.is-unscored .plate { filter: grayscale(1) contrast(0.82) brightness(1.04); opacity: 0.42; }
+  .verdict.is-unscored .plate::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(135deg,
+      transparent 0 9px,
+      color-mix(in srgb, var(--vermilion) 12%, transparent) 9px 10px);
+  }
+  .verdict.is-unscored .plate { position: relative; }
+  .verdict.is-unscored .v-score { color: var(--faint); font-family: var(--mono); font-size: 19px; }
+  .verdict.is-unscored .body { opacity: 0.82; }
+  .unscored-note {
+    font-size: 11px; line-height: 1.6; color: var(--vermilion);
+    border-left: 2px solid color-mix(in srgb, var(--vermilion) 55%, transparent);
+    padding-left: 9px;
+  }
+  .unscored-note b { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* ---------------------------------------------------------- crowned */
+
+  .crowned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 12px; }
+  .frame {
+    position: relative; aspect-ratio: 1 / 1; overflow: hidden; cursor: zoom-in;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--paper-subtle); padding: 0; display: block; width: 100%;
+  }
+  .frame img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.4,0,0.2,1); }
+  .frame:hover img { transform: scale(1.045); }
+  .frame figcaption {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 16px 10px 8px; text-align: left;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; color: #f4f1ea;
+    background: linear-gradient(180deg, transparent, rgba(9,8,9,0.82));
+    opacity: 0; transition: opacity 0.35s ease;
+  }
+  .frame:hover figcaption, .frame:focus-visible figcaption { opacity: 1; }
+
+  /* -------------------------------------------------------- emptiness */
+
+  .empty {
+    padding: 34px 26px; text-align: center;
+    border: 1px dashed var(--line-2); border-radius: var(--radius);
+    color: var(--soft); font-size: 12.5px; line-height: 1.8;
+  }
+  .empty b { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); margin-bottom: 9px; }
+  .empty code { font-family: var(--mono); font-size: 11.5px; background: var(--paper-subtle); padding: 2px 6px; border-radius: 3px; }
+
+  .stale { position: relative; }
+  .stale::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: var(--radius);
+    background: repeating-linear-gradient(135deg, transparent 0 13px, color-mix(in srgb, var(--faint) 8%, transparent) 13px 14px);
+  }
+
+  /* -------------------------------------------------------- lightbox */
+
+  .lightbox {
+    position: fixed; inset: 0; z-index: 200; display: none;
+    background: rgba(9,8,9,0.93); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 40px;
+  }
+  .lightbox[data-open="1"] { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 4px; box-shadow: 0 30px 90px rgba(0,0,0,0.6); }
+  .lightbox .cap {
+    position: absolute; left: 0; right: 0; bottom: 26px; text-align: center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.13em; color: #cfc9bd;
+  }
+  .lightbox .x {
+    position: absolute; top: 22px; right: 26px;
+    background: none; border: 1px solid rgba(255,255,255,0.28); color: #f4f1ea;
+    font-family: var(--mono); font-size: 12px; border-radius: 999px;
+    padding: 6px 13px; cursor: pointer;
+  }
+
+  /* ------------------------------------------------------ provenance */
+
+  footer.prov {
+    margin-top: 74px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 10.5px; line-height: 2;
+    color: var(--faint); letter-spacing: 0.06em;
+  }
+  footer.prov b { color: var(--soft); font-weight: 400; }
+  footer.prov .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ------------------------------------------------------ responsive */
+
+  @media (max-width: 1080px) {
+    .hero { grid-template-columns: 1fr; align-items: start; }
+    .split { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 720px) {
+    .shell { padding: 30px 18px 90px; }
+    .top-nav, .ribbon { padding-left: 18px; padding-right: 18px; }
+    .stats { grid-template-columns: 1fr; }
+    .verdicts { grid-template-columns: 1fr; }
+    .shell > section, .shell > .split { margin-top: 42px; }
+  }
+</style>
 </head>
-<body>
+<body data-conn="standby" data-realm="zaun">
 
-  <!-- Universal Two-Tier Navigation -->
-  <header class="top-nav">
-    <a href="/" class="brand">
-      <div class="brand-seal">壱</div>
-      <span>INFLUX VISION</span>
-    </a>
-    <nav class="nav-tiers">
-      <div class="nav-tier-group">
-        <span class="nav-label">🍵 TEA:</span>
-        <a href="/jury" class="nav-link">👑 Jury</a>
-        <a href="/gallery" class="nav-link">🖼️ Stream</a>
-        <a href="/garden" class="nav-link">🌿 Garden</a>
-        <a href="/portraits" class="nav-link">👤 Portraits</a>
-        <a href="/exhibition" class="nav-link">🏛️ Exhibition</a>
-      </div>
-      <span class="nav-divider">|</span>
-      <div class="nav-tier-group">
-        <span class="nav-label">⚡ MOTION:</span>
-        <a href="/movement" class="nav-link">🎬 Video</a>
-        <a href="/atlas/" class="nav-link">🌐 Worlds</a>
-        <a href="/studies" class="nav-link">🐎 Studies</a>
-        <a href="/arcane" class="nav-link active">🎨 Arcane</a>
-        <a href="/engine" class="nav-link">⚙️ Engine</a>
-      </div>
-    </nav>
-    <button class="ritual-switch" id="themeSwitch">
-      <span>🍵</span>
-      <span id="switchText">Living Parchment</span>
-    </button>
-  </header>
+<header class="top-nav">
+  <a class="brand" href="/">
+    <span class="seal">壱</span>
+    <b>Influx Vision</b>
+  </a>
+  <nav class="nav-tiers" aria-label="Surfaces">
+    <span class="tier">
+      <span class="tier-label">Tea</span>
+      <a class="nav-link" href="/jury">Jury</a>
+      <a class="nav-link" href="/gallery">Stream</a>
+      <a class="nav-link" href="/garden">Garden</a>
+      <a class="nav-link" href="/exhibition">Exhibition</a>
+    </span>
+    <span class="divider" aria-hidden="true">·</span>
+    <span class="tier">
+      <span class="tier-label">Motion</span>
+      <a class="nav-link" href="/movement">Video</a>
+      <a class="nav-link" href="/atlas/">Worlds</a>
+      <a class="nav-link" href="/studies">Studies</a>
+      <a class="nav-link active" href="/arcane" aria-current="page">Arcane</a>
+      <a class="nav-link" href="/engine">Engine</a>
+    </span>
+  </nav>
+  <button class="ritual" id="ritual" type="button" aria-live="polite">
+    <span aria-hidden="true">🍵</span><span id="ritualText">Living Parchment</span>
+  </button>
+</header>
 
-  <main class="container">
-    
-    <!-- Hero Banner -->
-    <section class="arcane-hero">
-      <div>
-        <div class="hero-title">The Arcane World Forge</div>
-        <div class="hero-subtitle">Fortiche-Grade Anime Production Studio · 64-Frame Latent Turntables</div>
-        <div class="hero-desc">
-          An uncompromised generative production line bridging 3D-2D hybrid character silhouettes, hand-painted gouache impasto, sharp graphic chiaroscuro, and deterministic latent cartography across the dual realms of Piltover and Zaun.
+<div class="ribbon" role="status" aria-live="polite">
+  <span class="pulse"><span class="dot" aria-hidden="true"></span><span id="connText">Standing by</span></span>
+  <span class="sep" aria-hidden="true">|</span>
+  <span id="connDetail" class="quiet">Probing this origin for a live forge…</span>
+  <span class="sep" aria-hidden="true">|</span>
+  <span class="quiet" id="connStamp">—</span>
+</div>
+
+<main class="shell">
+
+  <!-- ============================================================ hero -->
+  <section class="hero" aria-labelledby="title">
+    <div>
+      <div class="kicker">Fortiche-grade production · latent cartography</div>
+      <h1 id="title">The Arcane World Forge</h1>
+      <p class="ma">
+        <em>間</em> — the forge shows only what it has measured. Cells the jury never
+        judged are marked as such and left dim; the numbers below are read from the
+        atlas stream and the run ledger, never from the specification's targets.
+      </p>
+    </div>
+    <div class="picker">
+      <label for="runSelect">Production run</label>
+      <select id="runSelect" aria-describedby="runHint">
+        <option value="">No run published</option>
+      </select>
+      <label for="draftSelect">Atlas draft</label>
+      <select id="draftSelect">
+        <option value="">No draft provisioned</option>
+      </select>
+      <div class="realms" role="group" aria-label="Realm palette">
+        <button class="realm-btn zaun" id="realmZaun" type="button" aria-pressed="true">
+          Zaun Undercity <span>chemtech emerald · rusted iron</span>
+        </button>
+        <button class="realm-btn piltover" id="realmPiltover" type="button" aria-pressed="false">
+          Piltover Apex <span>gilded brass · hextech cyan</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== cartography -->
+  <section aria-labelledby="cartoHead">
+    <div class="head">
+      <h2 id="cartoHead">Atlas Cartography</h2>
+      <span class="meta" id="cartoMeta">awaiting a run</span>
+    </div>
+    <div class="leaf" id="cartoLeaf">
+      <div class="stats">
+        <div class="stat">
+          <div class="k">Cells settled</div>
+          <div class="v" id="mCells">—</div>
+          <div class="u" id="mCellsU"></div>
         </div>
-        <div class="hero-tags">
-          <span class="hero-tag">🏎️ 288GB B300 SXM6 Engine</span>
-          <span class="hero-tag">📐 atlas-xframe-cache (1.5s/cell)</span>
-          <span class="hero-tag">👑 4-Shard Fortiche Jury</span>
-          <span class="hero-tag">🎨 Visible Oil & Gouache</span>
+        <div class="stat">
+          <div class="k">Measured s / cell</div>
+          <div class="v" id="mSec">—</div>
+          <div class="u" id="mSecU"></div>
+        </div>
+        <div class="stat">
+          <div class="k">Residual cache hits</div>
+          <div class="v" id="mCache">—</div>
+          <div class="u" id="mCacheU"></div>
+        </div>
+        <div class="stat">
+          <div class="k">Estimated remaining</div>
+          <div class="v" id="mEta">—</div>
+          <div class="u" id="mEtaU"></div>
         </div>
       </div>
-      <div>
-        <div class="realm-switch">
-          <button class="city-btn active piltover" id="btnPiltover">
-            <span class="city-name">☀️ Piltover Apex</span>
-            <span class="city-meta">Gilded Art Deco · Hextech Cyan · Ivory</span>
-          </button>
-          <button class="city-btn zaun" id="btnZaun">
-            <span class="city-name">🧪 Zaun Undercity</span>
-            <span class="city-meta">Toxic Chemtech · Rust · Violet Neon</span>
-          </button>
+      <div class="rail"><i id="cartoRail"></i></div>
+      <div class="rail-note">
+        <span id="cartoLeft">no cells reported</span>
+        <span id="cartoRight">—</span>
+      </div>
+      <p class="claim">
+        <b>Specification target, unverified</b> — §2.2 of the protocol claims a 94.1 %
+        residual hit rate and 1.50 s per cell on B300/H200. Those are the spec's
+        aspirations; every figure in the cells above is whatever the worker actually
+        reported for this run, and stays blank when it reported nothing.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================ roster + fortiche -->
+  <div class="split">
+    <section aria-labelledby="rosterHead">
+      <div class="head">
+        <h2 id="rosterHead">Standing Roster</h2>
+        <span class="meta" id="rosterMeta">—</span>
+      </div>
+      <div class="leaf" id="rosterLeaf">
+        <div class="profile-line">
+          <span class="name" id="pGpu">Profile unavailable</span>
+          <span class="sm" id="pSm"></span>
+        </div>
+        <p class="profile-note" id="pNote">The surface manifest has not been provisioned on this origin.</p>
+        <div id="tenants"></div>
+        <div class="budget" id="budgetBlock" hidden>
+          <div class="bar" id="budgetBar"></div>
+          <div class="legend" id="budgetLegend"></div>
+          <div class="warn" id="budgetWarn" hidden></div>
         </div>
       </div>
     </section>
 
-    <!-- Production Grid -->
-    <div class="production-grid">
-      
-      <!-- 64-Frame Turntable Studio -->
-      <div class="studio-card">
-        <div class="card-header">
-          <span class="card-title">64-Frame Latent Turntable (Arcane Scout 65k)</span>
-          <span class="nav-label">SO(4) GEODESIC ORBIT</span>
-        </div>
-
-        <div class="turntable-viewport">
-          <img id="turntableImg" src="/outputs/stream/arcane_scout_00.png" onerror="this.src='/outputs/stream/latest.png'" alt="Arcane Character Turntable">
-        </div>
-
-        <div class="turntable-controls">
-          <div class="scrub-row">
-            <input type="range" min="0" max="63" value="0" class="scrub-slider" id="frameSlider">
-            <span class="frame-badge" id="frameBadge">CELL 01 / 64 (0°)</span>
-          </div>
-          <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 6px;">
-            <button class="hero-tag" id="btnAutoSpin" style="cursor: pointer;">▶ Auto Orbit (24 FPS)</button>
-            <button class="hero-tag copy-btn" id="btnExportAtlas" style="cursor: pointer;">📥 Export 64-Cell Atlas</button>
-          </div>
-        </div>
+    <section aria-labelledby="fortHead">
+      <div class="head">
+        <h2 id="fortHead">Fortiche Conformance</h2>
+        <span class="meta" id="fortMeta">—</span>
       </div>
-
-      <!-- Arcane Prompt Synthesizer & Beauty Jury -->
-      <div class="studio-card">
-        <div class="card-header">
-          <span class="card-title">Fortiche Synthesis & Aesthetic Jury</span>
-          <span class="nav-label">DYNAMIC STRICTNESS 2.4γ</span>
-        </div>
-
-        <form id="synthForm" onsubmit="event.preventDefault(); forgeArcane();">
-          <div class="synth-group">
-            <label class="synth-label">Subject & Archetype</label>
-            <input type="text" class="synth-input" id="promptSubject" value="Zaun vigilante brawler with mechanical chemtech gauntlet, sharp jawline, messy crimson undercut">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="synth-group">
-            <div>
-              <label class="synth-label">Aesthetic Preset</label>
-              <select class="synth-select" id="presetSelect">
-                <option value="arcane-hero">arcane-hero (Fortiche Key Visual)</option>
-                <option value="arcane-zaun">arcane-zaun (Undercity Chiaroscuro)</option>
-                <option value="arcane-piltover">arcane-piltover (High City Gilded)</option>
-                <option value="arcane-turn">arcane-turn (64-Frame Turntable)</option>
-              </select>
-            </div>
-            <div>
-              <label class="synth-label">Lighting & Atmosphere</label>
-              <select class="synth-select" id="lightSelect">
-                <option value="chemtech">chemtech (Toxic Emerald Rim)</option>
-                <option value="hextech">hextech (Cyan Crystal Glow)</option>
-                <option value="rim">rim (High-Contrast Silhouette)</option>
-                <option value="golden">golden (Theatrical Sunlit Chiaroscuro)</option>
-              </select>
-            </div>
-          </div>
-
-          <button type="submit" class="synth-btn">
-            <span>⚡ Forge Arcane Cell (1.5s on B300)</span>
-          </button>
-        </form>
-
-        <div style="margin-top: 24px;">
-          <div class="synth-label">4-Shard Fortiche Aesthetic Sieve</div>
-          <div class="jury-score-row">
-            <span>🎨 Gouache Impasto & Brush Texture Density</span>
-            <span class="score-val" id="scoreGouache">9.4 / 10</span>
-          </div>
-          <div class="jury-score-row">
-            <span>📐 Angular Silhouette & Facial Plane Sharpness</span>
-            <span class="score-val" id="scoreSilhouette">9.6 / 10</span>
-          </div>
-          <div class="jury-score-row">
-            <span>💡 Rim Light Separation & Volumetric Fog</span>
-            <span class="score-val" id="scoreLight">9.1 / 10</span>
-          </div>
-          <div class="jury-score-row">
-            <span>🚫 Anti-Plastic CGI Differentiation Filter</span>
-            <span class="score-val" id="scoreAntiCGI">100% Passed</span>
-          </div>
-
-          <div class="verdict-seal">
-            <div>
-              <div class="verdict-title">👑 SOVEREIGN JURY CROWNED</div>
-              <div class="verdict-quote">"The brushstrokes preserve the weight of the hand. Fortiche aesthetic integrity verified."</div>
-            </div>
-            <button class="hero-tag copy-btn" style="cursor:pointer;" onclick="playCeramicWhisper()">Archive R2</button>
-          </div>
-        </div>
-
+      <div class="leaf" id="fortLeaf">
+        <div id="invariants"></div>
+        <p class="claim" id="fortClaim">
+          <b>Six invariants</b> — measured per settled cell by
+          <code>arcane_aesthetic.conformance()</code>. A dimension with no measurement is
+          left blank rather than shown as zero.
+        </p>
       </div>
+    </section>
+  </div>
 
+  <!-- ======================================================== verdicts -->
+  <section aria-labelledby="juryHead">
+    <div class="head">
+      <h2 id="juryHead">Jury Verdicts</h2>
+      <span class="meta" id="juryMeta">—</span>
     </div>
+    <div id="verdicts" class="verdicts"></div>
+  </section>
 
-  </main>
+  <!-- ========================================================= crowned -->
+  <section aria-labelledby="crownHead">
+    <div class="head">
+      <h2 id="crownHead">Crowned Frames</h2>
+      <span class="meta" id="crownMeta">—</span>
+    </div>
+    <div id="crowned" class="crowned-grid"></div>
+  </section>
 
-  <script src="/assets/sensory.js"></script>
-  <script>
-    // Theme Switch
-    const themeBtn = document.getElementById('themeSwitch');
-    const switchText = document.getElementById('switchText');
-    let isDark = localStorage.getItem('influx_twilight_mode') === 'true';
+  <footer class="prov">
+    <div class="row"><b>manifest</b><span id="provManifest">not loaded</span></div>
+    <div class="row"><b>run ledger</b><span id="provRun">not loaded</span></div>
+    <div class="row"><b>atlas stream</b><span id="provAtlas">not connected</span></div>
+    <div class="row"><b>provisioned</b><span id="provStamp">—</span></div>
+  </footer>
+</main>
 
-    function updateTheme() {
-      if (isDark) {
-        document.body.classList.add('mode-nocturnal');
-        switchText.textContent = 'Nocturnal Study';
-      } else {
-        document.body.classList.remove('mode-nocturnal');
-        switchText.textContent = 'Living Parchment';
+<div class="lightbox" id="lightbox" data-open="0" role="dialog" aria-modal="true" aria-label="Frame">
+  <button class="x" id="lightboxClose" type="button">close ✕</button>
+  <img id="lightboxImg" alt="">
+  <div class="cap" id="lightboxCap"></div>
+</div>
+
+<!-- The house sensory module. Same reference every sibling surface uses; it is
+     served by the static tea lane. The Go mux has no /assets/ route, so the
+     retry below reaches it through /arcane/, and everything this page does with
+     sound is guarded so its absence changes nothing. -->
+<script src="/assets/sensory.js" onerror="var s=document.createElement('script');s.src='/arcane/assets/sensory.js';s.onerror=function(){};document.head.appendChild(s);"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ================================================================ util */
+
+  var NA = "—";
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+  }
+
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+
+  /* Render a value, or an honest blank. Never a zero standing in for absence. */
+  function put(el, value, unit, why) {
+    if (!el) { return; }
+    if (value === null || value === undefined || value === "") {
+      el.textContent = NA;
+      el.classList.add("is-absent");
+      el.title = why || "not measured";
+    } else {
+      el.textContent = value;
+      el.classList.remove("is-absent");
+      el.title = "";
+    }
+    if (unit !== undefined) {
+      var u = document.getElementById(el.id + "U");
+      if (u) { u.textContent = (value === null || value === undefined) ? (why || "") : unit; }
+    }
+  }
+
+  function duration(seconds) {
+    if (!isNum(seconds) || seconds < 0) { return null; }
+    var s = Math.round(seconds);
+    if (s < 60) { return s + "s"; }
+    var m = Math.floor(s / 60), r = s % 60;
+    if (m < 60) { return m + "m " + String(r).padStart(2, "0") + "s"; }
+    var h = Math.floor(m / 60);
+    return h + "h " + String(m % 60).padStart(2, "0") + "m";
+  }
+
+  function stamp(ts) {
+    if (!isNum(ts)) { return null; }
+    var ms = ts > 1e12 ? ts : ts * 1000;
+    try { return new Date(ms).toLocaleString(); } catch (e) { return null; }
+  }
+
+  /* Sensory layer, guarded: sensory.js when it loaded, a local synth otherwise. */
+  var audio = null;
+  function tone(freq, ms, gain) {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { return; }
+      audio = audio || new AC();
+      var osc = audio.createOscillator(), amp = audio.createGain();
+      osc.type = "sine"; osc.frequency.value = freq;
+      amp.gain.setValueAtTime(gain, audio.currentTime);
+      amp.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + ms / 1000);
+      osc.connect(amp); amp.connect(audio.destination);
+      osc.start(); osc.stop(audio.currentTime + ms / 1000);
+    } catch (e) { /* silence is an acceptable outcome */ }
+  }
+  function whisper() {
+    if (typeof window.playCeramicWhisper === "function") { window.playCeramicWhisper(); return; }
+    tone(880, 220, 0.012);
+  }
+  function tick() {
+    if (typeof window.playEscapementTick === "function") { window.playEscapementTick(); return; }
+    tone(1400, 15, 0.008);
+  }
+
+  /* ============================================================== ritual */
+
+  var body = document.body;
+  var nocturnal = localStorage.getItem("influx_twilight_mode") === "true";
+  function paintRitual() {
+    body.classList.toggle("mode-nocturnal", nocturnal);
+    $("ritualText").textContent = nocturnal ? "Nocturnal Study" : "Living Parchment";
+  }
+  paintRitual();
+  $("ritual").addEventListener("click", function () {
+    nocturnal = !nocturnal;
+    localStorage.setItem("influx_twilight_mode", String(nocturnal));
+    paintRitual();
+    whisper();
+  });
+
+  /* Circadian sunlight wash: dawn peach, midday silk, twilight amber, obsidian. */
+  function circadian() {
+    var h = new Date().getHours();
+    var wash = h < 8  ? "rgba(231,181,182,0.15)"     /* dawn peach   */
+             : h < 16 ? "rgba(246,242,230,0.30)"     /* midday silk  */
+             : h < 20 ? "rgba(214,164,92,0.14)"      /* twilight amber */
+             :          "rgba(24,22,28,0.30)";       /* obsidian     */
+    document.documentElement.style.setProperty("--circadian", wash);
+  }
+  circadian();
+  setInterval(circadian, 10 * 60 * 1000);
+
+  /* Interactive paper sheen. */
+  document.addEventListener("pointermove", function (event) {
+    var leaf = event.target.closest ? event.target.closest(".leaf") : null;
+    if (!leaf) { return; }
+    var box = leaf.getBoundingClientRect();
+    leaf.style.setProperty("--mx", (event.clientX - box.left) + "px");
+    leaf.style.setProperty("--my", (event.clientY - box.top) + "px");
+  }, { passive: true });
+
+  /* Realm palette. Cosmetic only -- it never alters a reported number. */
+  function realm(which) {
+    body.dataset.realm = which;
+    $("realmZaun").setAttribute("aria-pressed", String(which === "zaun"));
+    $("realmPiltover").setAttribute("aria-pressed", String(which === "piltover"));
+    whisper();
+  }
+  $("realmZaun").addEventListener("click", function () { realm("zaun"); });
+  $("realmPiltover").addEventListener("click", function () { realm("piltover"); });
+
+  /* ================================================================ data */
+
+  var State = {
+    manifest: null,
+    manifestUrl: null,
+    run: null,
+    runUrl: null,
+    atlas: null,
+    jobId: null,
+    conn: "standby",
+    serverUp: null,
+    lastEvent: null,
+    source: null
+  };
+
+  var MANIFEST_URLS = [
+    "/arcane/arcane-manifest.json",   /* Go mux + public read-only listener */
+    "arcane-manifest.json",           /* static tea lane, relative          */
+    "/arcane-manifest.json",          /* static tea lane, absolute          */
+    "/outputs/arcane/surface_manifest.json"  /* the OUT_DIR copy            */
+  ];
+
+  /* The /arcane handler answers a missing file with arcane.html itself, so a
+     200 is not proof of JSON. Content type and shape are both checked. */
+  function getJSON(url) {
+    return fetch(url, { cache: "no-store", credentials: "same-origin" })
+      .then(function (res) {
+        if (!res.ok) { throw new Error(res.status + " " + res.statusText); }
+        var ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (ct.indexOf("html") !== -1) { throw new Error("served HTML, not JSON"); }
+        return res.json();
+      });
+  }
+
+  function firstJSON(urls, validate) {
+    var i = 0;
+    function attempt() {
+      if (i >= urls.length) { return Promise.reject(new Error("no candidate answered")); }
+      var url = urls[i++];
+      return getJSON(url).then(function (body) {
+        if (validate && !validate(body)) { throw new Error("unexpected shape"); }
+        return { url: url, body: body };
+      }, attempt);
+    }
+    return attempt();
+  }
+
+  /* ========================================================= connection */
+
+  var CONN = {
+    standby:      ["Standing by", "No live forge answered on this origin. Everything below is the provisioned snapshot."],
+    live:         ["Live", "Atlas stream connected."],
+    reconnecting: ["Reconnecting", "The atlas stream dropped. Retrying."],
+    disconnected: ["Disconnected", "No live stream. Figures below are the last provisioned snapshot, not current."],
+    idle:         ["Forge idle", "Server reachable, but no atlas run is publishing progress."]
+  };
+
+  function setConn(state, detail) {
+    State.conn = state;
+    body.dataset.conn = state;
+    var preset = CONN[state] || CONN.standby;
+    $("connText").textContent = preset[0];
+    $("connDetail").textContent = detail || preset[1];
+    $("connStamp").textContent = State.lastEvent
+      ? "last event " + (stamp(State.lastEvent / 1000) || NA)
+      : "no live event received";
+    var stale = (state !== "live");
+    ["cartoLeaf", "rosterLeaf", "fortLeaf"].forEach(function (id) {
+      var el = $(id);
+      if (el) { el.classList.toggle("stale", stale && id === "cartoLeaf"); }
+    });
+    $("provAtlas").textContent = State.jobId
+      ? ("/api/atlas/events/" + State.jobId + " · " + preset[0].toLowerCase())
+      : "not connected";
+  }
+
+  /* ============================================================ metrics */
+
+  /* Measured figures only, freshest source first: the atlas SSE snapshot, then
+     the run ledger's `metrics` block (arcane_pipeline's measured_metrics). A key
+     absent from both stays absent. */
+  function metrics() {
+    var out = {
+      done: null, total: null, secondsPerCell: null, lastCellSeconds: null,
+      hitRate: null, hits: null, checks: null, eta: null, elapsed: null,
+      cellsPerHour: null, source: []
+    };
+
+    var a = State.atlas;
+    if (a && typeof a === "object") {
+      out.source.push("atlas stream");
+      if (isNum(a.rendered)) { out.done = a.rendered; }
+      if (isNum(a.total) && a.total > 0) { out.total = a.total; }
+      var p = a.progress;
+      if (p && typeof p === "object") {
+        if (isNum(p.current)) { out.done = p.current; }
+        if (isNum(p.full_total) && p.full_total > 0) { out.total = p.full_total; }
+        else if (isNum(p.total) && p.total > 0) { out.total = p.total; }
+        if (isNum(p.cache_checks) && p.cache_checks > 0) {
+          out.checks = p.cache_checks;
+          out.hits = isNum(p.cache_hits) ? p.cache_hits : null;
+          out.hitRate = isNum(p.cache_hit_rate) ? p.cache_hit_rate
+                      : (isNum(p.cache_hits) ? p.cache_hits / p.cache_checks : null);
+        }
+        if (isNum(p.last_cell_seconds) && p.last_cell_seconds > 0) { out.lastCellSeconds = p.last_cell_seconds; }
+        if (isNum(p.cells_per_hour) && p.cells_per_hour > 0) {
+          out.cellsPerHour = p.cells_per_hour;
+          out.secondsPerCell = 3600 / p.cells_per_hour;
+        }
+        if (isNum(p.eta_seconds) && p.eta_seconds > 0) { out.eta = p.eta_seconds; }
+        if (isNum(p.elapsed_seconds) && p.elapsed_seconds > 0) { out.elapsed = p.elapsed_seconds; }
       }
     }
-    updateTheme();
-    themeBtn.addEventListener('click', () => {
-      isDark = !isDark;
-      localStorage.setItem('influx_twilight_mode', isDark);
-      updateTheme();
-    });
 
-    // Dual-City Switch
-    const btnPiltover = document.getElementById('btnPiltover');
-    const btnZaun = document.getElementById('btnZaun');
-    btnPiltover.addEventListener('click', () => {
-      btnPiltover.classList.add('active');
-      btnZaun.classList.remove('active');
-      document.getElementById('presetSelect').value = 'arcane-piltover';
-      document.getElementById('lightSelect').value = 'hextech';
-      window.playCeramicWhisper();
-    });
-    btnZaun.addEventListener('click', () => {
-      btnZaun.classList.add('active');
-      btnPiltover.classList.remove('active');
-      document.getElementById('presetSelect').value = 'arcane-zaun';
-      document.getElementById('lightSelect').value = 'chemtech';
-      window.playCeramicWhisper();
-    });
+    var m = State.run && State.run.metrics;
+    if (m && typeof m === "object") {
+      out.source.push("run ledger");
+      if (out.done === null && isNum(m.cells_done)) { out.done = m.cells_done; }
+      if (out.total === null && isNum(m.cells_total) && m.cells_total > 0) { out.total = m.cells_total; }
+      if (out.hitRate === null && isNum(m.cache_hit_rate)) { out.hitRate = m.cache_hit_rate; }
+      if (out.checks === null && isNum(m.cache_checks)) { out.checks = m.cache_checks; }
+      if (out.hits === null && isNum(m.cache_hits)) { out.hits = m.cache_hits; }
+      if (out.secondsPerCell === null && isNum(m.seconds_per_cell) && m.seconds_per_cell > 0) { out.secondsPerCell = m.seconds_per_cell; }
+      if (out.lastCellSeconds === null && isNum(m.last_cell_seconds)) { out.lastCellSeconds = m.last_cell_seconds; }
+      if (out.eta === null && isNum(m.eta_seconds)) { out.eta = m.eta_seconds; }
+      if (out.elapsed === null && isNum(m.elapsed_seconds)) { out.elapsed = m.elapsed_seconds; }
+      if (out.cellsPerHour === null && isNum(m.cells_per_hour)) { out.cellsPerHour = m.cells_per_hour; }
+    }
 
-    // Turntable Scrub
-    const slider = document.getElementById('frameSlider');
-    const badge = document.getElementById('frameBadge');
-    slider.addEventListener('input', (e) => {
-      const frame = parseInt(e.target.value);
-      const angle = Math.round((frame / 64) * 360);
-      badge.textContent = `CELL ${String(frame + 1).padStart(2, '0')} / 64 (${angle}°)`;
-      window.playEscapementTick();
-    });
+    /* Fall back to the counters the run ledger keeps, which are a count of
+       settled cells rather than a rate -- still measured, still honest. */
+    var counters = State.run && State.run.counters;
+    if (out.done === null && counters && isNum(counters.settled)) { out.done = counters.settled; }
+    var grid = State.run && State.run.grid;
+    if (out.total === null && grid) {
+      if (isNum(grid.index_start) && isNum(grid.index_end) && grid.index_end > grid.index_start) {
+        out.total = grid.index_end - grid.index_start;
+      } else if (isNum(grid.n_latent) && grid.n_latent > 0) {
+        out.total = grid.n_latent;
+      }
+    }
 
-    // Auto Spin
-    let spinInterval = null;
-    const btnAutoSpin = document.getElementById('btnAutoSpin');
-    btnAutoSpin.addEventListener('click', () => {
-      if (spinInterval) {
-        clearInterval(spinInterval);
-        spinInterval = null;
-        btnAutoSpin.textContent = '▶ Auto Orbit (24 FPS)';
-      } else {
-        btnAutoSpin.textContent = '⏸ Pause Orbit';
-        spinInterval = setInterval(() => {
-          let next = (parseInt(slider.value) + 1) % 64;
-          slider.value = next;
-          const angle = Math.round((next / 64) * 360);
-          badge.textContent = `CELL ${String(next + 1).padStart(2, '0')} / 64 (${angle}°)`;
-        }, 1000 / 24);
+    return out;
+  }
+
+  function renderCartography() {
+    var m = metrics();
+    var why = State.jobId ? "the worker has not reported this yet" : "no run selected";
+
+    put($("mCells"), isNum(m.done) ? String(m.done) : null,
+        isNum(m.total) ? "of " + m.total + " cells" : "total not published", why);
+    put($("mSec"), isNum(m.secondsPerCell) ? m.secondsPerCell.toFixed(2) : null,
+        isNum(m.lastCellSeconds) ? "last cell " + m.lastCellSeconds.toFixed(2) + "s" : "measured", why);
+    put($("mCache"), isNum(m.hitRate) ? (m.hitRate * 100).toFixed(1) + "%" : null,
+        (isNum(m.hits) && isNum(m.checks)) ? m.hits + " / " + m.checks + " steps bypassed" : "measured", why);
+    put($("mEta"), duration(m.eta),
+        isNum(m.elapsed) ? "elapsed " + duration(m.elapsed) : "estimated by the worker", why);
+
+    var pct = (isNum(m.done) && isNum(m.total) && m.total > 0)
+      ? Math.max(0, Math.min(100, (m.done / m.total) * 100)) : 0;
+    $("cartoRail").style.width = pct + "%";
+    $("cartoLeft").textContent = (isNum(m.done) && isNum(m.total))
+      ? m.done + " / " + m.total + " cells · " + pct.toFixed(1) + "%"
+      : "no cell count reported";
+    $("cartoRight").textContent = m.source.length ? "measured via " + m.source.join(" + ") : "no measurement source";
+
+    var run = State.run;
+    $("cartoMeta").textContent = State.jobId
+      ? (State.jobId + (run && run.status ? " · " + run.status : ""))
+      : "awaiting a run";
+  }
+
+  /* ============================================================= roster */
+
+  function renderRoster() {
+    var man = State.manifest;
+    var profile = man && man.profile;
+    var roster = (man && man.roster) || [];
+    var budget = (man && man.vram_budget) || {};
+
+    if (!profile || !profile.name) {
+      $("pGpu").textContent = "Profile unavailable";
+      $("pSm").textContent = "";
+      $("pNote").textContent = man
+        ? "jury_continuum.toml published no profile for this origin, so none is shown."
+        : "The surface manifest has not been provisioned here. Run flux arcane provision.";
+      $("tenants").innerHTML = "";
+      $("rosterMeta").textContent = NA;
+      $("budgetBlock").hidden = true;
+      return;
+    }
+
+    $("pGpu").textContent = profile.gpu || profile.name;
+    $("pSm").textContent = [profile.name, profile.sm, isNum(profile.vram_gib) ? profile.vram_gib + " GiB" : null]
+      .filter(Boolean).join(" · ");
+    $("pNote").textContent = profile.notes || profile.description || "";
+    $("rosterMeta").textContent = (budget.enabled_tenants || []).length + " resident";
+
+    var capacity = isNum(budget.capacity_gib) ? budget.capacity_gib : null;
+    $("tenants").innerHTML = roster.map(function (t) {
+      var vram = isNum(t.vram_expected_gib) ? t.vram_expected_gib.toFixed(1) + " GiB" : NA;
+      var where = t.kind === "uds" ? (t.socket || "unix socket")
+                : isNum(t.port) ? (":" + t.port)
+                : (t.kind || "");
+      var tag = t.enabled ? (t.precision || "") + (t.remote ? " · remote" : "") : "toggled off";
+      return '<div class="tenant' + (t.enabled ? "" : " off") + '">'
+        + '<div class="t-name">' + esc(t.tenant) + '</div>'
+        + '<div class="t-vram">' + esc(vram) + '</div>'
+        + '<div class="t-model">' + esc(t.model || "model not declared")
+        + (where ? ' <span style="color:var(--faint)">· ' + esc(where) + '</span>' : "")
+        + '</div>'
+        + '<div class="t-tag">' + esc(tag) + '</div>'
+        + '</div>';
+    }).join("") || '<p class="empty"><b>no roster</b>The manifest carries no tenants for this profile.</p>';
+
+    if (!capacity) { $("budgetBlock").hidden = true; return; }
+    $("budgetBlock").hidden = false;
+
+    var hues = ["var(--chemtech)", "var(--hextech)", "var(--tea)", "var(--matcha)", "var(--gold)", "var(--vermilion)"];
+    var bar = "", legend = "", i = 0;
+    roster.forEach(function (t) {
+      if (!t.enabled || !isNum(t.vram_expected_gib)) { return; }
+      var pct = (t.vram_expected_gib / capacity) * 100;
+      var hue = hues[i % hues.length]; i += 1;
+      bar += '<i style="width:' + pct.toFixed(2) + '%;background:' + hue + '" title="'
+           + esc(t.tenant + " " + t.vram_expected_gib + " GiB") + '"></i>';
+      legend += '<span><b style="background:' + hue + '"></b>' + esc(t.tenant) + " "
+              + t.vram_expected_gib.toFixed(1) + "</span>";
+    });
+    if (isNum(budget.reserve_gib) && budget.reserve_gib > 0) {
+      bar += '<i style="width:' + ((budget.reserve_gib / capacity) * 100).toFixed(2)
+           + '%;background:var(--line-2)" title="driver reserve"></i>';
+      legend += '<span><b style="background:var(--line-2)"></b>reserve ' + budget.reserve_gib.toFixed(1) + "</span>";
+    }
+    if (isNum(budget.free_gib) && budget.free_gib > 0) {
+      legend += '<span><b style="background:transparent;border:1px solid var(--line-2)"></b>free '
+              + budget.free_gib.toFixed(1) + "</span>";
+    }
+    $("budgetBar").innerHTML = bar;
+    $("budgetLegend").innerHTML = legend + '<span style="color:var(--faint)">of ' + capacity.toFixed(1) + " GiB</span>";
+
+    var warn = $("budgetWarn");
+    var headroom = isNum(budget.headroom_gib) ? budget.headroom_gib : budget.free_gib;
+    if (budget.over_budget) {
+      warn.hidden = false;
+      warn.textContent = "Over budget: the declared roster does not fit this card.";
+    } else if (isNum(headroom) && isNum(capacity) && headroom / capacity < 0.02) {
+      warn.hidden = false;
+      warn.textContent = "Headroom is " + headroom.toFixed(2) + " GiB ("
+        + ((headroom / capacity) * 100).toFixed(2) + "% of the card) — a rounding error, not a margin.";
+    } else {
+      warn.hidden = true;
+    }
+    if (budget.note) { $("budgetLegend").title = budget.note; }
+  }
+
+  /* ========================================================= conformance */
+
+  var DEFAULT_INVARIANTS = [
+    { key: "impasto",          label: "Brush Texture & Impasto",  glyph: "🎨", constraint: "Visible oil/gouache layering, dry-brush breaks" },
+    { key: "planarity",        label: "Silhouette & Planes",      glyph: "📐", constraint: "Sharp angular geometry, planar cheekbones" },
+    { key: "chiaroscuro",      label: "Lighting & Chiaroscuro",   glyph: "💡", constraint: "High-contrast ambient plus a graphic rim" },
+    { key: "palette_zaun",     label: "Zaun Undercity Palette",   glyph: "🧪", constraint: "Chemtech emerald, rusted iron, violet" },
+    { key: "palette_piltover", label: "Piltover Apex Palette",    glyph: "☀️", constraint: "Gilded brass, white marble, hextech cyan" },
+    { key: "anti_cgi",         label: "Anti-Plastic CGI Filter",  glyph: "🚫", constraint: "Hard rejection of smooth plastic skin" }
+  ];
+
+  /* A cell may carry conformance under several names depending on which module
+     wrote it. Whichever is present is used; none present means unmeasured. */
+  function conformanceOf(record) {
+    if (!record || typeof record !== "object") { return null; }
+    var candidates = [
+      record.conformance,
+      record.arcane_conformance,
+      record.raw && record.raw.arcane_conformance,
+      record.raw && record.raw.arcane,
+      record.raw && record.raw.conformance
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var c = candidates[i];
+      if (c && typeof c === "object" && c.available !== false && isNum(c.impasto)) { return c; }
+    }
+    return null;
+  }
+
+  function renderConformance() {
+    var invariants = (State.manifest && State.manifest.fortiche && State.manifest.fortiche.invariants)
+      || DEFAULT_INVARIANTS;
+    var cells = (State.run && Array.isArray(State.run.cells)) ? State.run.cells : [];
+    var measured = [];
+    for (var i = cells.length - 1; i >= 0 && measured.length < 24; i -= 1) {
+      var c = conformanceOf(cells[i]);
+      if (c) { measured.push(c); }
+    }
+
+    $("fortMeta").textContent = measured.length
+      ? measured.length + " cell" + (measured.length === 1 ? "" : "s") + " measured"
+      : "not measured";
+
+    $("invariants").innerHTML = invariants.map(function (inv) {
+      var values = measured.map(function (c) { return c[inv.key]; }).filter(isNum);
+      var mean = values.length ? values.reduce(function (a, b) { return a + b; }, 0) / values.length : null;
+      var band = mean === null ? "unmeasured" : (mean < 45 ? "low" : mean < 70 ? "mid" : "");
+      return '<div class="inv ' + band + '">'
+        + '<div class="g" aria-hidden="true">' + esc(inv.glyph || "") + '</div>'
+        + '<div class="n">' + esc(inv.label) + '<small>' + esc(inv.constraint || "") + '</small></div>'
+        + '<div class="m">' + (mean === null ? NA : mean.toFixed(0)) + '</div>'
+        + '<div class="track"><i style="width:' + (mean === null ? 0 : Math.max(0, Math.min(100, mean))) + '%"></i></div>'
+        + '</div>';
+    }).join("");
+
+    $("fortClaim").innerHTML = measured.length
+      ? '<b>Six invariants</b> — mean over the ' + measured.length
+        + ' most recent settled cells that carry a conformance measurement, scored 0–100 by '
+        + '<code>arcane_aesthetic.conformance()</code>. Cells without one are excluded, not counted as zero.'
+      : '<b>Six invariants</b> — no settled cell on this origin carries a conformance measurement yet, '
+        + 'so every dimension is blank. Blank means unmeasured; it does not mean zero.';
+  }
+
+  /* ============================================================ verdicts */
+
+  var TIERS = {
+    crowned:     { cls: "crowned",  glyph: "👑", label: "masterpiece" },
+    masterpiece: { cls: "crowned",  glyph: "👑", label: "masterpiece" },
+    kept:        { cls: "kept",     glyph: "✨",       label: "spectacle" },
+    spectacle:   { cls: "kept",     glyph: "✨",       label: "spectacle" },
+    drift:       { cls: "drift",    glyph: "–",       label: "drift" },
+    banal:       { cls: "drift",    glyph: "–",       label: "banal" }
+  };
+
+  /* Per-judge scores live under several possible keys. Whatever is found is
+     shown; a judge that went silent is shown as silent, never as a zero. */
+  function judgesOf(record) {
+    var raw = record && (record.judges || (record.raw && record.raw.judges));
+    var rows = [];
+    if (Array.isArray(raw)) {
+      raw.forEach(function (j) {
+        if (!j || typeof j !== "object") { return; }
+        var score = isNum(j.calibrated_score) ? j.calibrated_score : (isNum(j.score) ? j.score : null);
+        rows.push({ name: j.role || j.name || "judge", score: score, silent: !!j.degraded || score === null });
+      });
+      return rows;
+    }
+    var scores = record && (record.jury_scores || (record.raw && record.raw.jury_scores));
+    if (scores && typeof scores === "object") {
+      Object.keys(scores).forEach(function (name) {
+        if (name === "composite") { return; }
+        var v = scores[name];
+        rows.push({ name: name, score: isNum(v) ? v : null, silent: !isNum(v) });
+      });
+    }
+    return rows;
+  }
+
+  function outputURL(record) {
+    var path = record && (record.crowned_path || record.path);
+    if (typeof path !== "string" || !path) { return null; }
+    if (path.indexOf("/outputs/") === 0 || path.indexOf("http") === 0) { return path; }
+    var marker = path.indexOf("/atlas/");
+    if (marker !== -1) { return "/outputs" + path.slice(marker); }
+    var arc = path.indexOf("/arcane/");
+    if (arc !== -1) { return "/outputs" + path.slice(arc); }
+    return null;
+  }
+
+  function verdictCard(record) {
+    var tierKey = String(record.tier || "unscored").toLowerCase();
+    var score = isNum(record.score) ? record.score : null;
+
+    /* An unscored verdict, or a tier with no score behind it, is unscored.
+       The bias runs one way on purpose: never upgrade, only ever downgrade. */
+    var unscored = (tierKey === "unscored") || score === null;
+    var tier = TIERS[tierKey] || { cls: "drift", glyph: "·", label: tierKey || "untiered" };
+
+    var art = document.createElement("article");
+    art.className = "verdict" + (unscored ? " is-unscored" : "");
+    var url = outputURL(record);
+
+    var plate = '<div class="plate"' + (url ? ' data-src="' + esc(url) + '"' : "") + '>'
+      + (url
+          ? '<img loading="lazy" alt="' + esc("cell " + (record.cell || "")) + '" src="' + esc(url) + '">'
+          : '<span class="void">frame not on this origin</span>')
+      + '</div>';
+
+    var badge = unscored
+      ? '<span class="badge unscored">⊘ unscored</span>'
+      : '<span class="badge ' + tier.cls + '">' + tier.glyph + " " + esc(tier.label) + "</span>";
+
+    var judges = judgesOf(record);
+    var judgeRows = judges.length
+      ? '<div class="judges">' + judges.map(function (j) {
+          return '<div class="judge' + (j.silent ? " silent" : "") + '">'
+            + '<span class="jn">' + esc(j.name) + '</span>'
+            + '<span class="jv">' + (j.silent ? "silent" : j.score.toFixed(1)) + '</span>'
+            + '</div>';
+        }).join("") + "</div>"
+      : '<div class="judges"><div class="judge silent"><span class="jn">per-judge</span>'
+        + '<span class="jv">not published</span></div></div>';
+
+    var tail = unscored
+      ? '<div class="unscored-note"><b>no verdict exists</b>'
+        + esc(record.reason || record.unscored_reason
+              || "the jury returned no score for this cell; nothing here has been judged")
+        + '</div>'
+      : (record.epigram ? '<p class="epigram">' + esc(record.epigram) + "</p>" : "");
+
+    art.innerHTML = plate
+      + '<div class="body">'
+      + '  <div class="v-top">'
+      + '    <div><div class="v-cell">cell ' + esc(record.cell || NA) + '</div>'
+      + '         <div class="v-score">' + (unscored ? NA : score.toFixed(1)) + '</div></div>'
+      + "    " + badge
+      + '  </div>'
+      + judgeRows
+      + tail
+      + '</div>';
+
+    if (unscored) {
+      art.setAttribute("aria-label", "Cell " + (record.cell || "") + " — unscored, no jury verdict exists");
+    }
+    return art;
+  }
+
+  function renderVerdicts() {
+    var host = $("verdicts");
+    var cells = (State.run && Array.isArray(State.run.cells)) ? State.run.cells.slice() : [];
+    if (!cells.length) {
+      host.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>no verdicts</b>'
+        + (State.run
+            ? "This run has settled no cells yet. Verdicts appear here as the jury returns them."
+            : "No run ledger is readable from this origin. A pipeline run publishes one at "
+              + "<code>/outputs/arcane/&lt;job&gt;.json</code>.")
+        + "</div>";
+      $("juryMeta").textContent = NA;
+      return;
+    }
+
+    cells.reverse();
+    var shown = cells.slice(0, 24);
+    host.innerHTML = "";
+    shown.forEach(function (record) { host.appendChild(verdictCard(record)); });
+
+    var tiers = (State.run && State.run.tiers) || {};
+    var unscored = shown.filter(function (r) {
+      return String(r.tier || "unscored").toLowerCase() === "unscored" || !isNum(r.score);
+    }).length;
+    $("juryMeta").textContent = shown.length + " shown"
+      + (isNum(tiers.crowned) ? " · " + tiers.crowned + " crowned" : "")
+      + (unscored ? " · " + unscored + " unscored" : "");
+  }
+
+  /* ============================================================= crowned */
+
+  function renderCrowned() {
+    var host = $("crowned");
+    var frames = [];
+
+    var manCrowned = (State.manifest && State.manifest.crowned) || [];
+    manCrowned.forEach(function (entry) {
+      if (entry && entry.url) {
+        frames.push({ url: entry.url, cap: (entry.cell || "") + (isNum(entry.score) ? " · " + entry.score.toFixed(1) : ""), note: entry.epigram || "" });
       }
     });
 
-    function forgeArcane() {
-      window.playCeramicWhisper();
-      const subject = document.getElementById('promptSubject').value;
-      const preset = document.getElementById('presetSelect').value;
-      alert(`Forging Arcane cell: "${subject}" with preset ${preset} on B300 node!`);
+    if (!frames.length && State.run && Array.isArray(State.run.cells)) {
+      State.run.cells.forEach(function (record) {
+        if (String(record.tier || "").toLowerCase() !== "crowned") { return; }
+        var url = outputURL(record);
+        if (url) { frames.push({ url: url, cap: "cell " + record.cell, note: record.epigram || "" }); }
+      });
     }
-  </script>
+
+    if (!frames.length) {
+      host.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>nothing crowned</b>'
+        + "The crowned genome is empty on this origin. Frames land here once the jury crowns them "
+        + "and <code>provision_surfaces.py</code> carries them into the manifest.</div>";
+      $("crownMeta").textContent = NA;
+      return;
+    }
+
+    host.innerHTML = frames.slice(0, 24).map(function (f) {
+      return '<button class="frame" type="button" data-src="' + esc(f.url) + '" data-cap="' + esc(f.note || f.cap) + '">'
+        + '<img loading="lazy" alt="' + esc(f.cap) + '" src="' + esc(f.url) + '">'
+        + '<figcaption>' + esc(f.cap) + '</figcaption></button>';
+    }).join("");
+    $("crownMeta").textContent = frames.length + " frame" + (frames.length === 1 ? "" : "s");
+  }
+
+  /* ============================================================ lightbox */
+
+  var box = $("lightbox");
+  function openBox(src, cap) {
+    $("lightboxImg").src = src;
+    $("lightboxCap").textContent = cap || "";
+    box.dataset.open = "1";
+    whisper();
+  }
+  function closeBox() { box.dataset.open = "0"; $("lightboxImg").src = ""; }
+  $("lightboxClose").addEventListener("click", closeBox);
+  box.addEventListener("click", function (e) { if (e.target === box) { closeBox(); } });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeBox(); } });
+  document.addEventListener("click", function (e) {
+    var hit = e.target.closest ? e.target.closest("[data-src]") : null;
+    if (!hit) { return; }
+    openBox(hit.dataset.src, hit.dataset.cap || "");
+  });
+
+  /* ============================================================== render */
+
+  function renderAll() {
+    renderCartography();
+    renderRoster();
+    renderConformance();
+    renderVerdicts();
+    renderCrowned();
+  }
+
+  /* ============================================================== streams */
+
+  var stream = null;
+  var backoff = 3000;
+
+  function connectAtlas(jobId) {
+    if (stream) { try { stream.close(); } catch (e) {} stream = null; }
+    if (!jobId || typeof EventSource === "undefined") {
+      setConn(State.serverUp ? "idle" : "standby");
+      return;
+    }
+    var url = "/api/atlas/events/" + encodeURIComponent(jobId);
+    try { stream = new EventSource(url); } catch (e) {
+      setConn("disconnected", "This browser refused to open the atlas stream.");
+      return;
+    }
+    stream.addEventListener("atlas", function (event) {
+      try { State.atlas = JSON.parse(event.data); } catch (e) { return; }
+      State.lastEvent = Date.now();
+      backoff = 3000;
+      setConn("live");
+      renderCartography();
+      tick();
+    });
+    stream.onerror = function () {
+      try { stream.close(); } catch (e) {}
+      stream = null;
+      setConn(State.lastEvent ? "reconnecting" : "disconnected");
+      setTimeout(function () { connectAtlas(State.jobId); }, backoff);
+      backoff = Math.min(backoff * 2, 30000);
+    };
+  }
+
+  function loadRun(jobId) {
+    State.jobId = jobId || null;
+    if (!jobId) { State.run = null; renderAll(); connectAtlas(null); return; }
+    getJSON("/outputs/arcane/" + encodeURIComponent(jobId) + ".json").then(function (body) {
+      State.run = body;
+      State.runUrl = "/outputs/arcane/" + jobId + ".json";
+      $("provRun").textContent = State.runUrl;
+      renderAll();
+    }, function (err) {
+      State.run = null;
+      $("provRun").textContent = "unreachable (" + err.message + ")";
+      renderAll();
+    });
+    connectAtlas(jobId);
+  }
+
+  function pollRun() {
+    if (!State.jobId) { return; }
+    getJSON("/outputs/arcane/" + encodeURIComponent(State.jobId) + ".json").then(function (body) {
+      State.run = body;
+      renderVerdicts();
+      renderConformance();
+      renderCartography();
+      renderCrowned();
+    }, function () { /* the ledger is simply not there; the page already says so */ });
+  }
+
+  /* ================================================================ boot */
+
+  function fillRuns(runs) {
+    var select = $("runSelect");
+    if (!runs.length) {
+      select.innerHTML = '<option value="">No run published</option>';
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    select.innerHTML = runs.map(function (r) {
+      var label = (r.label || r.job_id) + (r.status ? " · " + r.status : "");
+      return '<option value="' + esc(r.job_id) + '">' + esc(label) + "</option>";
+    }).join("");
+    loadRun(runs[0].job_id);
+  }
+
+  function fillDrafts(drafts) {
+    var select = $("draftSelect");
+    var valid = drafts.filter(function (d) { return d && d.valid !== false; });
+    if (!valid.length) {
+      select.innerHTML = '<option value="">No draft provisioned</option>';
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    select.innerHTML = valid.map(function (d) {
+      var grid = (isNum(d.n_rows) && isNum(d.n_cols)) ? " · " + d.n_rows + "×" + d.n_cols : "";
+      return '<option value="' + esc(d.file) + '">' + esc((d.label || d.file) + grid) + "</option>";
+    }).join("");
+    select.title = "Drafts provisioned from atlas_drafts/arcane_*.json";
+  }
+
+  $("runSelect").addEventListener("change", function (e) { loadRun(e.target.value); tick(); });
+
+  /* Is anything alive on this origin? A failed health probe is the difference
+     between "standing by" and "the stream died", and the page should say which. */
+  function probe() {
+    return getJSON("/api/health").then(function () {
+      State.serverUp = true;
+      return true;
+    }, function () {
+      State.serverUp = false;
+      return false;
+    });
+  }
+
+  firstJSON(MANIFEST_URLS, function (b) { return b && b.kind === "arcane_surface_manifest"; })
+    .then(function (hit) {
+      State.manifest = hit.body;
+      State.manifestUrl = hit.url;
+      $("provManifest").textContent = hit.url;
+      $("provStamp").textContent = hit.body.generated_iso || NA;
+      fillDrafts(hit.body.drafts || []);
+      renderAll();
+      return hit.body.runs || [];
+    }, function (err) {
+      $("provManifest").textContent = "unreachable (" + err.message + ")";
+      $("provStamp").textContent = NA;
+      renderAll();
+      return [];
+    })
+    .then(function (runs) {
+      if (runs.length) { fillRuns(runs); return; }
+      /* The manifest carried no runs; the live index may still have some. */
+      return getJSON("/outputs/arcane/index.json").then(function (body) {
+        var live = (body && Array.isArray(body.runs)) ? body.runs : [];
+        fillRuns(live.filter(function (r) { return r && r.job_id; }));
+      }, function () { fillRuns([]); });
+    })
+    .then(probe)
+    .then(function (up) {
+      if (State.conn === "live") { return; }
+      setConn(up ? (State.jobId ? "disconnected" : "idle") : "standby");
+    });
+
+  setInterval(pollRun, 6300);   /* jury_continuum.toml [continuum].cadence_seconds */
+  setInterval(function () {
+    if (State.conn === "live" && State.lastEvent && Date.now() - State.lastEvent > 90000) {
+      setConn("reconnecting", "No atlas event for 90 s.");
+    }
+  }, 15000);
+
+}());
+</script>
 </body>
 </html>

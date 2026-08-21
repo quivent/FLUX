@@ -72,7 +72,13 @@ func main() {
 		err = ane(cfg, os.Args[2:])
 	case "bench", "benchmark":
 		err = bench(cfg, os.Args[2:])
-	case "studio", "status":
+	case "studio", "studios", "status":
+		// `flux studio arcane provision` reaches the same path as
+		// `flux arcane provision` and `flux provision arcane`.
+		if len(os.Args) > 2 && strings.ToLower(os.Args[2]) == "arcane" {
+			err = arcaneDispatch(cfg, os.Args[3:])
+			break
+		}
 		err = studio(cfg)
 	case "tree":
 		tree()
@@ -897,89 +903,20 @@ func anime(cfg config.Config, args []string) error {
 	}
 }
 
+// arcaneCmd is a thin entry point; the surface itself lives in arcane.go.
 func arcaneCmd(cfg config.Config, args []string) error {
-	if len(args) == 0 {
-		return render(cfg, []string{"--preset", "arcane-hero", "A solitary Arcane vigilante in the rain-soaked alleys of Zaun, mechanical arm glowing with chemtech emerald light, sharp angular jawline, visible gouache brushwork"})
-	}
-
-	if args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
-		ui.Header("arcane", "Fortiche Arcane world forge & character studio")
-		ui.Suite("usage", ui.Teal, []ui.PairRow{
-			{"arcane", "render signature Arcane Fortiche visual"},
-			{"arcane <prompt>", "render Fortiche Arcane hero character visual"},
-			{"arcane zaun <prompt>", "render Zaun undercity chemtech atmosphere"},
-			{"arcane piltover <prompt>", "render Piltover gilded architectural grandeur"},
-			{"arcane turn <prompt>", "render 64-frame character turnaround cell"},
-			{"arcane serve", "launch Arcane Production Studio dashboard"},
-		})
-		return nil
-	}
-
-	sub := strings.ToLower(args[0])
-	switch sub {
-	case "serve", "studio":
-		return serve(cfg, []string{"studio", "--addr", "0.0.0.0:7860"})
-	case "models", "download":
-		if len(args) > 1 && (args[1] == "download" || args[1] == "pull") {
-			return download(cfg, args[2:])
-		}
-		return download(cfg, args[1:])
-	case "provision", "setup", "install":
-		return provisionArcane(cfg)
-	case "plan":
-		rem := "A solitary Arcane vigilante in the rain-soaked alleys of Zaun, mechanical arm glowing with chemtech emerald light, sharp angular jawline, visible gouache brushwork"
-		if len(args) > 1 {
-			rem = strings.Join(args[1:], " ")
-		}
-		return render(cfg, []string{"--preset", "arcane-hero", "--dry-run", "--echo", rem})
-	case "zaun":
-		rem := strings.Join(args[1:], " ")
-		return render(cfg, []string{"--preset", "arcane-zaun", rem})
-	case "piltover":
-		rem := strings.Join(args[1:], " ")
-		return render(cfg, []string{"--preset", "arcane-piltover", rem})
-	case "turn", "turntable":
-		rem := strings.Join(args[1:], " ")
-		return render(cfg, []string{"--preset", "arcane-turn", rem})
-	default:
-		promptText := strings.Join(args, " ")
-		return render(cfg, []string{"--preset", "arcane-hero", promptText})
-	}
+	return arcaneDispatch(cfg, args)
 }
 
 func provisionCmd(cfg config.Config, args []string) error {
 	if len(args) == 0 || args[0] == "arcane" || args[0] == "arcahe" {
-		return provisionArcane(cfg)
+		rest := args
+		if len(rest) > 0 {
+			rest = rest[1:]
+		}
+		return arcaneProvision(cfg, rest)
 	}
 	return setup(cfg)
-}
-
-func provisionArcane(cfg config.Config) error {
-	ui.Header("provision arcane", "provisioning Fortiche Arcane production environment")
-	
-	// 1. Check & link models
-	if info, err := os.Stat("/models/flux1"); err == nil && info.IsDir() {
-		ui.KV("model", ui.State("/models/flux1 active"))
-	} else {
-		hfSnapshot := filepath.Join(cfg.Root, ".cache", "huggingface", "hub", "models--black-forest-labs--FLUX.1-dev", "snapshots")
-		matches, _ := filepath.Glob(filepath.Join(hfSnapshot, "*"))
-		if len(matches) > 0 {
-			target := matches[0]
-			_ = os.MkdirAll("/models", 0777)
-			_ = os.Remove("/models/flux1")
-			_ = os.Symlink(target, "/models/flux1")
-			ui.KV("model", "/models/flux1 -> "+target)
-		} else {
-			ui.KV("model", ui.Warn("snapshot not found in cache; run `flux download`"))
-		}
-	}
-
-	// 2. Check GPU & Python environment
-	ui.KV("silicon", ui.State("NVIDIA GPU ready"))
-	ui.KV("runtime", ui.State("BF16 / CUDA 13.0 active"))
-	ui.KV("presets", ui.State("arcane-hero, arcane-zaun, arcane-piltover, arcane-turn"))
-	ui.KV("status", ui.State("Arcane Studio Provisioned"))
-	return nil
 }
 
 func serveArcane(cfg config.Config, args []string) error {

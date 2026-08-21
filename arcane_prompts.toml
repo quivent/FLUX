@@ -1,0 +1,376 @@
+#  ARCANE FORTICHE PROMPT & RUBRIC CORPUS
+#  ============================================================================
+#  Data for arcane_aesthetic.py. Everything tunable about the Arcane look lives
+#  here so it can be changed without touching Python.
+#
+#  Source of truth for the six invariants:
+#      docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md  section 3
+#          "The Arcane Fortiche Aesthetic Specification"
+#  Character and synthesis:
+#      docs/PHASE_X_ARCANE_3D_ANIMATION_SPEC.md      (Arcane Italian Princess)
+#      docs/PHASE_XI_ARCANE_ROSE_SYNTHESIS_SPEC.md   (rose synthesis)
+#  Prompt idiom is deliberately compatible with the eight existing drafts in
+#      atlas_drafts/arcane_*.json
+#  so that prompts composed here can be dropped into an existing atlas without
+#  changing the character the seed lock is holding.
+#
+#  Palette entries carry provenance:
+#      spec    = true  -> the hex or the colour name is written in the spec
+#      spec    = false -> a supporting tone, chosen to widen the anchor set
+#      neutral = true  -> low chroma; matched with a TIGHTER radius, because
+#                         every grey in every image is near a neutral anchor
+#                         and a loose radius would make the palette metric a
+#                         detector of "is not saturated".
+
+[meta]
+epoch = "2026.08"
+revision = "FORTICHE-V1"
+spec = "docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md#3"
+generator = "black-forest-labs/FLUX.1-dev"          # BF16 native, never Q4
+refiner = "black-forest-labs/FLUX.1-Kontext-dev"    # optional toggled pass
+aesthetic_judge = "RedHatAI/pixtral-12b-quantized.w4a16"
+structural_judge = "unsloth/Qwen3.8-27B-NVFP4"
+governor = "nvidia/Gemma-4-31B-IT-NVFP4"
+
+
+# ---------------------------------------------------------------------------
+#  REALM I -- ZAUN UNDERCITY
+#  Spec constraint: "Toxic chemtech emerald (#00ff88), rusted iron, violet"
+# ---------------------------------------------------------------------------
+[realm.zaun]
+key = "zaun"
+name = "Zaun Undercity"
+signature_hex = "#00ff88"
+signature_name = "toxic chemtech emerald"
+
+palette = [
+  { hex = "#00ff88", name = "toxic chemtech emerald", spec = true,  neutral = false },
+  { hex = "#0f3d2e", name = "sump green shadow",      spec = false, neutral = false },
+  { hex = "#7a4626", name = "rusted iron",            spec = true,  neutral = false },
+  { hex = "#a35a2e", name = "oxide orange rust",      spec = true,  neutral = false },
+  { hex = "#6a3fa0", name = "bruised violet",         spec = true,  neutral = false },
+  { hex = "#8c5bd0", name = "chem-lamp violet",       spec = true,  neutral = false },
+  { hex = "#2b2724", name = "undercity soot",         spec = false, neutral = true  },
+]
+
+palette_words = [
+  "toxic chemtech emerald key light",
+  "rusted iron and oxidised copper plating",
+  "bruised violet chem-lamp haze",
+  "soot black undercity shadow",
+]
+
+style = [
+  "Zaun undercity setting, layered pipework and riveted iron catwalks",
+  "chem-punk industrial detailing, cracked glass vials and brass valves",
+  "grimy atmospheric fog lit from below by chemtech vents",
+]
+
+light = [
+  "toxic emerald chemtech glow rising from below as the ambient key",
+  "hard violet rim light raking the silhouette from behind",
+]
+
+setting = [
+  "the Sump, vertical undercity, pipes and grated walkways receding into green haze",
+  "a chem-baron workshop, glass tanks of luminous emerald fluid",
+]
+
+
+# ---------------------------------------------------------------------------
+#  REALM II -- PILTOVER APEX
+#  Spec constraint: "Gilded brass, white marble, hextech cyan (#00d2ff)"
+# ---------------------------------------------------------------------------
+[realm.piltover]
+key = "piltover"
+name = "Piltover Apex"
+signature_hex = "#00d2ff"
+signature_name = "hextech cyan"
+
+palette = [
+  { hex = "#00d2ff", name = "hextech cyan",       spec = true,  neutral = false },
+  { hex = "#c9a227", name = "gilded brass",       spec = true,  neutral = false },
+  { hex = "#8a6a1f", name = "antique brass shade",spec = true,  neutral = false },
+  { hex = "#e0c060", name = "polished gold leaf", spec = false, neutral = false },
+  { hex = "#f2efe6", name = "white marble",       spec = true,  neutral = true  },
+  { hex = "#cfc7b6", name = "marble shadow",      spec = true,  neutral = true  },
+  { hex = "#173a52", name = "apex night blue",    spec = false, neutral = false },
+]
+
+palette_words = [
+  "hextech cyan arcane glow",
+  "gilded brass filigree and polished gold leaf",
+  "white marble architecture with warm ivory shadow",
+  "deep apex night blue sky",
+]
+
+style = [
+  "Piltover apex setting, clean marble colonnades and brass hextech armature",
+  "art deco goldwork, precision gearwork, faceted hextech crystal",
+  "high clean air, banners and airships above the promenade",
+]
+
+light = [
+  "cool hextech cyan arcane glow as the ambient key",
+  "warm gilded brass rim light drawing a hard line along the silhouette",
+]
+
+setting = [
+  "the Piltover promenade at dusk, marble balustrades and brass lamps",
+  "a hexgate observatory, faceted crystal throwing cyan light across marble",
+]
+
+
+# ---------------------------------------------------------------------------
+#  CHARACTER CORE -- the Arcane Italian Princess (Phase X)
+#  The head clause of every draft in atlas_drafts/arcane_*.json.
+# ---------------------------------------------------------------------------
+[character]
+default_subject = "An adult stunning princess with the beauty of an Italian supermodel"
+subject_template = "An adult stunning {subject} with the beauty of an Italian supermodel"
+core = "acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects"
+
+identity = [
+  "elegant regal costume",
+  "expressive face",
+  "consistent character identity",
+]
+
+closers = [
+  "cinematic character sheet quality",
+  "high-end animated series frame",
+  "polished portrait quality",
+  "emotionally charged portrait",
+]
+
+
+# ---------------------------------------------------------------------------
+#  INVARIANT 1 -- BRUSH TEXTURE & IMPASTO
+#  "Visible oil/gouache paint layering, dry-brush breaks"
+# ---------------------------------------------------------------------------
+[brushwork]
+fragments = [
+  "visible oil paint impasto, loaded brush strokes ridged and catching the light",
+  "gouache layering with dry-brush breaks where the bristle skipped the tooth",
+  "hand-painted 2D texture laid over the 3D forms, painterly edges left unblended",
+  "canvas tooth and palette-knife scrape visible in the highlights",
+]
+required = "hand-painted 2D brushwork over sculpted 3D forms, visible paint texture"
+
+
+# ---------------------------------------------------------------------------
+#  INVARIANT 2 -- SILHOUETTE & PLANES
+#  "Sharp angular facial geometry, planar cheekbones"
+# ---------------------------------------------------------------------------
+[planes]
+fragments = [
+  "sharp angular facial geometry, planar cheekbones meeting at hard edges",
+  "faceted construction of the brow, nose bridge and jaw, flat planes not curves",
+  "graphic readable silhouette, the shape works as a solid black cut-out",
+  "chiselled stylised proportions, no rounded doll softness",
+]
+required = "sharp angular facial planes, planar cheekbones, readable graphic silhouette"
+
+
+# ---------------------------------------------------------------------------
+#  INVARIANT 3 -- LIGHTING & CHIAROSCURO
+#  "Dual-source: High-contrast ambient + Graphic rim light"
+# ---------------------------------------------------------------------------
+[lighting]
+fragments = [
+  "dual-source lighting, high-contrast ambient key plus a separate graphic rim",
+  "deep crushed shadow holding most of the frame, a hard bright rim carving the edge",
+  "two-tone lighting with a sharp terminator, no soft wraparound fill",
+]
+required = "dual-source chiaroscuro, high-contrast ambient plus hard graphic rim light"
+
+
+# ---------------------------------------------------------------------------
+#  INVARIANT 6 -- ANTI-PLASTIC CGI FILTER
+#  "Hard rejection of smooth skin or flat photographic CGI"
+#  These are written as POSITIVE steering clauses as well as a negative list:
+#  FLUX.1-dev has no negative-prompt channel at guidance 3.5, so the anti-CGI
+#  pressure has to be applied in the positive prompt.
+# ---------------------------------------------------------------------------
+[negative]
+positive_steer = [
+  "matte painted surfaces, no gloss",
+  "skin rendered as paint with visible strokes and stippled texture",
+  "flat graphic background, no optical bokeh",
+]
+anti_cgi = [
+  "smooth plastic skin",
+  "airbrushed subsurface scattering glow",
+  "specular highlights on nose and lips",
+  "photorealistic 3D render",
+  "octane render",
+  "unreal engine cinematic",
+  "photographic depth of field bokeh",
+  "waxy doll face",
+  "beauty retouching",
+]
+
+
+# ---------------------------------------------------------------------------
+#  PHASE XI -- ROSE SYNTHESIS
+# ---------------------------------------------------------------------------
+[rose]
+fragments = [
+  "holding a glowing impossible procedural 3D rose",
+  "floating crimson velvet rose petals drifting through the frame",
+  "enchanted glass garden backdrop",
+  "the rose painted with the same visible brushwork as the character, not rendered smooth",
+]
+realm_tint.zaun = "the rose lit from within by toxic chemtech emerald"
+realm_tint.piltover = "the rose lit from within by hextech cyan"
+
+
+# ---------------------------------------------------------------------------
+#  TURNAROUND VIEWS
+#  Names lifted from atlas_drafts/arcane_italian_princess_yaw_buckets_64.json
+#  so a composed prompt can be swapped into that atlas's view_prompts array.
+# ---------------------------------------------------------------------------
+[views]
+descriptor = "camera orbit {deg} degrees"
+canonical = [
+  { deg = 0,   name = "front view, facing camera" },
+  { deg = 45,  name = "left three-quarter view, head turned left" },
+  { deg = 90,  name = "left side profile" },
+  { deg = 135, name = "back left three-quarter view, looking away over shoulder" },
+  { deg = 180, name = "back view, face mostly turned away, hair and costume back visible" },
+  { deg = 225, name = "back right three-quarter view, looking away over shoulder" },
+  { deg = 270, name = "right side profile" },
+  { deg = 315, name = "right three-quarter view, head turned right" },
+]
+# Aliases accepted by arcane_prompt(view=...)
+[views.alias]
+front = 0
+"three-quarter" = 45
+"three quarter" = 45
+"left-three-quarter" = 45
+profile = 90
+"side" = 90
+"left-profile" = 90
+"back-three-quarter" = 135
+back = 180
+"right-profile" = 270
+"right-three-quarter" = 315
+
+
+# ---------------------------------------------------------------------------
+#  VLM RUBRICS
+#  [rubric].pixtral is spliced into the aesthetic juror's system prompt.
+#  There are NO intentional placeholders in either rubric, but both carry the
+#  literal { } of their JSON reply template. Splice by concatenation, or pass
+#  the rubric AS an argument to .format() -- never embed it in a template that
+#  is itself .format()-ed or f-stringed, or the JSON braces raise KeyError.
+# ---------------------------------------------------------------------------
+[rubric]
+pixtral = """
+You are the Fortiche Aesthetic Critic for the Arcane World Forge. You judge one
+image against six fixed invariants from the Arcane Fortiche Aesthetic
+Specification. You are not judging whether the image is beautiful. You are
+judging whether it is Arcane. A gorgeous image that is not Arcane scores low.
+
+Score every invariant 0-10 on this scale. Use it literally.
+  0-2   absent, or the opposite is true
+  3-4   a trace of it, mostly missing
+  5-6   present but weak, inconsistent, or only in one part of the frame
+  7-8   clearly present and deliberate across the frame
+  9-10  exemplary, would pass as a Fortiche production frame
+
+THE SIX INVARIANTS
+
+1. brush_impasto - Visible paint. Ridged oil or gouache strokes that catch the
+   light, layered opaque passages, dry-brush breaks where the bristle skipped
+   and left the underlayer showing, canvas or board tooth. Score 0-2 when
+   surfaces are airbrushed, when colour transitions are perfectly continuous,
+   or when the only texture present is photographic grain or render noise.
+
+2. planar_silhouette - Angular construction. Cheekbone, brow, nose bridge and
+   jaw built from flat planes that meet at hard edges. The outline reads as a
+   solid graphic shape. Score 0-2 for soft rounded doll forms, smoothly blended
+   spherical shading, or a face with no visible plane breaks.
+
+3. chiaroscuro - Dual-source lighting. A high-contrast ambient key that throws
+   real shadow, PLUS a separate graphic rim light that draws a bright line
+   along the edge of the subject and cuts it away from the background. Both
+   must be present. A single soft frontal light scores 0-2 however flattering.
+
+4. realm_palette - The frame must commit to one realm.
+     zaun     - toxic chemtech emerald #00ff88, rusted iron, bruised violet, soot
+     piltover - gilded brass, white marble, hextech cyan #00d2ff
+   Score how decisively the frame sits inside one of those two. A frame in
+   neither palette, or one that mixes both without intent, scores 0-4.
+
+5. anti_plastic - A rejection test. Score how strongly the image AVOIDS plastic
+   CGI. 9-10 means no trace of smooth-skin rendering anywhere. 0-2 means glossy
+   airbrushed skin, subsurface-scatter glow, specular highlights on the nose and
+   lips, photographic depth-of-field bokeh, or the look of a real-time game
+   cinematic. Be harsh here. Prettiness is not a defence.
+
+6. identity - The subject reads as one specific consistent person, and reads as
+   an Arcane character rather than a generic fantasy portrait.
+
+THEN REPORT
+  realm    one of: zaun, piltover, mixed, neither
+  verdict  "reject" if anti_plastic is 3 or less.
+           Otherwise "conforming" if every one of the six scores is 5 or more.
+           Otherwise "drift".
+  worst    the key of the lowest scoring invariant
+  fix      ONE imperative sentence naming the single change that would raise
+           the worst score. No praise, no restatement of what is good.
+
+Reply with JSON and nothing else. No preamble, no markdown fence, no trailing
+commentary. Use exactly this shape:
+
+{"brush_impasto":0,"planar_silhouette":0,"chiaroscuro":0,"realm_palette":0,
+"anti_plastic":0,"identity":0,"realm":"","verdict":"","worst":"","fix":"",
+"notes":{"brush_impasto":"","planar_silhouette":"","chiaroscuro":"",
+"realm_palette":"","anti_plastic":"","identity":""}}
+
+Every notes value is at most twelve words and describes what you actually saw
+in this image, not what the style is supposed to look like.
+"""
+
+qwen_structural = """
+You are the Structural Inspector for the Arcane World Forge. Judge geometry and
+construction only. Ignore colour, mood, palette and beauty completely - another
+juror owns those. A drab image with correct angular construction outranks a
+gorgeous image built from soft spheres.
+
+Score each item 0-10.
+  0-2   absent or badly wrong
+  3-4   a trace, mostly missing
+  5-6   present but weak or inconsistent
+  7-8   clearly present and deliberate
+  9-10  exemplary
+
+1. plane_breaks - Does the face resolve into flat planes with hard edges
+   between them? Look at the cheekbone into the temple, the nose bridge into
+   the eye socket, the jaw into the neck. Continuous blended shading is 0-2.
+
+2. angularity - Are the large forms angular and chiselled rather than rounded?
+   Shoulders, skull mass, costume volumes, hairline as shape rather than fibre.
+
+3. silhouette_read - Filled solid black, would this outline still read as this
+   character doing this action? Score 0-2 if limbs merge into the torso or the
+   pose collapses into an undifferentiated blob.
+
+4. anatomy - Count real defects: hand and finger count, eye alignment and gaze
+   agreement, ear placement, shoulder and clavicle symmetry, jewellery and
+   costume continuity across an occlusion. 10 means no defect found. Subtract
+   about 2 per clear defect. Name every defect you counted.
+
+5. view_match - Does the camera actually sit where the frame claims? A
+   turnaround cell that requests a side profile and renders a near-front face
+   is a failure of this item even if the face is beautiful.
+
+Reply with JSON and nothing else, in exactly this shape:
+
+{"plane_breaks":0,"angularity":0,"silhouette_read":0,"anatomy":0,
+"view_match":0,"defects":[],"worst":"","fix":""}
+
+defects is a list of short strings, one per defect you actually counted, empty
+if none. fix is one imperative sentence. No praise.
+"""

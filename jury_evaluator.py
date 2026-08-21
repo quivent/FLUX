@@ -1,384 +1,492 @@
 #!/usr/bin/env python3
-"""Sovereign FLUX Visual Jury Real-Time Evaluator & Empirical Percentile Curving.
+"""Sovereign FLUX Visual Jury daemon.
 
-Dynamic Percentile-Ranked Distribution (Rolling 300-Frame Empirical CDF):
-- 👑 Masterpiece Tier: Percentile Rank ≥ 98.0th (Top 2% of all generated artworks)
-- ✨ Spectacle Tier:   Percentile Rank ≥ 90.0th (Top 10% of all generated artworks)
-- Standard Quality:    Percentile Rank 40.0th - 89.9th (Median ~ 72.0 display)
-- Banal / Redundant:   Percentile Rank < 40.0th (Penalized)
+This process tails the fluxd jobs ledger and, for every render that settles,
+asks :mod:`moj_evaluator` for a verdict.  It owns persistence and routing --
+``audit.jsonl``, ``jury.sqlite3``, the spectacle/masterpiece/defect feeds, and
+the Cloudflare R2 streaming -- and nothing else.
+
+What changed
+------------
+``score_frame()`` used to compute all four judge scores from
+``hash(prompt + "pixtral") % 12``.  It never made an HTTP call and never sent an
+image to a vision model; the "jury" was four deterministic string hashes wearing
+a percentile curve.  Every one of those code paths is gone.  Scores now come
+from :func:`moj_evaluator.evaluate`, which sends the actual PNG to actual
+vision-language models and, when a judge cannot be reached, records
+``tier: "unscored"`` with ``composite: None`` rather than inventing a number.
+
+Also removed: ``calculate_novelty_bonus()``, which moved scores up or down by up
+to 14 points based on keyword matches against the *prompt string*
+(``EXCEPTIONAL_TRAITS`` / ``BANAL_CLICHES``).  That was a second, quieter way of
+scoring an image without looking at it.  Real novelty evidence now comes from
+``uniqueness_tracker``'s 128-d perceptual fingerprint and from
+``sensory_gates``, both of which read pixels.
+
+The percentile CDF curve, the tier thresholds, the SQLite schema and the JSONL
+receipt shape are all unchanged, so ``internal/jury/jury.go``, the ``/jury``
+surface and the R2 state sync keep working exactly as before.
+
+Tier routing
+------------
+    masterpiece   percentile >= 98.0   -> masterpiece_vault.jsonl  + R2 sync
+    spectacle     percentile >= 90.0   -> spectacle_genome.jsonl   + R2 sync
+    standard      percentile 40.0-89.9 -> audit.jsonl only
+    banal         percentile <  35.0   -> defect_blacklist.jsonl
+    unscored      no judge answered    -> audit.jsonl only, NEVER any feed
 """
-import glob
 import json
 import os
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
-import urllib.request
-import numpy as np
-import uniqueness_tracker
 
-AUDIT_LOG = "/root/Models/flux-output/audit.jsonl"
-SQLITE_DB = "/root/Models/flux-output/jury.sqlite3"
-CONFIG_JSON = "/root/Models/flux-output/jury_config.json"
-SPECTACLE_LOG = "/root/Models/flux-output/spectacle_genome.jsonl"
-MASTERPIECE_LOG = "/root/Models/flux-output/masterpiece_vault.jsonl"
-DEFECT_LOG = "/root/Models/flux-output/defect_blacklist.jsonl"
-OUTPUT_DIR = "/root/Models/flux-output"
+import moj_evaluator
 
-os.makedirs(os.path.dirname(AUDIT_LOG), exist_ok=True)
+# --------------------------------------------------------------------------
+# Logging.  Shared with moj_evaluator so the daemon and the jury render into
+# one sink; falls back to plain prints when arcane_log is not installed.
+# --------------------------------------------------------------------------
+LOG = moj_evaluator.get_log()
+
+# --------------------------------------------------------------------------
+# Paths.  Resolved lazily through moj_evaluator (pipeline_paths -> env ->
+# /root/Models/flux-output -> flux_paths -> ~), so importing this module on a
+# machine with no /root neither raises nor creates anything.
+# --------------------------------------------------------------------------
+OUTPUT_DIR = moj_evaluator.output_dir()
+AUDIT_LOG = os.path.join(OUTPUT_DIR, "audit.jsonl")
+SQLITE_DB = os.path.join(OUTPUT_DIR, "jury.sqlite3")
+CONFIG_JSON = os.path.join(OUTPUT_DIR, "jury_config.json")
+SPECTACLE_LOG = os.path.join(OUTPUT_DIR, "spectacle_genome.jsonl")
+MASTERPIECE_LOG = os.path.join(OUTPUT_DIR, "masterpiece_vault.jsonl")
+DEFECT_LOG = os.path.join(OUTPUT_DIR, "defect_blacklist.jsonl")
+JOBS_LEDGER = moj_evaluator.jobs_ledger_path()
+
+POLL_INTERVAL_S = float(os.environ.get("JURY_POLL_INTERVAL_S") or 1.5)
+LEDGER_TAIL = int(os.environ.get("JURY_LEDGER_TAIL") or 30)
+
+#: Percentile below which a frame is filed as a defect, preserved from the
+#: original evaluator.
+DEFECT_PERCENTILE = 35.0
+
+
+def _ensure_output_dir():
+    """Create the output directory on first write, never at import time."""
+    try:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        return True
+    except Exception as exc:
+        LOG.error("cannot create output dir %s: %s" % (OUTPUT_DIR, exc))
+        return False
+
+
+# --------------------------------------------------------------------------
+# Cloudflare R2 streaming (unchanged)
+# --------------------------------------------------------------------------
+
 
 def stream_image_to_r2_async(img_path):
     """Pushes every settled artwork directly to Cloudflare R2 on render completion."""
     if not img_path or not os.path.exists(img_path):
         return
+
     def _upload():
         try:
             fname = os.path.basename(img_path)
-            r2_key = f"outputs/{fname}"
-            subprocess.run(["gemstone", "r2", "push", img_path, r2_key],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
-            print(f"[R2 STREAM] Artwork preserved to Cloudflare R2: {r2_key}", flush=True)
-        except Exception as e:
-            print(f"[R2 STREAM ERR] {e}", flush=True)
+            r2_key = "outputs/%s" % fname
+            subprocess.run(
+                ["gemstone", "r2", "push", img_path, r2_key],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+            )
+            LOG.info("R2 stream: artwork preserved to %s" % r2_key)
+        except Exception as exc:
+            LOG.warn("R2 stream failed for %s: %s" % (img_path, exc))
+
     threading.Thread(target=_upload, daemon=True).start()
+
 
 def sync_state_to_r2_async():
     """Pushes active SQLite database & Spectacle genome to Cloudflare R2."""
+
     def _sync():
-        try:
-            if os.path.exists(SQLITE_DB):
-                subprocess.run(["gemstone", "r2", "push", SQLITE_DB, "state/jury.sqlite3"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-            if os.path.exists(SPECTACLE_LOG):
-                subprocess.run(["gemstone", "r2", "push", SPECTACLE_LOG, "outputs/spectacle_genome.jsonl"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-            if os.path.exists(MASTERPIECE_LOG):
-                subprocess.run(["gemstone", "r2", "push", MASTERPIECE_LOG, "outputs/masterpiece_vault.jsonl"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-        except Exception:
-            pass
+        for local, remote in (
+            (SQLITE_DB, "state/jury.sqlite3"),
+            (SPECTACLE_LOG, "outputs/spectacle_genome.jsonl"),
+            (MASTERPIECE_LOG, "outputs/masterpiece_vault.jsonl"),
+        ):
+            try:
+                if os.path.exists(local):
+                    subprocess.run(
+                        ["gemstone", "r2", "push", local, remote],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=20,
+                    )
+            except Exception:
+                pass
+
     threading.Thread(target=_sync, daemon=True).start()
 
-EXCEPTIONAL_TRAITS = [
-    "obsidian", "bioluminescent", "liquid crystal", "astral sorceress", "porcelain armor",
-    "cybernetic tea master", "prismatic", "stained glass", "sumi-e", "volumetric mist",
-    "masterwork dynamic luminance", "hyper-precise", "supreme architectural poise"
-]
 
-BANAL_CLICHES = [
-    "vintage train", "stone viaduct", "train crossing", "sunset", "autumn leaves"
-]
+# --------------------------------------------------------------------------
+# Configuration (unchanged contract with internal/jury/jury.go)
+# --------------------------------------------------------------------------
+
 
 def load_active_config():
+    """Read the active jury config the Go server writes.
+
+    Prefers ``jury_config.json`` (exported by ``jury.ExportConfigJSON``), falls
+    back to the ``jury_config`` SQLite row, then to jury.go's ``DefaultConfig()``
+    values so the two stay in step.
+    """
     try:
         if os.path.exists(CONFIG_JSON):
-            with open(CONFIG_JSON, "r") as f:
-                return json.load(f)
+            with open(CONFIG_JSON, "r") as handle:
+                cfg = json.load(handle)
+            if isinstance(cfg, dict):
+                return cfg
     except Exception:
         pass
+
+    con = None
     try:
-        if os.path.exists(SQLITE_DB):
-            con = sqlite3.connect(SQLITE_DB)
-            cur = con.cursor()
-            cur.execute("SELECT mode, order_json, weights_json, strictness_json, adversarial_mode FROM jury_config WHERE id = 'active'")
-            row = cur.fetchone()
-            if row:
-                return {
-                    "mode": row[0],
-                    "order": json.loads(row[1]),
-                    "weights": json.loads(row[2]),
-                    "strictness": json.loads(row[3]) if row[3] else {"pixtral": 2.0, "qwen": 1.2, "decoder": 1.5, "governor": 2.2},
-                    "adversarial_mode": bool(row[4])
-                }
+        con = sqlite3.connect(SQLITE_DB)
+        cur = con.cursor()
+        cur.execute(
+            "SELECT mode, order_json, weights_json, strictness_json, "
+            "adversarial_mode FROM jury_config WHERE id = 'active'"
+        )
+        row = cur.fetchone()
+        if row:
+            return {
+                "mode": row[0],
+                "order": json.loads(row[1]),
+                "weights": json.loads(row[2]),
+                "strictness": json.loads(row[3])
+                if row[3]
+                else {"pixtral": 2.0, "qwen": 1.2, "decoder": 1.5, "governor": 2.2},
+                "adversarial_mode": bool(row[4]),
+            }
     except Exception:
         pass
+    finally:
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
+
     return {
         "mode": "parallel",
         "order": ["pixtral", "qwen", "decoder", "governor"],
         "weights": {"pixtral": 0.35, "qwen": 0.35, "decoder": 0.15, "governor": 0.15},
         "strictness": {"pixtral": 2.0, "qwen": 1.2, "decoder": 1.5, "governor": 2.2},
-        "adversarial_mode": True
+        "adversarial_mode": True,
     }
+
+
+# --------------------------------------------------------------------------
+# Compatibility re-exports.  These moved into moj_evaluator; the names stay so
+# nothing that imported them from here breaks.
+# --------------------------------------------------------------------------
+compute_percentile_and_curved_score = moj_evaluator.compute_percentile_and_curved_score
+calibrate_raw_score = moj_evaluator.calibrate_raw_score
+
 
 def find_image_for_job(job):
-    jid = job.get("id", "")
-    seed = job.get("seed", "")
-    if job.get("output") and os.path.exists(job["output"]):
-        return job["output"]
-    candidates = glob.glob(f"{OUTPUT_DIR}/*{jid}*.png") + glob.glob(f"{OUTPUT_DIR}/*seed-{seed}*.png")
-    if candidates:
-        return candidates[0]
-    all_pngs = sorted(glob.glob(f"{OUTPUT_DIR}/*.png"), key=os.path.getmtime)
-    return all_pngs[-1] if all_pngs else ""
+    """Locate the settled render for a job (path only, for callers that want it)."""
+    path, _source = moj_evaluator.find_image_for_job(job, OUTPUT_DIR)
+    return path
 
-def calculate_novelty_bonus(prompt):
-    p_lower = prompt.lower()
-    bonus = 0.0
-    for trait in EXCEPTIONAL_TRAITS:
-        if trait in p_lower:
-            bonus += 3.5
-    for cliché in BANAL_CLICHES:
-        if cliché in p_lower:
-            bonus -= 8.0
-    return max(-14.0, min(14.0, bonus))
 
-def calibrate_raw_score(raw_score, gamma, is_adversarial=False):
-    normalized = max(0.0, min(100.0, raw_score)) / 100.0
-    calibrated = 100.0 * (normalized ** gamma)
-    if is_adversarial and raw_score < 85.0:
-        calibrated *= 0.92
-    return round(max(0.0, min(100.0, calibrated)), 1)
+# --------------------------------------------------------------------------
+# Persistence
+# --------------------------------------------------------------------------
 
-def compute_percentile_and_curved_score(raw_composite):
-    """Computes empirical CDF percentile rank and standardized display score."""
-    history = []
+
+def _append_jsonl(path, record):
     try:
-        con = sqlite3.connect(SQLITE_DB)
-        cur = con.cursor()
-        cur.execute("SELECT raw_score FROM jury_verdicts WHERE raw_score IS NOT NULL ORDER BY created_at DESC LIMIT 300")
-        rows = cur.fetchall()
-        history = [r[0] for r in rows if r[0] is not None]
-    except Exception:
-        pass
+        with open(path, "a") as handle:
+            handle.write(json.dumps(record, default=str) + "\n")
+        return True
+    except Exception as exc:
+        LOG.error("cannot append to %s: %s" % (path, exc))
+        return False
 
-    if len(history) < 10:
-        # Cold-start fallback: map linear
-        pct = raw_composite
+
+def _critiques_json(receipt):
+    """Per-seat critique blob for the SQLite ``critiques_json`` column.
+
+    Keyed by the legacy seat names the Go server and the /jury surface use, so
+    the column keeps its shape.  A silent judge records why it was silent
+    instead of a score-shaped sentence.
+    """
+    critiques = {}
+    for judge in receipt.get("judges") or []:
+        seat = judge.get("legacy_key") or judge.get("role")
+        if not seat:
+            continue
+        if judge.get("degraded"):
+            critiques[seat] = "DEGRADED (%s): %s" % (
+                judge.get("model") or "?",
+                judge.get("error") or "no reason recorded",
+            )
+        else:
+            critiques[seat] = "%s %s/100 (gamma=%s) - %s" % (
+                judge.get("title") or judge.get("role"),
+                judge.get("score"),
+                judge.get("gamma"),
+                judge.get("critique") or "",
+            )
+
+    uniq = receipt.get("uniqueness") or {}
+    if uniq.get("available"):
+        critiques["uniqueness"] = "Novelty: %s%% (%s)" % (
+            uniq.get("score"),
+            uniq.get("category"),
+        )
     else:
-        # Empirical CDF rank
-        less_equal = sum(1 for x in history if x <= raw_composite)
-        pct = (less_equal / float(len(history))) * 100.0
-        pct = max(1.0, min(99.9, pct))
+        critiques["uniqueness"] = "Novelty: unavailable"
 
-    # Standardized Piecewise Percentile Curve
-    if pct >= 98.0:
-        # Top 2% -> Masterpiece Tier [98.0 - 100.0]
-        curved = 98.0 + ((pct - 98.0) / 2.0) * 2.0
-    elif pct >= 90.0:
-        # Top 10% -> Spectacle Tier [90.0 - 97.9]
-        curved = 90.0 + ((pct - 90.0) / 8.0) * 7.9
-    elif pct >= 70.0:
-        # Upper Quality [80.0 - 89.9]
-        curved = 80.0 + ((pct - 70.0) / 20.0) * 9.9
-    elif pct >= 35.0:
-        # Median Standard [65.0 - 79.9]
-        curved = 65.0 + ((pct - 35.0) / 35.0) * 14.9
+    pct = receipt.get("percentile_rank")
+    if pct is None:
+        critiques["percentile"] = "UNSCORED - no judge answered; no percentile exists"
     else:
-        # Banal / Redundant [0.0 - 64.9]
-        curved = (pct / 35.0) * 64.9
+        critiques["percentile"] = "Top %.1f%% (%sth Percentile)" % (100.0 - pct, pct)
 
-    return round(pct, 1), round(curved, 1)
+    if receipt.get("epigram"):
+        critiques["epigram"] = receipt["epigram"]
+    return critiques
 
-def score_frame(job, cfg):
-    jid = job.get("id", "job-unknown")
-    prompt = job.get("prompt", "")
-    seed = job.get("seed", 0)
-    mode = cfg.get("mode", "parallel")
-    weights = cfg.get("weights", {})
-    strictness = cfg.get("strictness", {})
-    is_adv = cfg.get("adversarial_mode", True)
-    order = cfg.get("order", ["pixtral", "qwen", "decoder", "governor"])
 
-    img_path = find_image_for_job(job)
+def persist_receipt(receipt):
+    """Write one verdict everywhere it belongs, then route it by tier."""
+    _ensure_output_dir()
 
-    # 1. Perceptual Uniqueness Diff Model
-    u_data = uniqueness_tracker.evaluate_uniqueness(jid, img_path)
-    u_score = u_data.get("uniqueness_score", 70.0)
-    u_cat = u_data.get("category", "HEALTHY_VARIETY")
-    
-    uniqueness_mod = 8.0 if u_score >= 75.0 else (-18.0 if u_score < 35.0 else 0.0)
+    tier = receipt.get("tier")
+    percentile = receipt.get("percentile_rank")
+    job_id = receipt.get("job_id")
 
-    w_p = weights.get("pixtral", 0.35)
-    w_q = weights.get("qwen", 0.35)
-    w_d = weights.get("decoder", 0.15)
-    w_g = weights.get("governor", 0.15)
-    tot_w = w_p + w_q + w_d + w_g if (w_p + w_q + w_d + w_g) > 0 else 1.0
+    # 1. Real-time R2 streaming: push the image the instant it settles.
+    image_path = receipt.get("image_path")
+    if image_path and os.path.exists(image_path):
+        stream_image_to_r2_async(image_path)
 
-    g_p = strictness.get("pixtral", 2.0)
-    g_q = strictness.get("qwen", 1.2)
-    g_d = strictness.get("decoder", 1.5)
-    g_g = strictness.get("governor", 2.2)
+    # 2. Full audit trail. Unscored frames are recorded here too -- the absence
+    #    of a verdict is itself part of the record.
+    _append_jsonl(AUDIT_LOG, receipt)
 
-    novelty_mod = calculate_novelty_bonus(prompt) + (uniqueness_mod * 0.6)
-
-    # 2. 4-Judge Harsh Raw Evaluations
-    base_harmony = 72.0 + (hash(prompt + "pixtral") % 12) + novelty_mod
-    raw_harmony = calibrate_raw_score(base_harmony, g_p, is_adv)
-
-    base_structure = 75.0 + (hash(str(seed) + "qwen") % 13)
-    if hash(str(seed)) % 5 == 0:
-        base_structure -= 8.0
-    raw_structure = calibrate_raw_score(base_structure, g_q, is_adv)
-
-    base_decoder = 74.0 + (hash(str(seed) + prompt) % 11) + (novelty_mod * 0.4)
-    raw_decoder = calibrate_raw_score(base_decoder, g_d, is_adv)
-
-    base_semantic = 73.0 + (hash(prompt + str(seed) + "gov") % 12) + (novelty_mod * 0.4)
-    raw_semantic = calibrate_raw_score(base_semantic, g_g, is_adv)
-
-    raw_composite = round(((raw_harmony * w_p) + (raw_structure * w_q) + (raw_decoder * w_d) + (raw_semantic * w_g)) / tot_w, 1)
-
-    # 3. Dynamic Empirical Percentile Curving
-    percentile_rank, curved_score = compute_percentile_and_curved_score(raw_composite)
-
-    # 4. Percentile-Based Tier Stratification
-    tier = "standard"
-    if percentile_rank >= 98.0:
-        tier = "masterpiece"
-    elif percentile_rank >= 90.0:
-        tier = "spectacle"
-
-    receipt = {
-        "ts": time.time(),
-        "job_id": jid,
-        "seed": seed,
-        "prompt": prompt,
-        "mode": mode,
-        "order": order,
-        "tier": tier,
-        "percentile_rank": percentile_rank,
-        "curved_score": curved_score,
-        "raw_composite": raw_composite,
-        "uniqueness": {
-            "score": u_score,
-            "category": u_cat,
-            "min_distance": u_data.get("min_distance", 0.5),
-            "mean_distance": u_data.get("mean_distance", 0.6),
-            "mode_collapse": u_data.get("mode_collapse", False)
-        },
-        "jury_scores": {
-            "harmony": raw_harmony,
-            "structure": raw_structure,
-            "feature_decoder": raw_decoder,
-            "semantic_fidelity": raw_semantic,
-            "raw_composite": raw_composite,
-            "composite": curved_score
-        },
-        "strictness_multipliers": {
-            "pixtral_gamma": g_p,
-            "qwen_gamma": g_q,
-            "decoder_gamma": g_d,
-            "governor_gamma": g_g,
-            "inquisitor_mode": is_adv
-        },
-        "is_spectacle": percentile_rank >= 90.0,
-        "is_masterpiece": percentile_rank >= 98.0
-    }
-
-    # Real-Time Cloudflare R2 Streaming: Push image straight to R2 the instant it settles
-    if img_path and os.path.exists(img_path):
-        stream_image_to_r2_async(img_path)
-
-    # Append to audit.jsonl
-    with open(AUDIT_LOG, "a") as f:
-        f.write(json.dumps(receipt) + "\n")
-
-    # Feedback Routing & Automatic R2 State Synchronization
-    if tier == "masterpiece":
-        with open(MASTERPIECE_LOG, "a") as f:
-            f.write(json.dumps(receipt) + "\n")
+    # 3. Tier routing. An unscored frame reaches NO feed: it did not earn a
+    #    promotion and it did not earn a demotion, because nobody judged it.
+    if tier == "unscored":
+        LOG.warn(
+            "job %s recorded to audit.jsonl as UNSCORED; excluded from every "
+            "tier feed and from the percentile CDF" % job_id
+        )
+    elif tier == "masterpiece":
+        _append_jsonl(MASTERPIECE_LOG, receipt)
         sync_state_to_r2_async()
     elif tier == "spectacle":
-        with open(SPECTACLE_LOG, "a") as f:
-            f.write(json.dumps({
+        _append_jsonl(
+            SPECTACLE_LOG,
+            {
                 "ts": time.time(),
-                "job_id": jid,
-                "prompt": prompt,
-                "seed": seed,
-                "percentile": percentile_rank,
-                "curved_score": curved_score,
-                "uniqueness": u_score,
-                "target": "movement_towards_master"
-            }) + "\n")
+                "job_id": job_id,
+                "prompt": receipt.get("prompt"),
+                "seed": receipt.get("seed"),
+                "percentile": percentile,
+                "curved_score": receipt.get("curved_score"),
+                "uniqueness": (receipt.get("uniqueness") or {}).get("score"),
+                "epigram": receipt.get("epigram"),
+                "target": "movement_towards_master",
+            },
+        )
         sync_state_to_r2_async()
-    elif percentile_rank < 35.0:
-        with open(DEFECT_LOG, "a") as f:
-            f.write(json.dumps({
+    elif percentile is not None and percentile < DEFECT_PERCENTILE:
+        worst = ""
+        for judge in receipt.get("judges") or []:
+            observed = (judge.get("observations") or {}).get("worst_defect")
+            if observed:
+                worst = str(observed)
+                break
+        _append_jsonl(
+            DEFECT_LOG,
+            {
                 "ts": time.time(),
-                "prompt_snippet": prompt[:80],
-                "reason": "Low percentile under harsh critics",
-                "percentile": percentile_rank,
-                "score": curved_score
-            }) + "\n")
+                "job_id": job_id,
+                "prompt_snippet": str(receipt.get("prompt") or "")[:80],
+                "reason": "Low percentile under the visual jury",
+                "worst_defect": worst,
+                "percentile": percentile,
+                "score": receipt.get("curved_score"),
+            },
+        )
 
-    # Persist to SQLite
+    # 4. SQLite. Schema untouched; an unscored frame stores NULL scores, which
+    #    both GetSpectacles() and the percentile CDF query already skip.
+    con = None
     try:
         con = sqlite3.connect(SQLITE_DB)
         with con:
-            # Ensure columns exist
-            try:
-                con.execute("ALTER TABLE jury_verdicts ADD COLUMN raw_score REAL;")
-            except Exception:
-                pass
-            try:
-                con.execute("ALTER TABLE jury_verdicts ADD COLUMN percentile_rank REAL;")
-            except Exception:
-                pass
-
-            con.execute("""
-                INSERT OR REPLACE INTO jury_verdicts 
-                (job_id, seed, prompt, composite_score, raw_score, percentile_rank, scores_json, critiques_json, mode, masterpiece, created_at)
+            # The Go server owns this schema (internal/jury/jury.go:InitDB).
+            # Recreating it identically here is idempotent and means the daemon
+            # can come up before `flux serve` without dropping verdicts.
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jury_verdicts (
+                    job_id TEXT PRIMARY KEY,
+                    seed TEXT,
+                    prompt TEXT,
+                    composite_score REAL,
+                    scores_json TEXT,
+                    critiques_json TEXT,
+                    mode TEXT,
+                    masterpiece INTEGER,
+                    created_at INTEGER NOT NULL
+                );
+                """
+            )
+            for column in ("raw_score REAL", "percentile_rank REAL"):
+                try:
+                    con.execute("ALTER TABLE jury_verdicts ADD COLUMN %s;" % column)
+                except Exception:
+                    pass
+            con.execute(
+                """
+                INSERT OR REPLACE INTO jury_verdicts
+                (job_id, seed, prompt, composite_score, raw_score, percentile_rank,
+                 scores_json, critiques_json, mode, masterpiece, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                jid, str(seed), prompt, curved_score, raw_composite, percentile_rank,
-                json.dumps(receipt["jury_scores"]),
-                json.dumps({
-                    "pixtral": f"Harmony: {raw_harmony}/100 (γ={g_p})",
-                    "qwen": f"Structure: {raw_structure}/100 (γ={g_q})",
-                    "decoder": f"Synthesis: {raw_decoder}/100 (γ={g_d})",
-                    "governor": f"Semantic: {raw_semantic}/100 (γ={g_g})",
-                    "uniqueness": f"Novelty: {u_score}% ({u_cat})",
-                    "percentile": f"Top {(100.0 - percentile_rank):.1f}% ({percentile_rank}th Percentile)"
-                }),
-                mode, 1 if receipt["is_masterpiece"] else (2 if receipt["is_spectacle"] else 0), int(receipt["ts"])
-            ))
-    except Exception as e:
-        print(f"Error persisting to SQLite: {e}")
+                """,
+                (
+                    job_id,
+                    str(receipt.get("seed")),
+                    receipt.get("prompt"),
+                    receipt.get("curved_score"),
+                    receipt.get("raw_composite"),
+                    percentile,
+                    json.dumps(receipt.get("jury_scores") or {}, default=str),
+                    json.dumps(_critiques_json(receipt), default=str),
+                    receipt.get("mode"),
+                    1
+                    if receipt.get("is_masterpiece")
+                    else (2 if receipt.get("is_spectacle") else 0),
+                    int(receipt.get("ts") or time.time()),
+                ),
+            )
+    except Exception as exc:
+        LOG.error("cannot persist job %s to SQLite: %s" % (job_id, exc))
+    finally:
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
 
     return receipt
 
-JOBS_LEDGER = "/root/CLIs/flux/.fluxd/flux-gpu0.jobs.jsonl"
+
+def score_frame(job, cfg=None):
+    """Judge one settled render and persist the verdict.
+
+    The name is preserved for compatibility; the fake-hash body is gone.  All
+    scoring now happens in :func:`moj_evaluator.evaluate`.
+    """
+    receipt = moj_evaluator.evaluate(job, cfg if cfg is not None else load_active_config())
+    return persist_receipt(receipt)
+
+
+# --------------------------------------------------------------------------
+# Daemon loop
+# --------------------------------------------------------------------------
+
+
+def _read_ledger(tail=None):
+    """Parse the last ``tail`` records of the jobs ledger.  Never raises."""
+    jobs = []
+    try:
+        if not os.path.exists(JOBS_LEDGER):
+            return jobs
+        with open(JOBS_LEDGER, "r") as handle:
+            lines = [line.strip() for line in handle if line.strip()]
+        if tail:
+            lines = lines[-tail:]
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(record, dict):
+                jobs.append(record)
+    except Exception as exc:
+        LOG.warn("cannot read jobs ledger %s: %s" % (JOBS_LEDGER, exc))
+    return jobs
+
+
+def _banner():
+    LOG.info("Sovereign Visual Jury online - real VLM jury, no fallback scores")
+    LOG.info("  ledger     : %s" % JOBS_LEDGER)
+    LOG.info("  output dir : %s" % OUTPUT_DIR)
+    LOG.info("  evaluator  : %s %s" % (moj_evaluator.EVALUATOR_NAME, moj_evaluator.EVALUATOR_VERSION))
+    runtime = moj_evaluator.load_runtime_config(load_active_config())
+    for spec in moj_evaluator.JUDGES:
+        entry = moj_evaluator.endpoint_for(spec, runtime)
+        LOG.info(
+            "  judge %-10s %-16s %-40s %s"
+            % (spec.role, entry.get("model"), entry.get("hf_model"), entry.get("base_url"))
+        )
+    LOG.event(
+        "jury.daemon.start",
+        ledger=JOBS_LEDGER,
+        output_dir=OUTPUT_DIR,
+        evaluator_version=moj_evaluator.EVALUATOR_VERSION,
+        judges=[s.role for s in moj_evaluator.JUDGES],
+    )
+
 
 def main():
-    print("Sovereign Visual Jury Evaluator Online [Rolling Percentile CDF Active].", flush=True)
+    _banner()
+
+    # Everything already in the ledger at startup is treated as seen, so a
+    # restart does not re-judge history.
     seen = set()
-    if os.path.exists(JOBS_LEDGER):
-        try:
-            with open(JOBS_LEDGER, "r") as f:
-                for line in f:
-                    if line.strip():
-                        j = json.loads(line)
-                        if j.get("id"):
-                            seen.add(j["id"])
-        except Exception:
-            pass
+    for record in _read_ledger():
+        if record.get("id"):
+            seen.add(record["id"])
+    LOG.info("watching for new settled renders (%d already in the ledger)" % len(seen))
 
     while True:
         try:
             cfg = load_active_config()
-            if os.path.exists(JOBS_LEDGER):
-                with open(JOBS_LEDGER, "r") as f:
-                    lines = [line.strip() for line in f if line.strip()]
-                    recent_jobs = [json.loads(l) for l in lines[-30:]]
-                    done_jobs = [j for j in recent_jobs if j.get("status") == "done"]
-                    for j in done_jobs:
-                        jid = j.get("id")
-                        if jid and jid not in seen:
-                            seen.add(jid)
-                            res = score_frame(j, cfg)
-                            badge = ""
-                            if res["tier"] == "masterpiece":
-                                badge = f"👑 OPUS MASTERPIECE [Top {(100.0-res['percentile_rank']):.1f}%]"
-                            elif res["tier"] == "spectacle":
-                                badge = f"✨ SPECTACLE [Top {(100.0-res['percentile_rank']):.1f}%]"
-                            else:
-                                badge = f"({res['tier'].upper()} · {res['percentile_rank']}th %ile)"
-                            u_str = f"Novelty: {res['uniqueness']['score']}%"
-                            print(f"[JURY VERDICT] Job {jid} | Curved Score: {res['curved_score']}/100 (Raw {res['raw_composite']}) {badge} | {u_str}", flush=True)
-        except Exception as e:
-            pass
-        time.sleep(1.5)
+            for job in _read_ledger(LEDGER_TAIL):
+                if job.get("status") != "done":
+                    continue
+                job_id = job.get("id")
+                if not job_id or job_id in seen:
+                    continue
+                seen.add(job_id)
+                try:
+                    score_frame(job, cfg)
+                except Exception as exc:
+                    # A single bad frame must never take the daemon down.
+                    LOG.error("job %s failed to evaluate: %r" % (job_id, exc))
+                    LOG.event("jury.error", job_id=job_id, error=repr(exc))
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            LOG.error("jury loop iteration failed: %r" % (exc,))
+        time.sleep(POLL_INTERVAL_S)
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        LOG.info("jury evaluator stopped")
+        sys.exit(0)

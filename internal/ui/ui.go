@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"local/flux/internal/version"
 )
@@ -221,8 +222,13 @@ type TreeGroup struct {
 	Children []PairRow
 }
 
+// VisibleLen counts the printable columns a string occupies: ANSI escapes are
+// stripped, and what remains is counted in runes rather than bytes. Byte
+// counting silently over-measured every cell containing a glyph like · or ×,
+// which threw off column alignment wherever the palette's own separators were
+// used.
 func VisibleLen(value string) int {
-	return len(ansiRE.ReplaceAllString(value, ""))
+	return utf8.RuneCountInString(ansiRE.ReplaceAllString(value, ""))
 }
 
 func padVisible(value string, width int) string {
@@ -248,6 +254,15 @@ func Usage() {
 		{"fleet", "inspect multi-GPU worker pool across detected devices"},
 		{"ane", "manage strict ANE package registry and component conversion"},
 		{"ane direct-capture", "capture direct-ANE denoiser block manifest"},
+	})
+	Suite("arcane", Lilac, []PairRow{
+		{"arcane models", "every model on every hardware profile"},
+		{"arcane profiles", "the hardware profiles side by side"},
+		{"arcane provision --dry-run", "probe silicon, runtime, weights, tenants, surfaces"},
+		{"arcane preflight", "delegate to arcane_pipeline.py preflight"},
+		{"arcane surfaces --check", "verify the studio pages"},
+		{"arcane drafts", "orbit geometry and which mode each draft suits"},
+		{"arcane character|latent|scenes", "the three pipeline modes"},
 	})
 	Suite("applications", Rose, []PairRow{
 		{"serve studio", "primary HTTP API and studio dashboard on :7861"},
@@ -360,4 +375,179 @@ func Palette() {
 		{"done", State("done")},
 		{"error", State("error")},
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Layout primitives added for the Arcane surface.
+//
+// These are the Go half of a matched pair: arcane_log.py mirrors this exact
+// vocabulary (Section / Table / Meter / Field / Note) with the same glyphs and
+// the same alignment so the CLI and the Python daemons read as one system.
+// Everything here is ANSI-aware through VisibleLen and honours enabled().
+// ---------------------------------------------------------------------------
+
+// Section prints a group heading lighter than Header: a coloured caret, a bold
+// name, and a dim trailing detail. Suite uses the same caret for command lists.
+func Section(name, detail string, color Color) {
+	if color == "" {
+		color = Violet
+	}
+	fmt.Println()
+	line := paint(color, "▸ ") + paint(Bold, paint(color, name))
+	if detail != "" {
+		line += "  " + paint(Dim, detail)
+	}
+	fmt.Println(line)
+}
+
+// Column describes one Table column. Cells may already carry ANSI colour; the
+// table never repaints them, it only measures and pads.
+type Column struct {
+	Title string
+	Right bool
+}
+
+// Table prints an aligned grid with a dim uppercase header and a rule beneath
+// it. Column widths are computed from the widest visible cell, so coloured and
+// uncoloured cells line up identically.
+func Table(columns []Column, rows [][]string) {
+	if len(columns) == 0 {
+		return
+	}
+	widths := make([]int, len(columns))
+	for i, column := range columns {
+		widths[i] = VisibleLen(column.Title)
+	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i >= len(widths) {
+				continue
+			}
+			if w := VisibleLen(cell); w > widths[i] {
+				widths[i] = w
+			}
+		}
+	}
+
+	head := make([]string, len(columns))
+	for i, column := range columns {
+		head[i] = padCell(paint(InkDim, strings.ToUpper(column.Title)), widths[i], column.Right)
+	}
+	fmt.Println("  " + strings.TrimRight(strings.Join(head, "  "), " "))
+
+	total := 2 * (len(columns) - 1)
+	for _, w := range widths {
+		total += w
+	}
+	fmt.Println("  " + paint(Line, strings.Repeat("─", total)))
+
+	for _, row := range rows {
+		cells := make([]string, len(columns))
+		for i, column := range columns {
+			cell := ""
+			if i < len(row) {
+				cell = row[i]
+			}
+			cells[i] = padCell(cell, widths[i], column.Right)
+		}
+		fmt.Println("  " + strings.TrimRight(strings.Join(cells, "  "), " "))
+	}
+}
+
+func padCell(value string, width int, right bool) string {
+	pad := strings.Repeat(" ", max(0, width-VisibleLen(value)))
+	if right {
+		return pad + value
+	}
+	return value + pad
+}
+
+// Meter renders a proportional capacity bar. The fill colour is the load
+// verdict: mint under 70%, amber under 90%, rose at or above it, and rose for
+// anything that overflows the total.
+func Meter(value, total float64, width int) string {
+	if width < 4 {
+		width = 4
+	}
+	ratio := 0.0
+	if total > 0 {
+		ratio = value / total
+	}
+	over := ratio > 1
+	if ratio < 0 {
+		ratio = 0
+	}
+	if ratio > 1 {
+		ratio = 1
+	}
+	filled := int(ratio*float64(width) + 0.5)
+	if filled > width {
+		filled = width
+	}
+	if filled == 0 && value > 0 {
+		filled = 1
+	}
+	color := Mint
+	switch {
+	case over || ratio >= 0.9:
+		color = Rose
+	case ratio >= 0.7:
+		color = Amber
+	}
+	return paint(color, strings.Repeat("█", filled)) + paint(Line, strings.Repeat("░", width-filled))
+}
+
+// Capacity prints one labelled capacity row: a meter, the absolute figures, the
+// percentage, and the headroom left. It is the house rendering for "this much
+// of that card is spoken for".
+func Capacity(label string, value, total float64, unit string) {
+	pct := 0.0
+	if total > 0 {
+		pct = value / total * 100
+	}
+	headroom := total - value
+	tail := paint(Dim, fmt.Sprintf("%.1f %s free", headroom, unit))
+	if headroom < 0 {
+		tail = paint(Rose, fmt.Sprintf("%.1f %s over", -headroom, unit))
+	}
+	fmt.Printf("  %-18s %s %s %s  %s\n",
+		paint(InkDim, strings.ToUpper(label)),
+		Meter(value, total, 28),
+		paint(Bold, fmt.Sprintf("%6.1f", value))+paint(Dim, fmt.Sprintf(" / %.1f %s", total, unit)),
+		paint(Dim, fmt.Sprintf("%5.1f%%", pct)),
+		tail,
+	)
+}
+
+// Field prints a key/value row that carries an explicit status verdict, so a
+// reader can scan the left rail for anything that is not green. Status is one
+// of ok, warn, fail, unknown, or skip; anything else renders through State.
+func Field(key, status, detail string) {
+	fmt.Printf("  %-18s %-22s %s\n", paint(InkDim, strings.ToUpper(key)), Verdict(status), paint(Dim, detail))
+}
+
+// Verdict paints a status token with the glyph its severity earns.
+func Verdict(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "ok", "ready", "present", "online", "pass":
+		return Good(status)
+	case "warn", "unknown", "partial", "degraded", "pending", "unavailable", "planned":
+		return Warn(status)
+	case "fail", "failed", "missing", "blocked", "not detected", "error":
+		return Bad(status)
+	case "skip", "skipped", "n/a":
+		return paint(InkDim, "· ") + paint(Dim, strings.ToUpper(status))
+	default:
+		return State(status)
+	}
+}
+
+// Note prints dim annotation lines under a block, indented past the rail.
+func Note(lines ...string) {
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		fmt.Println("  " + paint(Line, "└ ") + paint(Dim, line))
+	}
 }

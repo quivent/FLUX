@@ -1,0 +1,624 @@
+{
+  "crowned": [],
+  "data_available": {
+    "crowned": false,
+    "drafts": true,
+    "out_dir": true,
+    "profile": true,
+    "roster": true,
+    "runs": false
+  },
+  "drafts": [
+    {
+      "bytes": 1357,
+      "file": "arcane_italian_princess_65k.json",
+      "guidance": 3.5,
+      "id": "spheremap_atlas_arcane_italian_princess_65k_20260713",
+      "label": "Arcane Italian Princess 65k",
+      "mode": "omega",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_65k.json",
+      "prompt": "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, cinematic character sheet quality",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess character continuity",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 3919,
+      "file": "arcane_italian_princess_animation_still_24.json",
+      "guidance": 4.2,
+      "id": "spheremap_atlas_arcane_italian_princess_animation_still_24_20260713",
+      "label": "Arcane Italian Princess Animation Still 24",
+      "mode": "elliptic",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_animation_still_24.json",
+      "prompt": "A regal adult Italian princess in a cinematic hybrid animation still, elegant angular face, expressive eyes, ornate royal costume, sculpted 3D character form with painterly 2D brushwork, hand-painted rim light, graphic shadows, rich jewel-tone lighting, oil-paint texture over clean 3D forms, dramatic city-of-magic atmosphere, high-end animated series frame, emotionally charged portrait, consist...",
+      "size": 512,
+      "steps": 32,
+      "subject": "arcane italian princess animation still style scout",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 1533,
+      "file": "arcane_italian_princess_turntable_64.json",
+      "guidance": 3.5,
+      "id": "spheremap_atlas_arcane_italian_princess_turntable_64_20260713",
+      "label": "Arcane Italian Princess Turntable 64",
+      "mode": "omega",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_turntable_64.json",
+      "prompt": "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, cinematic character turntable frame, camera yaw orbit around the same character, front view, three-quarter view, side profile, back thr...",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess character turntable",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 1654,
+      "file": "arcane_italian_princess_turntable_elliptic_64.json",
+      "guidance": 3.5,
+      "id": "spheremap_atlas_arcane_italian_princess_turntable_elliptic_64_20260713",
+      "label": "Arcane Italian Princess Elliptic Turntable 64",
+      "mode": "elliptic",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_turntable_elliptic_64.json",
+      "prompt": "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, cinematic character turntable frame, camera orbit around the same character, visible yaw angle variation, three-quarter view, side prof...",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess elliptic character turntable",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 3455,
+      "file": "arcane_italian_princess_wide_space_64.json",
+      "guidance": 4.6,
+      "id": "spheremap_atlas_arcane_italian_princess_wide_space_64_20260713",
+      "label": "Arcane Italian Princess Wide Space 64",
+      "mode": "elliptic",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_wide_space_64.json",
+      "prompt": "Arcane style adult Italian princess character turnaround reference, same character identity, elegant regal costume, expressive supermodel face, 3D character modeling with hand painted 2D effects, polished cinematic animation frame",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess wide-space turntable",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 4601,
+      "file": "arcane_italian_princess_yaw_buckets_64.json",
+      "guidance": 3.5,
+      "id": "spheremap_atlas_arcane_italian_princess_yaw_buckets_64_20260713",
+      "label": "Arcane Italian Princess Yaw Buckets 64",
+      "mode": "elliptic",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_yaw_buckets_64.json",
+      "prompt": "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, cinematic character turntable frame, polished portrait quality",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess yaw bucket turntable",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 3333,
+      "file": "arcane_italian_princess_yaw_hard_64.json",
+      "guidance": 5.0,
+      "id": "spheremap_atlas_arcane_italian_princess_yaw_hard_64_20260713",
+      "label": "Arcane Italian Princess Hard Yaw 64",
+      "mode": "elliptic",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_italian_princess_yaw_hard_64.json",
+      "prompt": "Arcane style adult Italian princess character turnaround reference, same character identity, elegant regal costume, polished cinematic quality",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess hard yaw turntable",
+      "traversal": "spherical_outward",
+      "valid": true
+    },
+    {
+      "bytes": 1631,
+      "file": "arcane_rose_princess_hybrid_64.json",
+      "guidance": 4.0,
+      "id": "spheremap_atlas_arcane_rose_princess_hybrid_64_20260804",
+      "label": "Arcane Rose Princess Hybrid 64",
+      "mode": "omega",
+      "n_cols": 64,
+      "n_latent": 65536,
+      "n_rows": 1024,
+      "path": "/Users/jay/FLUX/atlas_drafts/arcane_rose_princess_hybrid_64.json",
+      "prompt": "An adult stunning princess with the beauty of an Italian supermodel holding a glowing impossible procedural 3D rose, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, floating crimson velvet rose petals, enchanted glass garden backdrop, elegant regal costume, expressive face, consistent character identity, cinematic charact...",
+      "size": 512,
+      "steps": 36,
+      "subject": "arcane italian princess with glowing botanical rose in glass garden",
+      "traversal": "spherical_outward",
+      "valid": true
+    }
+  ],
+  "endpoints": {
+    "atlas_events": "/api/atlas/events/{job_id}",
+    "gallery_events": "/api/gallery/events/{collection}",
+    "health": "/api/health",
+    "outputs": "/outputs/",
+    "recent_images": "/api/recent-images",
+    "run_index": "/outputs/arcane/index.json",
+    "run_manifest": "/outputs/arcane/{job_id}.json",
+    "sentinel": "/api/sentinel",
+    "sentinel_events": "/api/sentinel/events",
+    "surface_manifest": "/arcane/arcane-manifest.json"
+  },
+  "fortiche": {
+    "invariants": [
+      {
+        "constraint": "Visible oil/gouache paint layering, dry-brush breaks",
+        "glyph": "\ud83c\udfa8",
+        "key": "impasto",
+        "label": "Brush Texture & Impasto",
+        "pipeline_key": "brush"
+      },
+      {
+        "constraint": "Sharp angular facial geometry, planar cheekbones",
+        "glyph": "\ud83d\udcd0",
+        "key": "planarity",
+        "label": "Silhouette & Planes",
+        "pipeline_key": "silhouette"
+      },
+      {
+        "constraint": "Dual-source: high-contrast ambient + graphic rim light",
+        "glyph": "\ud83d\udca1",
+        "key": "chiaroscuro",
+        "label": "Lighting & Chiaroscuro",
+        "pipeline_key": "lighting"
+      },
+      {
+        "constraint": "Toxic chemtech emerald (#00ff88), rusted iron, violet",
+        "glyph": "\ud83e\uddea",
+        "key": "palette_zaun",
+        "label": "Zaun Undercity Palette",
+        "pipeline_key": "palette_zaun"
+      },
+      {
+        "constraint": "Gilded brass, white marble, hextech cyan (#00d2ff)",
+        "glyph": "\u2600\ufe0f",
+        "key": "palette_piltover",
+        "label": "Piltover Apex Palette",
+        "pipeline_key": "palette_piltover"
+      },
+      {
+        "constraint": "Hard rejection of smooth skin or flat photographic CGI",
+        "glyph": "\ud83d\udeab",
+        "key": "anti_cgi",
+        "label": "Anti-Plastic CGI Filter",
+        "pipeline_key": "anti_plastic"
+      }
+    ],
+    "source": "docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md section 3"
+  },
+  "generated": 1787207085.5000918,
+  "generated_by": "provision_surfaces.py 1.0.0",
+  "generated_iso": "2026-08-20T06:24:45+00:00",
+  "kind": "arcane_surface_manifest",
+  "paths": {
+    "ATLAS_DIR": "/Users/jay/Models/flux-output/atlas",
+    "DRAFTS_DIR": "/Users/jay/FLUX/atlas_drafts",
+    "FLUX_HOME": "/Users/jay/FLUX",
+    "OUT_DIR": "/Users/jay/Models/flux-output",
+    "PUBLIC_DIR": "/Users/jay/FLUX/apps/tea/public",
+    "out_dir_present": true,
+    "source": "pipeline_paths"
+  },
+  "profile": {
+    "available_profiles": [
+      "b200",
+      "b300",
+      "rtx-pro-6000",
+      "rtx-pro-6000-x4",
+      "rtx-pro-6000-x4-dense",
+      "rtx-pro-6000-x4-tp"
+    ],
+    "cadence_seconds": 6.3,
+    "description": null,
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "gpu_count": 1,
+    "name": "rtx-pro-6000",
+    "notes": "Workstation Blackwell. Dense NVFP4 only \u2014 MoE NVFP4 kernels are gated behind is_device_capability_family(100) and crash here. No sm120 wheel in the R2 artifact bank; vLLM >= 0.13.0 must be built for sm_120 first.",
+    "origin": "continuum.default_profile",
+    "ports": {
+      "governor": 8000,
+      "pixtral": 8002,
+      "reserved": [
+        8003
+      ],
+      "witness": 8001
+    },
+    "reserve_gib": 2.0,
+    "sm": "sm_120",
+    "source": "pipeline_paths.load_continuum()",
+    "vram_gib": 96.0,
+    "vram_per_gpu_gib": 96.0
+  },
+  "roster": [
+    {
+      "degrades_generator": false,
+      "enabled": true,
+      "gpu_memory_utilization": null,
+      "kind": "uds",
+      "mandatory": true,
+      "model": "black-forest-labs/FLUX.1-dev",
+      "port": null,
+      "precision": "bf16",
+      "remote": null,
+      "role": "Continuous Flow-Matching Candidate Production",
+      "served_name": null,
+      "socket": "flux-gpu0.sock",
+      "tenant": "flux",
+      "toggleable": false,
+      "vram_expected_gib": 35.0,
+      "weights_gib": 35.0
+    },
+    {
+      "degrades_generator": false,
+      "enabled": true,
+      "gpu_memory_utilization": 0.28,
+      "kind": "vllm",
+      "mandatory": true,
+      "model": "unsloth/Qwen3.8-27B-NVFP4",
+      "port": 8001,
+      "precision": "nvfp4",
+      "remote": null,
+      "role": "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis",
+      "served_name": "visual-witness",
+      "socket": null,
+      "tenant": "witness",
+      "toggleable": false,
+      "vram_expected_gib": 26.88,
+      "weights_gib": 24.6
+    },
+    {
+      "degrades_generator": false,
+      "enabled": true,
+      "gpu_memory_utilization": 0.21,
+      "kind": "vllm",
+      "mandatory": true,
+      "model": "nvidia/Gemma-4-31B-IT-NVFP4",
+      "port": 8000,
+      "precision": "nvfp4",
+      "remote": false,
+      "role": "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator",
+      "served_name": "governor",
+      "socket": null,
+      "tenant": "governor",
+      "toggleable": false,
+      "vram_expected_gib": 20.16,
+      "weights_gib": 19.0
+    },
+    {
+      "degrades_generator": false,
+      "enabled": true,
+      "gpu_memory_utilization": 0.09,
+      "kind": "vllm",
+      "mandatory": true,
+      "model": "RedHatAI/pixtral-12b-quantized.w4a16",
+      "port": 8002,
+      "precision": "w4a16",
+      "remote": null,
+      "role": "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity",
+      "served_name": "pixtral-critic",
+      "socket": null,
+      "tenant": "pixtral",
+      "toggleable": false,
+      "vram_expected_gib": 8.64,
+      "weights_gib": 7.0
+    },
+    {
+      "degrades_generator": false,
+      "enabled": true,
+      "gpu_memory_utilization": null,
+      "kind": "inproc",
+      "mandatory": true,
+      "model": "facebook/dinov2-giant+google/siglip-base-patch16-224",
+      "port": null,
+      "precision": "fp16",
+      "remote": null,
+      "role": "High-Frequency Micro-Sensory Gates (<10ms)",
+      "served_name": null,
+      "socket": null,
+      "tenant": "gates",
+      "toggleable": false,
+      "vram_expected_gib": 3.0,
+      "weights_gib": 2.494
+    },
+    {
+      "degrades_generator": false,
+      "enabled": false,
+      "gpu_memory_utilization": null,
+      "kind": "uds",
+      "mandatory": false,
+      "model": "city96/FLUX.1-Kontext-dev-gguf",
+      "port": null,
+      "precision": "q4_k_s",
+      "remote": null,
+      "role": "Instruction-Guided Edit & Re-Composition Pass",
+      "served_name": null,
+      "socket": "flux-kontext.sock",
+      "tenant": "kontext",
+      "toggleable": true,
+      "vram_expected_gib": 9.0,
+      "weights_gib": 6.8
+    }
+  ],
+  "runs": [],
+  "sources": {
+    "continuum": "/Users/jay/FLUX/jury_continuum.toml",
+    "crowned": "/Users/jay/Models/flux-output/arcane/crowned_genome.jsonl absent (nothing crowned on this machine yet)",
+    "runs": "/Users/jay/Models/flux-output/arcane/index.json absent (no pipeline run has published a surface index here)",
+    "server_go": "/Users/jay/FLUX/internal/server/server.go"
+  },
+  "spec_claims_unverified": {
+    "cache_hit_rate": 0.941,
+    "note": "Aspirational claims from the spec. The dashboard must render measured values from the atlas stream and never substitute these.",
+    "seconds_per_cell": 1.5,
+    "source": "docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md section 2.2"
+  },
+  "surfaces": [
+    {
+      "bytes": 64825,
+      "file": "arcane.html",
+      "public_readonly": true,
+      "routes": [
+        "/arcane",
+        "/arcane/"
+      ],
+      "status": "warn",
+      "surface": "arcane",
+      "title": "The Arcane World Forge \u00b7 Influx Vision"
+    },
+    {
+      "bytes": 33643,
+      "file": "engine.html",
+      "public_readonly": false,
+      "routes": [
+        "/engine",
+        "/engine-room",
+        "/engine-room/",
+        "/engine/"
+      ],
+      "status": "warn",
+      "surface": "engine",
+      "title": "Engine Room \u00b7 The Aethelgard Monolith"
+    },
+    {
+      "bytes": 13428,
+      "file": "exhibition.html",
+      "public_readonly": true,
+      "routes": [
+        "/exhibition",
+        "/exhibition/"
+      ],
+      "status": "warn",
+      "surface": "exhibition",
+      "title": "Exhibition \u2014 Tea Gallery"
+    },
+    {
+      "bytes": 22900,
+      "file": "gallery.html",
+      "public_readonly": true,
+      "routes": [
+        "/gallery",
+        "/gallery/",
+        "/portraits",
+        "/portraits/"
+      ],
+      "status": "warn",
+      "surface": "gallery",
+      "title": "Images of Beauty \u2014 Tea Gallery"
+    },
+    {
+      "bytes": 33776,
+      "file": "index.html",
+      "public_readonly": true,
+      "routes": [
+        "/",
+        "/garden",
+        "/garden/",
+        "/tea",
+        "/tea/"
+      ],
+      "status": "warn",
+      "surface": "index",
+      "title": "Influx Vision \u00b7 The Living Parchment"
+    },
+    {
+      "bytes": 45401,
+      "file": "jury.html",
+      "public_readonly": false,
+      "routes": [
+        "/jury",
+        "/jury/",
+        "/moj",
+        "/moj/"
+      ],
+      "status": "warn",
+      "surface": "jury",
+      "title": "The Jury Chamber \u00b7 Visual Spectacle Arena"
+    },
+    {
+      "bytes": 20575,
+      "file": "movement.html",
+      "public_readonly": true,
+      "routes": [
+        "/motion-work",
+        "/motion-work/",
+        "/movement",
+        "/movement/"
+      ],
+      "status": "warn",
+      "surface": "movement",
+      "title": "A Bell Learns the Wind \u2014 Motion Work"
+    },
+    {
+      "bytes": 16623,
+      "file": "protocol.html",
+      "public_readonly": true,
+      "routes": [
+        "/protocol",
+        "/protocol/",
+        "/spec",
+        "/spec/"
+      ],
+      "status": "warn",
+      "surface": "protocol",
+      "title": "The Influx Vision Protocol \u00b7 Architecture & Specification"
+    },
+    {
+      "bytes": 8676,
+      "file": "sentinel.html",
+      "public_readonly": true,
+      "routes": [
+        "/sentinel",
+        "/sentinel/"
+      ],
+      "status": "warn",
+      "surface": "sentinel",
+      "title": "Sentinel \u2014 Tea"
+    },
+    {
+      "bytes": 7580,
+      "file": "stallion.html",
+      "public_readonly": true,
+      "routes": [
+        "/exhibition",
+        "/exhibition/"
+      ],
+      "status": "warn",
+      "surface": "stallion",
+      "title": "The Stallion \u2014 Single Exhibition"
+    },
+    {
+      "bytes": 14332,
+      "file": "stallion-lab.html",
+      "public_readonly": true,
+      "routes": [
+        "/studies/stallion",
+        "/studies/stallion/"
+      ],
+      "status": "warn",
+      "surface": "stallion-lab",
+      "title": "Stallion Motion Lab \u2014 Tea Studies"
+    },
+    {
+      "bytes": 33854,
+      "file": "studies.html",
+      "public_readonly": true,
+      "routes": [
+        "/studies",
+        "/studies/"
+      ],
+      "status": "warn",
+      "surface": "studies",
+      "title": "Studies \u2014 Tea & Motion"
+    }
+  ],
+  "verdict": {
+    "jurors": {
+      "adversarial_mode": true,
+      "mode": "parallel",
+      "order": [
+        "pixtral",
+        "qwen",
+        "decoder",
+        "governor"
+      ],
+      "strictness": {
+        "decoder": 1.5,
+        "governor": 2.2,
+        "pixtral": 2.0,
+        "qwen": 1.2
+      },
+      "weights": {
+        "decoder": 0.15,
+        "governor": 0.15,
+        "pixtral": 0.35,
+        "qwen": 0.35
+      }
+    },
+    "masterpiece_threshold": 90.0,
+    "source": "pipeline_paths.load_continuum() [verdict]",
+    "tier_badges": {
+      "crowned": {
+        "glyph": "\ud83d\udc51",
+        "label": "masterpiece"
+      },
+      "drift": {
+        "glyph": "\u2013",
+        "label": "drift"
+      },
+      "kept": {
+        "glyph": "\u2728",
+        "label": "spectacle"
+      },
+      "unscored": {
+        "glyph": "\u2298",
+        "label": "unscored"
+      }
+    },
+    "tiers": {
+      "banal_percentile": 40.0,
+      "masterpiece_percentile": 98.0,
+      "rolling_window": 300,
+      "spectacle_percentile": 90.0
+    },
+    "weights": {
+      "harmony": 0.35,
+      "semantic_fidelity": 0.3,
+      "structure": 0.35
+    }
+  },
+  "version": 1,
+  "vram_budget": {
+    "allocated_gib": 93.68,
+    "capacity_gib": 96.0,
+    "disabled_tenants": [
+      "kontext"
+    ],
+    "enabled_tenants": [
+      "flux",
+      "witness",
+      "governor",
+      "pixtral",
+      "gates"
+    ],
+    "fits": true,
+    "free_gib": 2.32,
+    "headroom_gib": 0.32,
+    "note": "Declared reservation for the toggle state in force. Not a live nvidia-smi reading -- the dashboard must not present it as one.",
+    "over_budget": false,
+    "reserve_gib": 2.0,
+    "source": "pipeline_paths.load_continuum()",
+    "usable_gib": 94.0,
+    "weights_gib": 88.09
+  },
+  "warnings": [
+    "pipeline_paths: CRITICAL \u2014 rtx-pro-6000: gpu0 fits by 0.32 GiB (0.33% of a 96.0 GiB card). That is a rounding error, not a margin. It will boot and it will OOM the first time a KV cache grows, a driver update moves the CUDA context size, or a display is attached. Do NOT run this posture unattended: set ARCANE_GOVERNOR_REMOTE=1.",
+    "pipeline_paths: rtx-pro-6000: no prebuilt vLLM wheel for sm_120 in the R2 artifact bank (sm100/sm80 only); build vLLM >= 0.13.0 for sm_120 first."
+  ]
+}

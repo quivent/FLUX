@@ -1,95 +1,1665 @@
 # ==============================================================================
 # Influx Vision · Mixture of Judges (MoJ) Autonomous Continuum Blueprint
 # ==============================================================================
-# Multi-Tenant VRAM Provisioning Budget: 140.4 GiB Total (NVIDIA H200 SXM)
+# v3.0.0 — restructured around named [profiles.*]. Default profile is
+# `rtx-pro-6000`: a SINGLE NVIDIA RTX PRO 6000 Blackwell Server Edition, 96 GB
+# GDDR7, compute capability sm_120. That is the node this repo actually runs on
+# (docs/BF16_NATIVE_PRECISION_SPEC.md calls it "gem2").
+#
+#   PROFILE                  HARDWARE                              SM       §
+#   -----------------------  ------------------------------------  -------  ---
+#   rtx-pro-6000  (DEFAULT)  1 x RTX PRO 6000 Blackwell, 96 GB     sm_120   V.a
+#   b200                     1 x B200 SXM, 192 GB HBM3e            sm_100   V.b
+#   b300                     1 x B300 SXM6, 288 GB HBM3e           sm_100   V.c
+#   rtx-pro-6000-x4          4 x RTX PRO 6000, layout `balanced`   sm_120   VI
+#   rtx-pro-6000-x4-dense    4 x RTX PRO 6000, layout `dense`      sm_120   VI
+#   rtx-pro-6000-x4-tp       4 x RTX PRO 6000, layout `tp`         sm_120   VI
+#
+# The three `rtx-pro-6000-x4*` entries are three LAYOUTS of one machine. They
+# are sibling profiles rather than a nested [layouts.*] table so that the schema
+# stays exactly [profiles.<name>] + [profiles.<name>.tenants.<role>] everywhere.
+# ARCANE_LAYOUT=balanced|dense|tp maps onto the suffix; ARCANE_PROFILE takes the
+# full name.
+#
+# On a multi-card profile `vram_gib` is the PER-CARD figure and `fits` is
+# PER-GPU. 4 x 96 GB is not a 384 GB pool and never becomes one.
+#
+# Read this file through pipeline_paths.load_continuum(). It resolves the active
+# profile, applies each tenant's `precision` knob against its `variants.*` map,
+# and turns the relative [verdict] paths into absolute paths under OUT_DIR.
+# Nothing here hardcodes /root — see pipeline_paths.py for the env-var defaults.
+#
+# ==============================================================================
+# I. SM120 IS NOT SM100. THIS IS THE MOST IMPORTANT PARAGRAPH IN THIS FILE.
+# ==============================================================================
+# RTX PRO 6000 Blackwell is **sm_120** (workstation Blackwell). B200 and B300 are
+# **sm_100** (datacenter Blackwell). They are NOT the same kernel family:
+#
+#   * sm_120 issues SM80-era `mma.sync`. sm_100 issues `tcgen05.mma`. Kernels
+#     authored for SM100 — DeepGEMM, upstream CUTLASS SM100 collectives, WGMMA
+#     Flash Attention — fail to compile or crash at runtime on SM120.
+#   * sm_120 GEMM tiles must fit **99 KB** of shared memory. sm_100 gets 228 KB.
+#     Different tile shapes, different kernel implementations, full stop.
+#   * Dense NVFP4 GEMM on SM120 **does** work: vLLM >= 0.13.0 ships
+#     csrc/quantization/fp4/nvfp4_scaled_mm_sm120_kernels.cu.
+#   * NVFP4 **MoE** kernels are BROKEN on SM120 — vllm-project/vllm#33416,
+#     vllm-project/vllm#31085, flashinfer-ai/flashinfer#2577. The FlashInfer /
+#     CUTLASS / DeepGEMM MoE paths are gated behind
+#     `is_device_capability_family(100)`, which SM120 does not satisfy.
+#
+# >>> WHY THIS DOES NOT HURT US, AND WHY YOU MUST NOT "UPGRADE" PAST IT:
+# >>> every model on this roster — Qwen3.8-27B, Gemma-4-31B, Pixtral-12B — is a
+# >>> **DENSE** model. Dense NVFP4 is the working path on SM120. Swapping in an
+# >>> MoE checkpoint (e.g. Qwen3.8-235B-A22B, or any *-A*B sparse variant) will
+# >>> break this card. Every tenant below carries `dense = true`. If you ever set
+# >>> it false on the rtx-pro-6000 profile, you have broken the node.
+#
+# >>> PROVISIONING PREREQUISITE: the R2 artifact bank advertised by `make receipt`
+# >>> carries wheels/vllm/65b7662d.../sm100/ and .../sm80/ ONLY. There is **no
+# >>> sm120 wheel in the bank.** The rtx-pro-6000 profile has no prebuilt vLLM
+# >>> and requires vLLM >= 0.13.0 compiled for sm_120 before it can be
+# >>> provisioned. provision_jury.sh checks for this and says so.
+#
+# ==============================================================================
+# II. PRECISION POLICY — judges quantize, the generator never does
+# ==============================================================================
+# Quantizing a judge to 4 bits is cheap and harmless: it reads an image and
+# emits a score. Quantizing the *generator* destroys exactly the fine impasto and
+# brush-texture detail that the Fortiche/Arcane aesthetic rubric
+# (docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md §3) exists to measure, and it
+# contradicts the hard pin in docs/BF16_NATIVE_PRECISION_SPEC.md ("Quantization
+# degradation (such as FP4 or INT8 compression on model weights) is explicitly
+# disabled for visual diffusion transformers").
+#
+#   flux.precision = "bf16" in ALL THREE profiles. Non-negotiable default.
+#   The `q4_k_s` variant (city96/FLUX.1-dev-gguf, flux1-dev-Q4_K_S.gguf, 6.81
+#   GiB) exists ONLY as a deliberate low-VRAM escape hatch. Selecting it makes
+#   pipeline_paths.vram_budget() emit a degradation warning, and it should.
+#
+# The precision ladder climbs with VRAM: 96 GB -> 4-bit judges; 192 GB -> FP8
+# judges; 288 GB -> BF16 judges. That is the whole reason `precision` is a
+# per-tenant knob with a precision -> model-id map instead of a hardcoded id.
+#
+# ==============================================================================
+# III. MANDATORY TENANTS — operator standing order
+# ==============================================================================
+#   flux      always on, every profile   (the generator)
+#   witness   always on, every profile   (Qwen3.8-27B; absorbs the old 12B
+#                                         `decoder` seat, which no longer exists)
+#   governor  always on, every profile   (local OR remote — see §V)
+#   pixtral   always on, every profile   "Pixtral we keep." NOT a toggle.
+#   gates     always on, every profile   DINOv2-Giant + SigLIP. NOT a toggle.
+#   kontext   THE ONLY TOGGLE. Default OFF everywhere. ARCANE_KONTEXT=1.
+#
+# There is no ARCANE_PIXTRAL env var and there is no DINO toggle. Deliberately.
+#
+# ==============================================================================
+# IV. PORT MAP — no collisions, verified
+# ==============================================================================
+#   :8000  governor  (vLLM; not bound at all when governor.remote = true)
+#   :8001  witness   (vLLM)   <- matches internal/server/server.go:977
+#   :8002  pixtral   (vLLM)
+#   :8003  RESERVED  (deliberately unallocated — see [ports])
+#   UDS    flux      .fluxd/flux-gpu0.sock     (no TCP port)
+#   UDS    kontext   .fluxd/flux-kontext.sock  (no TCP port, toggle)
+#   n/a    gates     in-process inside moj_evaluator.py — no server, no port
+#
+# v2.0.0 of this file assigned :8002 to Pixtral while provision_jury.sh launched
+# the Qwen visual witness on :8002. That was a straight bind collision. Fixed.
+# (docs/ARCANE_..._SPEC.md §4 shows :9000/:9001/:9002 as upstream engine ports
+#  behind an :8000/:8001/:8002 gateway. These are the gateway-side ports.)
+#
+# ==============================================================================
+# V. VRAM ARITHMETIC — all three profiles, shown long-hand
+# ==============================================================================
+# For a vLLM tenant, gpu_memory_utilization is a fraction of the WHOLE card, and
+# vLLM reserves that whole fraction up front: weights + activations + KV cache.
+# So the number that actually matters for co-tenancy is the RESERVATION:
+#
+#     vram_expected_gib = gpu_memory_utilization * vram_gib * tensor_parallel
+#
+# `weights_gib` is carried alongside so the two can be compared. Most previous
+# budgets in this repo silently summed *weights* and called it a VRAM budget.
+# That is why they never matched the hardware. Both totals are shown below.
+#
+# ------------------------------------------------------------------------------
+# V.0  A NOTE ON THE SENSORY GATES: 2.5 GiB WAS WRONG. IT IS 3.0.
+# ------------------------------------------------------------------------------
+# v2.0.0 of this file declared `[gates.sensory] vram_expected_gib = 2.5`. That
+# figure was never measured. Counted from parameters at fp16, the mandated
+# DINOv2-Giant + SigLIP-base-patch16-224 pair is 2.494 GiB of WEIGHTS alone;
+# with activations and the CUDA arena the resident cost is ~2.85 GiB. 2.5 does
+# not fit its own contents.
+#
+#   config                                weights   resident   fits 2.5
+#   ------------------------------------  -------   --------   --------
+#   dinov2-giant + siglip-base  (MANDATE)   2.494      ~2.85      NO
+#   dinov2-large + siglip-base              0.944      ~1.24      yes
+#   dinov2-base  + siglip-base              0.539      ~0.82      yes
+#   clip-vit-base-patch32 (degraded)        0.281      ~0.43      yes
+#
+# The smaller pairs are offered as `variants.fp16-large` / `fp16-base` /
+# `fp16-clip` and are NEVER the default: the operator mandated DINOv2-Giant, so
+# the correct response is to budget the real number, not to quietly downgrade
+# the model. Every profile below therefore carries gates at 3.00 GiB, and every
+# gates tenant keeps `declared_vram_expected_gib = 2.5` so the discrepancy stays
+# visible instead of being papered over.
+#
+# ------------------------------------------------------------------------------
+# V.a  rtx-pro-6000 — 96.0 GiB total, 2.0 GiB reserved, 94.0 GiB usable
+# ------------------------------------------------------------------------------
+#   tenant    precision  util    reservation           weights
+#   --------  ---------  ------  --------------------  -------
+#   flux      bf16       n/a       35.00 (fixed, UDS)   35.00   full resident
+#                                                               pipeline: BF16
+#                                                               DiT 23.8 + T5-XXL
+#                                                               + CLIP-L + VAE
+#   witness   nvfp4      0.28    0.28*96 =  26.88       24.60   KV/act  2.28
+#   governor  nvfp4      0.21    0.21*96 =  20.16       19.00   KV/act  1.16
+#   pixtral   w4a16      0.09    0.09*96 =   8.64        7.00   KV/act  1.64
+#   gates     fp16       n/a        3.00 (measured)       2.494  see V.0
+#   ----------------------------------------------------------
+#   BASE reservation                        93.68 / 96.0    free  2.32
+#   BASE weights-only                       88.09 / 96.0    free  7.91
+#
+#   The "~88 / 96" figure is the weights-only column. It omits the 5.59 GiB of
+#   KV cache, activation arena and gate overhead that gets reserved on top. The
+#   honest co-tenancy number is 93.68. (Gate weights are 2.494; the gate
+#   RESERVATION is 3.00 — see V.0.)
+#
+#   kontext  governor   reservation   free    fits   headroom over reserve
+#   -------  --------   -----------   -----   ----   ---------------------
+#   OFF      local          93.68      2.32   YES     0.32   <-- see warning
+#   ON       local         102.68     -6.68   NO     -8.68
+#   OFF      remote         73.52     22.48   YES    20.48
+#   ON       remote         82.52     13.48   YES    11.48
+#
+#   kontext ON costs 9.00 GiB MARGINAL here: Q4_K_S DiT 6.8 + ~2.2 activations.
+#   Its T5/CLIP text encoders are shared with the already-resident FLUX worker,
+#   so this is an increment, not a second full pipeline. BF16 Kontext costs
+#   24.00 marginal and does not fit on this card under any arrangement that
+#   also keeps the governor local.
+#
+#   >>> WARNING, and it is now a severe one. The DEFAULT posture (kontext OFF,
+#   >>> governor LOCAL) clears the reserve by 0.32 GiB. That is a third of a
+#   >>> gigabyte on a 96 GiB card — 0.3%. It is not a margin; it is a rounding
+#   >>> error. It will boot, and it will OOM the first time a KV cache grows, a
+#   >>> driver update moves the CUDA context size, or someone attaches a display.
+#   >>> The gates correction in V.0 ate most of what little slack there was.
+#   >>>
+#   >>> For ANY unattended run on this card: ARCANE_GOVERNOR_REMOTE=1. That is
+#   >>> 20.48 GiB of headroom instead of 0.32, and the governor is served at
+#   >>> https://governor.influx.vision/v1 regardless. vram_budget() raises this
+#   >>> automatically whenever headroom drops below 1.0 GiB.
+#
+#   Escape hatch if you must have Kontext on this card with a local governor:
+#     ARCANE_FLUX_PRECISION=q4_k_s   ->  flux 35.00 becomes 18.00
+#     (35.0 - 23.8 BF16 DiT + 6.8 Q4_K_S DiT = 18.0)  ->  total 85.68, fits with
+#     8.32 GiB of headroom. It costs generator texture fidelity. It is not a
+#     default. It is a knob you reach for knowing what it takes from you.
+#
+# ------------------------------------------------------------------------------
+# V.b  b200 — 192.0 GiB total, 4.0 GiB reserved, 188.0 GiB usable
+# ------------------------------------------------------------------------------
+#   tenant    precision  util     reservation            weights
+#   --------  ---------  -------  ---------------------  -------
+#   flux      bf16       n/a         35.00 (fixed)         35.00
+#   witness   fp8        0.150    0.150*192 =  28.80       27.00
+#   governor  fp8        0.290    0.290*192 =  55.68       31.00
+#   pixtral   fp8        0.075    0.075*192 =  14.40       12.50
+#   gates     fp16       n/a          3.00 (measured)        2.494
+#   -----------------------------------------------------------
+#   BASE reservation                          136.88 / 192.0   free  55.12
+#   BASE weights-only                         107.99 / 192.0
+#
+#   kontext  governor   reservation   free     fits
+#   -------  --------   -----------   ------   ----
+#   OFF      local         136.88      55.12   YES
+#   ON       local         160.88      31.12   YES   <- BF16 Kontext fits here
+#   OFF      remote         81.20     110.80   YES
+#   ON       remote        105.20      86.80   YES
+#
+#   Note on pixtral fp8: mistralai/Pixtral-12B-2409 ships BF16 weights. vLLM
+#   quantizes them online with --quantization fp8 (dynamic per-tensor). There is
+#   no separate FP8 checkpoint on the Hub and we are not pretending there is.
+#
+# ------------------------------------------------------------------------------
+# V.c  b300 — 288.0 GiB total, 6.0 GiB reserved, 282.0 GiB usable
+# ------------------------------------------------------------------------------
+#   tenant    precision  util    reservation            weights
+#   --------  ---------  ------  ---------------------  -------
+#   flux      bf16       n/a        35.00 (fixed)         35.00
+#   witness   bf16       0.21    0.21*288 =   60.48       54.00   27B * 2 bytes
+#   governor  fp8        0.20    0.20*288 =   57.60       31.00
+#   pixtral   bf16       0.10    0.10*288 =   28.80       24.00   12B * 2 bytes
+#   gates     fp16       n/a         3.00 (measured)        2.494
+#   ----------------------------------------------------------
+#   BASE reservation                         184.88 / 288.0   free  103.12
+#   BASE weights-only                        146.49 / 288.0
+#
+#   kontext  governor   reservation   free     fits
+#   -------  --------   -----------   ------   ----
+#   OFF      local         184.88     103.12   YES
+#   ON       local         208.88      79.12   YES
+#   OFF      remote        127.28     160.72   YES
+#   ON       remote        151.28     136.72   YES
+#
+#   Governor at full BF16 also fits on this card, and is offered as a variant:
+#     governor bf16, util 0.24 -> 69.12 reservation (weights 31B*2 = 62.00)
+#     base 196.40, with Kontext BF16 220.40 / 288.0 -> 67.60 free. Fits.
+#   Default stays fp8 because 62 GiB of BF16 weights buys nothing measurable on
+#   a text-only critique head. The variant is there if you want to prove it.
+#
+#   >>> RECONCILIATION with docs/ARCANE_LATENT_CARTOGRAPHY_PROTOCOL_SPEC.md §4,
+#   >>> which claims "131+ GB Free VRAM Headroom" and a "64-Frame Batch Orbit
+#   >>> Pipeline" on this node. Say it plainly: the spec was optimistic, because
+#   >>> it was budgeting a SMALLER roster. Its diagram counts three subsystems —
+#   >>> dual governors ~70, FLUX ~32, Pixtral ~15 = 117, leaving 171 free (the
+#   >>> spec then quotes 131+, itself already conservative against its own
+#   >>> figures). It counts NO visual witness and NO sensory gates. Add the
+#   >>> Qwen3.8-27B witness (60.48 at BF16) and the gates (3.00) and correct the
+#   >>> FLUX figure to its true 35.00, and free headroom is 103.12 with Kontext
+#   >>> off, 79.12 with Kontext on. The 64-frame batch orbit must be sized
+#   >>> against ~79 GiB, not 131. It still runs; it is not as roomy as advertised.
 # ==============================================================================
 
 [continuum]
 name = "influx-vision-moj"
-version = "2.0.0"
+version = "3.0.0"
 authority = "Sovereign Council & Governor Protocol"
-gpu_target = "NVIDIA H200 141GB HBM3e"
+default_profile = "rtx-pro-6000"
 cadence_seconds = 6.3
 
-# ------------------------------------------------------------------------------
-# 1. Governor LLM Brain (Macro Reasoning & Prompt Mutation)
-# ------------------------------------------------------------------------------
-[tenants.governor]
-model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+# Port allocation kept as data so provisioning can preflight for collisions
+# instead of discovering them at bind() time.
+[ports]
+governor = 8000
+witness = 8001
+pixtral = 8002
+reserved = [8003]
+
+# The governor is the one tenant that can live off-card. `remote` is per-profile
+# (see each [profiles.*.tenants.governor]); these are the endpoints it resolves
+# to either way. ARCANE_GOVERNOR_REMOTE=1 forces remote on any profile.
+[governor]
+remote_base_url = "https://governor.influx.vision/v1"
+local_base_url = "http://127.0.0.1:8000/v1"
+cli = "gemstone governor chat"
 served_name = "governor"
-port = 8000
-gpu_memory_utilization = 0.40
-max_model_len = 131072
-tensor_parallel = 1
-role = "Senior Protocol Advisor & Evolutionary Prompt Mutator"
-vram_expected_gib = 56.0
 
-# ------------------------------------------------------------------------------
-# 2. Multimodal Feature Decoder (Visual Aggregator)
-# ------------------------------------------------------------------------------
-[tenants.decoder]
-model = "google/gemma-4-12b-it"
-served_name = "decoder-12b"
-port = 8001
-gpu_memory_utilization = 0.10
-max_model_len = 32768
-tensor_parallel = 1
-role = "Feature Aggregation & Scorecard Synthesis"
-vram_expected_gib = 14.0
+# Models that must never appear in this file again. Kept as data so a linter or
+# a future agent can assert against it rather than rediscovering the history.
+# Every one of these was live in v2.0.0 of this file or in provision_jury.sh.
+[retired]
+models = [
+  "Qwen/Qwen2.5-VL-7B-Instruct",
+  "Qwen/Qwen3-VL-8B-Instruct",
+  "google/gemma-4-12b-it",
+  "black-forest-labs/FLUX.1-schnell",
+]
+reason = "Stale roster. Qwen3.8-27B absorbs both the VL inspector and the 12B decoder seats; FLUX.1-schnell is not a BF16-native generator."
 
-# ------------------------------------------------------------------------------
-# 3. Artistic & Palette Critic (Aesthetician)
-# ------------------------------------------------------------------------------
-[tenants.pixtral]
-model = "mistralai/Pixtral-12B-2409"
-served_name = "pixtral-critic"
-port = 8002
-gpu_memory_utilization = 0.10
-max_model_len = 32768
-tensor_parallel = 1
-role = "Artistic Theory, Palette Cohesion & Medium Authenticity"
-vram_expected_gib = 14.0
 
-# ------------------------------------------------------------------------------
-# 4. High-Precision Structural Inspector (Grounding & Defect Detector)
-# ------------------------------------------------------------------------------
-[tenants.qwen]
-model = "Qwen/Qwen2.5-VL-7B-Instruct"
-served_name = "qwen-inspector"
-port = 8003
-gpu_memory_utilization = 0.08
-max_model_len = 32768
-tensor_parallel = 1
-role = "Spatial Grounding, Anatomy, Line Integrity & Defect Scan"
-vram_expected_gib = 11.2
+# ==============================================================================
+# PROFILE: rtx-pro-6000  ·  DEFAULT  ·  THE ONE THAT MUST BE CORRECT
+# ==============================================================================
+[profiles.rtx-pro-6000]
+description = "Single NVIDIA RTX PRO 6000 Blackwell Server Edition, 96 GB GDDR7"
+gpu = "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+sm = "sm_120"
+vram_gib = 96.0
+gpu_count = 1
+vram_per_gpu_gib = 96.0
+reserve_gib = 2.0
+gpus = 1
+interconnect = "none"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = false
+prebuilt_wheel_available = false
+notes = "Workstation Blackwell. Dense NVFP4 only — MoE NVFP4 kernels are gated behind is_device_capability_family(100) and crash here. No sm120 wheel in the R2 artifact bank; vLLM >= 0.13.0 must be built for sm_120 first."
 
-# ------------------------------------------------------------------------------
-# 5. Generative Worker (FLUX.1-dev UDS Sieve)
-# ------------------------------------------------------------------------------
-[tenants.flux]
-engine = "FLUX.1-dev BF16"
-socket = ".fluxd/flux-gpu0.sock"
+# --- Generative engine. BF16, hard-pinned. Not a vLLM tenant: a resident UDS
+# --- worker addressed over .fluxd/flux-gpu0.sock.
+[profiles.rtx-pro-6000.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
 steps = 28
 guidance_scale = 3.5
 resolution = [1024, 1024]
-role = "Continuous Flow-Matching Candidate Production"
-vram_expected_gib = 35.0
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0, note = "BF16 DiT 23.8 + T5-XXL + CLIP-L + VAE + activations." }
+variants.q4_k_s = { model = "city96/FLUX.1-dev-gguf", gguf_file = "flux1-dev-Q4_K_S.gguf", weights_gib = 6.81, vram_expected_gib = 18.0, degrades_generator = true, note = "LOW-VRAM ESCAPE HATCH ONLY. 35.0 - 23.8 + 6.81 = 18.0. Costs the impasto and brush-texture detail the Fortiche rubric measures." }
 
-# ------------------------------------------------------------------------------
-# 6. High-Frequency Micro-Sensory Gates (<10ms)
-# ------------------------------------------------------------------------------
-[gates.sensory]
+# --- Visual witness. Dense 27B VLM. Absorbs the retired 12B `decoder` seat.
+[profiles.rtx-pro-6000.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "unsloth/Qwen3.8-27B-NVFP4"
+precision = "nvfp4"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.28
+vram_expected_gib = 26.88
+weights_gib = 24.6
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.nvfp4 = { model = "unsloth/Qwen3.8-27B-NVFP4", weights_gib = 24.6, gpu_memory_utilization = 0.28, note = "Dense NVFP4 GEMM via nvfp4_scaled_mm_sm120_kernels.cu. ~30-34% faster decode than BF16. vLLM only, no SGLang." }
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.30, note = "Portable fallback, fine-grained block-128 FP8." }
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.60, note = "Does not co-tenant on 96 GiB. Present for profile parity only." }
+
+# --- Governor. Local by default here: NVFP4 shrinks it from 56 GiB of FP8
+# --- allowance to ~19 GiB of weights, which fits. Flip with
+# --- ARCANE_GOVERNOR_REMOTE=1 — strongly recommended for unattended runs.
+[profiles.rtx-pro-6000.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "nvidia/Gemma-4-31B-IT-NVFP4"
+precision = "nvfp4"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.21
+vram_expected_gib = 20.16
+weights_gib = 19.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.nvfp4 = { model = "nvidia/Gemma-4-31B-IT-NVFP4", weights_gib = 19.0, gpu_memory_utilization = 0.21, note = "Blackwell-native dense NVFP4." }
+variants.w4a16 = { model = "google/gemma-4-31B-it-qat-q4_0-gguf", weights_gib = 18.5, gpu_memory_utilization = 0.22, note = "Official QAT — quantization-aware trained, not post-hoc. Best quality per bit of the 4-bit options." }
+variants.awq = { model = "QuantTrio/gemma-4-31B-it-AWQ", weights_gib = 18.5, gpu_memory_utilization = 0.22 }
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.40, note = "0.40*96 = 38.4 GiB reservation. Does NOT co-tenant with BF16 FLUX + witness on this card. SXM profiles only." }
+
+# --- Palette critic. MANDATORY in every profile. Operator: "Pixtral we keep."
+[profiles.rtx-pro-6000.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.09
+vram_expected_gib = 8.64
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.09, note = "Official RedHat INT4 quant. Requires vLLM >= 0.5.2." }
+variants.fp8 = { model = "mistralai/Pixtral-12B-2409", quantization = "fp8", weights_gib = 12.5, gpu_memory_utilization = 0.14, note = "vLLM online dynamic FP8 of the BF16 checkpoint. No FP8 checkpoint exists on the Hub." }
+variants.bf16 = { model = "mistralai/Pixtral-12B-2409", weights_gib = 24.0, gpu_memory_utilization = 0.28 }
+
+# --- Micro-sensory gates. MANDATORY in every profile. In-process inside
+# --- moj_evaluator.py: no server, no port, no container. Sub-10ms per frame.
+[profiles.rtx-pro-6000.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
 siglip_aesthetic_head = true
 dinov2_semantic_novelty = true
 palette_delta_evidence = true
-vram_expected_gib = 2.5
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5, note = "MEASURED, not declared. dinov2-giant + siglip-base-patch16-224 in fp16 is 2.494 GiB of weights; resident cost with activations and the CUDA arena is ~2.85 GiB. The 2.5 GiB in the v2.0.0 spec was wrong. Budgeted at 3.0." }
+variants.fp16-large = { model = "facebook/dinov2-large+google/siglip-base-patch16-224", weights_gib = 0.944, vram_expected_gib = 1.25, note = "Fits 2.5 GiB, but downgrades DINOv2. Never a default: the operator mandated DINOv2-Giant." }
+variants.fp16-base = { model = "facebook/dinov2-base+google/siglip-base-patch16-224", weights_gib = 0.539, vram_expected_gib = 0.85, note = "Low-VRAM tier only." }
+variants.fp16-clip = { model = "openai/clip-vit-base-patch32", weights_gib = 0.281, vram_expected_gib = 0.45, note = "Degraded tier. No DINOv2 novelty signal at all." }
+
+# --- Kontext. THE ONLY TOGGLE IN THIS FILE. Default OFF. ARCANE_KONTEXT=1.
+[profiles.rtx-pro-6000.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "city96/FLUX.1-Kontext-dev-gguf"
+precision = "q4_k_s"
+socket = "flux-kontext.sock"
+vram_expected_gib = 9.0
+weights_gib = 6.8
+enabled = false
+mandatory = false
+toggleable = true
+dense = true
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0, note = "MARGINAL cost: DiT 6.8 + ~2.2 activations. Text encoders shared with the resident FLUX worker." }
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0, note = "MARGINAL cost over the shared text encoders. Overcommits this card." }
+
+
+# ==============================================================================
+# PROFILE: b200  ·  NVIDIA B200 SXM, 192 GB HBM3e, sm_100  ·  FP8 JUDGES
+# ==============================================================================
+[profiles.b200]
+description = "NVIDIA B200 SXM, 192 GB HBM3e, datacenter Blackwell"
+gpu = "NVIDIA B200 SXM"
+sm = "sm_100"
+vram_gib = 192.0
+gpu_count = 1
+vram_per_gpu_gib = 192.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink5"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = true
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = true
+prebuilt_wheel_available = true
+notes = "8 TB/s HBM3e, 10 PFLOPS dense NVFP4. sm_100 tcgen05.mma, 228 KB shared memory per GEMM tile. The R2 bank's sm100 wheel applies here. Kontext runs at full BF16."
+
+[profiles.b200.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-dev-gguf", gguf_file = "flux1-dev-Q4_K_S.gguf", weights_gib = 6.81, vram_expected_gib = 18.0, degrades_generator = true, note = "There is no reason to select this on a 192 GiB card." }
+
+[profiles.b200.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.15
+vram_expected_gib = 28.8
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.15 }
+variants.nvfp4 = { model = "unsloth/Qwen3.8-27B-NVFP4", weights_gib = 24.6, gpu_memory_utilization = 0.14 }
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.32 }
+
+[profiles.b200.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.29
+vram_expected_gib = 55.68
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.29, note = "0.29*192 = 55.68 — matches the historical 56 GiB allowance, with the KV arena that number always actually was." }
+variants.nvfp4 = { model = "nvidia/Gemma-4-31B-IT-NVFP4", weights_gib = 19.0, gpu_memory_utilization = 0.16 }
+variants.bf16 = { model = "google/gemma-4-31b-it", weights_gib = 62.0, gpu_memory_utilization = 0.36 }
+
+[profiles.b200.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "mistralai/Pixtral-12B-2409"
+precision = "fp8"
+quantization = "fp8"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.075
+vram_expected_gib = 14.4
+weights_gib = 12.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "mistralai/Pixtral-12B-2409", quantization = "fp8", weights_gib = 12.5, gpu_memory_utilization = 0.075, note = "vLLM online dynamic FP8 of the BF16 checkpoint." }
+variants.bf16 = { model = "mistralai/Pixtral-12B-2409", weights_gib = 24.0, gpu_memory_utilization = 0.15 }
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.05 }
+
+[profiles.b200.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5, note = "MEASURED, not declared. dinov2-giant + siglip-base-patch16-224 in fp16 is 2.494 GiB of weights; resident cost with activations and the CUDA arena is ~2.85 GiB. The 2.5 GiB in the v2.0.0 spec was wrong. Budgeted at 3.0." }
+variants.fp16-large = { model = "facebook/dinov2-large+google/siglip-base-patch16-224", weights_gib = 0.944, vram_expected_gib = 1.25, note = "Fits 2.5 GiB, but downgrades DINOv2. Never a default: the operator mandated DINOv2-Giant." }
+variants.fp16-base = { model = "facebook/dinov2-base+google/siglip-base-patch16-224", weights_gib = 0.539, vram_expected_gib = 0.85, note = "Low-VRAM tier only." }
+variants.fp16-clip = { model = "openai/clip-vit-base-patch32", weights_gib = 0.281, vram_expected_gib = 0.45, note = "Degraded tier. No DINOv2 novelty signal at all." }
+
+[profiles.b200.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 24.0
+weights_gib = 23.8
+enabled = false
+mandatory = false
+toggleable = true
+dense = true
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ==============================================================================
+# PROFILE: b300  ·  NVIDIA B300 SXM6 Blackwell Ultra, 288 GB HBM3e  ·  BF16
+# ==============================================================================
+[profiles.b300]
+description = "NVIDIA B300 SXM6 'Blackwell Ultra', 288 GB HBM3e, 1100W"
+gpu = "NVIDIA B300 SXM6"
+sm = "sm_100"
+vram_gib = 288.0
+gpu_count = 1
+vram_per_gpu_gib = 288.0
+reserve_gib = 6.0
+gpus = 1
+interconnect = "nvlink5"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = true
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = true
+prebuilt_wheel_available = true
+notes = "8 TB/s HBM3e, 15 PFLOPS NVFP4 (+50% over B200), 2x attention throughput, 12-high HBM stacks. Shipped January 2026. Live at b300.influx.vision. Judges run BF16 here — this is the ratified full-precision posture."
+
+[profiles.b300.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-dev-gguf", gguf_file = "flux1-dev-Q4_K_S.gguf", weights_gib = 6.81, vram_expected_gib = 18.0, degrades_generator = true, note = "Never select this here. 253 GiB of headroom exists precisely so you do not have to." }
+
+[profiles.b300.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B"
+precision = "bf16"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.21
+vram_expected_gib = 60.48
+weights_gib = 54.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 262144
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.21, note = "27B * 2 bytes = 54.0 GiB. Full 262K native context." }
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.12 }
+variants.nvfp4 = { model = "unsloth/Qwen3.8-27B-NVFP4", weights_gib = 24.6, gpu_memory_utilization = 0.10 }
+
+[profiles.b300.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.20
+vram_expected_gib = 57.6
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.20 }
+variants.bf16 = { model = "google/gemma-4-31b-it", weights_gib = 62.0, gpu_memory_utilization = 0.24, note = "0.24*288 = 69.12. Base becomes 196.90, 220.90 with Kontext BF16 — fits with 67.10 free. Offered because it fits, not because it is needed." }
+variants.nvfp4 = { model = "nvidia/Gemma-4-31B-IT-NVFP4", weights_gib = 19.0, gpu_memory_utilization = 0.09 }
+
+[profiles.b300.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "mistralai/Pixtral-12B-2409"
+precision = "bf16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.10
+vram_expected_gib = 28.8
+weights_gib = 24.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.bf16 = { model = "mistralai/Pixtral-12B-2409", weights_gib = 24.0, gpu_memory_utilization = 0.10, note = "12B * 2 bytes = 24.0 GiB. Full BF16 colourist." }
+variants.fp8 = { model = "mistralai/Pixtral-12B-2409", quantization = "fp8", weights_gib = 12.5, gpu_memory_utilization = 0.06 }
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.04 }
+
+[profiles.b300.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5, note = "MEASURED, not declared. dinov2-giant + siglip-base-patch16-224 in fp16 is 2.494 GiB of weights; resident cost with activations and the CUDA arena is ~2.85 GiB. The 2.5 GiB in the v2.0.0 spec was wrong. Budgeted at 3.0." }
+variants.fp16-large = { model = "facebook/dinov2-large+google/siglip-base-patch16-224", weights_gib = 0.944, vram_expected_gib = 1.25, note = "Fits 2.5 GiB, but downgrades DINOv2. Never a default: the operator mandated DINOv2-Giant." }
+variants.fp16-base = { model = "facebook/dinov2-base+google/siglip-base-patch16-224", weights_gib = 0.539, vram_expected_gib = 0.85, note = "Low-VRAM tier only." }
+variants.fp16-clip = { model = "openai/clip-vit-base-patch32", weights_gib = 0.281, vram_expected_gib = 0.45, note = "Degraded tier. No DINOv2 novelty signal at all." }
+
+[profiles.b300.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 24.0
+weights_gib = 23.8
+enabled = false
+mandatory = false
+toggleable = true
+dense = true
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ==============================================================================
+# VI. PROFILE FAMILY: rtx-pro-6000-x4 · FOUR RTX PRO 6000 BLACKWELL, 96 GB EACH
+# ==============================================================================
+# Three layouts of one machine, expressed as three sibling profiles so the
+# schema stays exactly [profiles.<name>] + [profiles.<name>.tenants.<role>]:
+#
+#     rtx-pro-6000-x4          balanced  (default)  3 generators + 1 judge card
+#     rtx-pro-6000-x4-dense    dense                4 generators, judges squeezed
+#     rtx-pro-6000-x4-tp       tp                   2 generators + TP judge stack
+#
+# ARCANE_LAYOUT=balanced|dense|tp selects between them; ARCANE_PROFILE takes the
+# full name. pipeline_paths.active_profile() does the suffix mapping.
+#
+# ------------------------------------------------------------------------------
+# INTERCONNECT — DECLARED nvlink, NOT VERIFIED. DETECT, DO NOT ASSUME.
+# ------------------------------------------------------------------------------
+# NVIDIA's published specification for RTX PRO 6000 Blackwell states NO NVLink;
+# the operator reports NVLink present on this actual four-card box. Both claims
+# are recorded here and NEITHER is hardcoded as truth:
+#
+#     interconnect          = "nvlink"   <- DECLARED / expected
+#     interconnect_verified = false      <- provisioning flips this
+#     interconnect_detected = ""         <- provisioning fills this in
+#
+# provision_jury.sh probes `nvidia-smi nvlink --status` and `nvidia-smi topo -m`
+# and warns loudly when the detected topology disagrees with the declaration.
+# `flux arcane provision` does the same. If detection comes back PCIe-only, any
+# tenant with tensor_parallel > 1 is a MISCONFIGURATION and must be reported as
+# one, never silently run: TP puts full weight tensors on the wire, and PCIe
+# Gen5 x16 moves ~64 GB/s against NVLink's ~900 GB/s. That is a 14x gap, and it
+# turns a TP judge stack from a latency win into a latency trap.
+#
+# What NVLink does and does not buy here:
+#   * It does NOT create a 384 GB pool. `fits` is PER-GPU in every layout below,
+#     and stays per-GPU. TP changes what can SPAN cards; it does not let one
+#     card hold more than 96 GB.
+#   * Nothing on this roster NEEDS TP for capacity. FLUX BF16 35.0,
+#     Qwen3.8-27B BF16 54.0, Gemma-4-31B BF16 62.0, Pixtral BF16 24.0 — every
+#     one fits a single card. TP buys LATENCY and future headroom, nothing else.
+#     The `tp` layout exists to make that tradeoff explicit, not to be the
+#     default.
+#   * Without NVLink the right model is SHARD / DATA parallelism, which this
+#     repo already implements and the Arcane pipeline simply never used:
+#       internal/fleet/fleet.go     Pool, DetectGPUs(), NewForGPUs(),
+#                                   SubmitAtlas() shard fan-out, Idlest(),
+#                                   ShardBlock()
+#       internal/daemon/daemon.go   per-GPU sockets flux-gpu0.sock,
+#                                   flux-gpu1.sock, ... with auto-discovery (~L47)
+#       worker.py                   disjoint sharding via shard_id / shard_total /
+#                                   shard_block, per-shard progress files
+#                                   progress.shard{N}.json, staggered shard
+#                                   phasing (~L1677) against a thundering herd
+#       Each worker gets FLUX_WORKER_GPU / CUDA_VISIBLE_DEVICES and therefore
+#       sees itself as cuda:0 (worker.py ~L774).
+#     That is why the generator tenants below carry shard_id / shard_total and a
+#     per-GPU socket rather than a tensor_parallel setting.
+#
+# ------------------------------------------------------------------------------
+# UNCHANGED BY NVLINK
+# ------------------------------------------------------------------------------
+# sm_120 NVFP4 MoE kernels are still broken (vllm#33416, vllm#31085,
+# flashinfer#2577). That is a kernel-family issue and has nothing to do with the
+# interconnect. Every tenant stays dense = true. The generator stays BF16.
+# The sensory gates are 3.00 GiB, measured — see §V.0.
+#
+# ==============================================================================
+# ARITHMETIC · LAYOUT 1 · balanced (DEFAULT)   per card: 96.0 total, 2.0 reserved,
+#                                              94.0 usable
+# ==============================================================================
+#   gpu  tenants                                      reservation   usable  head
+#   ---  -------------------------------------------  -----------   ------  -----
+#    0   flux bf16 35.00 (shard 0/3)                        62.00     94.0  32.00
+#        + gates 3.00 + kontext bf16 24.00
+#    1   flux bf16 35.00 (shard 1/3)                        73.40     94.0  20.60
+#        + governor fp8 0.40*96 = 38.40
+#    2   flux bf16 35.00 (shard 2/3)                        35.00     94.0  59.00
+#    3   witness bf16  0.62*96 = 59.52                      86.40     94.0   7.60
+#        + pixtral bf16 0.28*96 = 26.88
+#   ------------------------------------------------------------------------
+#   AGGREGATE                                256.80 / 384.0    free 127.20
+#
+#   Why the judges split 2 + 1 instead of all landing on GPU3:
+#     GPU3's 94.0 GiB is consumed by the two VISION judges at full BF16
+#     (59.52 + 26.88 = 86.40). The governor is the only judge that never looks
+#     at an image — it is a text critic and a prompt mutator — so it is the one
+#     that can sit on a generator card without competing for memory bandwidth
+#     during a contact-sheet pass. It goes to GPU1 at FP8 rather than BF16
+#     because 62 GiB of BF16 weights buys nothing measurable on a text critique
+#     head, and BF16 there (util 0.61 = 58.56) would leave GPU1 with 0.44 GiB.
+#     GPU2 is deliberately left as a pure generator with 59.00 GiB spare: it is
+#     the expansion card, and the one that absorbs a second Kontext instance or
+#     a grown KV cache without a re-plan.
+#
+#   Kontext defaults ON here — the first profile where it is free. GPU0 holds it
+#   at full BF16 (24.00 marginal over the shared text encoders) and still clears
+#   the reserve by 32.00 GiB.
+#
+#   Throughput: three concurrent FLUX workers on disjoint atlas shards, ~3x the
+#   single-card atlas rate, with judges that never stall generation.
+#
+# ==============================================================================
+# ARITHMETIC · LAYOUT 2 · dense   (4 generators, judges squeezed alongside)
+# ==============================================================================
+#   gpu  tenants                                      reservation   usable  head
+#   ---  -------------------------------------------  -----------   ------  -----
+#    0   flux bf16 35.00 (shard 0/4) + gates 3.00           38.00     94.0  56.00
+#    1   flux bf16 35.00 (shard 1/4)                        63.80     94.0  30.20
+#        + witness fp8 0.30*96 = 28.80
+#    2   flux bf16 35.00 (shard 2/4)                        73.40     94.0  20.60
+#        + governor fp8 0.40*96 = 38.40
+#    3   flux bf16 35.00 (shard 3/4)                        73.40     94.0  20.60
+#        + pixtral fp8 0.15*96 = 14.40 + kontext bf16 24.00
+#   ------------------------------------------------------------------------
+#   AGGREGATE                                248.60 / 384.0    free 135.40
+#
+#   THE HONEST TRADEOFF: dense buys a fourth generator (~4x atlas rate) and pays
+#   for it TWICE. First in judge precision — every judge drops from BF16 to FP8,
+#   because a card holding a 35 GiB generator has only 59.0 GiB left. Second in
+#   judge LATENCY: on GPUs 1-3 a judge's forward pass now contends with an
+#   active denoise loop for SM time and memory bandwidth, so verdict latency
+#   becomes a function of how busy the generators are. Balanced keeps judging
+#   off the critical path; dense does not. Choose dense when you are producing
+#   for volume and can tolerate lumpy verdict latency.
+#
+# ==============================================================================
+# ARITHMETIC · LAYOUT 3 · tp   (tensor-parallel judge stack, full BF16)
+# ==============================================================================
+# A TP tenant reserves util * 96 on EVERY card it spans, so per-card cost is
+# util*96 and aggregate is util*96*tp.
+#
+#   gpu    tenants                                    reservation   usable  head
+#   -----  -----------------------------------------  -----------   ------  -----
+#    0     flux bf16 35.00 (shard 0/2)                      62.00     94.0  32.00
+#          + gates 3.00 + kontext bf16 24.00
+#    1     flux bf16 35.00 (shard 1/2)                      35.00     94.0  59.00
+#    2,3   witness  bf16 tp=2  0.32*96 = 30.72/card         80.64     94.0  13.36
+#          governor bf16 tp=2  0.36*96 = 34.56/card       (each of
+#          pixtral  bf16 tp=2  0.16*96 = 15.36/card        gpu2, gpu3)
+#   ------------------------------------------------------------------------
+#   per-card on gpu2 = 30.72 + 34.56 + 15.36 = 80.64
+#   per-card on gpu3 = 30.72 + 34.56 + 15.36 = 80.64
+#   judge aggregate  = 61.44 + 69.12 + 30.72 = 161.28
+#   AGGREGATE        = 62.00 + 35.00 + 80.64 + 80.64 = 258.28 / 384.0
+#                                                       free 125.72
+#
+#   WHAT IT COSTS: one generator card. Two FLUX shards instead of three, so
+#   roughly 2/3 the atlas throughput of `balanced`.
+#   WHAT IT BUYS:  all three judges at full BF16 at the same time — `balanced`
+#   can only afford BF16 for the two vision judges and pushes the governor to
+#   FP8 — plus roughly halved per-request judge latency, since each judge's
+#   compute is split across two cards.
+#   WHAT IT REQUIRES: real, verified NVLink. Over PCIe Gen5 x16 this layout is
+#   strictly worse than `balanced` on every axis. Do not select it until
+#   `nvidia-smi nvlink --status` says so.
+# ==============================================================================
 
 # ------------------------------------------------------------------------------
-# Jury Verdict & Promotion Rules
+# LAYOUT 1 · balanced (default)
 # ------------------------------------------------------------------------------
+[profiles.rtx-pro-6000-x4]
+description = "4 x NVIDIA RTX PRO 6000 Blackwell, 96 GB each — 3 generators + 1 judge card"
+gpu = "NVIDIA RTX PRO 6000 Blackwell Server Edition x4"
+sm = "sm_120"
+layout = "balanced"
+layout_siblings = ["rtx-pro-6000-x4", "rtx-pro-6000-x4-dense", "rtx-pro-6000-x4-tp"]
+vram_gib = 96.0
+gpus = 4
+gpu_count = 4
+vram_per_gpu_gib = 96.0
+reserve_gib = 2.0
+interconnect = "nvlink"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = true
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = false
+prebuilt_wheel_available = false
+notes = "Interconnect is DECLARED nvlink and UNVERIFIED — public RTX PRO 6000 specs say no NVLink, the operator reports otherwise on this box. Verify with `nvidia-smi nvlink --status` and `nvidia-smi topo -m`. fits is per-GPU: 4x96 is not a 384 GB pool."
+
+[profiles.rtx-pro-6000-x4.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production (atlas shard 0)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+shard_id = 0
+shard_total = 3
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-dev-gguf", gguf_file = "flux1-dev-Q4_K_S.gguf", weights_gib = 6.81, vram_expected_gib = 18.0, degrades_generator = true, note = "No reason to select this here. Every generator card has 32+ GiB spare." }
+
+[profiles.rtx-pro-6000-x4.tenants.flux1]
+kind = "uds"
+gpu = 1
+role = "Continuous Flow-Matching Candidate Production (atlas shard 1)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu1.sock"
+shard_id = 1
+shard_total = 3
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4.tenants.flux2]
+kind = "uds"
+gpu = 2
+role = "Continuous Flow-Matching Candidate Production (atlas shard 2)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu2.sock"
+shard_id = 2
+shard_total = 3
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4.tenants.witness]
+kind = "vllm"
+gpu = 3
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B"
+precision = "bf16"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.62
+vram_expected_gib = 59.52
+weights_gib = 54.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.62, note = "Full BF16. The judge card is not shared with a generator, so the vision judges get the precision upgrade." }
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.30 }
+variants.nvfp4 = { model = "unsloth/Qwen3.8-27B-NVFP4", weights_gib = 24.6, gpu_memory_utilization = 0.28 }
+
+[profiles.rtx-pro-6000-x4.tenants.governor]
+kind = "vllm"
+gpu = 1
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.40
+vram_expected_gib = 38.4
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.40, note = "On gpu1 beside a generator: the governor is the only judge that never reads an image, so it is the one that can share a generator card." }
+variants.nvfp4 = { model = "nvidia/Gemma-4-31B-IT-NVFP4", weights_gib = 19.0, gpu_memory_utilization = 0.21 }
+variants.bf16 = { model = "google/gemma-4-31b-it", weights_gib = 62.0, gpu_memory_utilization = 0.61, note = "58.56 on gpu1 beside flux 35.00 = 93.56 / 94.0. Fits by 0.44 GiB. Do not." }
+
+[profiles.rtx-pro-6000-x4.tenants.pixtral]
+kind = "vllm"
+gpu = 3
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "mistralai/Pixtral-12B-2409"
+precision = "bf16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.28
+vram_expected_gib = 26.88
+weights_gib = 24.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.bf16 = { model = "mistralai/Pixtral-12B-2409", weights_gib = 24.0, gpu_memory_utilization = 0.28 }
+variants.fp8 = { model = "mistralai/Pixtral-12B-2409", quantization = "fp8", weights_gib = 12.5, gpu_memory_utilization = 0.15 }
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.09 }
+
+[profiles.rtx-pro-6000-x4.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5, note = "MEASURED, not declared. 2.494 GiB of fp16 weights; ~2.85 GiB resident. Budgeted at 3.0." }
+
+[profiles.rtx-pro-6000-x4.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 24.0
+weights_gib = 23.8
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0, note = "Default ON here: gpu0 clears the reserve by 32.00 GiB with it loaded. This is the first profile where Kontext is free." }
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ------------------------------------------------------------------------------
+# LAYOUT 2 · dense — 4 generators, FP8 judges squeezed alongside
+# ------------------------------------------------------------------------------
+[profiles.rtx-pro-6000-x4-dense]
+description = "4 x RTX PRO 6000 Blackwell — 4 generators, judges co-resident with generation"
+gpu = "NVIDIA RTX PRO 6000 Blackwell Server Edition x4"
+sm = "sm_120"
+layout = "dense"
+layout_siblings = ["rtx-pro-6000-x4", "rtx-pro-6000-x4-dense", "rtx-pro-6000-x4-tp"]
+vram_gib = 96.0
+gpus = 4
+gpu_count = 4
+vram_per_gpu_gib = 96.0
+reserve_gib = 2.0
+interconnect = "nvlink"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = true
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = false
+prebuilt_wheel_available = false
+notes = "4x atlas throughput, paid for in judge precision (BF16 -> FP8) and in judge latency, which now contends with an active denoise loop on gpus 1-3."
+
+[profiles.rtx-pro-6000-x4-dense.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production (atlas shard 0)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+shard_id = 0
+shard_total = 4
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.flux1]
+kind = "uds"
+gpu = 1
+role = "Continuous Flow-Matching Candidate Production (atlas shard 1)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu1.sock"
+shard_id = 1
+shard_total = 4
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.flux2]
+kind = "uds"
+gpu = 2
+role = "Continuous Flow-Matching Candidate Production (atlas shard 2)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu2.sock"
+shard_id = 2
+shard_total = 4
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.flux3]
+kind = "uds"
+gpu = 3
+role = "Continuous Flow-Matching Candidate Production (atlas shard 3)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu3.sock"
+shard_id = 3
+shard_total = 4
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.witness]
+kind = "vllm"
+gpu = 1
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.30
+vram_expected_gib = 28.8
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.30, note = "BF16 is not available here: gpu1 already holds a 35 GiB generator." }
+variants.nvfp4 = { model = "unsloth/Qwen3.8-27B-NVFP4", weights_gib = 24.6, gpu_memory_utilization = 0.28 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.governor]
+kind = "vllm"
+gpu = 2
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.40
+vram_expected_gib = 38.4
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.40 }
+variants.nvfp4 = { model = "nvidia/Gemma-4-31B-IT-NVFP4", weights_gib = 19.0, gpu_memory_utilization = 0.21 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.pixtral]
+kind = "vllm"
+gpu = 3
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "mistralai/Pixtral-12B-2409"
+precision = "fp8"
+quantization = "fp8"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.15
+vram_expected_gib = 14.4
+weights_gib = 12.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "auto"
+tensor_parallel = 1
+variants.fp8 = { model = "mistralai/Pixtral-12B-2409", quantization = "fp8", weights_gib = 12.5, gpu_memory_utilization = 0.15 }
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.09 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+[profiles.rtx-pro-6000-x4-dense.tenants.kontext]
+kind = "uds"
+gpu = 3
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 24.0
+weights_gib = 23.8
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0, note = "On gpu3 next to the lightest judge. 73.40 / 94.0." }
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ------------------------------------------------------------------------------
+# LAYOUT 3 · tp — tensor-parallel BF16 judge stack across gpu2+gpu3
+# ------------------------------------------------------------------------------
+[profiles.rtx-pro-6000-x4-tp]
+description = "4 x RTX PRO 6000 Blackwell — 2 generators + a TP=2 full-BF16 judge stack"
+gpu = "NVIDIA RTX PRO 6000 Blackwell Server Edition x4"
+sm = "sm_120"
+layout = "tp"
+layout_siblings = ["rtx-pro-6000-x4", "rtx-pro-6000-x4-dense", "rtx-pro-6000-x4-tp"]
+vram_gib = 96.0
+gpus = 4
+gpu_count = 4
+vram_per_gpu_gib = 96.0
+reserve_gib = 2.0
+interconnect = "nvlink"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = true
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = true
+native_nvfp4_moe = false
+prebuilt_wheel_available = false
+notes = "REQUIRES VERIFIED NVLINK. TP puts full weight tensors on the wire; over PCIe Gen5 x16 (~64 GB/s vs NVLink ~900 GB/s) this layout is strictly worse than balanced on every axis. Costs one generator card, buys all three judges at full BF16 and roughly halved judge latency."
+
+[profiles.rtx-pro-6000-x4-tp.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production (atlas shard 0)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+shard_id = 0
+shard_total = 2
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.flux1]
+kind = "uds"
+gpu = 1
+role = "Continuous Flow-Matching Candidate Production (atlas shard 1)"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu1.sock"
+shard_id = 1
+shard_total = 2
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.witness]
+kind = "vllm"
+gpu = 2
+gpu_span = [2, 3]
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B"
+precision = "bf16"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.32
+vram_expected_gib = 61.44
+weights_gib = 54.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 262144
+kv_cache_dtype = "auto"
+tensor_parallel = 2
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.32, note = "27.0 GiB of weights per rank; 30.72 GiB reserved per card. Full 262K context." }
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.18 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.governor]
+kind = "vllm"
+gpu = 2
+gpu_span = [2, 3]
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "google/gemma-4-31b-it"
+precision = "bf16"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.36
+vram_expected_gib = 69.12
+weights_gib = 62.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "auto"
+tensor_parallel = 2
+variants.bf16 = { model = "google/gemma-4-31b-it", weights_gib = 62.0, gpu_memory_utilization = 0.36, note = "31.0 GiB of weights per rank; 34.56 GiB reserved per card. This is the only layout where the governor gets full BF16." }
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.20 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.pixtral]
+kind = "vllm"
+gpu = 2
+gpu_span = [2, 3]
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "mistralai/Pixtral-12B-2409"
+precision = "bf16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.16
+vram_expected_gib = 30.72
+weights_gib = 24.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "auto"
+tensor_parallel = 2
+variants.bf16 = { model = "mistralai/Pixtral-12B-2409", weights_gib = 24.0, gpu_memory_utilization = 0.16, note = "12.0 GiB of weights per rank; 15.36 GiB reserved per card." }
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.06 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+tensor_parallel = 1
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+[profiles.rtx-pro-6000-x4-tp.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 24.0
+weights_gib = 23.8
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+tensor_parallel = 1
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 23.8, vram_expected_gib = 24.0 }
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ==============================================================================
+# PROFILE: h100  ·  NVIDIA H100 SXM5, 80 GB HBM3, sm_90  ·  what givemeanode
+# actually hands out. No Blackwell NVFP4 here — every tenant below uses its
+# FP8/W4A16 fallback variant from rtx-pro-6000, not the nvfp4 default.
+# ==============================================================================
+[profiles.h100]
+description = "Single NVIDIA H100 SXM5, 80 GB HBM3 — the only shape givemeanode's workspace currently offers"
+gpu = "NVIDIA H100 80GB HBM3"
+sm = "sm_90"
+vram_gib = 80.0
+gpu_count = 1
+vram_per_gpu_gib = 80.0
+reserve_gib = 3.2
+gpus = 1
+interconnect = "none"
+interconnect_verified = false
+interconnect_detected = ""
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+native_nvfp4_moe = false
+prebuilt_wheel_available = true
+notes = "Hopper, not Blackwell: no NVFP4 kernels, so every tenant runs its FP8/W4A16 fallback. Governor is remote by default (ARCANE_GOVERNOR_REMOTE=1, https://governor.influx.vision/v1) — the standing governor node already runs it, and a local FP8 copy (31 GiB weights + KV cache) does not co-tenant with FLUX BF16 + the witness on 80 GiB. vllm-judge.sh already documents the two H100-specific landmines for anyone who does run a judge locally here: gpu-memory-utilization >= 0.87 OOMs the draft during CUDA graph capture, and FlashInfer crashes outright on SM90 with sliding-window attention (use VLLM_ATTENTION_BACKEND=TRITON_ATTN, no speculative config)."
+
+# --- Generative engine. BF16, hard-pinned. Not a vLLM tenant: a resident UDS
+# --- worker addressed over .fluxd/flux-gpu0.sock. Unchanged from rtx-pro-6000.
+[profiles.h100.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0, note = "BF16 DiT 23.8 + T5-XXL + CLIP-L + VAE + activations." }
+variants.q4_k_s = { model = "city96/FLUX.1-dev-gguf", gguf_file = "flux1-dev-Q4_K_S.gguf", weights_gib = 6.81, vram_expected_gib = 18.0, degrades_generator = true, note = "LOW-VRAM ESCAPE HATCH ONLY." }
+
+# --- Visual witness. Dense 27B VLM. FP8, not NVFP4 — sm_90 has no NVFP4 GEMM
+# --- kernels. gpu_memory_utilization retuned for an 80 GiB card.
+[profiles.h100.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.375
+vram_expected_gib = 30.0
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.375, note = "Portable fallback, fine-grained block-128 FP8. No sm_120 NVFP4 kernel on Hopper." }
+
+# --- Governor. REMOTE by default here, unlike rtx-pro-6000: the standing
+# --- governor already runs on its own H100 (gemstone fleet), and a local FP8
+# --- copy does not fit alongside flux + witness + pixtral on 80 GiB. The
+# --- local variant is kept below only as a documented fallback, not enabled.
+[profiles.h100.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.40
+vram_expected_gib = 32.0
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.40, note = "Local fallback only if ARCANE_GOVERNOR_REMOTE=0. Does NOT co-tenant with flux + witness + pixtral on this card — frees this profile's local budget only by evicting one of those. No speculative decoding: OOMs during CUDA graph capture above util 0.87, and the draft's sliding-window layers crash FlashInfer on SM90. See vllm-judge.sh." }
+
+# --- Palette critic. MANDATORY in every profile. Operator: "Pixtral we keep."
+[profiles.h100.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.11
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.11, note = "Official RedHat INT4 quant. Requires vLLM >= 0.5.2." }
+
+# --- Micro-sensory gates. MANDATORY in every profile. In-process inside
+# --- moj_evaluator.py: no server, no port, no container. Sub-10ms per frame.
+[profiles.h100.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+# --- Kontext. THE ONLY TOGGLE IN THIS FILE. Default OFF. ARCANE_KONTEXT=1.
+# --- Not budgeted into the 80 GiB total above: this card has no headroom for
+# --- it while flux + witness + pixtral + gates are resident. Enabling it
+# --- means evicting something else first.
+[profiles.h100.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "city96/FLUX.1-Kontext-dev-gguf"
+precision = "q4_k_s"
+socket = "flux-kontext.sock"
+vram_expected_gib = 9.0
+weights_gib = 6.8
+enabled = false
+mandatory = false
+toggleable = true
+dense = true
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0, note = "No headroom for this on an 80 GiB card at the same time as witness + pixtral; overcommits without evicting a tenant first." }
+
+
+# ==============================================================================
+# Jury Verdict & Promotion Rules  ·  PROFILE-INDEPENDENT
+# ==============================================================================
+# `weights` and `masterpiece_threshold` keep the exact shape jury_evaluator.py
+# and internal/jury/jury.go already expect. Do not rename them.
+#
+# The path keys below are RELATIVE ON PURPOSE. pipeline_paths.load_continuum()
+# joins them onto OUT_DIR and hands back absolute paths. The old
+# "/root/Models/flux-output/..." literals are gone: that hardcoding is exactly
+# why nothing in this repo would run anywhere but one production box.
+# ==============================================================================
 [verdict]
 weights = { harmony = 0.35, structure = 0.35, semantic_fidelity = 0.30 }
 masterpiece_threshold = 90.0
-audit_log = "/root/Models/flux-output/audit.jsonl"
-masterpiece_destination = "/root/Models/flux-output/rosarium"
+audit_log = "audit.jsonl"
+masterpiece_destination = "rosarium"
 mutation_feedback = true
+path_base = "out_dir"
+
+# Per-juror weighting, mirroring internal/jury/jury.go DefaultConfig(). The
+# `decoder` seat is retained at its historical weight because jury.go still
+# normalises over four names; the witness tenant answers for it.
+[verdict.jurors]
+mode = "parallel"
+order = ["pixtral", "qwen", "decoder", "governor"]
+adversarial_mode = true
+weights = { pixtral = 0.35, qwen = 0.35, decoder = 0.15, governor = 0.15 }
+strictness = { pixtral = 2.0, qwen = 1.2, decoder = 1.5, governor = 2.2 }
+
+# Percentile tiers, as implemented in jury_evaluator.py.
+[verdict.tiers]
+masterpiece_percentile = 98.0
+spectacle_percentile = 90.0
+banal_percentile = 40.0
+rolling_window = 300
