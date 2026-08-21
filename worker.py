@@ -418,6 +418,9 @@ class Worker:
         self.device = choose_torch_device(self.default_backend)
         self.lock = threading.Lock()
         self.jobs_lock = threading.RLock()
+        # fable 2026-08-21: encode+park must be atomic across concurrent jobs, or one
+        # thread parks T5 on the CPU while another is mid-encode on the GPU.
+        self.encoder_lock = threading.RLock()
         self.jobs = self._load_jobs()
         self.profile = self._load_profile()
         self.atlas_tasks = queue.Queue()
@@ -597,16 +600,8 @@ class Worker:
         print(f"prompt_encoders_device={target} modules={','.join(moved)}", flush=True)
 
     def _encode_prompt_then_park(self, prompt, *, num_images_per_prompt=1):
-        # If offloading is active (e.g. multi-tenant GPU), call encode_prompt directly
-        try:
-            return self.pipe.encode_prompt(
-                prompt=prompt,
-                device=self.device,
-                num_images_per_prompt=num_images_per_prompt,
-                max_sequence_length=512,
-            )[:2]
-        except Exception:
-            self._move_prompt_encoders(self.device)
+        with self.encoder_lock:
+            # If offloading is active (e.g. multi-tenant GPU), call encode_prompt directly
             try:
                 return self.pipe.encode_prompt(
                     prompt=prompt,
@@ -614,8 +609,17 @@ class Worker:
                     num_images_per_prompt=num_images_per_prompt,
                     max_sequence_length=512,
                 )[:2]
-            finally:
-                self._move_prompt_encoders("cpu")
+            except Exception:
+                self._move_prompt_encoders(self.device)
+                try:
+                    return self.pipe.encode_prompt(
+                        prompt=prompt,
+                        device=self.device,
+                        num_images_per_prompt=num_images_per_prompt,
+                        max_sequence_length=512,
+                    )[:2]
+                finally:
+                    self._move_prompt_encoders("cpu")
 
     def _discard_pipe_adapter(self):
         if self.pipe is None:
@@ -1441,17 +1445,18 @@ class Worker:
         prompts_to_encode = [str(job["prompt"])]
         if isinstance(job.get("view_prompts"), list):
             prompts_to_encode.extend(str(x).strip() for x in job.get("view_prompts") if str(x).strip())
-        self._move_prompt_encoders(self.device)
-        try:
-            for prompt_text in dict.fromkeys(prompts_to_encode):
-                prompt_cache[prompt_text] = self.pipe.encode_prompt(
-                    prompt=prompt_text,
-                    device=self.device,
-                    num_images_per_prompt=1,
-                    max_sequence_length=512,
-                )[:2]
-        finally:
-            self._move_prompt_encoders("cpu")
+        with self.encoder_lock:
+            self._move_prompt_encoders(self.device)
+            try:
+                for prompt_text in dict.fromkeys(prompts_to_encode):
+                    prompt_cache[prompt_text] = self.pipe.encode_prompt(
+                        prompt=prompt_text,
+                        device=self.device,
+                        num_images_per_prompt=1,
+                        max_sequence_length=512,
+                    )[:2]
+            finally:
+                self._move_prompt_encoders("cpu")
         prompt_encode_seconds = time.time() - encode_started
         if adapter_name.replace("_", "-") in ("first-block-cache", "teacache", "para-attn", "atlas-xframe-cache", "xframe-cache"):
             self.first_block_cache_stats = {"checks": 0, "hits": 0, "misses": 0}

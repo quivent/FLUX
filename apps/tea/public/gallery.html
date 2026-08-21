@@ -412,7 +412,8 @@
         try {
           const data = JSON.parse(ev.data);
           const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
-          for (const j of doneJobs) {
+          // Replay arrives newest-first and each cell is prepended; walk it oldest-first so the newest ends on top. (fable 2026-08-21)
+          for (const j of doneJobs.slice().reverse()) {
             const url = j.output_url || ('/outputs/' + (j.output || '').split('/').pop());
             const key = normalizeKey(url);
             if (key && !seen.has(key)) {
