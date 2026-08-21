@@ -126,14 +126,20 @@ func InitDB(outputDir string) (*sql.DB, error) {
 		return db, nil
 	}
 
+	resolvedDir, err := filepath.EvalSymlinks(outputDir)
+	if err == nil {
+		outputDir = resolvedDir
+	}
 	dbPath := filepath.Join(outputDir, "jury.sqlite3")
 	_ = os.MkdirAll(outputDir, 0755)
 
-	var err error
 	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite %s: %w", dbPath, err)
 	}
+	db.SetMaxOpenConns(1)
+	_, _ = db.Exec("PRAGMA journal_mode=WAL;")
+	_, _ = db.Exec("PRAGMA busy_timeout=5000;")
 
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS jury_config (
@@ -220,7 +226,6 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			p.Name, p.Description, p.Mode, string(ord), string(wei), string(strc), adv, p.CreatedAt)
 	}
 
-	_ = ExportConfigJSON(outputDir)
 	return db, nil
 }
 
@@ -406,9 +411,9 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	}
 
 	rows, err := d.Query(`
-		SELECT job_id, seed, prompt, composite_score, COALESCE(raw_score, composite_score), COALESCE(percentile_rank, composite_score), masterpiece, created_at
+		SELECT job_id, seed, prompt, composite_score, masterpiece, created_at
 		FROM jury_verdicts
-		WHERE composite_score >= 90.0 OR percentile_rank >= 90.0 OR masterpiece > 0
+		WHERE composite_score >= 90.0 OR masterpiece > 0
 		ORDER BY created_at DESC
 		LIMIT ?
 	`, limit)
@@ -421,9 +426,11 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	var items []SpectacleItem
 	for rows.Next() {
 		var it SpectacleItem
-		if err := rows.Scan(&it.JobID, &it.Seed, &it.Prompt, &it.CompositeScore, &it.RawScore, &it.PercentileRank, &it.Masterpiece, &it.CreatedAt); err != nil {
+		if err := rows.Scan(&it.JobID, &it.Seed, &it.Prompt, &it.CompositeScore, &it.Masterpiece, &it.CreatedAt); err != nil {
 			continue
 		}
+		it.RawScore = it.CompositeScore
+		it.PercentileRank = it.CompositeScore
 		pattern1 := filepath.Join(outputDir, fmt.Sprintf("*%s*.png", it.JobID))
 		pattern2 := filepath.Join(outputDir, fmt.Sprintf("*seed-%s*.png", it.Seed))
 		matches, _ := filepath.Glob(pattern1)

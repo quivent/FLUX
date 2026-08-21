@@ -34,15 +34,16 @@ var stallionMotionModes = map[string]bool{
 var stallionMotionStartMu sync.Mutex
 
 func (s Server) stallionMotionLab(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/studies/stallion/" {
-		http.Redirect(w, r, "/studies/stallion", http.StatusPermanentRedirect)
+	clean := strings.TrimSuffix(r.URL.Path, "/")
+	if clean == "/stallion" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "stallion.html"))
 		return
 	}
-	if r.URL.Path != "/studies/stallion" {
-		http.NotFound(w, r)
+	if clean == "/stallion-lab" || clean == "/studies/stallion" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "stallion-lab.html"))
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "stallion-lab.html"))
+	http.NotFound(w, r)
 }
 
 func (s Server) stallionMotionAPI(w http.ResponseWriter, r *http.Request) {
