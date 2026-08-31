@@ -1,0 +1,14 @@
+[Unit]
+Description=FLUX Rosarium visual museum
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/FLUX
+ExecStart=/home/ubuntu/FLUX/flux serve rosarium --addr 127.0.0.1:7862 --quiet
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

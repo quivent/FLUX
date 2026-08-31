@@ -1,0 +1,14 @@
+[Unit]
+Description=FLUX Motion Atlas web suite
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/FLUX
+ExecStart=/home/ubuntu/FLUX/flux serve atlas --addr 127.0.0.1:7870 --quiet
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
