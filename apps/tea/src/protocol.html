@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Influx Vision Protocol · Architecture & Specification</title>
+  <meta name="description" content="The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- MathJax for LaTeX mathematical rendering -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Mermaid.js for vector diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+
+  <style>
+    :root {
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --ink: #27231f;
+      --ink-soft: #635d55;
+      --ink-faint: #9c958a;
+      --border: #e6e2d8;
+      --border-dark: #2a2622;
+      --hojicha: #79583e;
+      --vermilion: #a63e39;
+      --celadon: #5a776a;
+      --gold: #c5a059;
+      --hextech: #00d2ff;
+      --chemtech: #00ff88;
+    }
+
+    body.mode-nocturnal {
+      --paper: #121110;
+      --paper-soft: #1a1816;
+      --ink: #e8e4dc;
+      --ink-soft: #a8a296;
+      --ink-faint: #6e675c;
+      --border: #2a2622;
+      --hojicha: #a47854;
+      --vermilion: #d05851;
+      --celadon: #78a08f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      transition: background 0.4s ease, color 0.4s ease;
+      min-height: 100vh;
+    }
+
+    /* Universal Two-Tier Navigation */
+    .top-nav {
+      border-bottom: 1px solid var(--border);
+      background: var(--paper-soft);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+    }
+    .brand-seal {
+      width: 22px;
+      height: 22px;
+      background: var(--vermilion);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+    }
+    .nav-tiers {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    .nav-tier-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--ink-faint);
+    }
+    .nav-link {
+      text-decoration: none;
+      color: var(--ink-soft);
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: var(--ink);
+      background: rgba(0,0,0,0.04);
+    }
+    body.mode-nocturnal .nav-link:hover, body.mode-nocturnal .nav-link.active {
+      background: rgba(255,255,255,0.06);
+    }
+    .nav-divider {
+      color: var(--border);
+      font-weight: 300;
+    }
+    .ritual-switch {
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+
+    /* Header Monograph */
+    .doc-header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 32px;
+      margin-bottom: 40px;
+    }
+    .doc-pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--hojicha);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+    }
+    .doc-title {
+      font-family: 'Cinzel', serif;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .doc-subtitle {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 16px;
+      color: var(--ink-soft);
+      margin-bottom: 20px;
+    }
+    .doc-meta-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-faint);
+    }
+    .meta-tag {
+      background: var(--paper-soft);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+
+    /* Typography & Sections */
+    h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 12px;
+      color: var(--hojicha);
+    }
+    p {
+      margin-bottom: 16px;
+      color: var(--ink);
+    }
+
+    /* Diagram Card */
+    .diagram-card {
+      border: 1px solid var(--border);
+      background: var(--paper-soft);
+      border-radius: 8px;
+      padding: 28px;
+      margin: 24px 0;
+      overflow-x: auto;
+    }
+
+    /* Math Box */
+    .math-box {
+      border-left: 3px solid var(--vermilion);
+      background: var(--paper-soft);
+      padding: 16px 20px;
+      margin: 20px 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 15px;
+    }
+
+    /* Table */
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+    .spec-table th, .spec-table td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    .spec-table th {
+      background: var(--paper-soft);
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+    }
+
+    /* Code Block */
+    pre.code-block {
+      background: var(--border-dark);
+      color: #e8e4dc;
+      padding: 16px 20px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Universal Two-Tier Navigation -->
+  <header class="top-nav">
+    <a href="/" class="brand">
+      <div class="brand-seal">壱</div>
+      <span>INFLUX VISION</span>
+    </a>
+    <nav class="nav-tiers">
+      <div class="nav-tier-group">
+        <span class="nav-label">🍵 TEA:</span>
+        <a href="/jury" class="nav-link">👑 Jury</a>
+        <a href="/gallery" class="nav-link">🖼️ Stream</a>
+        <a href="/garden" class="nav-link">🌿 Garden</a>
+        <a href="/portraits" class="nav-link">👤 Portraits</a>
+        <a href="/exhibition" class="nav-link">🏛️ Exhibition</a>
+      </div>
+      <span class="nav-divider">|</span>
+      <div class="nav-tier-group">
+        <span class="nav-label">⚡ MOTION:</span>
+        <a href="/movement" class="nav-link">🎬 Video</a>
+        <a href="/atlas/" class="nav-link">🌐 Worlds</a>
+        <a href="/studies" class="nav-link">🐎 Studies</a>
+        <a href="/arcane" class="nav-link">🎨 Arcane</a>
+        <a href="/protocol" class="nav-link active">📜 Protocol</a>
+        <a href="/engine" class="nav-link">⚙️ Engine</a>
+      </div>
+    </nav>
+    <button class="ritual-switch" id="themeSwitch">
+      <span>🍵</span>
+      <span id="switchText">Living Parchment</span>
+    </button>
+  </header>
+
+  <main class="container">
+    
+    <!-- Monograph Header -->
+    <header class="doc-header">
+      <div class="doc-pre">COUNCIL OF GEMMAS · RATIFIED SPECIFICATION</div>
+      <h1 class="doc-title">The Influx Vision Protocol</h1>
+      <div class="doc-subtitle">The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance</div>
+      <div class="doc-meta-bar">
+        <span class="meta-tag">EPOCH: 2026.08</span>
+        <span class="meta-tag">REVISION: SOVEREIGN-V1</span>
+        <span class="meta-tag">SILICON: 288GB B300 SXM6 + H200 SXM5</span>
+        <span class="meta-tag">STATUS: MISSION LOCK ACTIVE</span>
+      </div>
+    </header>
+
+    <!-- Section 1 -->
+    <section>
+      <h2>1. Executive Summary & Epistemology</h2>
+      <p>
+        The <strong>Influx Vision Protocol</strong> is an autonomous, self-curating generative atelier that unifies <strong>uncompromising artistic stillness</strong> with <strong>continuous kinetic motion</strong>. 
+      </p>
+      <p>
+        Traditional video diffusion models compromise material truth through temporal downsampling, latent interpolation blur, and character drift. The Influx Vision Protocol resolves this through <strong>Latent Manifold Cartography (\(\mathbf{S}^3 \subset \mathbb{R}^4\))</strong> on Flow-Matching Diffusion Transformers (FLUX.1-dev), accelerated by <strong>Cross-Frame Latent Residual Caching (<code>atlas-xframe-cache</code>)</strong> and governed by an autonomous <strong>4-Shard AI Beauty Jury</strong>.
+      </p>
+
+      <div class="diagram-card">
+        <div class="mermaid">
+graph TD
+    subgraph CoreIntent["🏛️ THE SOVEREIGN INTENT"]
+        A[Human Sovereign / Governor Gemma 31B] -->|Prompt Topology & Seed| B(SO4 Geodesic Path Generator)
+    end
+
+    subgraph RealmI["🍵 REALM I: STILLNESS & CURATION"]
+        B --> C[FLUX.1-dev BF16 Engine]
+        C --> D[Crowned Masterpiece Still]
+        D --> E{4-Shard AI Beauty Jury}
+        E -->|≥ 9.0 Crown| F[(Cloudflare R2 Permanent Vault)]
+        E -->|< 7.0 Drift| G[Rejected & Recycled]
+    end
+
+    subgraph RealmII["⚡ REALM II: LATENT CARTOGRAPHY"]
+        B --> H[64-Frame Latent Turntable]
+        H --> I[atlas-xframe-cache Engine]
+        I -->|94.1% Residual Hit Rate| J[1.50s / Frame Kinetic Turntable]
+        J --> K[Arcane World Matrix: Piltover ↔ Zaun]
+    end
+
+    subgraph SiliconTier["⚙️ SILICON & SENSORY CONTROL"]
+        F --> L[Aethelgard Monolith Engine Room]
+        K --> L
+        L --> M[Living Parchment & Acoustic Whisper]
+    end
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section>
+      <h2>2. Mathematical Formulation: Latent Manifold Cartography</h2>
+      
+      <h3>2.1 Spatial Traversal on \(\mathbf{S}^3\)</h3>
+      <p>
+        Let \(\mathbf{z}_0 \in \mathbb{R}^{C \times H \times W}\) represent the initial latent noise tensor. Traversal across a continuous orbit (e.g. 64-frame character turnaround) is formulated as an orthogonal rotation operator \(\mathbf{Q}(\theta) \in \mathrm{SO}(4)\) acting on the seed basis:
+      </p>
+      
+      <div class="math-box">
+        $$\mathbf{z}(\theta) = \mathbf{Q}(\theta) \, \mathbf{z}_0, \quad \theta \in [0, 2\pi)$$
+      </div>
+
+      <h3>2.2 Cross-Frame Latent Residual Caching (<code>atlas-xframe-cache</code>)</h3>
+      <p>
+        In a continuous motion atlas, adjacent frames \(n\) and \(n+1\) are separated by an infinitesimal rotation \(\delta \theta = \frac{2\pi}{N}\). Consequently, intermediate transformer block residuals at denoise step \(k\) for frame \(n+1\) closely approximate those of frame \(n\):
+      </p>
+
+      <div class="math-box">
+        $$\mathbf{R}_{k}^{(n+1)} \approx \mathbf{R}_{k}^{(n)}$$
+      </div>
+
+      <p>
+        By persisting step-keyed residual buffers across frame boundaries rather than clearing them:
+      </p>
+      <ul>
+        <li><strong>Cache Threshold</strong>: \(\tau = 0.30\)</li>
+        <li><strong>Residual Hit Rate</strong>: <strong>94.1%</strong> (\(576 / 612\) denoise steps bypassed across 64 frames)</li>
+        <li><strong>Per-Frame Latency</strong>: Reduced from \(63.5\text{ s}\) to <strong>\(1.50\text{ s}\)</strong> (<strong>\(42\times\) per-frame speedup</strong> on B300/H200).</li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section>
+      <h2>3. The 4-Shard Autonomous Aesthetic Jury</h2>
+      <p>
+        Every generated cell must pass through the <strong>4-Shard Consensus Matrix</strong> before entering the permanent exhibition ledger:
+      </p>
+
+      <div class="diagram-card">
+        <div class="mermaid">
+sequenceDiagram
+    participant F as FLUX Forge
+    participant Q as Shard 1: Qwen 3.8 Dense (Vision)
+    participant G as Shard 2: Governor Gemma 31B
+    participant R as Cloudflare R2 Vault
+
+    F->>Q: Dispatch Raw Latent Cell (BF16)
+    Q->>G: Dense Spatial Geometry & Impasto Critique (Score: 9.5)
+    alt Score ≥ 9.0 (Crowned)
+        G->>R: Consecrate Masterpiece (.png + manifest.json)
+        G->>F: Issue 1-Sentence Poetic Epigram
+    else Score < 7.0 (Drift)
+        G->>F: Prune Cell & Mutate Seed Geodesic
+    end
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4 -->
+    <section>
+      <h2>4. Hardware & VRAM Allocation Topology (288 GB B300)</h2>
+      <table class="spec-table">
+        <thead>
+          <tr>
+            <th>Engine / Shard</th>
+            <th>Role</th>
+            <th>VRAM Share</th>
+            <th>Endpoint / Port</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>👑 Governor Beta</strong></td>
+            <td>Law & Intent (Gemma 4 31B FP8)</td>
+            <td>~35 GiB</td>
+            <td>127.0.0.1:9000 (Gateway :8000)</td>
+          </tr>
+          <tr>
+            <td><strong>👑 Governor Gamma</strong></td>
+            <td>World Synthesis (Gemma 4 31B FP8)</td>
+            <td>~35 GiB</td>
+            <td>127.0.0.1:9001 (Gateway :8001)</td>
+          </tr>
+          <tr>
+            <td><strong>👁️ Visual Juror</strong></td>
+            <td>Fortiche Aesthetic Sieve (Pixtral 12B)</td>
+            <td>~15 GiB</td>
+            <td>127.0.0.1:9002 (Gateway :8002)</td>
+          </tr>
+          <tr>
+            <td><strong>🖼️ FLUX.1-dev</strong></td>
+            <td>BF16 Diffusion DiT (Still Forge)</td>
+            <td>~32 GiB</td>
+            <td>Resident Unix Socket</td>
+          </tr>
+          <tr>
+            <td><strong>🌊 Dynamic Buffer</strong></td>
+            <td>64-Frame Batch Orbit & Long Sequence Headroom</td>
+            <td>~131 GiB</td>
+            <td>HBM3e Silicon Strata</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 5 -->
+    <section>
+      <h2>5. The Sensory & Horological UI Doctrine</h2>
+      <p>
+        Luxury is defined by restraint. The Influx Vision interface is governed by five sensory axioms:
+      </p>
+      <ul>
+        <li><strong>💡 Interactive Paper Sheen</strong>: Dynamic pointer-coupled diffuse light on washi card borders.</li>
+        <li><strong>🔔 Ceramic Whisper</strong>: Synthesized 880Hz damped sine acoustic feedback on copy / state change.</li>
+        <li><strong>⏱️ Escapement Micro-Tick</strong>: 1400Hz triangle impulse on frame scrub (15ms decay).</li>
+        <li><strong>🌅 Circadian Daylight Harmony</strong>: Dawn Peach ➔ Midday Silk ➔ Twilight Amber ➔ Nocturnal Obsidian.</li>
+        <li><strong>間 The Law of Ma</strong>: Unshakable stillness and negative space.</li>
+      </ul>
+    </section>
+
+  </main>
+
+  <script src="/assets/sensory.js"></script>
+  <script>
+    // Theme Switch
+    const themeBtn = document.getElementById('themeSwitch');
+    const switchText = document.getElementById('switchText');
+    let isDark = localStorage.getItem('influx_twilight_mode') === 'true';
+
+    function updateTheme() {
+      if (isDark) {
+        document.body.classList.add('mode-nocturnal');
+        switchText.textContent = 'Nocturnal Study';
+      } else {
+        document.body.classList.remove('mode-nocturnal');
+        switchText.textContent = 'Living Parchment';
+      }
+    }
+    updateTheme();
+    themeBtn.addEventListener('click', () => {
+      isDark = !isDark;
+      localStorage.setItem('influx_twilight_mode', isDark);
+      updateTheme();
+    });
+  </script>
+</body>
+</html>

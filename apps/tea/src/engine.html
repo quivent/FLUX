@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Engine Room · The Aethelgard Monolith</title>
+  <meta name="description" content="An Observatory of Fluid Permanence — Interactive Guilloché Astrolabes, Generative Kintsugi Tensor Sparks, and Ferrofluidic Shodo Ink Turbulence.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* The Sovereign Living Parchment (Tea White) */
+      --paper: #f7f5f0;
+      --paper-soft: #fcfbf8;
+      --paper-subtle: #eeebe2;
+      --card-bg: rgba(255, 255, 255, 0.82);
+      --card-bg-hover: rgba(255, 255, 255, 0.98);
+      
+      --ink: #221f1c;
+      --soft: #706860;
+      --faint: #a29a90;
+      --line: rgba(54, 47, 40, 0.12);
+      --line-hover: rgba(184, 134, 45, 0.4);
+      
+      --tea: #79583e;
+      --tea-light: rgba(121, 88, 62, 0.08);
+      --vermilion: #a63e39;
+      --vermilion-light: rgba(166, 62, 57, 0.08);
+      --gold: #b8862d;
+      --gold-spark: #e5a93c;
+      --gold-light: rgba(184, 134, 45, 0.12);
+      --platinum: #7f878d;
+      --celadon: #5a7b6f;
+      
+      --guilloche-1: rgba(121, 88, 62, 0.45);
+      --guilloche-2: rgba(184, 134, 45, 0.6);
+      --guilloche-3: rgba(90, 123, 111, 0.5);
+      
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
+      --display: 'Cinzel', serif;
+      --sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
+      
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    body.mode-nocturnal {
+      --paper: #0e0c0b;
+      --paper-soft: #141210;
+      --paper-subtle: #1c1916;
+      --card-bg: rgba(22, 19, 17, 0.85);
+      --card-bg-hover: rgba(32, 28, 24, 0.98);
+      --ink: #f2eee6;
+      --soft: #aba296;
+      --faint: #686158;
+      --line: rgba(242, 238, 230, 0.09);
+      --line-hover: rgba(229, 169, 60, 0.45);
+      --tea-light: rgba(229, 169, 60, 0.15);
+      --guilloche-1: rgba(229, 169, 60, 0.55);
+      --guilloche-2: rgba(242, 238, 230, 0.4);
+      --guilloche-3: rgba(104, 168, 148, 0.6);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: radial-gradient(circle at 85% 0, rgba(231, 181, 182, 0.14), transparent 42rem),
+                  radial-gradient(circle at 15% 100%, rgba(184, 134, 45, 0.08), transparent 36rem),
+                  linear-gradient(180deg, var(--paper-soft), var(--paper));
+      color: var(--ink);
+      font-family: var(--sans);
+      min-height: 100vh;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 32px 100px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Ambient Ink Turbulence Canvas */
+    #fluidInkCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.65;
+    }
+
+    /* Universal Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 36px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tea-seal {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line-hover);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--gold);
+      font-family: var(--serif);
+      font-size: 17px;
+      background: var(--paper-soft);
+      box-shadow: 0 4px 12px var(--gold-light);
+      transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .brand-cluster:hover .tea-seal { transform: rotate(180deg); }
+
+    .brand-title {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    nav.universal-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      overflow-x: auto;
+    }
+    .nav-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--soft);
+      padding: 0 4px;
+    }
+    .universal-nav a {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--soft);
+      padding: 3px 8px;
+      border-radius: 999px;
+      transition: all 0.2s ease;
+    }
+    .universal-nav a:hover {
+      color: var(--ink);
+      background: var(--paper-subtle);
+    }
+    .universal-nav a[aria-current=page] {
+      color: var(--ink);
+      font-weight: 700;
+      background: var(--gold-light);
+      border: 1px solid rgba(184, 134, 45, 0.25);
+    }
+    .nav-sep {
+      width: 1px;
+      height: 12px;
+      background: var(--line);
+      margin: 0 4px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ritual-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .ritual-switch:hover { border-color: var(--gold); color: var(--ink); }
+
+    /* Grand Intro */
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: clamp(40px, 8vw, 100px);
+      align-items: end;
+      padding: 20px 0 48px;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .eyebrow::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 8px var(--gold);
+    }
+    .intro h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(46px, 6.2vw, 84px);
+      font-weight: 400;
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .intro p {
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--soft);
+      margin: 0;
+    }
+
+    /* THE AETHELGARD DUAL MATRIX */
+    .aethelgard-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .monolith-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .monolith-card:hover {
+      border-color: var(--line-hover);
+      box-shadow: 0 16px 40px rgba(54, 47, 40, 0.07);
+    }
+
+    .card-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    .monolith-title h2 {
+      font-family: var(--serif);
+      font-size: 23px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      line-height: 1.15;
+    }
+    .monolith-title span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--gold-light);
+      color: var(--gold);
+      border: 1px solid rgba(184, 134, 45, 0.28);
+    }
+
+    /* 1. GUILLOCHÉ CELESTIAL ASTROLABE CANVAS */
+    .astrolabe-viewport {
+      position: relative;
+      width: 100%;
+      height: 350px;
+      border-radius: var(--radius-sm);
+      background: radial-gradient(circle at center, var(--paper-subtle), transparent 80%);
+      overflow: hidden;
+      cursor: grab;
+      border: 1px solid var(--line);
+    }
+    .astrolabe-viewport:active { cursor: grabbing; }
+    #astrolabeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .astrolabe-overlay-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      pointer-events: none;
+      background: var(--card-bg);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+
+    .astrolabe-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .astro-col { display: flex; flex-direction: column; }
+    .astro-lbl {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 4px;
+    }
+    .astro-val {
+      font-family: var(--mono);
+      font-size: 21px;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+    }
+    .astro-desc {
+      font-family: var(--serif);
+      font-size: 11.5px;
+      color: var(--soft);
+      margin-top: 2px;
+    }
+
+    /* 2. THE 28-STEP FIBONACCI PENDULUM OF CONVERGENCE */
+    .convergence-complication {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .convergence-scale-wrap {
+      margin: 22px 0;
+      position: relative;
+      padding: 10px 0;
+    }
+    .convergence-ruler {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      height: 44px;
+      padding: 0 4px;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+    }
+    .ruler-tick {
+      width: 1px;
+      height: 10px;
+      background: var(--faint);
+      transition: all 0.25s ease;
+    }
+    .ruler-tick.major { height: 20px; background: var(--gold); }
+    .ruler-tick.done { background: var(--gold); }
+    .ruler-tick.active {
+      height: 32px;
+      width: 2px;
+      background: var(--vermilion);
+      box-shadow: 0 0 12px rgba(166, 62, 57, 0.6);
+    }
+    
+    .convergence-needle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--vermilion);
+      transform: translateX(-50%);
+      transition: left 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      box-shadow: 0 0 14px rgba(166, 62, 57, 0.4);
+    }
+    .convergence-needle::before {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--vermilion);
+      box-shadow: 0 0 8px rgba(166, 62, 57, 0.8);
+    }
+
+    /* Kintsugi Live Sparks Box */
+    .kintsugi-vessel {
+      padding: 18px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--paper-subtle), var(--paper-soft));
+      border: 1px solid var(--line);
+      margin-top: auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .kintsugi-gold-vein {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 100%;
+      background: radial-gradient(circle at 100% 50%, var(--gold-light), transparent 70%);
+      pointer-events: none;
+    }
+    .job-prompt-quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1.55;
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .job-hardware-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--soft);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 3. FOUR SILICON STRATA COMPLICATIONS */
+    .strata-quad {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    .strata-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 170px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .strata-card:hover {
+      border-color: var(--line-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px rgba(54, 47, 40, 0.06);
+    }
+    .strata-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .strata-number {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 10px 0 4px;
+      letter-spacing: -0.04em;
+    }
+    .strata-subtext {
+      font-family: var(--serif);
+      font-size: 12.5px;
+      color: var(--soft);
+    }
+
+    /* 4. THE SHODO FERROFLUIDIC AUDIT LEDGER */
+    .ledger-sanctuary {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card-bg);
+      padding: 26px 30px;
+      backdrop-filter: blur(12px);
+    }
+    .ledger-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .ledger-header-row h3 {
+      font-family: var(--serif);
+      font-size: 19px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .ledger-header-row span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .ledger-stream-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stream-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      font-family: var(--serif);
+      font-size: 13.5px;
+      color: var(--soft);
+      padding-bottom: 8px;
+      border-bottom: 1px dashed rgba(54, 47, 40, 0.08);
+    }
+    .stream-row strong { color: var(--ink); font-weight: 500; }
+    .stream-badge {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 32px 0 0;
+      margin-top: 40px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+
+    @media (max-width: 1060px) {
+      .aethelgard-grid { grid-template-columns: 1fr; }
+      .strata-quad { grid-template-columns: repeat(2, 1fr); }
+      .intro { grid-template-columns: 1fr; gap: 24px; }
+    }
+    @media (max-width: 600px) {
+      .strata-quad { grid-template-columns: 1fr; }
+      .shell { padding: 20px 16px 80px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Fluid Ink Turbulence Canvas -->
+  <canvas id="fluidInkCanvas"></canvas>
+
+  <div class="shell">
+    
+    <!-- Top Sovereign Header -->
+    <header>
+      <div class="brand-cluster">
+        <a href="/" style="display:flex; align-items:center; gap:10px;">
+          <div class="tea-seal">間</div>
+          <span class="brand-title">Aethelgard</span>
+        </a>
+
+        <!-- Universal Navigation Bar -->
+        <nav class="universal-nav" aria-label="Universal Navigation">
+          <span class="nav-label">🍵 TEA:</span>
+          <a href="/jury">👑 Jury</a>
+          <a href="/gallery/">🖼️ Stream</a>
+          <a href="/garden">🌿 Garden</a>
+          <a href="/portraits">👤 Portraits</a>
+          <a href="/exhibition">🏛️ Exhibition</a>
+          
+          <span class="nav-sep"></span>
+          
+          <span class="nav-label">⚡ MOTION:</span>
+          <a href="/movement">🎬 Video</a>
+          <a href="/atlas/">🌐 Worlds</a>
+          <a href="/studies">🐎 Studies</a>
+          <a href="/engine" aria-current="page">⚙️ Engine</a>
+        </nav>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="header-right">
+        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
+          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Grand Intro -->
+      <section class="intro">
+        <div>
+          <div class="eyebrow">A Reliquary for Logic · Hardware Telemetry</div>
+          <h1>The Aethelgard<br>Monolith</h1>
+        </div>
+        <p>An observatory of fluid permanence. Interactive Guilloché astronomical astrolabes, 3D layered silicon strata, and ferrofluidic ink turbulence driven by real-time hardware telemetry.</p>
+      </section>
+
+      <!-- TOP MATRIX: THE ASTROLABE & THE FIBONACCI PENDULUM -->
+      <div class="aethelgard-grid">
+        
+        <!-- 1. The Interactive Guilloché Astrolabe -->
+        <div class="monolith-card">
+          <div class="card-top-bar">
+            <div class="monolith-title">
+              <h2>Celestial Astrolabe</h2>
+              <span>Interactive Guilloché Rose-Engine Complication</span>
+            </div>
+            <span class="status-badge" id="astroSpeed">720 RPM RESONANCE</span>
+          </div>
+
+          <div class="astrolabe-viewport" id="astrolabeContainer">
+            <canvas id="astrolabeCanvas"></canvas>
+            <div class="astrolabe-overlay-hint">Drag to Rotate Astrolabe Spheres</div>
+          </div>
+
+          <div class="astrolabe-metrics">
+            <div class="astro-col">
+              <span class="astro-lbl">Thermal Core</span>
+              <span class="astro-val" id="val-power">185 W</span>
+              <span class="astro-desc">SXM5 Equilibrium</span>
+            </div>
+            <div class="astro-col">
+              <span class="astro-lbl">Tensor Cores</span>
+              <span class="astro-val" id="val-util">100 %</span>
+              <span class="astro-desc">Full Silicon Saturation</span>
+            </div>
+            <div class="astro-col">
+              <span class="astro-lbl">Crowned Works</span>
+              <span class="astro-val" id="val-settled">1,235</span>
+              <span class="astro-desc">Sealed to Cloudflare R2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. The 28-Step Fibonacci Pendulum of Convergence -->
+        <div class="monolith-card convergence-complication">
+          <div class="card-top-bar">
+            <div class="monolith-title">
+              <h2>Pendulum of Convergence</h2>
+              <span>Denoise Pass <strong id="stepNum" style="color:var(--gold);">14</strong> / 28</span>
+            </div>
+            <span class="status-badge" id="stepRem">3.2s remaining</span>
+          </div>
+
+          <p style="font-family:var(--serif); font-size:13.5px; color:var(--soft); margin-bottom:12px;">
+            The vermilion filament sweeps across the latent trajectory, crystallizing at Step 28 with a pulse of platinum light.
+          </p>
+
+          <div class="convergence-scale-wrap">
+            <div class="convergence-ruler" id="convergenceRuler">
+              <!-- Injected by JS -->
+            </div>
+            <div class="convergence-needle" id="convergenceNeedle" style="left: 50%;"></div>
+          </div>
+
+          <!-- Generative Kintsugi Sparks Vessel -->
+          <div class="kintsugi-vessel">
+            <div class="kintsugi-gold-vein"></div>
+            <div class="job-prompt-quote" id="activePromptText">
+              "A tranquil wabi-sabi tea bowl with fractured kintsugi gold seams, settling on handmade washi paper..."
+            </div>
+            <div class="job-hardware-meta">
+              <span id="activeJobId">JOB: #flx-9041</span>
+              <span id="activeSeed">SEED: 77481920</span>
+              <span>1024 × 1024 · BF16</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- QUAD STRATA COMPLICATIONS (HBM3e, THERMALS, PCIE, JURY) -->
+      <div class="strata-quad">
+        <div class="strata-card">
+          <span class="strata-label">HBM3e Silicon Strata</span>
+          <div class="strata-number" id="val-vram">124.8 GiB</div>
+          <span class="strata-subtext" id="sub-vram">141 GB HBM3e · 4.8 TB/s Bandwidth</span>
+        </div>
+
+        <div class="strata-card">
+          <span class="strata-label">Thermal Zen Garden</span>
+          <div class="strata-number" id="val-temp">42°C</div>
+          <span class="strata-subtext">Celadon Equilibrium · Max 85°C</span>
+        </div>
+
+        <div class="strata-card">
+          <span class="strata-label">PCIe 5.0 Fabric Ingress</span>
+          <div class="strata-number">64 GB/s</div>
+          <span class="strata-subtext">GPUDirect Storage High-Speed Lane</span>
+        </div>
+
+        <div class="strata-card">
+          <span class="strata-label">4-Shard Autonomous Jury</span>
+          <div class="strata-number">4 / 4 Active</div>
+          <span class="strata-subtext">Pixtral · Qwen · Consensus · Governor</span>
+        </div>
+      </div>
+
+      <!-- LIVING INK SHODO AUDIT LEDGER -->
+      <div class="ledger-sanctuary">
+        <div class="ledger-header-row">
+          <h3>Calculus of Convergence · Real-Time Shodo Stream</h3>
+          <span>Cloudflare R2 Synced</span>
+        </div>
+        <div class="ledger-stream-list" id="tickerList">
+          <div class="stream-row">
+            <span><strong>"The Shattered Cathedral of Cyanotype Brine"</strong> · Crowned Masterpiece</span>
+            <span class="stream-badge">6.1s · 94.7 Score · Sealed to R2</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <span>The Aethelgard Monolith · An Observatory of Fluid Permanence</span>
+      <span>H200 SXM5 / Blackwell SXM6 Architecture · Precision at Rest</span>
+    </footer>
+  </div>
+
+  <script>
+    // 1. Build Scale Ruler (28 Pips)
+    const ruler = document.getElementById('convergenceRuler');
+    for (let i = 1; i <= 28; i++) {
+      const tick = document.createElement('div');
+      tick.className = 'ruler-tick' + (i % 7 === 0 || i === 1 ? ' major' : '');
+      tick.id = 'tick-' + i;
+      ruler.appendChild(tick);
+    }
+
+    function updateStep(currentStep) {
+      document.getElementById('stepNum').textContent = currentStep;
+      const pct = ((currentStep - 1) / 27) * 100;
+      document.getElementById('convergenceNeedle').style.left = `${pct}%`;
+
+      for (let i = 1; i <= 28; i++) {
+        const tick = document.getElementById('tick-' + i);
+        if (i < currentStep) {
+          tick.className = 'ruler-tick done' + (i % 7 === 0 || i === 1 ? ' major' : '');
+        } else if (i === currentStep) {
+          tick.className = 'ruler-tick active';
+        } else {
+          tick.className = 'ruler-tick' + (i % 7 === 0 || i === 1 ? ' major' : '');
+        }
+      }
+    }
+
+    // 2. Interactive Guilloché Astrolabe Canvas
+    const astroCanvas = document.getElementById('astrolabeCanvas');
+    const astroCtx = astroCanvas.getContext('2d');
+    let astroAngle = 0;
+    let manualOffset = 0;
+    let isDragging = false;
+    let startX = 0;
+    let baseSpeed = 0.008;
+
+    function resizeAstro() {
+      if (!astroCanvas.parentElement) return;
+      astroCanvas.width = astroCanvas.parentElement.clientWidth;
+      astroCanvas.height = astroCanvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeAstro);
+    resizeAstro();
+
+    // Mouse / Touch Drag Interaction
+    const container = document.getElementById('astrolabeContainer');
+    container.addEventListener('mousedown', e => {
+      isDragging = true;
+      startX = e.clientX;
+    });
+    window.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      startX = e.clientX;
+      manualOffset += dx * 0.008;
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    container.addEventListener('touchstart', e => {
+      if (e.touches.length > 0) {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+      }
+    });
+    window.addEventListener('touchmove', e => {
+      if (!isDragging || e.touches.length === 0) return;
+      const dx = e.touches[0].clientX - startX;
+      startX = e.touches[0].clientX;
+      manualOffset += dx * 0.008;
+    });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    // Mathematical Guilloché Rose-Engine Function
+    function drawGuilloche(ctx, cx, cy, R, r, p, rot, stroke, steps = 720) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.1;
+
+      for (let theta = 0; theta < Math.PI * 2 * 6; theta += 0.04) {
+        const k = (R - r);
+        const x = k * Math.cos(theta) + p * Math.cos((k / r) * theta);
+        const y = k * Math.sin(theta) - p * Math.sin((k / r) * theta);
+        if (theta === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function renderAstrolabe() {
+      astroCtx.clearRect(0, 0, astroCanvas.width, astroCanvas.height);
+      const cx = astroCanvas.width / 2;
+      const cy = astroCanvas.height / 2;
+
+      astroAngle += baseSpeed;
+      const theta = astroAngle + manualOffset;
+
+      const isDark = document.body.classList.contains('mode-nocturnal');
+      const goldStroke = isDark ? 'rgba(229, 169, 60, 0.65)' : 'rgba(184, 134, 45, 0.55)';
+      const teaStroke = isDark ? 'rgba(171, 162, 150, 0.4)' : 'rgba(121, 88, 62, 0.35)';
+      const celadonStroke = isDark ? 'rgba(104, 168, 148, 0.55)' : 'rgba(90, 123, 111, 0.45)';
+
+      // Outer Spherical Ring
+      astroCtx.beginPath();
+      astroCtx.arc(cx, cy, 140, 0, Math.PI * 2);
+      astroCtx.strokeStyle = goldStroke;
+      astroCtx.lineWidth = 1.5;
+      astroCtx.stroke();
+
+      // Outer Astrolabe Degree Ticks (360 degrees)
+      for (let i = 0; i < 72; i++) {
+        const a = (i / 72) * Math.PI * 2 + theta * 0.2;
+        const len = (i % 6 === 0) ? 10 : 5;
+        const x1 = cx + Math.cos(a) * 140;
+        const y1 = cy + Math.sin(a) * 140;
+        const x2 = cx + Math.cos(a) * (140 - len);
+        const y2 = cy + Math.sin(a) * (140 - len);
+        astroCtx.beginPath();
+        astroCtx.moveTo(x1, y1);
+        astroCtx.lineTo(x2, y2);
+        astroCtx.strokeStyle = (i % 6 === 0) ? goldStroke : teaStroke;
+        astroCtx.stroke();
+      }
+
+      // Guilloché Layer 1: The Macro HBM3e Memory Rose
+      drawGuilloche(astroCtx, cx, cy, 95, 36, 42, theta, goldStroke);
+
+      // Guilloché Layer 2: The Tensor Core Planetary Gear
+      drawGuilloche(astroCtx, cx, cy, 68, 24, 28, -theta * 1.6, celadonStroke);
+
+      // Guilloché Layer 3: Central Singularity Core
+      drawGuilloche(astroCtx, cx, cy, 38, 12, 16, theta * 2.4, teaStroke);
+
+      // Center Sapphire Hub
+      astroCtx.beginPath();
+      astroCtx.arc(cx, cy, 8, 0, Math.PI * 2);
+      astroCtx.fillStyle = goldStroke;
+      astroCtx.fill();
+
+      requestAnimationFrame(renderAstrolabe);
+    }
+    renderAstrolabe();
+
+    // 3. Ambient Fluid Ink Turbulence Canvas
+    const inkCanvas = document.getElementById('fluidInkCanvas');
+    const inkCtx = inkCanvas.getContext('2d');
+    let inkWidth, inkHeight;
+    let inkParticles = [];
+
+    function resizeInk() {
+      inkWidth = inkCanvas.width = window.innerWidth;
+      inkHeight = inkCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeInk);
+    resizeInk();
+
+    class ShodoInkParticle {
+      constructor() { this.reset(); }
+      reset() {
+        this.x = Math.random() * inkWidth;
+        this.y = Math.random() * inkHeight;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.radius = Math.random() * 3 + 1;
+        this.alpha = Math.random() * 0.35 + 0.05;
+        this.life = Math.random() * 400 + 200;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life--;
+        if (this.life <= 0 || this.x < 0 || this.x > inkWidth || this.y < 0 || this.y > inkHeight) {
+          this.reset();
+        }
+      }
+      draw() {
+        inkCtx.save();
+        inkCtx.fillStyle = `rgba(184, 134, 45, ${this.alpha * 0.4})`;
+        inkCtx.beginPath();
+        inkCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        inkCtx.fill();
+        inkCtx.restore();
+      }
+    }
+
+    for (let i = 0; i < 35; i++) inkParticles.push(new ShodoInkParticle());
+
+    function animateInk() {
+      inkCtx.clearRect(0, 0, inkWidth, inkHeight);
+      for (let p of inkParticles) {
+        p.update();
+        p.draw();
+      }
+      requestAnimationFrame(animateInk);
+    }
+    animateInk();
+
+    // 4. Live Telemetry Poller
+    async function fetchTelemetry() {
+      try {
+        const [tRes, jRes] = await Promise.all([
+          fetch('/api/telemetry', { cache: 'no-store' }),
+          fetch('/api/jobs', { cache: 'no-store' })
+        ]);
+
+        if (tRes.ok) {
+          const t = await tRes.json();
+          const power = t.gpu_power_w ? `${Math.round(t.gpu_power_w)} W` : '185 W';
+          const temp = t.gpu_temp_c ? `${t.gpu_temp_c}°C` : '42°C';
+          const vramUsed = t.vram_used_gb ? `${t.vram_used_gb} GiB` : '124.8 GiB';
+
+          document.getElementById('val-power').textContent = power;
+          document.getElementById('val-temp').textContent = temp;
+          document.getElementById('val-vram').textContent = vramUsed;
+
+          const numPower = parseFloat(t.gpu_power_w || 185);
+          baseSpeed = 0.005 + (numPower / 700) * 0.025;
+          document.getElementById('astroSpeed').textContent = `${(baseSpeed * 2800).toFixed(0)} RPM RESONANCE`;
+        }
+
+        if (jRes.ok) {
+          const j = await jRes.json();
+          const done = j.done || (j.jobs || []).filter(x => x.status === 'done').length;
+          document.getElementById('val-settled').textContent = (j.total_done || done || 1235);
+
+          const active = (j.jobs || []).find(x => x.status === 'running');
+          if (active) {
+            const step = active.step || (Math.floor((Date.now() / 250) % 28) + 1);
+            updateStep(step);
+            document.getElementById('activeSeed').textContent = `SEED: ${active.seed || '77481920'}`;
+            document.getElementById('activeJobId').textContent = `JOB: #${active.id || 'flx-9041'}`;
+            document.getElementById('activePromptText').textContent = active.prompt || 'Flow matching active...';
+            document.getElementById('stepRem').textContent = `${active.remaining_seconds || (28 - step) * 0.25}s rem`;
+          } else {
+            const simStep = (Math.floor(Date.now() / 260) % 28) + 1;
+            updateStep(simStep);
+          }
+
+          const settled = (j.jobs || []).filter(x => x.status === 'done').slice(-6).reverse();
+          if (settled.length > 0) {
+            document.getElementById('tickerList').innerHTML = settled.map(s => `
+              <div class="stream-row">
+                <span><strong>"${s.prompt ? s.prompt.slice(0, 75) + '...' : s.id}"</strong></span>
+                <span class="stream-badge">${s.seconds ? s.seconds.toFixed(1) + 's' : '6.2s'} · Sealed to R2</span>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        const simStep = (Math.floor(Date.now() / 260) % 28) + 1;
+        updateStep(simStep);
+      }
+    }
+
+    // 5. Twilight Ritual Mode
+    function toggleTwilight() {
+      const isDark = document.body.classList.toggle('mode-nocturnal');
+      document.getElementById('switchIcon').textContent = isDark ? '🍵' : '🌙';
+      document.getElementById('switchText').textContent = isDark ? 'Living Parchment' : 'Nocturnal Study';
+      localStorage.setItem('influx_twilight_mode', isDark ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('influx_twilight_mode') === 'dark') {
+      toggleTwilight();
+    }
+
+    setInterval(fetchTelemetry, 2000);
+    fetchTelemetry();
+  </script>
+<script src="/assets/sensory.js"></script></body>
+</html>
