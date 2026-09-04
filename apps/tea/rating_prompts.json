@@ -1,0 +1,23 @@
+{
+  "structure": {
+    "anatomy": "Count fingers, hands, limbs, eyes, ears, teeth, and the legs of animals and furniture. Check joint direction, limb attachment, symmetry of paired features, and whether any body part merges into another object. Does the body hold?",
+    "geometry": "Check vanishing points, horizon consistency, whether parallel architecture stays parallel, whether reflections and cast shadows agree with the implied light, whether object scale holds across depth. Does the space hold?",
+    "edge_integrity": "Look for contour breaks, melted or doubled outlines, boundaries that dissolve into the background, hair fur or fabric terminating in mush. Do the edges belong to the forms?",
+    "artifact_freedom": "Look for diffusion smear, repeated texture tiling, chromatic fringing, checkerboard residue, garbled glyphs, seams, duplicated limbs or objects at the frame edge. Is the surface clean of generative residue?",
+    "focus_coherence": "Is the depth of field optically consistent, or are things sharp and soft where no lens could make them so?"
+  },
+  "aesthetic": {
+    "palette_cohesion": "Is there a governing colour logic, or an unmotivated accumulation of hues? Penalise teal/orange defaults, unmotivated magenta rim light, and the purple-and-cyan gradient that stands in for atmosphere. Reward restraint and a limited palette.",
+    "lighting_authenticity": "Can you name the light sources and their colour temperature? Do key, fill and bounce behave like real light in a real volume? Penalise sourceless ambient glow and highlights that sit on top of the form instead of wrapping it.",
+    "medium_authenticity": "If it claims oil, does it carry loaded impasto and brush direction that changes with pressure? If ink, real dry-brush, bleed and reserved white? If photography, real lens character and grain? Penalise the plastic digital-airbrush surface that belongs to no medium.",
+    "tonal_range": "Is there a true black and a true white with a structured midtone ladder, or is everything crushed into mid-grey haze or blown out?",
+    "atmosphere": "Does aerial perspective, haze density and particulate light build actual depth, or is it a flat sticker over a gradient?"
+  },
+  "synthesis": {
+    "subject_fidelity": "Enumerate every noun the commissioning prompt requires, then check it against the Structural Inspector's scene_inventory. A required subject missing from the inventory is a hard failure, not a deduction.",
+    "attribute_binding": "Every adjective, material, colour and count in the brief must be attached to the right noun in the testimony. Hunt for attribute leakage: brass gears asked for, brass inlay delivered.",
+    "scene_completeness": "Required setting, time of day, weather, framing, lens language and any stated art-historical reference must be honoured, not just the headline subject.",
+    "evidence_consistency": "Do the judges' words and their own observations agree? A judge whose critique names a serious defect while calling the work specialist is not credible.",
+    "exhibition_readiness": "On this testimony, would you hang this at size in a room where the work is looked at closely?"
+  }
+}

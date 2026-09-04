@@ -107,8 +107,9 @@
   <h1 class="queue-title">The charter queue</h1>
   <p class="lede">
     Charters are the only thing that decides what the colony builds.
-    Ranked from the live <code>.swarm/charters</code> comb — linked to
-    <a href="https://tea.geijutsu.work/">Tea</a> for now.
+    Ranked from the live <code>.swarm/charters</code> comb. Watch the
+    discourse and outcomes on the Tea
+    <a href="https://tea.geijutsu.work/hive">Hive desk</a>.
   </p>
   <div class="stats" id="stats"></div>
   <div class="filters" id="filters"></div>
@@ -117,7 +118,7 @@
 </main>
 
 <script>
-const STATES = ["all","active","proposed","paused","implemented","satisfied","superseded"];
+const STATES = ["all","active","proposed","paused","implemented","satisfied","superseded","parked"];
 let DATA = { queue: [], counts: {} };
 let FILTER = "active";
 
@@ -155,7 +156,7 @@ function render() {
         <div>
           <h2>${esc(c.title)}</h2>
           <p>${esc(c.summary || "No summary filed.")}</p>
-          <div class="meta">${esc(c.slug)} · ${esc(c.opened_by || "unattributed")}${c.opened_at ? " · " + esc(c.opened_at) : ""}${c.open_scopes ? " · " + c.open_scopes + " open scopes" : ""}</div>
+          <div class="meta">${esc(c.slug)}${c.sequence ? " · seq " + c.sequence : ""}${c.parent ? " · child of " + esc(c.parent) : ""} · ${esc(c.opened_by || "unattributed")}${c.opened_at ? " · " + esc(c.opened_at) : ""}${c.open_scopes ? " · " + c.open_scopes + " open scopes" : ""}</div>
         </div>
         <div class="pills">
           ${pill(c.priority, c.priority)}

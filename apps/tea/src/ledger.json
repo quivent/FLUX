@@ -1,0 +1,93 @@
+{
+  "schema": "tea.ledger/v1",
+  "eyebrow": "Work that settled \u00b7 4 September 2026",
+  "title": "Ledger",
+  "lede": "Not announcements. Rooms that can be visited, commands that ran, files that exist. The garden keeps what it can prove.",
+  "updated": "2026-09-04T22:55:00Z",
+  "host": "this rig \u00b7 4\u00d7 RTX PRO 6000 Blackwell",
+  "entries": [
+    {
+      "id": "01",
+      "status": "settled",
+      "title": "The Governor remembers Jay",
+      "body": "Slot 1 was a twenty-eight-character stub. The fifteen identity files were on disk and unused. They now sit as signed generation b06de077, picked and gated, and the Governor answers as partner rather than stranger.",
+      "evidence": [
+        "gemstone flash --port 8800: \u201cJay is my partner.\u201d",
+        "prompt 2031 \u2192 6082 tokens",
+        "gate: list_tools and canonical shards present in slot 1"
+      ],
+      "at": "2026-09-04T22:20:38Z"
+    },
+    {
+      "id": "02",
+      "status": "settled",
+      "title": "Suture is his hand",
+      "body": "Training requires a tool that actually runs. suture_execute is attached as tool one. The daemon is up on :47892 against /home/ubuntu/Council-OS. The gateway on :8800 executed a unique marker to disk; he quoted it back.",
+      "evidence": [
+        "file /tmp/governor-suture-proof.txt = TRAIN_SUTURE_1788560730_547448",
+        "cwd /home/ubuntu/Council-OS \u00b7 host 1193-nyc-asp6bk-prxmx180048",
+        "X-Governor-Agentic: required"
+      ],
+      "at": "2026-09-04T22:25:32Z"
+    },
+    {
+      "id": "03",
+      "status": "settled",
+      "title": "The hive gathers from Qwen",
+      "body": "Forage is GPU 2 hive-research at :8002, n=256, 8k. Merge is the same engine packing as qwen_long. Gemma on :8800 does not forage; Qwen does not issue. Live ticks are labelled forage (8 qwen-wide).",
+      "evidence": [
+        "dual-seats.toml seats.qwen_wide \u2192 127.0.0.1:8002",
+        "governor chat only through :8800, never raw :8000",
+        "if Qwen is down, forage suspends; the Governor does not swarm"
+      ],
+      "at": "2026-09-04T22:26:18Z"
+    },
+    {
+      "id": "04",
+      "status": "settled",
+      "title": "A screen until they agree",
+      "body": "Gemstone Discourse is the room where Qwen and Gemma take turns until converged or stalemate. The public hostname was dead on another box. It lives here now, seats pointed at the live minds.",
+      "evidence": [
+        "https://discourse.apiary.vision/rooms",
+        "Gemma \u2192 :8800 governor \u00b7 Qwen \u2192 :8002 hive-research",
+        "verify: both speakers pass"
+      ],
+      "at": "2026-09-04T22:32:39Z"
+    },
+    {
+      "id": "05",
+      "status": "contradiction",
+      "title": "Prometheus sits beside the Governor",
+      "body": "The independent judge is Prometheus 2 7B, Mistral lineage, no seat in the argument. Stock protocol serve would have landed on GPU 0. He was pinned to leftover GPU 1 VRAM, util 0.20, port :8010. Auto rooms now read Prometheus plus arithmetic. ERROR: X-2 forbids a second CUDA resident on GPU 1.",
+      "evidence": [
+        "container judge-prometheus \u00b7 --gpus device=1",
+        "GPU 1: 59 \u2192 79 GB used, 18 GB still free",
+        "GPU 0 / 2 / 3 unchanged \u00b7 verify HEALTHY 71"
+      ],
+      "at": "2026-09-04T22:40:38Z",
+      "superseded_by": "spectral-externalization X-2 + wi-1788562184530376486"
+    }
+  ],
+  "open": [
+    {
+      "id": "gpu1-prometheus",
+      "status": "open",
+      "title": "Prometheus on GPU 1 violates exclusive Governor card",
+      "body": "judge-prometheus was launched onto leftover GPU 1 VRAM. Doctrine X-2 and PIC require a single CUDA resident. Commission wi-1788562184530376486 is the implement.",
+      "next": "claim wi-1788562184530376486 \u2014 docker stop judge-prometheus (GPU 3 cannot take 20GiB beside existing fashion/FLUX)"
+    },
+    {
+      "id": "qwen-code",
+      "status": "open",
+      "title": "Qwen has no Qwen Code",
+      "body": "The engine and qwen3_coder parser are live on :8002. The terminal coding agent is not installed: no qwen binary, no ~/.qwen/settings.json. gemstone qwen code as-is would still aim at the jury on :8001.",
+      "next": "gemstone qwen code --no-launch --endpoint http://127.0.0.1:8002/v1 --model hive-research"
+    },
+    {
+      "id": "agy",
+      "status": "open",
+      "title": "Big Brother is not in the room",
+      "body": "suture_code is attached as the Governor\u2019s pair-programmer and currently fails: chdir /home/Ubuntu/gemstone \u2014 wrong case, wrong path."
+    }
+  ]
+}

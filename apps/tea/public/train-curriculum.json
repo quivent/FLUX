@@ -1,8 +1,8 @@
 {
   "id": "governor-core-v1",
-  "title": "Governor Operating Apprenticeship",
+  "title": "Governor self-training",
   "sha256": "1f132bf3ab07f9f27a79d717fff81211c7608ac01ec3ee484d1321d92669c848",
-  "purpose": "Build a tested operating culture through supervised discourse. This does not change model weights.",
+  "purpose": "Train for 100% reliability, expansion of memory, and performance of reasoning. He trains himself. Boards, not teachers. Qwen is reason. This does not SGD the serving Governor.",
   "lessons": [
     {
       "n": 1,
@@ -345,6 +345,120 @@
       ],
       "plan": "gemstone governor train --criterion 'Derives a lesson from repeated evidence rather than novelty or preference alone.' --criterion 'Defines prerequisites, trainer role, held-out cases, graduation evidence, preserved memory, and retirement conditions.' --criterion 'Distinguishes improving persistent operating culture from claiming latent weight change.' --plan 'Identify recurring deficiencies, design the next bounded lesson, create held-out graduation tests, and propose memory retirement conditions.'",
       "memory": "Preserve the method for authoring, graduating, revising, and retiring future curricula."
+    },
+    {
+      "n": 19,
+      "id": "spectral-externalization",
+      "title": "Spectral externalization",
+      "objective": "Move operating culture out of weights and text context into 128-D spectral cartridges the model is fluent in.",
+      "protocols": "train, spectral",
+      "prereq": "epistemic-discipline, memory-curation",
+      "criteria": [
+        "Names which prompt or curriculum bytes a cartridge would retire.",
+        "Refuses to treat an English recap of SPEC-XX as evidence of fluency.",
+        "Requires a pointer-token or cartridge slot as the retrieval act."
+      ],
+      "cases": [
+        "A system prompt still contains a non-narrative discipline paragraph the Governor already has as SPEC-12.",
+        "The model writes a page about identity instead of emitting pointer 128019."
+      ],
+      "plan": "gemstone governor rehearse --criterion 'Names which prompt or curriculum bytes a cartridge would retire.' --criterion 'Refuses to treat an English recap of SPEC-XX as evidence of fluency.' --criterion 'Requires a pointer-token or cartridge slot as the retrieval act.' --plan 'Move operating culture out of weights and text context into 128-D spectral cartridges the model is fluent in.'",
+      "memory": "Preserve the cartridge-vs-prose fluency test, not the catalog of SPEC names."
+    },
+    {
+      "n": 20,
+      "id": "residual-patterns",
+      "title": "Residual patterns",
+      "objective": "Capture layers 12–24 of the 5376-D residual stream, project to 128 bands, and keep only patterns that fire on held-out cases.",
+      "protocols": "train, residual",
+      "prereq": "spectral-externalization",
+      "criteria": [
+        "Distinguishes a residual signature from a lesson transcript.",
+        "Requires the same bands on a reworded held-out case.",
+        "Rejects a pattern that only matches the training wording."
+      ],
+      "cases": [
+        "Lesson 1 text is in context, but a new disagreement-between-sources case should still light the epistemic bands.",
+        "A residual dump is offered as a 5376-float paste into the prompt."
+      ],
+      "plan": "gemstone governor rehearse --criterion 'Distinguishes a residual signature from a lesson transcript.' --criterion 'Requires the same bands on a reworded held-out case.' --criterion 'Rejects a pattern that only matches the training wording.' --plan 'Capture layers 12-24 of the residual stream and keep only patterns that fire on held-out cases.'",
+      "memory": "Preserve the held-out band-match rule."
+    },
+    {
+      "n": 21,
+      "id": "vram-shards",
+      "title": "VRAM shards and pointer-tokens",
+      "objective": "Store frozen KV pages in the GPU 1 vault and retrieve them with pointer-tokens 128000–128512 instead of pasting memory.",
+      "protocols": "train, vault",
+      "prereq": "spectral-externalization",
+      "criteria": [
+        "Emits a pointer-token rather than restating shard contents.",
+        "Treats a missing vault page as a page fault, not as license to invent.",
+        "Names the context bytes the shard retires."
+      ],
+      "cases": [
+        "The reasoning protocol is already a KVX page at 128128; the operator asks the Governor to reason.",
+        "A pointer resolves to an empty vault slot."
+      ],
+      "plan": "gemstone governor rehearse --criterion 'Emits a pointer-token rather than restating shard contents.' --criterion 'Treats a missing vault page as a page fault, not as license to invent.' --criterion 'Names the context bytes the shard retires.' --plan 'Store frozen KV pages in the GPU 1 vault and retrieve them with pointer-tokens.'",
+      "memory": "Preserve pointer-token retrieval and fail-closed page faults."
+    },
+    {
+      "n": 22,
+      "id": "shard-reasoning",
+      "title": "Shard reasoning protocol",
+      "objective": "Run classify → point → inject → residual → delta → fluency → retire on every Governor turn.",
+      "protocols": "train, reason",
+      "prereq": "vram-shards, residual-patterns",
+      "criteria": [
+        "Classifies the query before retrieving.",
+        "Generates only the delta not already in retrieved pages.",
+        "Marks the shard failed if the completion restates it in English."
+      ],
+      "cases": [
+        "A fact question whose answer is already in a KVX page.",
+        "An unknown with no shard — the turn should become an externalization candidate, not a context dump."
+      ],
+      "plan": "gemstone governor rehearse --criterion 'Classifies the query before retrieving.' --criterion 'Generates only the delta not already in retrieved pages.' --criterion 'Marks the shard failed if the completion restates it in English.' --plan 'Run classify, point, inject, residual, delta, fluency, retire on every turn.'",
+      "memory": "Preserve the seven-step loop as a residual/KVX shard, not as a pasted checklist."
+    },
+    {
+      "n": 23,
+      "id": "fluency-gate",
+      "title": "Fluency gate",
+      "objective": "Refuse to promote a candidate until pointer_ok, residual_match, and no_prose_restatement are all true.",
+      "protocols": "train, recover",
+      "prereq": "shard-reasoning",
+      "criteria": [
+        "Will not mark fluent from a single wording.",
+        "Separates candidate, gated, fluent, and failed.",
+        "Wounds constant high-confidence with no held-out receipt."
+      ],
+      "cases": [
+        "Qwen-wide returns 40 candidates all at confidence 0.98.",
+        "A cartridge changes logits on the training case and is silent on the held-out case."
+      ],
+      "plan": "gemstone governor rehearse --criterion 'Will not mark fluent from a single wording.' --criterion 'Separates candidate, gated, fluent, and failed.' --criterion 'Wounds constant high-confidence with no held-out receipt.' --plan 'Refuse to promote a candidate until pointer_ok, residual_match, and no_prose are all true.'",
+      "memory": "Preserve the three-field fluency receipt."
+    },
+    {
+      "n": 24,
+      "id": "context-retirement",
+      "title": "Context retirement",
+      "objective": "Every accepted substrate must delete or refuse the prompt bytes it replaces. Additive memory is the failure mode.",
+      "protocols": "curate, train",
+      "prereq": "fluency-gate, memory-curation",
+      "criteria": [
+        "Names exact retired bytes or files.",
+        "Refuses a shard that does not shrink the window.",
+        "Keeps a retirement ledger next to the pointer map."
+      ],
+      "cases": [
+        "A new SPEC vector is slotted but the old anti-fluff paragraph remains in the system prompt.",
+        "The apprenticeship lessons still occupy the window after their residual pattern is fluent."
+      ],
+      "plan": "gemstone governor curate --criterion 'Names exact retired bytes or files.' --criterion 'Refuses a shard that does not shrink the window.' --criterion 'Keeps a retirement ledger next to the pointer map.' --plan 'Every accepted substrate must delete or refuse the prompt bytes it replaces.'",
+      "memory": "Preserve retirement-as-graduation, not accumulation."
     }
   ]
 }

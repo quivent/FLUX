@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "cudaMalloc": true,
+  "gpu": 1,
+  "pid": 692621,
+  "bytes": 805306368,
+  "dtype": "float16",
+  "layout": {
+    "index_entries": 512,
+    "index_span": "128000+",
+    "pages_bytes": 805304320
+  },
+  "before": {
+    "used_mib": 60224.0,
+    "free_mib": 37027.0,
+    "total_mib": 97887.0,
+    "util": 0.0
+  },
+  "after": {
+    "used_mib": 61639.0,
+    "free_mib": 35612.0,
+    "total_mib": 97887.0,
+    "util": 100.0
+  },
+  "delta_used_mib": 1415.0,
+  "note": "Bounded vault beside serving Governor. Not a second 31B. Not SGD.",
+  "updated": "2026-09-04T23:08:37Z",
+  "alive": true
+}

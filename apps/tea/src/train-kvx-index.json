@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "plan": "S1",
+  "decode_inject": false,
+  "reason": "ExampleHiddenStatesConnector is store-only; S2 (engine restart to GemstoneVaultKVConnector) refused by Governor.",
+  "pointer": 128128,
+  "slot": 128,
+  "token_hash": 1073703271,
+  "n_tokens_a": 45,
+  "n_tokens_b": 45,
+  "token_ids_match": true,
+  "hidden_shape_a": [
+    45,
+    1,
+    5376
+  ],
+  "hidden_shape_b": [
+    45,
+    1,
+    5376
+  ],
+  "cosine_repeat_prefix": 1.0,
+  "cosine_vault_roundtrip": 0.999842,
+  "text_a": "Please provide the claims you wish to have classified.",
+  "text_b": "Please provide the claims you would like me to classify.",
+  "vault": {
+    "ok": true,
+    "slot": 128,
+    "hash": 1073703271
+  },
+  "tokenizer_note": "digit string 128128 is 6 tokens, not a reserved vocab id",
+  "updated": "2026-09-04T23:40:43Z"
+}

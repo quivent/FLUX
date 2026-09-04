@@ -259,7 +259,7 @@ def active_jobs(jobs):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, choices=(256, 512), default=256)
-    p.add_argument("--steps", type=int, choices=(18, 28), default=28)
+    p.add_argument("--steps", type=int, default=28)
     p.add_argument("--prompt", default=DEFAULT_PROMPT)
     p.add_argument("--still-life", action="store_true", help="use the celadon kintsugi still-life prompt")
     p.add_argument("--arcane", action="store_true", help="Arcane Fortiche animation still + jury-signed extra element")
@@ -375,18 +375,24 @@ def main():
                 prompt = args.prompt
                 guidance = args.guidance
                 steps = args.steps
+                width = args.width
+                height = args.height
                 seed = str(int(time.time() * 1000) % 2147483647 + state["submitted"])
                 if branch == "microgreens" and belarro_direction is not None:
                     study = belarro_direction.load_config()
                     prompt = belarro_direction.prompt_for(state["submitted"], study)
                     guidance = float(study.get("guidance") or args.guidance)
                     steps = int(study.get("steps") or args.steps)
+                    width = int(study.get("width") or args.width)
+                    height = int(study.get("height") or args.height)
                     if str(study.get("seed") or "random") == "random":
                         seed = str(int.from_bytes(os.urandom(4), "big") % 2147483647)
                     state["prompt"] = prompt
                     state["direction"] = "belarro"
                     state["guidance"] = guidance
                     state["steps"] = steps
+                    state["width"] = width
+                    state["height"] = height
                     vars_ = study.get("_varieties") or belarro_direction.VARIETIES
                     state["variety"] = vars_[state["submitted"] % len(vars_)][1]
                     depth = int(study.get("depth") or args.depth)
@@ -413,8 +419,8 @@ def main():
                             "prompt": prompt,
                             "steps": steps,
                             "guidance": guidance,
-                            "width": args.width,
-                            "height": args.height,
+                            "width": width,
+                            "height": height,
                             "seed": seed,
                             "filename": filename,
                         })
@@ -424,8 +430,8 @@ def main():
                             "count": 1,
                             "steps": steps,
                             "guidance": guidance,
-                            "width": args.width,
-                            "height": args.height,
+                            "width": width,
+                            "height": height,
                             "seed": seed,
                             "filename": filename,
                         })

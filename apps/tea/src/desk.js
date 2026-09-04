@@ -1,5 +1,9 @@
 window.TeaDesk = (function () {
-  var t = 0, lane = "microgreens";
+  var t = 0, lane = (function () {
+    var h = (location.hash || "").replace("#", "");
+    if (h === "microgreens" || h === "arcane" || h === "fashion") return h;
+    return "fashion";
+  })();
   function $(id) { return document.getElementById(id); }
   function status(msg, cls) {
     var el = $("desk-status");
@@ -40,6 +44,7 @@ window.TeaDesk = (function () {
   }
   function setLane(next, after) {
     lane = next;
+    try { location.hash = next; } catch (_) {}
     document.querySelectorAll(".desk-lanes button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-lane") === lane);
     });

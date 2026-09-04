@@ -45,6 +45,8 @@ DEFAULTS = {
     "life": 80,
     "guidance": 4.0,
     "steps": 28,
+    "width": 1024,
+    "height": 1024,
     "n": 256,
     "depth": 2,
     "seed": "random",
@@ -77,6 +79,29 @@ def load_config():
         cfg["guidance"] = max(1.5, min(6.0, float(cfg.get("guidance") or 4.0)))
     except (TypeError, ValueError):
         cfg["guidance"] = 4.0
+    try:
+        steps = int(cfg.get("steps") or 28)
+    except (TypeError, ValueError):
+        steps = 28
+    if steps < 8:
+        steps = 8
+    if steps > 64:
+        steps = 64
+    cfg["steps"] = steps
+
+    def _size(raw, fallback):
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            n = fallback
+        if n < 256:
+            n = 256
+        if n > 1280:
+            n = 1280
+        return (n // 64) * 64
+
+    cfg["width"] = _size(cfg.get("width"), 1024)
+    cfg["height"] = _size(cfg.get("height"), 1024)
     return cfg
 
 

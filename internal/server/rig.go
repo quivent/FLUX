@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -11,11 +12,18 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"local/flux/internal/daemon"
 )
+
+var rigHub = struct {
+	sync.Mutex
+	clients map[chan map[string]any]struct{}
+	latest  map[string]any
+}{clients: map[chan map[string]any]struct{}{}}
 
 type rigGPU struct {
 	Index       int              `json:"index"`
@@ -70,13 +78,10 @@ func (s Server) domainsPage(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "domains.html"))
 }
 
-func (s Server) rigStatusAPI(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (s Server) rigSnapshot() map[string]any {
 	gpus, err := probeRigGPUs()
 	if err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error(), "updated_at": time.Now().UTC()})
-		return
+		return map[string]any{"ok": false, "error": err.Error(), "updated_at": time.Now().UTC()}
 	}
 	attachRigProcesses(gpus)
 	if s.fleetOn() {
@@ -95,7 +100,111 @@ func (s Server) rigStatusAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.attachLiveWork(gpus)
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "host": hostname(), "updated_at": time.Now().UTC(), "gpus": gpus, "capacity": rigCapacity(gpus), "inventory": map[string]any{"knotext": knotextPresent()}})
+	return map[string]any{"ok": true, "host": hostname(), "updated_at": time.Now().UTC(), "gpus": gpus, "capacity": rigCapacity(gpus), "inventory": map[string]any{"knotext": knotextPresent()}}
+}
+
+func (s Server) rigStatusAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	snap := s.rigSnapshot()
+	if ok, _ := snap["ok"].(bool); !ok {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	_ = json.NewEncoder(w).Encode(snap)
+}
+
+func (s Server) runRigHub(ctx context.Context) {
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	publish := func() {
+		snap := s.rigSnapshot()
+		rigHub.Lock()
+		rigHub.latest = snap
+		clients := make([]chan map[string]any, 0, len(rigHub.clients))
+		for ch := range rigHub.clients {
+			clients = append(clients, ch)
+		}
+		rigHub.Unlock()
+		for _, ch := range clients {
+			select {
+			case ch <- snap:
+			default:
+			}
+		}
+	}
+	publish()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			publish()
+		}
+	}
+}
+
+func (s Server) rigWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	conn, err := upgradeWebSocket(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+	go func() {
+		conn.readLoop()
+		close(done)
+	}()
+
+	updates := make(chan map[string]any, 4)
+	rigHub.Lock()
+	rigHub.clients[updates] = struct{}{}
+	latest := rigHub.latest
+	rigHub.Unlock()
+	defer func() {
+		rigHub.Lock()
+		delete(rigHub.clients, updates)
+		rigHub.Unlock()
+	}()
+
+	send := func(snap map[string]any) bool {
+		if snap == nil {
+			return true
+		}
+		raw, err := json.Marshal(snap)
+		if err != nil {
+			return false
+		}
+		return conn.writeText(raw) == nil
+	}
+	if latest == nil {
+		latest = s.rigSnapshot()
+	}
+	if !send(latest) {
+		return
+	}
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-done:
+			return
+		case <-ping.C:
+			if conn.writePing() != nil {
+				return
+			}
+		case snap := <-updates:
+			if !send(snap) {
+				return
+			}
+		}
+	}
 }
 
 func (s Server) attachLiveWork(gpus []rigGPU) {
@@ -283,9 +392,17 @@ func loadRigStreams(dir string) map[int]map[string]any {
 		if json.Unmarshal(raw, &body) != nil || body == nil {
 			continue
 		}
-		gpu := gpuFromSocket(fmt.Sprint(body["socket"]))
+		gpu := gpuFromBody(body)
+		if gpu < 0 {
+			gpu = gpuFromSocket(fmt.Sprint(body["socket"]))
+		}
 		if strings.Contains(name, "gpu3") {
 			gpu = 3
+		}
+		if strings.Contains(name, "gpu1") || strings.Contains(name, "governor_train") {
+			if gpu < 0 {
+				gpu = 1
+			}
 		}
 		if gpu < 0 {
 			continue
@@ -296,6 +413,8 @@ func loadRigStreams(dir string) map[int]map[string]any {
 				lane = "motion"
 			} else if strings.Contains(name, "arcane") {
 				lane = "arcane"
+			} else if strings.Contains(name, "governor") || strings.Contains(name, "spectral") {
+				lane = "spectral"
 			} else {
 				lane = "fashion"
 			}
@@ -330,6 +449,31 @@ func loadRigStreams(dir string) map[int]map[string]any {
 	return out
 }
 
+func gpuFromBody(body map[string]any) int {
+	v, ok := body["gpu"]
+	if !ok {
+		return -1
+	}
+	switch t := v.(type) {
+	case float64:
+		return int(t)
+	case json.Number:
+		n, err := t.Int64()
+		if err != nil {
+			return -1
+		}
+		return int(n)
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(t))
+		if err != nil {
+			return -1
+		}
+		return n
+	default:
+		return -1
+	}
+}
+
 func gpuFromSocket(socket string) int {
 	base := filepath.Base(socket)
 	if strings.HasPrefix(base, "flux-gpu") && strings.HasSuffix(base, ".sock") {
@@ -349,6 +493,8 @@ func laneLabel(lane string) string {
 		return "Motion atlas path · off gallery"
 	case "arcane":
 		return "Arcane Fortiche mine"
+	case "spectral", "governor-train", "train":
+		return "Governor · spectral training"
 	default:
 		if lane == "" || lane == "<nil>" {
 			return "Unassigned FLUX worker"

@@ -7,6 +7,7 @@
 <title>Governor — Tea</title>
 <link rel="stylesheet" href="/tea/tea.css">
 <script src="/tea/tea-shell.js"></script>
+<script src="/tea/memory-fill.js"></script>
 </head>
 <body class="tea-app gov-page">
 <header class="tea-chrome">
@@ -17,6 +18,8 @@
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
     <a href="/governor" aria-current="page">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
@@ -25,20 +28,24 @@
 <div class="gov-chat">
   <div class="gov-mast">
     <div>
-      <div class="kicker">Consultation · GPU 1</div>
+      <div class="kicker">Agentic gateway · GPU 1</div>
       <h1>Governor</h1>
-      <p class="lede">Gemma 4 31B on the Blackwell card. Same line as governor.apiary.vision — 128k context, streamed, history in this tab only.</p>
+      <p class="lede">Train for 100% reliability, expansion of memory, and performance of reasoning. Protected. Tools stay. Autonomy stays. He trains himself. Qwen is reason.</p>
     </div>
     <div class="gov-pills">
-      <span class="gov-pill" id="ctx">128k context</span>
+      <span class="gov-pill" id="char-pill"><a href="/daemons">character …</a></span>
+      <span class="gov-pill" id="ctx">64k context</span>
+      <span class="gov-pill" id="policy">policy …</span>
       <span class="gov-pill live" id="dot">checking</span>
     </div>
   </div>
+  <div id="memfill"></div>
+  <div class="gov-loop" id="loop">listen → tool → observation → response</div>
   <main class="gov-thread" id="scroller">
     <div id="thread">
       <div class="gov-row">
         <div class="gov-avatar gov">GOV</div>
-        <div class="gov-bubble">Direct line to Gemma on GPU 1. Ask for direction, law, or a reading of the work. Enter sends; Shift+Enter makes a new line.</div>
+        <div class="gov-bubble">GPU 1 is protected. Do not strip tools. Do not seize the loop. Enter sends; Shift+Enter makes a new line.</div>
       </div>
     </div>
   </main>
@@ -62,31 +69,70 @@
   const speed = document.getElementById("speed");
   const dot = document.getElementById("dot");
   const ctx = document.getElementById("ctx");
+  const policy = document.getElementById("policy");
+  const loop = document.getElementById("loop");
   const messages = [];
+  let character = null;
+
+  async function loadCharacter() {
+    try {
+      const d = await fetch("/api/tea/characters", { cache: "no-store" }).then(r => r.json());
+      character = (d.items || []).find(x => x.id === d.mounted) || (d.items || [])[0] || null;
+      const pill = document.getElementById("char-pill");
+      if (character && pill) {
+        pill.innerHTML = '<a href="/daemons">' + character.name + " · GPU 1</a>";
+      }
+    } catch (_) {}
+  }
+  loadCharacter();
+
+  function paintLoop(meta) {
+    if (!meta) return;
+    const shards = (meta.selected_shards || []).join(", ") || "—";
+    const changed = (meta.what_changed || []).join("; ") || "—";
+    const cache = (meta.cache_changes || []).map(c => (c.operation || "") + " " + (c.key || "")).join(", ") || "—";
+    const pass = meta.pass_usage || {};
+    loop.textContent =
+      "policy " + (meta.policy || "?") +
+      " · planner " + (meta.planner_status || "?") +
+      " · shards " + shards +
+      " · cache " + cache +
+      " · changed " + changed +
+      " · listen " + (pass.listen_duration_ms || 0) + "ms / " + (pass.listen_completion_tokens || 0) + " tok" +
+      " · response " + (pass.response_duration_ms || 0) + "ms / " + (pass.response_completion_tokens || 0) + " tok" +
+      (meta.event_id ? " · event " + meta.event_id : "");
+  }
 
   async function ping() {
     try {
-      const r = await fetch("/api/governor/models", { cache: "no-store" });
-      const d = await r.json();
+      const [mr, hr] = await Promise.all([
+        fetch("/api/governor/models", { cache: "no-store" }),
+        fetch("/api/governor/health", { cache: "no-store" })
+      ]);
+      const d = await mr.json();
+      const h = hr.ok ? await hr.json() : {};
       const m = (d.data || []).find(x => x.id === "governor") || (d.data || [])[0];
       const len = m && m.max_model_len ? m.max_model_len : 0;
       if (m) {
         ctx.textContent = (len / 1024).toFixed(0) + "k context";
-        health.textContent = m.id + " · " + (m.root || "gemma") + " · " + len.toLocaleString() + " tokens";
-        dot.textContent = "live";
+        policy.textContent = (h.policy || "required") + " dual-pass";
+        health.textContent = "gateway " + (h.public_endpoint || ":8800") + " · engine " + (h.engine_status || "up") + " · " + m.id + " · " + len.toLocaleString() + " tokens";
+        dot.textContent = h.policy === "required" ? "agentic" : "live";
         dot.classList.add("ok");
         dot.classList.remove("down");
       } else {
         throw new Error("no governor model");
       }
     } catch (e) {
-      health.textContent = "engine not reachable: " + e.message;
+      health.textContent = "gateway not reachable: " + e.message;
+      policy.textContent = "down";
       dot.textContent = "down";
       dot.classList.add("down");
       dot.classList.remove("ok");
     }
   }
   ping();
+  if (window.mountMemoryFill) mountMemoryFill(document.getElementById("memfill"));
 
   function addBubble(role, text) {
     const row = document.createElement("div");
@@ -117,26 +163,35 @@
     messages.push({ role: "user", content: text });
     const bubble = addBubble("assistant", "");
     send.disabled = true;
-    speed.textContent = "streaming…";
+    speed.textContent = "loop running…";
+    loop.textContent = "listen → route → response";
     const t0 = performance.now();
     let out = "";
     let tokens = 0;
+    let tools = [];
     try {
+      const payload = messages.slice();
+      if (character && character.system) {
+        payload.unshift({ role: "system", content: character.system });
+      }
       const res = await fetch("/api/governor/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "governor",
-          messages,
+          messages: payload,
           temperature: 0.35,
           max_tokens: 4096,
-          stream: true
+          stream: true,
+          governor: { mode: "chat", include_metadata: true }
         })
       });
       if (!res.ok) {
         const err = await res.text();
         throw new Error("HTTP " + res.status + " " + err.slice(0, 400));
       }
+      const agentic = res.headers.get("X-Governor-Agentic");
+      if (agentic) policy.textContent = agentic + " dual-pass";
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = "";
@@ -153,16 +208,36 @@
           if (payload === "[DONE]") continue;
           let json;
           try { json = JSON.parse(payload); } catch { continue; }
-          const delta = json.choices && json.choices[0] && json.choices[0].delta
-            ? (json.choices[0].delta.content || "")
-            : "";
-          if (delta) {
-            out += delta;
+          if (json.object === "governor.memory.chunk" && json.governor) {
+            paintLoop(json.governor);
+            continue;
+          }
+          const choice = json.choices && json.choices[0];
+          const delta = choice && choice.delta ? choice.delta : {};
+          const piece = delta.content || "";
+          if (piece) {
+            out += piece;
             tokens += 1;
             bubble.textContent = out;
             scroller.scrollTop = scroller.scrollHeight;
           }
+          if (delta.tool_calls) {
+            delta.tool_calls.forEach((tc, i) => {
+              const idx = tc.index != null ? tc.index : i;
+              tools[idx] = tools[idx] || { id: "", name: "", arguments: "" };
+              if (tc.id) tools[idx].id = tc.id;
+              if (tc.function && tc.function.name) tools[idx].name += tc.function.name;
+              if (tc.function && tc.function.arguments) tools[idx].arguments += tc.function.arguments;
+            });
+            loop.textContent = "tool " + tools.filter(Boolean).map(t => t.name || t.id).join(", ");
+          }
         }
+      }
+      if (tools.length) {
+        const note = document.createElement("div");
+        note.className = "gov-tools";
+        note.textContent = tools.filter(Boolean).map(t => t.name + " " + t.arguments).join("\n");
+        bubble.parentElement.appendChild(note);
       }
       messages.push({ role: "assistant", content: out });
       const sec = (performance.now() - t0) / 1000;

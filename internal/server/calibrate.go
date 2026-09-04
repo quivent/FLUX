@@ -28,6 +28,7 @@ type liveModels struct {
 	Governor []string `json:"governor"`
 	Witness  []string `json:"witness"`
 	Hive     []string `json:"hive"`
+	Pixtral  []string `json:"pixtral"`
 }
 
 type auditDigest struct {
@@ -40,6 +41,14 @@ type auditDigest struct {
 	Reasons     map[string]int   `json:"reasons,omitempty"`
 	Degraded    map[string]int   `json:"degraded,omitempty"`
 	MeanRaw     float64          `json:"mean_raw,omitempty"`
+	UniqMean    float64          `json:"uniqueness_mean,omitempty"`
+	UniqMinDist float64          `json:"uniqueness_min_distance,omitempty"`
+	Collapse    int              `json:"mode_collapse,omitempty"`
+	UniqCats    map[string]int   `json:"uniqueness_categories,omitempty"`
+	NoveltyMean float64          `json:"novelty_mean,omitempty"`
+	GateAesMean float64          `json:"gate_aesthetic_mean,omitempty"`
+	GatePass    int              `json:"gate_pass,omitempty"`
+	GateFail    int              `json:"gate_fail,omitempty"`
 	Frames      []map[string]any `json:"frames"`
 }
 
@@ -124,6 +133,7 @@ func collectLiveModels() liveModels {
 		Governor: listVLLMModels("127.0.0.1:8000"),
 		Witness:  listVLLMModels("127.0.0.1:8001"),
 		Hive:     listVLLMModels("127.0.0.1:8002"),
+		Pixtral:  listVLLMModels("127.0.0.1:8004"),
 	}
 }
 
@@ -131,7 +141,7 @@ func digestAudit(outputDir string, window int) auditDigest {
 	if window <= 0 {
 		window = 24
 	}
-	d := auditDigest{Reasons: map[string]int{}, Degraded: map[string]int{}, Frames: []map[string]any{}}
+	d := auditDigest{Reasons: map[string]int{}, Degraded: map[string]int{}, UniqCats: map[string]int{}, Frames: []map[string]any{}}
 	f, err := os.Open(filepath.Join(outputDir, "audit.jsonl"))
 	if err != nil {
 		return d
@@ -155,6 +165,8 @@ func digestAudit(outputDir string, window int) auditDigest {
 	d.Window = len(slice)
 	var sum float64
 	var nSum int
+	var uniqSum, uniqDistSum, novSum, gateAesSum float64
+	var nUniq, nNov, nGate int
 	for _, line := range slice {
 		var rec map[string]any
 		if json.Unmarshal([]byte(line), &rec) != nil {
@@ -189,6 +201,40 @@ func digestAudit(outputDir string, window int) auditDigest {
 			"job_id": rec["job_id"],
 			"tier":   tier,
 		}
+		if uniq, ok := rec["uniqueness"].(map[string]any); ok {
+			if sc, ok := asFloat(uniq["score"]); ok {
+				uniqSum += sc
+				nUniq++
+				frame["uniqueness"] = sc
+			}
+			if dist, ok := asFloat(uniq["min_distance"]); ok {
+				uniqDistSum += dist
+			}
+			if cat, _ := uniq["category"].(string); cat != "" {
+				d.UniqCats[cat]++
+				frame["uniq_cat"] = cat
+			}
+			if b, _ := uniq["mode_collapse"].(bool); b {
+				d.Collapse++
+				frame["collapse"] = true
+			}
+		}
+		if gates, ok := rec["gates"].(map[string]any); ok {
+			if nov, ok := asFloat(gates["novelty"]); ok {
+				novSum += nov
+				nNov++
+				frame["novelty"] = nov
+			}
+			if aes, ok := asFloat(gates["aesthetic"]); ok {
+				gateAesSum += aes
+				nGate++
+			}
+			if passed, _ := gates["passed"].(bool); passed {
+				d.GatePass++
+			} else if gates["passed"] != nil {
+				d.GateFail++
+			}
+		}
 		if rec["raw_composite"] != nil {
 			frame["raw_composite"] = rec["raw_composite"]
 		}
@@ -213,7 +259,57 @@ func digestAudit(outputDir string, window int) auditDigest {
 					d.Degraded[key]++
 					degr = append(degr, key)
 				} else if j["score"] != nil {
-					scores = append(scores, map[string]any{"role": role, "score": j["score"]})
+					card := map[string]any{"role": role, "score": j["score"]}
+					if title, _ := j["title"].(string); title != "" {
+						card["title"] = title
+					}
+					if model, _ := j["model"].(string); model != "" {
+						card["model"] = model
+					}
+					if ep, _ := j["endpoint"].(string); ep != "" {
+						card["endpoint"] = ep
+					} else if ep, _ := j["base_url"].(string); ep != "" {
+						card["endpoint"] = ep
+					}
+					if crit, _ := j["critique"].(string); crit != "" {
+						if len(crit) > 160 {
+							crit = crit[:160]
+						}
+						card["critique"] = crit
+					}
+					if borrowed, _ := j["borrowed_vision"].(string); borrowed != "" {
+						card["borrowed_vision"] = borrowed
+					}
+					if subs, ok := j["subscores"].(map[string]any); ok {
+						card["subscores"] = subs
+						if a, ok := asFloat(subs["anatomy"]); ok {
+							card["anatomy"] = a
+						}
+					}
+					if ratings, ok := j["ratings"].(map[string]any); ok && len(ratings) > 0 {
+						card["ratings"] = ratings
+					} else if obs, ok := j["observations"].(map[string]any); ok {
+						if ratings, ok := obs["ratings"].(map[string]any); ok && len(ratings) > 0 {
+							card["ratings"] = ratings
+						}
+					}
+					if card["ratings"] == nil && card["subscores"] != nil {
+						if subs, ok := card["subscores"].(map[string]any); ok {
+							words := map[string]any{}
+							for k, v := range subs {
+								if n, ok := asFloat(v); ok {
+									words[k] = wordForScore(n)
+								}
+							}
+							if n, ok := asFloat(j["score"]); ok {
+								words["overall"] = wordForScore(n)
+							}
+							if len(words) > 0 {
+								card["ratings"] = words
+							}
+						}
+					}
+					scores = append(scores, card)
 				}
 			}
 			if len(degr) > 0 {
@@ -227,6 +323,16 @@ func digestAudit(outputDir string, window int) auditDigest {
 	}
 	if nSum > 0 {
 		d.MeanRaw = sum / float64(nSum)
+	}
+	if nUniq > 0 {
+		d.UniqMean = uniqSum / float64(nUniq)
+		d.UniqMinDist = uniqDistSum / float64(nUniq)
+	}
+	if nNov > 0 {
+		d.NoveltyMean = novSum / float64(nNov)
+	}
+	if nGate > 0 {
+		d.GateAesMean = gateAesSum / float64(nGate)
 	}
 	return d
 }
@@ -272,21 +378,25 @@ func bindLiveModels(cfg jury.JuryConfig, live liveModels) jury.JuryConfig {
 			Vision:  falseV,
 		}
 	}
-	if m := pick(live.Hive, []string{"hive-research", "qwen-research", "pixtral-critic"}); m != "" {
+	if m := pick(live.Pixtral, []string{"pixtral", "pixtral-12b", "pixtral-jury", "pixtral-critic"}); m != "" {
 		cfg.Endpoints[jury.ServedPixtral] = jury.JuryEndpoint{
-			BaseURL: "http://127.0.0.1:8002/v1",
+			BaseURL: "http://127.0.0.1:8004/v1",
 			Model:   m,
 			Enabled: trueV,
-			Vision:  falseV,
+			Vision:  trueV,
 		}
+	} else {
+		delete(cfg.Endpoints, jury.ServedPixtral)
 	}
-	if m := pick(live.Governor, []string{"governor", "qwen-governor"}); m != "" {
-		cfg.Endpoints[jury.ServedGovernor] = jury.JuryEndpoint{
-			BaseURL: "http://127.0.0.1:8000/v1",
-			Model:   m,
-			Enabled: trueV,
-			Vision:  falseV,
-		}
+	govModel := pick(live.Governor, []string{"governor", "qwen-governor"})
+	if govModel == "" {
+		govModel = "governor"
+	}
+	cfg.Endpoints[jury.ServedGovernor] = jury.JuryEndpoint{
+		BaseURL: "http://127.0.0.1:8800/v1",
+		Model:   govModel,
+		Enabled: trueV,
+		Vision:  falseV,
 	}
 	return cfg
 }
@@ -537,52 +647,71 @@ func stringifyContent(content any) string {
 	}
 }
 
-func askHiveForCalibration(current jury.JuryConfig, live liveModels, audit auditDigest, note string) jury.CalibrationRecord {
+func hiveCalibrationBrief(lane string) string {
+	switch strings.ToLower(strings.TrimSpace(lane)) {
+	case "microgreens":
+		return "Lane: microgreens (Belarro culinary still photographs of soil-grown microgreens. Not people. Not fashion. Not Arcane.)"
+	case "fashion", "":
+		return "Lane: fashion (editorial fashion stills on GPU 3. Not horses. Not microgreens. Not Arcane.)"
+	case "silken-horses":
+		return "Lane: silken-horses (equine beauty stills: true anatomy, coat, motion, a thin glimmer of fantasy. One or a few horses. Not fashion, not microgreens, not Arcane. Uniqueness and anatomical correctness matter more than a pretty sunset.)"
+	case "arcane":
+		return "Lane: arcane (Arcane Fortiche animation stills. Not fashion. Not horses. Not microgreens.)"
+	default:
+		return fmt.Sprintf("Lane: %s (independent protocol-branch collection. Not fashion. Not microgreens. Not Arcane unless the slug is arcane.)", lane)
+	}
+}
+
+func askHiveForCalibration(current jury.JuryConfig, live liveModels, audit auditDigest, note, lane string, study map[string]any) (jury.CalibrationRecord, map[string]any) {
 	hive := resolveHiveTarget()
 	currentJSON, _ := json.MarshalIndent(current, "", "  ")
 	liveJSON, _ := json.Marshal(live)
 	auditJSON, _ := json.Marshal(audit)
-	system := "You calibrate the Influx Vision judging algorithm. You do not approve or reject images. Reply with ONE JSON object and nothing else."
-	user := fmt.Sprintf(`Current jury config:
+	studyJSON, _ := json.Marshal(study)
+	system := "You are the Hive of a stills beauty jury. You design the next harvest parameters from uniqueness and novelty. You also calibrate judging weights. Reply with ONE JSON object and nothing else. No motion. No Arcane."
+	user := fmt.Sprintf(`%s
+
+Current jury law:
 %s
 
-Live vLLM model ids on this box:
+Current harvest parameters (operator defaults unless designed_by=hive):
 %s
 
-Recent audit digest (uniqueness + sensory gates already ran; judges currently 404 because served model names do not match live ids, and 8001/8002 have limit_mm_per_prompt images=0):
+Live engines:
+- aesthetic / pixtral-critic is Pixtral on :8004 (vision ON)
+- structure / visual-witness is Gemma jury on :8001 (text)
+- governor through the agentic gateway on :8800 (text; never raw :8000)
+- hive-research Qwen on :8002 is YOU, not a critic
+%s
+
+Recent audit (uniqueness + sensory-gate novelty are the harvest health):
 %s
 
 Operator note: %s
 
-Propose the next judging algorithm. Constraints:
-- weights keys: pixtral, qwen, decoder, governor; non-negative; they will be renormalised
-- strictness/gamma per seat in [1.0, 3.0]
-- mode: parallel or sequential
-- adversarial_mode: bool
-- text_from_gates: true when seats cannot accept images, so they score uniqueness + DINOv2/SigLIP testimony
-- endpoints keys: visual-witness (port 8001), pixtral-critic (port 8002), governor (port 8000)
-- endpoint.model MUST be a live id from that port
-- endpoint.vision must be false unless the live server actually accepts image_url
-- min_judges 1..3
+The stills have been collapsing. If uniqueness_categories is REDUNDANT_CLUSTER or mode_collapse is high, change the harvest: steps, size, guidance, life. Do not leave the same 28-step 1024 square if novelty is low.
 
-Reply ONLY as a JSON object with these keys (fill them from the audit, never copy placeholders):
-mode, adversarial_mode, text_from_gates, min_judges, weights, strictness, endpoints, diagnosis, rationale.
-diagnosis and rationale must be concrete sentences about THIS audit. Do not write the words "one sentence".`,
-		string(currentJSON), string(liveJSON), string(auditJSON), strings.TrimSpace(note+""))
+Reply ONLY as JSON with:
+mode, adversarial_mode, text_from_gates, min_judges, weights, strictness,
+render: { steps (8-64), width and height (256-1280, multiples of 64), guidance (1.5-6.0), life (0-100), depth (1-3) },
+diagnosis, rationale.
+diagnosis must mention uniqueness and novelty numbers from THIS audit.`,
+		hiveCalibrationBrief(lane), string(currentJSON), string(studyJSON), string(liveJSON), string(auditJSON), strings.TrimSpace(note+""))
 	if strings.TrimSpace(note) == "" {
 		user = strings.Replace(user, "Operator note: \n\n", "", 1)
 	}
 
-	try := func(url, model, source string) (jury.CalibrationRecord, error) {
+	try := func(url, model, source string) (jury.CalibrationRecord, map[string]any, error) {
 		text, err := chatComplete(url, model, system, user, 90*time.Second)
 		if err != nil {
-			return jury.CalibrationRecord{}, err
+			return jury.CalibrationRecord{}, nil, err
 		}
 		obj, snippet, err := extractJSONObject(text)
 		if err != nil {
-			return jury.CalibrationRecord{RawSnippet: snippet}, err
+			return jury.CalibrationRecord{RawSnippet: snippet}, nil, err
 		}
 		cfg, diag, rat := proposalFromHiveJSON(obj, current, live)
+		render := parseHiveRender(obj)
 		return jury.CalibrationRecord{
 			TS:         time.Now().Unix(),
 			Source:     source,
@@ -593,12 +722,12 @@ diagnosis and rationale must be concrete sentences about THIS audit. Do not writ
 			Proposal:   cfg,
 			Audit:      audit,
 			RawSnippet: snippet,
-		}, nil
+		}, render, nil
 	}
 
-	rec, err := try(hive.URL, hive.Model, "hive")
+	rec, render, err := try(hive.URL, hive.Model, "hive")
 	if err != nil {
-		rec2, err2 := try(hive.Fallback, hive.FallModel, "governor-fallback")
+		rec2, render2, err2 := try(hive.Fallback, hive.FallModel, "governor-fallback")
 		if err2 != nil {
 			h := heuristicProposal(current, live, audit)
 			h.Error = fmt.Sprintf("hive: %v; fallback: %v", err, err2)
@@ -607,12 +736,45 @@ diagnosis and rationale must be concrete sentences about THIS audit. Do not writ
 			}
 			h.Endpoint = hive.URL
 			h.Model = hive.Model
-			return h
+			return h, nil
 		}
 		rec2.Error = "hive primary failed: " + err.Error()
-		return rec2
+		return rec2, render2
 	}
-	return rec
+	return rec, render
+}
+
+func parseHiveRender(obj map[string]any) map[string]any {
+	if obj == nil {
+		return nil
+	}
+	raw, _ := obj["render"].(map[string]any)
+	if raw == nil {
+		return nil
+	}
+	out := map[string]any{}
+	if steps := clampStudySteps(jsonInt(raw["steps"], 0)); steps != 0 {
+		out["steps"] = steps
+	}
+	if w := jsonInt(raw["width"], 0); w > 0 {
+		out["width"] = clampStudySize(w)
+	}
+	if h := jsonInt(raw["height"], 0); h > 0 {
+		out["height"] = clampStudySize(h)
+	}
+	if g, ok := asFloat(raw["guidance"]); ok && g >= 1.5 && g <= 6 {
+		out["guidance"] = g
+	}
+	if life := jsonInt(raw["life"], -1); life >= 0 && life <= 100 {
+		out["life"] = life
+	}
+	if depth := jsonInt(raw["depth"], 0); depth >= 1 && depth <= 3 {
+		out["depth"] = depth
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (s Server) protocolCalibrateAPI(w http.ResponseWriter, r *http.Request) {
@@ -634,6 +796,7 @@ func (s Server) getProtocolCalibration(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"lane":        lane,
+		"lanes":       s.juryLaneButtons(),
 		"hive":        hive,
 		"live_models": live,
 		"config":      mustJuryConfig(dir),
@@ -662,11 +825,12 @@ func mustPresets(outputDir string) []jury.JuryPreset {
 
 func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Apply    bool             `json:"apply"`
-		BindLive bool             `json:"bind_live"`
-		Note     string           `json:"note"`
-		Lane     string           `json:"lane"`
-		Proposal *jury.JuryConfig `json:"proposal"`
+		Apply       bool             `json:"apply"`
+		ApplyRender bool             `json:"apply_render"`
+		BindLive    bool             `json:"bind_live"`
+		Note        string           `json:"note"`
+		Lane        string           `json:"lane"`
+		Proposal    *jury.JuryConfig `json:"proposal"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil && err != io.EOF {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -680,14 +844,22 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 
 	if req.BindLive && req.Proposal == nil {
 		cfg := bindLiveModels(current, live)
-		cfg.TextFromGates = true
+		pix, ok := cfg.Endpoints[jury.ServedPixtral]
+		sees := ok && pix.Vision != nil && *pix.Vision
+		cfg.TextFromGates = !sees
 		cfg.MinJudges = 1
 		jury.NormalizeConfig(&cfg)
+		diag := "Bound Pixtral to the aesthetic seat with vision. Qwen stays on :8002 as hive, not as a critic."
+		rationale := "Aesthetic is pixtral-critic on :8004. Structure and governor remain text seats."
+		if !sees {
+			diag = "Pixtral is not live on :8004. Did not bind Qwen into the aesthetic seat."
+			rationale = "Leave pixtral-critic unbound until /models/pixtral is serving with image slots."
+		}
 		rec := jury.CalibrationRecord{
 			TS:        time.Now().Unix(),
 			Source:    "bind-live",
-			Diagnosis: "Bound live vLLM model ids and enabled text-from-gates. Seats on this box reject image_url (limit_mm_per_prompt images=0).",
-			Rationale: "Stop 404ing on pixtral-critic/visual-witness names; score from uniqueness + sensory gates until a vision tenant is bound.",
+			Diagnosis: diag,
+			Rationale: rationale,
 			Proposal:  cfg,
 			Audit:     audit,
 		}
@@ -715,6 +887,7 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var rec jury.CalibrationRecord
+	var render map[string]any
 	if req.Proposal != nil {
 		cfg := jury.MergeConfig(current, *req.Proposal)
 		jury.NormalizeConfig(&cfg)
@@ -727,7 +900,11 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 			Audit:     audit,
 		}
 	} else {
-		rec = askHiveForCalibration(current, live, audit, req.Note)
+		study := map[string]any{}
+		if lane == "microgreens" {
+			study = s.loadMicrogreensStudy()
+		}
+		rec, render = askHiveForCalibration(current, live, audit, req.Note, lane, study)
 		rec.Note = req.Note
 	}
 
@@ -740,8 +917,11 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 		rec.Applied = true
 		applied = true
 	}
+	if req.ApplyRender && lane == "microgreens" && render != nil {
+		s.applyHiveRender(render, rec.Rationale)
+	}
 	_ = jury.SaveCalibration(dir, rec)
-	writeJSON(w, http.StatusOK, map[string]any{
+	payload := map[string]any{
 		"ok":          true,
 		"lane":        lane,
 		"applied":     applied,
@@ -750,5 +930,10 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 		"hive":        resolveHiveTarget(),
 		"live_models": live,
 		"audit":       audit,
-	})
+	}
+	if lane == "microgreens" {
+		payload["render"] = render
+		payload["study"] = s.loadMicrogreensStudy()
+	}
+	writeJSON(w, http.StatusOK, payload)
 }

@@ -5,430 +5,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Beauty Protocol · Tea</title>
   <meta name="description" content="The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance.">
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- MathJax for LaTeX mathematical rendering -->
+  <link rel="stylesheet" href="/tea/tea.css">
+  <script src="/tea/tea-shell.js"></script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-  <!-- Mermaid.js for vector diagrams -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+
 
   <style>
     :root {
-      --paper: #f7f5f0;
-      --paper-soft: #fcfbf8;
-      --ink: #27231f;
-      --ink-soft: #635d55;
-      --ink-faint: #9c958a;
-      --border: #e6e2d8;
-      --border-dark: #2a2622;
-      --hojicha: #79583e;
-      --vermilion: #a63e39;
-      --celadon: #5a776a;
-      --gold: #c5a059;
-      --hextech: #00d2ff;
-      --chemtech: #00ff88;
+      --border: var(--line);
+      --ink-soft: var(--soft);
+      --ink-faint: var(--faint);
+      --hojicha: var(--tea);
+      --celadon: var(--matcha);
     }
-
-    body.mode-nocturnal {
-      --paper: #121110;
-      --paper-soft: #1a1816;
-      --ink: #e8e4dc;
-      --ink-soft: #a8a296;
-      --ink-faint: #6e675c;
-      --border: #2a2622;
-      --hojicha: #a47854;
-      --vermilion: #d05851;
-      --celadon: #78a08f;
+    main.container { max-width: 1100px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 80px; }
+    .doc-header { margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .doc-pre { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); margin-bottom: 8px; }
+    .doc-title { font: 400 clamp(40px, 6vw, 72px)/.95 var(--serif); letter-spacing: -.05em; margin: 8px 0 10px; }
+    .doc-subtitle { font: 400 17px/1.65 var(--serif); color: var(--soft); max-width: 42rem; margin-bottom: 16px; }
+    .doc-meta-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+    .meta-tag { font: 10px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--card-bg); }
+    h2 { font: 400 28px/1.15 var(--serif); letter-spacing: -.03em; margin: 36px 0 12px; padding: 0; border: 0; color: var(--ink); }
+    h3 { font: 500 16px/1.3 var(--serif); color: var(--tea); margin: 22px 0 10px; }
+    p { margin: 0 0 14px; color: var(--ink); font: 400 16px/1.6 var(--serif); }
+    .diagram-card, .math-box, .oversee, .algo {
+      border: 1px solid var(--line); background: var(--card-bg); border-radius: var(--radius);
+      padding: 22px; margin: 0 0 28px;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--paper);
-      color: var(--ink);
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 14px;
-      line-height: 1.7;
-      transition: background 0.4s ease, color 0.4s ease;
-      min-height: 100vh;
+    .math-box { border-left: 3px solid var(--tea); border-radius: 0 var(--radius) var(--radius) 0; }
+    .live-arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 18px 0 8px; }
+    .live-card, .tenant, .law, .branch-card, .seat, .jury-chip {
+      border: 1px solid var(--line); background: var(--paper-soft); border-radius: 12px; padding: 14px 16px;
     }
-
-    /* Universal Two-Tier Navigation */
-    .top-nav {
-      border-bottom: 1px solid var(--border);
-      background: var(--paper-soft);
-      padding: 10px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      backdrop-filter: blur(12px);
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--ink);
-      font-weight: 600;
-      font-size: 14px;
-      letter-spacing: 0.05em;
-    }
-    .brand-seal {
-      width: 22px;
-      height: 22px;
-      background: var(--vermilion);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 3px;
-      font-family: 'Noto Serif JP', serif;
-      font-size: 11px;
-    }
-    .nav-tiers {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 12px;
-    }
-    .nav-tier-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .nav-label {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--ink-faint);
-    }
-    .nav-link {
-      text-decoration: none;
-      color: var(--ink-soft);
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-    }
-    .nav-link:hover, .nav-link.active {
-      color: var(--ink);
-      background: rgba(0,0,0,0.04);
-    }
-    body.mode-nocturnal .nav-link:hover, body.mode-nocturnal .nav-link.active {
-      background: rgba(255,255,255,0.06);
-    }
-    .nav-divider {
-      color: var(--border);
-      font-weight: 300;
-    }
-    .ritual-switch {
-      background: none;
-      border: 1px solid var(--border);
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--ink);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* Container */
-    .container {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 48px 24px 96px;
-    }
-
-    /* Header Monograph */
-    .doc-header {
-      border-bottom: 2px solid var(--border);
-      padding-bottom: 32px;
-      margin-bottom: 40px;
-    }
-    .doc-pre {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--hojicha);
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      margin-bottom: 8px;
-    }
-    .doc-title {
-      font-family: var(--serif);
-      font-size: 36px;
-      font-weight: 800;
-      letter-spacing: 0.03em;
-      margin-bottom: 12px;
-      line-height: 1.2;
-    }
-    .doc-subtitle {
-      font-family: 'Noto Serif JP', serif;
-      font-size: 16px;
-      color: var(--ink-soft);
-      margin-bottom: 20px;
-    }
-    .doc-meta-bar {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--ink-faint);
-    }
-    .meta-tag {
-      background: var(--paper-soft);
-      border: 1px solid var(--border);
-      padding: 4px 10px;
-      border-radius: 4px;
-    }
-
-    /* Typography & Sections */
-    h2 {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 700;
-      margin: 40px 0 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    h3 {
-      font-family: var(--serif);
-      font-size: 16px;
-      font-weight: 600;
-      margin: 24px 0 12px;
-      color: var(--hojicha);
-    }
-    p {
-      margin-bottom: 16px;
-      color: var(--ink);
-    }
-
-    /* Diagram Card */
-    .diagram-card {
-      border: 1px solid var(--border);
-      background: var(--paper-soft);
-      border-radius: 8px;
-      padding: 28px;
-      margin: 24px 0;
-      overflow-x: auto;
-    }
-
-    /* Math Box */
-    .math-box {
-      border-left: 3px solid var(--vermilion);
-      background: var(--paper-soft);
-      padding: 16px 20px;
-      margin: 20px 0;
-      border-radius: 0 6px 6px 0;
-      font-size: 15px;
-    }
-
-    /* Table */
-    .spec-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 20px 0;
-      font-size: 13px;
-    }
-    .spec-table th, .spec-table td {
-      border: 1px solid var(--border);
-      padding: 10px 14px;
-      text-align: left;
-    }
-    .spec-table th {
-      background: var(--paper-soft);
-      font-family: var(--serif);
-      font-weight: 600;
-    }
-
-    /* Code Block */
-    pre.code-block {
-      background: var(--border-dark);
-      color: #e8e4dc;
-      padding: 16px 20px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      overflow-x: auto;
-      margin: 20px 0;
-    }
-
-    .oversee {
-      border: 1px solid var(--border);
-      background: var(--paper-soft);
-      border-radius: 10px;
-      padding: 22px 24px 18px;
-      margin: 0 0 36px;
-    }
-    .oversee-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: baseline;
-      margin-bottom: 16px;
-    }
-    .oversee-head h2 {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      font-size: 18px;
-    }
-    .oversee-meta {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--ink-faint);
-    }
-    .tenant-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 8px;
-      margin-bottom: 18px;
-    }
-    .tenant {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
-      background: var(--paper);
-      min-height: 92px;
-    }
-    .tenant .id { font-family: var(--serif); font-size: 14px; font-weight: 700; }
-    .tenant .role { font-size: 12px; color: var(--ink-soft); margin: 4px 0 8px; }
-    .tenant .ep { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); word-break: break-all; }
-    .pill { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
-    .pill.live { background: rgba(90,119,106,0.16); color: var(--celadon); }
-    .pill.down { background: rgba(166,62,57,0.14); color: var(--vermilion); }
-    .pill.unk { background: rgba(121,88,62,0.12); color: var(--hojicha); }
+    .live-card.down { opacity: .55; }
+    .live-card .k, .tenant .ep, .seat .muted { font: 10px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    .live-card h3, .tenant .id, .branch-card b, .law b, .seat h4 { font: 500 18px/1.2 var(--serif); margin: 6px 0 4px; color: var(--ink); }
+    .live-card .m, .live-card .q { font: 11px/1.45 var(--mono); color: var(--soft); word-break: break-all; }
+    .live-path, .path { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 20px; }
+    .live-step, .path span { font: 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft); background: var(--paper); }
+    .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; font: 14px/1.45 var(--serif); }
+    .spec-table th, .spec-table td { border: 1px solid var(--line); padding: 10px 14px; text-align: left; }
+    .spec-table th { background: var(--paper-soft); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); font-weight: 500; }
+    pre.code-block { background: var(--ink); color: var(--paper); padding: 16px 20px; border-radius: 8px; font: 12px/1.5 var(--mono); overflow-x: auto; margin: 20px 0; }
+    .oversee-head { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 16px; }
+    .oversee-head h2 { margin: 0; font: 400 26px/1.15 var(--serif); }
+    .oversee-meta { font: 11px/1.5 var(--mono); color: var(--faint); }
+    .tenant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 18px; }
+    .tenant { min-height: 92px; }
+    .tenant .role { font: 400 14px/1.4 var(--serif); color: var(--soft); margin: 4px 0 8px; }
+    .pill { display: inline-block; font: 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+    .pill.live, .pill.on { background: var(--matcha-light); color: var(--matcha); }
+    .pill.down, .pill.off { background: var(--vermilion-light); color: var(--vermilion); }
+    .pill.unk { background: var(--tea-light); color: var(--tea); }
     .laws { display: grid; gap: 8px; margin-top: 8px; }
-    .law { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
-    .law b { font-family: var(--serif); }
-    .law .n { font-family: var(--serif); font-weight: 700; color: var(--vermilion); }
-    .law p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
-    .branch-form { display: grid; gap: 8px; margin: 10px 0 14px; }
-    .branch-form input, .branch-form textarea {
-      width: 100%; border: 1px solid var(--border); background: var(--paper);
-      color: var(--ink); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 Inter, sans-serif;
+    .law { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
+    .law .n { font: 700 16px var(--serif); color: var(--tea); }
+    .law p { margin: 4px 0 0; font-size: 14px; color: var(--soft); }
+    .branch-form { display: grid; gap: 10px; margin: 12px 0 16px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper-soft); }
+    .branch-form input, .branch-form textarea, .branch-form select {
+      width: 100%; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+      border-radius: 8px; padding: 10px 12px; font: 15px/1.45 var(--serif);
     }
-    .branch-form textarea { min-height: 72px; resize: vertical; }
+    .branch-form textarea { min-height: 96px; resize: vertical; }
     .branch-list { display: grid; gap: 8px; margin-top: 8px; }
-    .branch-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
-    .branch-card b { font-family: var(--serif); }
-    .branch-card p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
-    .jury-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
-    .jury-chip { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--paper); }
-    .path { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
-    .path span { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--border); padding: 5px 8px; border-radius: 999px; }
-    .stream-bar { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 8px 0 12px; }
-    .stream-bar i { display: block; height: 100%; background: var(--vermilion); width: 0; }
-    .stream-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-    .stream-actions button { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--paper); cursor: pointer; color: var(--ink); }
-    .stream-actions button.primary { background: var(--vermilion); color: #fff; border-color: var(--vermilion); }
-    .stream-actions button:disabled { opacity: 0.45; cursor: wait; }
-    .stream-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin: 14px 0 18px; }
-    .stream-frames a { display: block; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--border); background: #111; }
+    .branch-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+    .branch-card p { margin: 4px 0 0; font-size: 14px; color: var(--soft); }
+    .jury-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+    .jury-chip { font: 11px/1.4 var(--mono); color: var(--soft); }
+    .stream-bar { height: 6px; background: var(--paper-subtle); border-radius: 999px; overflow: hidden; margin: 8px 0 12px; }
+    .stream-bar i { display: block; height: 100%; background: var(--tea); width: 0; }
+    .stream-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+    .stream-actions button, .stream-actions .btn, .branch-card button {
+      font: 12px/1 var(--sans); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+      background: var(--paper); color: var(--ink); cursor: pointer; text-decoration: none;
+    }
+    .stream-actions button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .stream-actions button:disabled { opacity: .45; cursor: wait; }
+    .stream-actions label { display: flex; align-items: center; gap: 8px; }
+    .stream-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 14px 0 18px; }
+    .stream-frames a { display: block; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--paper-subtle); }
     .stream-frames img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    .algo {
-      border: 1px solid var(--border-dark);
-      background: var(--paper);
-      border-radius: 10px;
-      padding: 18px 20px 16px;
-      margin: 8px 0 22px;
+    .algo-diag { font: 400 15px/1.5 var(--serif); color: var(--tea); margin: 0 0 12px; }
+    .algo-formula { font: 12px/1.55 var(--mono); color: var(--soft); background: var(--paper-soft); border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .algo-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .algo-toolbar label { font: 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--soft); display: flex; align-items: center; gap: 8px; }
+    .algo-toolbar select, .algo-toolbar input[type="number"], .seat select {
+      background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 12px var(--mono);
     }
-    .algo-diag {
-      font-size: 13px;
-      color: var(--vermilion);
-      margin: 0 0 12px;
-    }
-    .algo-formula {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--ink-soft);
-      background: var(--paper-soft);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-bottom: 14px;
-    }
-    .algo-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-    .algo-toolbar label {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 10px;
-      background: var(--paper-soft);
-    }
-    .algo-toolbar select, .algo-toolbar input[type="number"] {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      background: var(--paper);
-      color: var(--ink);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 4px 6px;
-    }
-    .algo-seats {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .seat {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      background: var(--paper-soft);
-    }
-    .seat h4 {
-      font-family: var(--serif);
-      font-size: 13px;
-      margin: 0 0 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-    }
-    .seat .muted { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); font-weight: 400; }
-    .seat input[type="range"] { width: 100%; }
-    .seat .row { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; margin: 6px 0 2px; }
-    .seat select { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 8px; background: var(--paper); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; padding: 4px; }
-    .algo-preview { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); margin: 4px 0 12px; }
-    .algo-hive {
-      white-space: pre-wrap;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      background: var(--paper-soft);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-      min-height: 3.2em;
-      color: var(--ink-soft);
-      margin-top: 12px;
-    }
+    body.mode-nocturnal .algo-toolbar select, body.mode-nocturnal .algo-toolbar input, body.mode-nocturnal .seat select { background: var(--paper); }
+    .algo-seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .seat h4 { display: flex; justify-content: space-between; align-items: baseline; font-size: 16px; margin: 0 0 8px; }
+    .seat input[type="range"] { width: 100%; accent-color: var(--tea); }
+    .seat .row { display: flex; justify-content: space-between; font: 10px var(--mono); margin: 6px 0 2px; color: var(--soft); }
+    .algo-preview { font: 12px/1.5 var(--mono); color: var(--tea); margin: 4px 0 12px; }
+    .algo-hive { white-space: pre-wrap; font: 12px/1.55 var(--mono); color: var(--soft); background: var(--paper-soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-height: 3.2em; margin-top: 12px; }
     .weight-sum.warn { color: var(--vermilion); }
+    a { color: var(--tea); }
   </style>
+
 <link rel="stylesheet" href="/tea/tea.css">
 <script src="/tea/tea-shell.js"></script>
 </head>
@@ -437,17 +113,19 @@
   <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
   <nav class="tea-nav" aria-label="Tea">
     <a href="/gallery/">Gallery</a>
+    <a href="/protocol">Protocol</a>
+    <a href="/studios">Studios</a>
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
   </nav>
 </header>
-
-  <!-- Universal Two-Tier Navigation -->
-  
 
   <main class="container">
     
@@ -522,26 +200,27 @@
       <div class="stream-bar"><i id="streamFill"></i></div>
       <div class="jury-row" id="streamStats"></div>
       <div id="streamFrames" class="stream-frames"></div>
-      <div class="stream-actions">
-        <button class="primary" onclick="startStream(256,28)">Start 256 × 28</button>
-        <button onclick="startStream(256,18)">256 × 18</button>
-        <button onclick="startStream(512,28)">512 × 28</button>
-        <button onclick="startStream(512,18)">512 × 18</button>
-      </div>
+      <p class="oversee-meta">Fashion is paused. Arcane is unplugged. Do not start those streams. New work is a collection below, on GPU 3 FP8.</p>
       <div class="oversee-head" style="margin-top:28px">
         <h2>Protocol branches</h2>
         <div class="oversee-meta" id="branchMeta">up to 3 independent collections</div>
       </div>
-      <p class="oversee-meta">Each branch is its own prompt and wall under <code>/collections/&lt;name&gt;</code>. Assets stream only there. Fashion and Arcane stay untouched.</p>
+      <p class="oversee-meta">New beauty prompt — not fashion. GPU 3 FP8. Own wall under <code>/collections/&lt;name&gt;</code>. Paste the prompt, set size and steps, then start. Jury stays at <a href="/judge#fashion">/judge</a>.</p>
       <div class="branch-form">
-        <input id="branchName" placeholder="branch name — e.g. silk" maxlength="32" />
-        <textarea id="branchPrompt" placeholder="independent beauty prompt for this collection"></textarea>
+        <input id="branchName" placeholder="collection name — e.g. silk" maxlength="32" />
+        <textarea id="branchPrompt" placeholder="paste the new beauty prompt here — fashion stays paused until you start"></textarea>
         <div class="stream-actions">
-          <button class="primary" onclick="startBranch(256,28)">Start branch 256 × 28</button>
-          <button onclick="startBranch(256,18)">256 × 18</button>
-          <button onclick="startBranch(512,28)">512 × 28</button>
+          <label class="oversee-meta">size
+            <select id="branchSize"><option value="256" selected>256×256</option><option value="512">512×512</option><option value="1024">1024×1024</option></select>
+          </label>
+          <label class="oversee-meta">frames
+            <select id="branchN"><option value="256" selected>256</option><option value="512">512</option></select>
+          </label>
+          <button class="primary" onclick="startBranch(18)">Start FP8 · 18 steps</button>
+          <button onclick="startBranch(28)">28 steps</button>
         </div>
       </div>
+      <div id="branchLive" class="oversee-meta" style="display:none;margin:8px 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--paper-soft);color:var(--ink);font:15px/1.5 var(--serif)"></div>
       <div class="branch-list" id="branchList"></div>
       <h3>Chorus design laws</h3>
       <div class="laws" id="lawList"></div>
@@ -557,35 +236,8 @@
         Traditional video diffusion models compromise material truth through temporal downsampling, latent interpolation blur, and character drift. This protocol resolves that through <strong>Latent Manifold Cartography (\(\mathbf{S}^3 \subset \mathbb{R}^4\))</strong> on Flow-Matching Diffusion Transformers (FLUX.1-dev), accelerated by <strong>Cross-Frame Latent Residual Caching (<code>atlas-xframe-cache</code>)</strong> and governed by an autonomous <strong>4-Shard AI Beauty Jury</strong>.
       </p>
 
-      <div class="diagram-card">
-        <div class="mermaid">
-graph TD
-    subgraph CoreIntent["🏛️ THE SOVEREIGN INTENT"]
-        A[Human Sovereign / Governor Gemma 31B] -->|Prompt Topology & Seed| B(SO4 Geodesic Path Generator)
-    end
-
-    subgraph RealmI["🍵 REALM I: STILLNESS & CURATION"]
-        B --> C[FLUX.1-dev BF16 Engine]
-        C --> D[Crowned Masterpiece Still]
-        D --> E{4-Shard AI Beauty Jury}
-        E -->|≥ 9.0 Crown| F[(Cloudflare R2 Permanent Vault)]
-        E -->|< 7.0 Drift| G[Rejected & Recycled]
-    end
-
-    subgraph RealmII["⚡ REALM II: LATENT CARTOGRAPHY"]
-        B --> H[64-Frame Latent Turntable]
-        H --> I[atlas-xframe-cache Engine]
-        I -->|94.1% Residual Hit Rate| J[1.50s / Frame Kinetic Turntable]
-        J --> K[Arcane World Matrix: Piltover ↔ Zaun]
-    end
-
-    subgraph SiliconTier["⚙️ SILICON & SENSORY CONTROL"]
-        F --> L[Engine Room]
-        K --> L
-        L --> M[Living Parchment & Acoustic Whisper]
-    end
-        </div>
-      </div>
+      <p class="oversee-meta">This diagram is the <strong>live map</strong> of this box. Spec numbers (94.1% cache, B300 288 GB, :9000 gateways) are not this machine.</p>
+      <div id="liveArch" class="live-arch">probing /api/optics…</div>
     </section>
 
     <!-- Section 2 -->
@@ -616,7 +268,7 @@ graph TD
       <ul>
         <li><strong>Cache Threshold</strong>: \(\tau = 0.30\)</li>
         <li><strong>Residual Hit Rate</strong>: <strong>94.1%</strong> (\(576 / 612\) denoise steps bypassed across 64 frames)</li>
-        <li><strong>Per-Frame Latency</strong>: Reduced from \(63.5\text{ s}\) to <strong>\(1.50\text{ s}\)</strong> (<strong>\(42\times\) per-frame speedup</strong> on B300/H200).</li>
+        <li><strong>Per-Frame Latency</strong>: the spec claims \(63.5\text{ s}\) down to <strong>\(1.50\text{ s}\)</strong> on B300/H200. That is not this box; the Forge cartography rail is the measurement.</li>
       </ul>
     </section>
 
@@ -627,71 +279,21 @@ graph TD
         Every generated cell must pass through the <strong>4-Shard Consensus Matrix</strong> before entering the permanent exhibition ledger:
       </p>
 
-      <div class="diagram-card">
-        <div class="mermaid">
-sequenceDiagram
-    participant F as FLUX Forge
-    participant Q as Shard 1: Qwen 3.8 Dense (Vision)
-    participant G as Shard 2: Governor Gemma 31B
-    participant R as Cloudflare R2 Vault
-
-    F->>Q: Dispatch Raw Latent Cell (BF16)
-    Q->>G: Dense Spatial Geometry & Impasto Critique (Score: 9.5)
-    alt Score ≥ 9.0 (Crowned)
-        G->>R: Consecrate Masterpiece (.png + manifest.json)
-        G->>F: Issue 1-Sentence Poetic Epigram
-    else Score < 7.0 (Drift)
-        G->>F: Prune Cell & Mutate Seed Geodesic
-    end
-        </div>
-      </div>
+      <p>Live evaluation path for the selected lane, from the running stream — not a costume sequence.</p>
+      <div id="livePath" class="path"></div>
     </section>
 
     <!-- Section 4 -->
     <section>
-      <h2>4. Hardware & VRAM Allocation Topology (288 GB B300)</h2>
-      <table class="spec-table">
+      <h2>4. Hardware on this box (measured)</h2>
+      <p>Not a B300. Rows come from <code>nvidia-smi</code> and <code>/v1/models</code>.</p>
+      <table class="spec-table" id="liveSilicon">
         <thead>
-          <tr>
-            <th>Engine / Shard</th>
-            <th>Role</th>
-            <th>VRAM Share</th>
-            <th>Endpoint / Port</th>
-          </tr>
+          <tr><th>GPU</th><th>Name</th><th>VRAM</th><th>Util</th><th>Power</th></tr>
         </thead>
-        <tbody>
-          <tr>
-            <td><strong>👑 Governor Beta</strong></td>
-            <td>Law & Intent (Gemma 4 31B FP8)</td>
-            <td>~35 GiB</td>
-            <td>127.0.0.1:9000 (Gateway :8000)</td>
-          </tr>
-          <tr>
-            <td><strong>👑 Governor Gamma</strong></td>
-            <td>World Synthesis (Gemma 4 31B FP8)</td>
-            <td>~35 GiB</td>
-            <td>127.0.0.1:9001 (Gateway :8001)</td>
-          </tr>
-          <tr>
-            <td><strong>👁️ Visual Juror</strong></td>
-            <td>Fortiche Aesthetic Sieve (Pixtral 12B)</td>
-            <td>~15 GiB</td>
-            <td>127.0.0.1:9002 (Gateway :8002)</td>
-          </tr>
-          <tr>
-            <td><strong>🖼️ FLUX.1-dev</strong></td>
-            <td>BF16 Diffusion DiT (Still Forge)</td>
-            <td>~32 GiB</td>
-            <td>Resident Unix Socket</td>
-          </tr>
-          <tr>
-            <td><strong>🌊 Dynamic Buffer</strong></td>
-            <td>64-Frame Batch Orbit & Long Sequence Headroom</td>
-            <td>~131 GiB</td>
-            <td>HBM3e Silicon Strata</td>
-          </tr>
-        </tbody>
+        <tbody></tbody>
       </table>
+      <p class="oversee-meta" id="liveSiliconNote"></p>
     </section>
 
     <!-- Section 5 -->
@@ -715,10 +317,11 @@ sequenceDiagram
   <script>
     function protocolLane() {
       const path = location.pathname.replace(/\/+$/, '');
-      if (path.endsWith('/fashion') || path.endsWith('/celadon') || path.endsWith('/still-life')) return 'fashion';
       if (path.endsWith('/arcane')) return 'arcane';
+      if (path.endsWith('/fashion') || path.endsWith('/celadon') || path.endsWith('/still-life')) return 'fashion';
       const q = new URLSearchParams(location.search).get('lane');
-      return q === 'fashion' ? 'fashion' : 'arcane';
+      if (q === 'arcane' || q === 'fashion') return q;
+      return 'fashion';
     }
     function pill(live) {
       if (live === true) return '<span class="pill live">live</span>';
@@ -727,7 +330,7 @@ sequenceDiagram
     }
     const SEATS = [
       { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
-      { key: 'qwen', label: 'Structure', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
+      { key: 'qwen', label: 'Reason', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
       { key: 'decoder', label: 'Decoder (absorbed)', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
       { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
     ];
@@ -972,6 +575,64 @@ sequenceDiagram
       }
     }
 
+    function kindLabel(kind) {
+      return ({
+        governor_gemma: 'Governor · Gemma',
+        qwen: 'Qwen volume',
+        flux_jury: 'FLUX jury',
+        pixtral: 'Pixtral',
+        drafter: 'Drafter 12B',
+        down: 'down',
+        unknown: 'unknown',
+        missing: 'missing'
+      })[kind] || kind;
+    }
+    async function refreshOptics() {
+      try {
+        const d = await fetch('/api/optics', { cache: 'no-store' }).then(r => r.json());
+        const arch = document.getElementById('liveArch');
+        if (arch) {
+          const socks = (d.sockets || []).filter(s => [8000, 8001, 8002, 8004].includes(s.port));
+          const gpus = d.gpus || [];
+          const gpuBy = {};
+          gpus.forEach(g => { gpuBy[String(g.index)] = g; });
+          const gpuForPort = { 8000: '1', 8001: '0', 8002: '2', 8004: '3' };
+          arch.innerHTML = socks.map(s => {
+            const g = gpuBy[gpuForPort[s.port]] || {};
+            const mem = (g.memory_used != null) ? Math.round(g.memory_used) + ' / ' + Math.round(g.memory_total) + ' MiB' : '';
+            const util = g.utilization != null ? g.utilization + '%' : '';
+            return '<article class="live-card' + (s.live ? '' : ' down') + '">' +
+              '<div class="k">:' + s.port + ' · GPU ' + (gpuForPort[s.port] || '?') + '</div>' +
+              '<h3>' + kindLabel(s.kind) + '</h3>' +
+              '<div class="m">' + ((s.ids || []).slice(0, 3).join(', ') || 'no models') + '</div>' +
+              '<div class="q">' + [mem, util].filter(Boolean).join(' · ') + '</div></article>';
+          }).join('');
+        }
+        const pathEl = document.getElementById('livePath');
+        if (pathEl) {
+          const lane = protocolLane();
+          const loop = (d.loop && d.loop[lane]) || (d.loop && d.loop.arcane) || {};
+          const path = loop.eval_path || [];
+          const err = loop.error ? ' · ' + loop.error : '';
+          pathEl.innerHTML = path.map(s => '<span class="live-step">' + s + '</span>').join('') +
+            (err ? '<div class="oversee-meta">' + err + '</div>' : '');
+        }
+        const tb = document.querySelector('#liveSilicon tbody');
+        if (tb) {
+          tb.innerHTML = (d.gpus || []).map(g =>
+            '<tr><td>' + g.index + '</td><td>' + (g.name || '') + '</td><td>' +
+            Math.round(g.memory_used || 0) + ' / ' + Math.round(g.memory_total || 0) + ' MiB</td><td>' +
+            (g.utilization != null ? g.utilization + '%' : '—') + '</td><td>' +
+            (g.power_draw != null ? g.power_draw + ' W' : '—') + '</td></tr>'
+          ).join('');
+        }
+        const note = document.getElementById('liveSiliconNote');
+        if (note) note.textContent = (d.machine || '') + ((d.drift && d.drift.length) ? ' · ' + d.drift.join(' ') : '');
+      } catch (e) {
+        const arch = document.getElementById('liveArch');
+        if (arch) arch.textContent = 'optics unreachable';
+      }
+    }
     async function refreshProtocol() {
       const lane = protocolLane();
       const arcane = document.getElementById('navArcane');
@@ -981,9 +642,9 @@ sequenceDiagram
       const pageTag = document.getElementById('protocolPageTag');
       if (pageTag) pageTag.textContent = 'PAGE: /protocol/' + lane;
       const title = document.getElementById('overseeTitle');
-      if (title) title.textContent = lane === 'fashion'
-        ? 'Fashion beauty jury · GPU 3 FP8 · 28 steps'
-        : 'Fortiche Arcane still · GPU 0 BF16 · 28 steps · paint + impossible rose';
+      if (title) title.textContent = lane === 'arcane'
+        ? 'Arcane is unplugged'
+        : 'GPU 3 FP8 · 256×256 · 18 steps · waiting for a new brief';
       try {
         const res = await fetch('/api/protocol?lane=' + encodeURIComponent(lane), { cache: 'no-store' });
         const d = await res.json();
@@ -1042,7 +703,7 @@ sequenceDiagram
         document.getElementById('streamFill').style.width = pct + '%';
         document.getElementById('streamMeta').textContent = st.status
           ? (st.status + ' · ' + (st.steps || '?') + ' steps · ' + done + '/' + n)
-          : 'idle — choose 256/512 × 18/28';
+          : 'idle — fashion paused; new brief is a collection below';
         const promptEl = document.getElementById('streamPrompt');
         if (promptEl) promptEl.textContent = st.prompt || '';
         const sid = st.id || '';
@@ -1085,9 +746,29 @@ sequenceDiagram
     function renderBranches(payload) {
       const cap = (payload && payload.branch_cap) || 3;
       const branches = (payload && payload.branches) || [];
-      const running = branches.filter((b) => b.status === 'running').length;
+      const live = branches.filter((b) => b.status === 'running');
+      const running = live.length;
       const meta = document.getElementById('branchMeta');
       if (meta) meta.textContent = running + '/' + cap + ' running · collections walls';
+      const banner = document.getElementById('branchLive');
+      if (banner) {
+        if (!live.length) {
+          banner.style.display = 'none';
+          banner.textContent = '';
+        } else {
+          const b = live[0];
+          const st = b.stream || {};
+          const size = (st.width || b.width || '?') + '×' + (st.height || b.height || '?');
+          const steps = st.steps || b.steps || '?';
+          const done = b.done || st.done || 0;
+          const n = b.n || st.n || 0;
+          const safe = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          banner.style.display = 'block';
+          banner.innerHTML = '<b>LIVE</b> · GPU 3 FP8 · ' + safe(b.slug) + ' · ' + size + ' · ' + steps + ' steps · ' + done + '/' + n
+            + '<br>' + safe((b.prompt || '').slice(0, 220))
+            + '<br><a href="' + safe(b.wall) + '">Open wall</a> · Stop on the card below, edit the prompt, start again to change it.';
+        }
+      }
       const box = document.getElementById('branchList');
       if (!box) return;
       if (!branches.length) {
@@ -1110,19 +791,21 @@ sequenceDiagram
           '</div>';
       }).join('');
     }
-    async function startBranch(n, steps) {
+    async function startBranch(steps) {
       const name = (document.getElementById('branchName').value || '').trim();
       const prompt = (document.getElementById('branchPrompt').value || '').trim();
+      const size = parseInt((document.getElementById('branchSize') || {}).value || '256', 10) || 256;
+      const n = parseInt((document.getElementById('branchN') || {}).value || '256', 10) || 256;
       const meta = document.getElementById('branchMeta');
       if (!name || !prompt) {
-        if (meta) meta.textContent = 'name and prompt are required';
+        if (meta) meta.textContent = 'name and prompt are required — waiting for the new brief';
         return;
       }
-      if (meta) meta.textContent = 'starting ' + name + '…';
+      if (meta) meta.textContent = 'starting ' + name + ' on GPU 3 FP8 · ' + size + '² · ' + steps + ' steps…';
       const res = await fetch('/api/protocol/branches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, prompt: prompt, n: n, steps: steps, depth: 1 })
+        body: JSON.stringify({ name: name, prompt: prompt, n: n, steps: steps, width: size, height: size, depth: 1, socket: '.fluxd/flux-gpu3.sock' })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1140,7 +823,9 @@ sequenceDiagram
       refreshProtocol();
     }
     refreshProtocol();
+    refreshOptics();
     setInterval(refreshProtocol, 4000);
+    setInterval(refreshOptics, 5000);
 
     // Theme Switch
     const themeBtn = document.getElementById('themeSwitch');

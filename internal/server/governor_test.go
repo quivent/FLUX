@@ -13,6 +13,14 @@ import (
 	"local/flux/internal/config"
 )
 
+func TestGovernorUpstreamDefaultsToAgenticGateway(t *testing.T) {
+	t.Setenv("GOVERNOR_URL", "")
+	u := governorUpstream()
+	if u.String() != "http://127.0.0.1:8800" {
+		t.Fatalf("upstream %s, want agentic gateway :8800", u)
+	}
+}
+
 func TestGovernorPageServesTeaChat(t *testing.T) {
 	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "governor.html"))
 	if err != nil {
@@ -23,6 +31,8 @@ func TestGovernorPageServesTeaChat(t *testing.T) {
 		"Governor — Tea",
 		"/api/governor/chat",
 		"/api/governor/models",
+		"/api/governor/health",
+		`include_metadata: true`,
 		`class="tea-chrome"`,
 		`href="/tea/tea.css"`,
 		"stream: true",
@@ -74,6 +84,14 @@ func TestGovernorProxyHitsLocalEngine(t *testing.T) {
 	}
 	if sawPath != "/v1/models" {
 		t.Fatalf("models proxied to %q", sawPath)
+	}
+	rec = httptest.NewRecorder()
+	s.governorHealth(rec, httptest.NewRequest(http.MethodGet, "/api/governor/health", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("health status %d %s", rec.Code, rec.Body.String())
+	}
+	if sawPath != "/health" {
+		t.Fatalf("health proxied to %q", sawPath)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {

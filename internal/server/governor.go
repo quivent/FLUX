@@ -13,11 +13,11 @@ import (
 func governorUpstream() *url.URL {
 	raw := strings.TrimSpace(os.Getenv("GOVERNOR_URL"))
 	if raw == "" {
-		raw = "http://127.0.0.1:8000"
+		raw = "http://127.0.0.1:8800"
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		u, _ = url.Parse("http://127.0.0.1:8000")
+		u, _ = url.Parse("http://127.0.0.1:8800")
 	}
 	return u
 }
@@ -44,6 +44,14 @@ func (s Server) governorModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.proxyGovernor(w, r, "/v1/models")
+}
+
+func (s Server) governorHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	s.proxyGovernor(w, r, "/health")
 }
 
 func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {

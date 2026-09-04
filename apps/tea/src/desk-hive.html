@@ -16,6 +16,9 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
@@ -24,7 +27,7 @@
 <main class="desk">
   <div class="kicker"><a href="/desk">Desk</a> · hive</div>
   <h1>Hive mix</h1>
-  <p class="lede">Share of the composite each seat is allowed. Moving a meter writes the jury weights immediately.</p>
+  <p class="lede">Which language-model seats are allowed to rate. Mix weights are gone — the models speak in words, not percentages.</p>
   <div class="desk-lanes">
     <button class="on" data-lane="fashion">Fashion · GPU 3</button>
     <button data-lane="arcane">Arcane · GPU 0</button>
@@ -40,30 +43,15 @@
 <script src="/tea/desk.js"></script>
 <script>
   const D = TeaDesk;
-  const KEYS = [
-    { key: "pixtral", title: "Beauty", hint: "Pixtral / hive-research — color, mood, medium." },
-    { key: "qwen", title: "Structure", hint: "Witness — anatomy, contour, geometry." },
-    { key: "decoder", title: "Decoder", hint: "Rides with structure. Consensus grain." },
-    { key: "governor", title: "Governor", hint: "Law, prompt, what must not pass." }
-  ];
   let hive = {};
   function draw() {
-    D.$("meters").innerHTML = KEYS.map(k => {
-      const pct = Math.round((hive[k.key] || 0) * 100);
-      return '<div class="meter"><div class="top"><h3>' + k.title + '</h3><span class="val" id="v-' + k.key + '">' + pct + '%</span></div>'
-        + '<input type="range" min="0" max="100" value="' + pct + '" id="m-' + k.key + '">'
-        + '<div class="hint">' + k.hint + '</div></div>';
-    }).join("");
-    KEYS.forEach(k => {
-      D.$("m-" + k.key).oninput = () => { hive[k.key] = D.$("m-" + k.key).value / 100; D.$("v-" + k.key).textContent = D.$("m-" + k.key).value + "%"; push(); };
-    });
+    D.$("meters").innerHTML = '<div class="hint">Beauty, Structure, and Governor each rate in words. Seating them is the only mix left.</div>';
     ["pixtral","witness","governor"].forEach(id => {
       D.$("en-" + id).onchange = push;
     });
   }
   const push = D.debounce(() => {
     D.save({ hive: {
-      pixtral: +hive.pixtral || 0, qwen: +hive.qwen || 0, decoder: +hive.decoder || 0, governor: +hive.governor || 0,
       enable_pixtral: D.$("en-pixtral").checked,
       enable_witness: D.$("en-witness").checked,
       enable_governor: D.$("en-governor").checked

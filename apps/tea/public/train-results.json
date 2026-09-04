@@ -1,0 +1,55 @@
+{
+  "schema": "surface.train-results.v1",
+  "tick": 621,
+  "updated": "2026-09-04T23:50:09Z",
+  "gpu": 1,
+  "status": "extract_live",
+  "fluency": 1.0,
+  "shard_read_ok": true,
+  "residual_match": true,
+  "extract_ok": true,
+  "pointer_ok": true,
+  "no_prose_restatement": true,
+  "issuance": "governor_gate",
+  "product": "extract_hidden_states",
+  "protocol": "spectral-externalization-v1",
+  "extract_residuals": 434,
+  "cosine_heldout": 0.7961334059639967,
+  "cosine_control": 0.5431346635117019,
+  "shard_read": [
+    {
+      "ok": true,
+      "query": "spectral externalization",
+      "path": "cuda_index_search",
+      "device_us": 442,
+      "roundtrip_us": 3613,
+      "ms": 3.613,
+      "hits": 4,
+      "searched_blocks": 18609,
+      "excerpt": "[{\"block_id\": \"c6d6353de67406d1\", \"content_length\": 2324, \"length\": 2399, \"offset\": 3838811, \"over_base\": 8.0, \"score\": 8.0, \"shard\": \"lithos-render\", \"source_path\": \"src/starfield/starfield.ls\"}]"
+    },
+    {
+      "ok": true,
+      "query": "doctrine",
+      "path": "cuda_index_search",
+      "device_us": 185,
+      "roundtrip_us": 1764,
+      "ms": 1.764,
+      "hits": 4,
+      "searched_blocks": 18609,
+      "excerpt": "[{\"block_id\": \"c705b5cdb3b718d5\", \"content_length\": 7593, \"length\": 7671, \"offset\": 14300, \"over_base\": 8.0, \"score\": 8.0, \"shard\": \"lithos-lightning\", \"source_path\": \"LIGHTNING-CLEANUP-MAP.md#chunk0\"}]"
+    }
+  ],
+  "heldout": {
+    "shard_read_ok": true,
+    "residual_match": true,
+    "extract_ok": true,
+    "raw": "measured:cuda_index_search+extract+cosine"
+  },
+  "residual_attempt": {
+    "attempted": true,
+    "verdict": "MATCH",
+    "reason": "CUDA vault index_search (not host shard_read). Wall = vault hits AND residual cosine vs control AND extract safetensors."
+  },
+  "kind": "spectral"
+}

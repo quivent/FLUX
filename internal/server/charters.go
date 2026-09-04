@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,6 +17,8 @@ type charterCard struct {
 	Slug       string `json:"slug"`
 	State      string `json:"state"`
 	Priority   string `json:"priority"`
+	Sequence   int    `json:"sequence,omitempty"`
+	Parent     string `json:"parent,omitempty"`
 	Title      string `json:"title"`
 	Summary    string `json:"summary"`
 	OpenedBy   string `json:"opened_by"`
@@ -157,6 +160,13 @@ func loadCharterQueue(root string) []charterCard {
 		if si != sj {
 			return si < sj
 		}
+		ai, aj := cards[i].Sequence > 0, cards[j].Sequence > 0
+		if ai != aj {
+			return ai
+		}
+		if ai && cards[i].Sequence != cards[j].Sequence {
+			return cards[i].Sequence < cards[j].Sequence
+		}
 		pi, pj := priorityRank(cards[i].Priority), priorityRank(cards[j].Priority)
 		if pi != pj {
 			return pi < pj
@@ -246,11 +256,17 @@ func parseCharterTOML(path, src string) charterCard {
 	if rel == "" || strings.HasPrefix(rel, "..") {
 		rel = filepath.Base(path)
 	}
+	seq := 0
+	if n, err := strconv.Atoi(strings.TrimSpace(tomlField(src, "charter", "sequence"))); err == nil {
+		seq = n
+	}
 	return charterCard{
 		ID:       id,
 		Slug:     slug,
 		State:    strings.ToLower(firstNonEmpty(tomlField(src, "charter", "state"), "unset")),
 		Priority: strings.ToLower(firstNonEmpty(tomlField(src, "charter", "priority"), "medium")),
+		Sequence: seq,
+		Parent:   tomlField(src, "charter", "parent"),
 		Title:    clip(title, 220),
 		Summary:  clip(collapseSpace(summary), 420),
 		OpenedBy: openedBy,
@@ -300,8 +316,10 @@ func stateRank(s string) int {
 		return 4
 	case "superseded":
 		return 5
-	default:
+	case "parked":
 		return 6
+	default:
+		return 7
 	}
 }
 

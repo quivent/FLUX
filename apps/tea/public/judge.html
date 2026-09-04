@@ -101,8 +101,28 @@
     white-space: pre-wrap; font: 12px/1.55 var(--mono); color: var(--soft);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-height: 5em; background: var(--paper-soft);
   }
+  .flow {
+    border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin: 8px 0 22px;
+    background: var(--card-bg);
+  }
+  .flow-path { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+  .flow-path span {
+    font: 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft);
+  }
+  .flow-path span.on { color: var(--ink); border-color: var(--tea); background: var(--tea-light); }
+  .flow-seats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+  .flow-seat { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--paper-soft); }
+  .flow-seat.borrowed { border-color: var(--gold); }
+  .flow-seat h3 { margin: 0 0 4px; font: 500 16px/1.2 var(--serif); }
+  .flow-seat .who { font: 11px/1.4 var(--mono); color: var(--tea); }
+  .flow-seat .score { font: 400 28px/1 var(--serif); margin: 8px 0 6px; }
+  .flow-seat p { margin: 0; font: 13px/1.45 var(--serif); color: var(--soft); }
   .frames { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; margin-top: 16px; }
   .frames div { border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 10px/1.35 var(--mono); color: var(--soft); background: var(--card-bg); }
+  @media (max-width: 980px) {
+    .flow-seats { grid-template-columns: 1fr; }
+  }
   .meta { color: var(--faint); font: 11px var(--mono); }
   @media (max-width: 980px) {
     .status, .seats, .frames { grid-template-columns: 1fr 1fr; }
@@ -118,22 +138,38 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
   </nav>
 </header>
 <main>
-  <div class="kicker">Live controller · weights · gamma · hive</div>
+  <div class="kicker">Live controller · who answered · weights · hive</div>
   <h1>Judging algorithm</h1>
-  <p class="lede">This page writes the algorithm the evaluators actually use. Each studio has its own jury, sqlite, and wall. Microgreens is the live public work. Move a slider, it persists.</p>
+  <p class="lede">One screen for the jury flow on this lane. The strip below is who actually scored the last frame — model, port, and whether anatomy borrowed Pixtral's eyes. Sliders under it are the law those seats obey.</p>
 
   <div class="lanes">
-    <button class="on" id="lane-microgreens" onclick="setLane('microgreens')">Microgreens · GPU 0</button>
-    <button id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3</button>
+    <button class="on" id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3 FP8</button>
+    <button id="lane-microgreens" onclick="setLane('microgreens')">Microgreens · GPU 0</button>
     <button id="lane-arcane" onclick="setLane('arcane')">Arcane · GPU 0</button>
   </div>
   <div class="meta" id="laneMeta">loading…</div>
+  <div class="status" id="runHud" style="margin-bottom:12px">
+    <div class="stat"><b id="runSize">256²</b><span>frame size</span></div>
+    <div class="stat"><b id="runSteps">18</b><span>steps</span></div>
+    <div class="stat"><b id="runProg">—</b><span>FP8 stream</span></div>
+    <div class="stat"><b id="runPrec">FP8</b><span>GPU 3</span></div>
+  </div>
+  <div class="flow" id="juryFlow">
+    <div class="kicker">This frame's jury</div>
+    <div class="flow-path" id="evalPath"></div>
+    <div class="flow-seats" id="flowSeats">loading the last verdict…</div>
+    <p class="meta" id="flowNote"></p>
+  </div>
+  <div class="frames" id="livewall"></div>
 
   <div class="status">
     <div class="stat" id="stat-scored"><b>—</b><span>scored in last 24</span></div>
@@ -183,16 +219,17 @@
 </main>
 <script>
   const SEATS = [
-    { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
+    { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'pixtral', port: '8004' },
     { key: 'qwen', label: 'Structure', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
     { key: 'decoder', label: 'Decoder', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
-    { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
+    { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8800' }
   ];
   let lane = (function () {
     const h = location.hash.replace('#','');
-    if (h === 'fashion' || h === 'arcane' || h === 'microgreens') return h;
-    return 'microgreens';
+    if (/^[a-z0-9][a-z0-9-]{0,31}$/.test(h)) return h;
+    return 'fashion';
   })();
+  let lanes = [];
   let current = {
     mode: 'parallel',
     order: ['pixtral','qwen','decoder','governor'],
@@ -220,10 +257,25 @@
   function q(path) { return path + (path.includes('?') ? '&' : '?') + 'lane=' + encodeURIComponent(lane); }
 
   function markLanes() {
-    ['fashion','arcane','microgreens'].forEach((id) => {
-      const el = $('lane-' + id);
-      if (el) el.classList.toggle('on', lane === id);
+    document.querySelectorAll('.lanes button').forEach((el) => {
+      const id = (el.id || '').replace(/^lane-/, '');
+      el.classList.toggle('on', id === lane);
     });
+  }
+  function renderLanes(list) {
+    const host = document.querySelector('.lanes');
+    if (!host) return;
+    lanes = (list && list.length) ? list : [
+      {id: 'fashion', label: 'Fashion · GPU 3 FP8'},
+      {id: 'microgreens', label: 'Microgreens · GPU 0'},
+      {id: 'arcane', label: 'Arcane · GPU 0'}
+    ];
+    host.innerHTML = lanes.map((L) => {
+      const id = String(L.id || '').replace(/[^a-z0-9-]/g, '');
+      const label = String(L.label || id);
+      return '<button id="lane-' + id + '" onclick="setLane(\'' + id + '\')">' + label.replace(/[<>]/g, '') + '</button>';
+    }).join('');
+    markLanes();
   }
   function setLane(next) {
     lane = next;
@@ -445,24 +497,100 @@
       if (data.live_models) live = data.live_models;
       presets = data.presets || [];
       $('algoPreset').innerHTML = '<option value="">load preset…</option>' + presets.map((p) => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+      if (data.lanes) renderLanes(data.lanes);
       if (data.config) applyCfg(data.config);
       paintAudit(data.audit, data.hive);
       if (data.latest) showCal(data.latest, data.latest.applied);
-      const label = lane === 'microgreens' ? 'GPU 0 microgreens jury' : (lane === 'arcane' ? 'GPU 0 Fortiche jury' : 'GPU 3 fashion jury');
+      const spec = (lanes || []).find((x) => x.id === lane);
+      const label = spec ? spec.label : lane;
       $('laneMeta').textContent = lane + ' · ' + label + ' · independent sqlite';
     } catch (err) {
       $('laneMeta').textContent = 'controller unavailable';
     }
+    paintRun();
+  }
+
+  function paintFlow(d) {
+    const path = (d.stream && d.stream.eval_path) || (d.stream_options && d.stream_options.eval_path) ||
+      ['generate','uniqueness','sensory_gates','witness','pixtral','governor','composite'];
+    const frames = ((d.audit || {}).frames) || [];
+    const last = frames.length ? frames[frames.length - 1] : {};
+    const answered = {};
+    (last.scores || []).forEach((j) => { if (j.role) answered[j.role] = j; });
+    const pathEl = $('evalPath');
+    if (pathEl) {
+      pathEl.innerHTML = path.map((step) => {
+        const on = step === 'witness' ? answered.structure : step === 'pixtral' ? answered.aesthetic : step === 'governor' ? answered.synthesis : last.tier;
+        return '<span' + (on ? ' class="on"' : '') + '>' + step + '</span>';
+      }).join('');
+    }
+    const host = $('flowSeats');
+    if (host) {
+      const seats = [
+        { role: 'structure', label: 'Anatomy' },
+        { role: 'aesthetic', label: 'Beauty' },
+        { role: 'synthesis', label: 'Governor' }
+      ];
+      host.innerHTML = seats.map((seat) => {
+        const j = answered[seat.role] || {};
+        const borrowed = j.borrowed_vision;
+        const who = (j.model || 'silent') + (j.endpoint ? ' · ' + j.endpoint.replace('http://','') : '') +
+          (borrowed ? ' · borrowed ' + borrowed : '');
+        const score = j.score != null ? Number(j.score).toFixed(1) : '—';
+        const extra = j.anatomy != null ? ' anatomy ' + Number(j.anatomy).toFixed(0) : '';
+        const crit = (j.critique || (j.degraded ? 'did not answer' : 'waiting')).toString();
+        return '<div class="flow-seat' + (borrowed ? ' borrowed' : '') + '"><h3>' + seat.label + '</h3>' +
+          '<div class="who">' + who.replace(/[<>]/g,'') + extra + '</div>' +
+          '<div class="score">' + score + '</div><p>' + crit.replace(/[<>]/g,'') + '</p></div>';
+      }).join('');
+    }
+    const note = $('flowNote');
+    if (note) {
+      const s = d.stream || {};
+      note.textContent = lane + ' · ' + (s.width || '—') + '×' + (s.height || s.width || '—') +
+        ' · ' + (s.steps || '—') + ' steps · ' + (s.done || 0) + '/' + (s.n || 0) +
+        ' · last ' + (last.tier || 'unscored') +
+        (last.uniqueness != null ? ' · uniqueness ' + Number(last.uniqueness).toFixed(0) : '');
+    }
+  }
+
+  async function paintRun() {
+    try {
+      const res = await fetch(q('/api/protocol'), { cache: 'no-store' });
+      const d = await res.json();
+      const s = d.stream || {};
+      const w = s.width || 256, h = s.height || 256, steps = s.steps || 18;
+      const size = $('runSize'); if (size) size.textContent = w + '×' + h;
+      const stp = $('runSteps'); if (stp) stp.textContent = steps;
+      const prog = $('runProg');
+      if (prog) {
+        prog.textContent = (s.done || 0) + '/' + (s.n || 256);
+        const cap = prog.parentElement && prog.parentElement.querySelector('span');
+        if (cap) cap.textContent = (s.status || '—');
+      }
+      paintFlow(d);
+      const items = ((d.spectacles || {}).items) || [];
+      const wall = $('livewall');
+      if (wall) {
+        wall.innerHTML = items.slice(0, 12).map((it) => {
+          const src = it.image_url || '';
+          const score = it.composite_score != null ? Number(it.composite_score).toFixed(1) : '';
+          const img = src ? '<img src="/api/asset/thumbnail?w=256&src=' + encodeURIComponent(src) + '" alt="" style="width:100%;display:block;border-radius:6px">' : '';
+          return '<div>' + img + '<b>' + score + '</b></div>';
+        }).join('');
+      }
+    } catch (err) {}
   }
 
   window.addEventListener('hashchange', () => {
     const h = location.hash.replace('#','');
-    const next = (h === 'fashion' || h === 'arcane' || h === 'microgreens') ? h : 'microgreens';
+    const next = /^[a-z0-9][a-z0-9-]{0,31}$/.test(h) ? h : 'fashion';
     if (next !== lane) setLane(next);
   });
   renderSeats();
   preview();
   hydrate();
+  setInterval(function () { paintRun(); hydrate(); }, 4000);
 </script>
 </body>
 </html>

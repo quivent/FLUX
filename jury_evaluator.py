@@ -37,6 +37,7 @@ Tier routing
 """
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -73,13 +74,57 @@ LEDGER_TAIL = int(os.environ.get("JURY_LEDGER_TAIL") or 30)
 DEFECT_PERCENTILE = 35.0
 
 
-def _ensure_output_dir():
+_COLLECTION_DIR_RE = re.compile(r"(?:^|/)collections/([a-z0-9-]+)(?:/|$)")
+
+
+def collection_dir_for_job(job, default=None):
+    """Route a settled job to ``collections/<slug>/`` when the PNG lives there.
+
+    The GPU-3 evaluator tails a ledger that mixes fashion stills with protocol
+    branches. Fashion stays at the output root. A silken-horses frame must
+    write ``audit.jsonl`` next to the PNG, not into the fashion audit.
+    """
+    default = default or OUTPUT_DIR
+    if not isinstance(job, dict):
+        return default
+    blob = " ".join(
+        str(job.get(key) or "").replace("\\", "/")
+        for key in ("output", "image", "path", "file", "filename")
+    )
+    match = _COLLECTION_DIR_RE.search(blob)
+    if not match:
+        return default
+    slug = match.group(1)
+    for key in ("output", "image", "path"):
+        val = str(job.get(key) or "").replace("\\", "/")
+        token = "/collections/" + slug
+        if token in val:
+            return val[: val.find(token)] + token
+    if os.path.basename(os.path.dirname(default)) == "collections":
+        return default
+    return os.path.join(default, "collections", slug)
+
+
+def _paths_for_dir(output_dir):
+    return {
+        "dir": output_dir,
+        "audit": os.path.join(output_dir, "audit.jsonl"),
+        "sqlite": os.path.join(output_dir, "jury.sqlite3"),
+        "config": os.path.join(output_dir, "jury_config.json"),
+        "spectacle": os.path.join(output_dir, "spectacle_genome.jsonl"),
+        "masterpiece": os.path.join(output_dir, "masterpiece_vault.jsonl"),
+        "defect": os.path.join(output_dir, "defect_blacklist.jsonl"),
+    }
+
+
+def _ensure_output_dir(output_dir=None):
     """Create the output directory on first write, never at import time."""
+    target = output_dir or OUTPUT_DIR
     try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(target, exist_ok=True)
         return True
     except Exception as exc:
-        LOG.error("cannot create output dir %s: %s" % (OUTPUT_DIR, exc))
+        LOG.error("cannot create output dir %s: %s" % (target, exc))
         return False
 
 
@@ -138,16 +183,17 @@ def sync_state_to_r2_async():
 # --------------------------------------------------------------------------
 
 
-def load_active_config():
+def load_active_config(output_dir=None):
     """Read the active jury config the Go server writes.
 
     Prefers ``jury_config.json`` (exported by ``jury.ExportConfigJSON``), falls
     back to the ``jury_config`` SQLite row, then to jury.go's ``DefaultConfig()``
     values so the two stay in step.
     """
+    paths = _paths_for_dir(output_dir or OUTPUT_DIR)
     try:
-        if os.path.exists(CONFIG_JSON):
-            with open(CONFIG_JSON, "r") as handle:
+        if os.path.exists(paths["config"]):
+            with open(paths["config"], "r") as handle:
                 cfg = json.load(handle)
             if isinstance(cfg, dict):
                 return cfg
@@ -156,7 +202,7 @@ def load_active_config():
 
     con = None
     try:
-        con = sqlite3.connect(SQLITE_DB)
+        con = sqlite3.connect(paths["sqlite"])
         cur = con.cursor()
         cur.execute(
             "SELECT mode, order_json, weights_json, strictness_json, "
@@ -265,9 +311,10 @@ def _critiques_json(receipt):
     return critiques
 
 
-def persist_receipt(receipt):
+def persist_receipt(receipt, output_dir=None):
     """Write one verdict everywhere it belongs, then route it by tier."""
-    _ensure_output_dir()
+    paths = _paths_for_dir(output_dir or OUTPUT_DIR)
+    _ensure_output_dir(paths["dir"])
 
     tier = receipt.get("tier")
     percentile = receipt.get("percentile_rank")
@@ -280,7 +327,7 @@ def persist_receipt(receipt):
 
     # 2. Full audit trail. Unscored frames are recorded here too -- the absence
     #    of a verdict is itself part of the record.
-    _append_jsonl(AUDIT_LOG, receipt)
+    _append_jsonl(paths["audit"], receipt)
 
     # 3. Tier routing. An unscored frame reaches NO feed: it did not earn a
     #    promotion and it did not earn a demotion, because nobody judged it.
@@ -290,11 +337,11 @@ def persist_receipt(receipt):
             "tier feed and from the percentile CDF" % job_id
         )
     elif tier == "masterpiece":
-        _append_jsonl(MASTERPIECE_LOG, receipt)
+        _append_jsonl(paths["masterpiece"], receipt)
         sync_state_to_r2_async()
     elif tier == "spectacle":
         _append_jsonl(
-            SPECTACLE_LOG,
+            paths["spectacle"],
             {
                 "ts": time.time(),
                 "job_id": job_id,
@@ -316,7 +363,7 @@ def persist_receipt(receipt):
                 worst = str(observed)
                 break
         _append_jsonl(
-            DEFECT_LOG,
+            paths["defect"],
             {
                 "ts": time.time(),
                 "job_id": job_id,
@@ -332,7 +379,7 @@ def persist_receipt(receipt):
     #    both GetSpectacles() and the percentile CDF query already skip.
     con = None
     try:
-        con = sqlite3.connect(SQLITE_DB)
+        con = sqlite3.connect(paths["sqlite"])
         with con:
             # The Go server owns this schema (internal/jury/jury.go:InitDB).
             # Recreating it identically here is idempotent and means the daemon
@@ -398,8 +445,14 @@ def score_frame(job, cfg=None):
     The name is preserved for compatibility; the fake-hash body is gone.  All
     scoring now happens in :func:`moj_evaluator.evaluate`.
     """
-    receipt = moj_evaluator.evaluate(job, cfg if cfg is not None else load_active_config())
-    return persist_receipt(receipt)
+    out_dir = collection_dir_for_job(job)
+    if cfg is None:
+        cfg = load_active_config(out_dir)
+    if isinstance(cfg, dict):
+        cfg = dict(cfg)
+        cfg["output_dir"] = out_dir
+    receipt = moj_evaluator.evaluate(job, cfg)
+    return persist_receipt(receipt, out_dir)
 
 
 # --------------------------------------------------------------------------
@@ -463,7 +516,6 @@ def main():
 
     while True:
         try:
-            cfg = load_active_config()
             for job in _read_ledger(LEDGER_TAIL):
                 if job.get("status") != "done":
                     continue
@@ -472,7 +524,7 @@ def main():
                     continue
                 seen.add(job_id)
                 try:
-                    score_frame(job, cfg)
+                    score_frame(job)
                 except Exception as exc:
                     # A single bad frame must never take the daemon down.
                     LOG.error("job %s failed to evaluate: %r" % (job_id, exc))

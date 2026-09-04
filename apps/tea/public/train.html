@@ -5,113 +5,341 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f5f0">
   <title>Train · Tea</title>
-  <meta name="description" content="Governor operating apprenticeship — supervised discourse on this rig. Not weight training.">
+  <meta name="description" content="Watch the Governor train himself — reliability, memory, reasoning. Boards, not a teacher.">
   <link rel="stylesheet" href="/tea/tea.css">
   <script src="/tea/tea-shell.js"></script>
+  <script src="/tea/memory-fill.js"></script>
   <style>
     main.train {
-      max-width: 1480px;
+      max-width: 920px;
       margin: 0 auto;
       padding: 24px clamp(16px, 3vw, 36px) 80px;
     }
-    .mast { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 22px; }
+    .mast { margin-bottom: 22px; }
     .kicker { font: 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--tea); }
     h1 { font: 500 clamp(36px, 5vw, 64px)/.9 var(--serif); letter-spacing: -.04em; margin: 8px 0 8px; }
-    .lede { font: 400 16px/1.55 var(--serif); color: var(--soft); max-width: 46rem; margin: 0; }
-    .note { font: 11px/1.5 var(--mono); color: var(--faint); max-width: 36rem; text-align: right; }
+    .lede { font: 400 17px/1.55 var(--serif); color: var(--soft); max-width: 40rem; margin: 0; }
+    .now {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card-bg);
+      padding: 22px 24px 20px;
+      margin: 0 0 16px;
+    }
+    .now-top { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+    .pulse {
+      font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+      color: var(--matcha);
+    }
+    .pulse.off { color: var(--vermilion); }
+    .when { font: 11px var(--mono); color: var(--faint); }
+    .now h2 { font: 500 28px/1.15 var(--serif); margin: 10px 0 8px; letter-spacing: -.02em; }
+    .now .story { font: 400 16px/1.55 var(--serif); color: var(--soft); margin: 0 0 14px; max-width: 42rem; }
+    .now-stats { display: flex; flex-wrap: wrap; gap: 18px; }
+    .now-stats b { display: block; font: 500 22px var(--serif); color: var(--ink); }
+    .now-stats span { font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    .progress {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card-bg);
+      padding: 20px 24px 22px;
+      margin: 0 0 16px;
+    }
+    .pic-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 0 0 14px; }
+    .pic-step {
+      border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+      background: var(--paper-soft); min-width: 0;
+    }
+    .pic-step .who { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--tea); }
+    .pic-step h3 { font: 500 18px/1.2 var(--serif); margin: 6px 0 8px; }
+    .pic-step p { font: 13px/1.45 var(--serif); color: var(--soft); margin: 0; }
+    .pic-step .mark {
+      display: inline-block; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+      border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-bottom: 6px; color: var(--faint);
+    }
+    .pic-step .mark.on { color: var(--matcha); border-color: rgba(90,115,90,.35); }
+    .pic-step .mark.work { color: var(--gold); border-color: rgba(179,137,56,.4); }
+    .pic-step .mark.bad { color: var(--vermilion); border-color: rgba(166,62,57,.35); }
+    .prod-track { margin: 8px 0 4px; }
+    .prod-track .vram-row { grid-template-columns: 120px 1fr 72px; }
+    .open-work { font: 14px/1.5 var(--serif); color: var(--soft); margin: 10px 0 0; }
+    .open-work em { font-style: normal; font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--tea); margin-right: 6px; }
+    .said {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card-bg);
+      padding: 20px 24px 22px;
+      margin: 0 0 16px;
+    }
+    .ask {
+      font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+      color: var(--tea); margin: 0 0 10px;
+    }
+    blockquote.his {
+      margin: 0 0 16px; padding: 0 0 0 14px;
+      border-left: 2px solid var(--tea);
+      font: 400 18px/1.5 var(--serif); color: var(--ink);
+    }
+    .piles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 0 0 14px; }
+    .pile { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper-soft); }
+    .pile b { display: block; font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 6px; }
+    .pile.ok b { color: var(--matcha); }
+    .pile.re b { color: var(--gold); }
+    .pile.no b { color: var(--vermilion); }
+    .pile ul { margin: 0; padding-left: 1.1rem; font: 13px/1.45 var(--serif); color: var(--soft); }
+    .pile .empty { font: 13px/1.45 var(--serif); color: var(--faint); }
+    .checks { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+    .check {
+      font: 12px/1.4 var(--serif); color: var(--soft);
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+    }
+    .check.ok { color: var(--matcha); border-color: rgba(90,115,90,.35); }
+    .check.bad { color: var(--vermilion); border-color: rgba(166,62,57,.35); }
+    .arg { font: 400 15px/1.5 var(--serif); color: var(--soft); }
+    .arg p { margin: 0 0 8px; }
+    .arg em { font-style: normal; font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--tea); margin-right: 6px; }
+    .focus {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 0 0 18px;
+    }
+    .focus article {
+      border: 1px solid var(--line); border-radius: 14px; background: var(--card-bg);
+      padding: 14px 16px 16px;
+    }
+    .focus h3 { font: 500 18px/1.2 var(--serif); margin: 0 0 6px; }
+    .focus p { font: 14px/1.5 var(--serif); color: var(--soft); margin: 0; }
+    .focus .meter { font: 11px var(--mono); color: var(--faint); margin-top: 10px; }
+    .history { margin: 0 0 22px; }
+    .history h2 { font: 500 22px/1.2 var(--serif); margin: 0 0 10px; }
+    .round {
+      border-top: 1px solid var(--line); padding: 12px 0 14px; cursor: pointer;
+    }
+    .round:first-child { border-top: 0; }
+    .round .who { font: 11px var(--mono); color: var(--faint); letter-spacing: .08em; }
+    .round p { font: 400 15px/1.5 var(--serif); margin: 6px 0 0; color: var(--ink); }
+    .round .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip {
+      font: 10px var(--mono); border: 1px solid var(--line); border-radius: 999px;
+      padding: 3px 8px; color: var(--soft);
+    }
+    .chip.ok { color: var(--matcha); }
+    .chip.re { color: var(--gold); }
+    .chip.no { color: var(--vermilion); }
     .board {
-      display: grid;
-      grid-template-columns: 220px minmax(0, 1fr) minmax(320px, .92fr);
-      gap: 16px;
-      min-height: 70vh;
+      display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px;
+      min-height: 28rem; margin: 0 0 22px;
     }
     .col {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--card-bg);
-      overflow: hidden;
-      display: flex; flex-direction: column;
+      border: 1px solid var(--line); border-radius: 14px; background: var(--card-bg);
+      overflow: hidden; display: flex; flex-direction: column;
     }
     .col h2 {
       margin: 0; padding: 12px 14px;
       font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
       color: var(--tea); border-bottom: 1px solid var(--line);
     }
-    .lessons { overflow-y: auto; padding: 6px; }
+    .lessons { overflow-y: auto; padding: 6px; max-height: 36rem; }
     .lesson {
-      display: block; width: 100%; text-align: left;
-      border: 0; background: transparent; color: inherit;
-      padding: 10px 10px; border-radius: 8px; cursor: pointer;
-      font-family: var(--sans);
+      display: block; width: 100%; text-align: left; border: 0; background: transparent;
+      color: inherit; padding: 10px; border-radius: 8px; cursor: pointer; font-family: var(--sans);
     }
     .lesson:hover { background: var(--paper-subtle); }
-    .lesson.on { background: var(--tea-light); box-shadow: inset 0 0 0 1px rgba(121,88,62,.25); }
+    .lesson.on { background: var(--tea-light); }
     .lesson b { display: block; font: 500 13px var(--serif); }
     .lesson span { font: 10px var(--mono); color: var(--faint); }
-    .contract { padding: 16px 18px 22px; overflow-y: auto; }
-    .contract h3 { font: 500 28px/1.1 var(--serif); margin: 0 0 8px; }
-    .meta { font: 11px var(--mono); color: var(--faint); margin-bottom: 14px; }
-    .contract p { font: 400 15px/1.55 var(--serif); color: var(--soft); margin: 0 0 16px; }
-    .label { font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--tea); margin: 16px 0 6px; }
-    ol { margin: 0; padding-left: 1.2rem; color: var(--ink); font: 400 14px/1.5 var(--serif); }
-    .cli {
-      margin-top: 16px; padding: 12px 14px; border-radius: 10px;
-      background: var(--paper-subtle); border: 1px solid var(--line);
-      font: 11px/1.45 var(--mono); color: var(--ink); overflow-x: auto; white-space: pre-wrap;
+    .teach { display: flex; flex-direction: column; min-height: 0; }
+    .case-line { font: 13px/1.45 var(--serif); color: var(--soft); padding: 10px 14px 0; }
+    .log { flex: 1; overflow-y: auto; padding: 14px; font: 400 15px/1.55 var(--serif); min-height: 12rem; }
+    .bubble { margin: 0 0 12px; }
+    .bubble .who { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+    .composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+    .composer textarea {
+      flex: 1; min-height: 64px; resize: vertical; border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 10px; font: 15px var(--serif);
+      background: var(--paper-soft); color: var(--ink);
     }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .btn {
       appearance: none; border: 1px solid var(--line); background: var(--card-bg);
       color: var(--ink); border-radius: 999px; padding: 8px 14px;
       font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
     }
     .btn.primary { background: var(--tea); border-color: var(--tea); color: #f7f3ea; }
-    .teach { display: flex; flex-direction: column; min-height: 0; }
-    .log { flex: 1; overflow-y: auto; padding: 14px; font: 400 14px/1.55 var(--serif); }
-    .bubble { margin: 0 0 12px; }
-    .bubble .who { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
-    .bubble.gov { color: var(--ink); }
-    .bubble.you { color: var(--soft); }
-    .composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
-    .composer textarea {
-      flex: 1; min-height: 64px; resize: vertical; border: 1px solid var(--line);
-      border-radius: 10px; padding: 8px 10px; font: 14px var(--serif);
-      background: var(--paper-soft); color: var(--ink);
-    }
     .status { font: 10px var(--mono); color: var(--faint); padding: 0 12px 8px; }
     .status.ok { color: var(--matcha); }
     .status.bad { color: var(--vermilion); }
-    @media (max-width: 1100px) {
-      .board { grid-template-columns: 1fr; }
-      .lessons { max-height: 220px; }
+    details.workshop {
+      border: 1px solid var(--line); border-radius: 14px; background: var(--card-bg);
+      padding: 4px 16px 12px;
+    }
+    details.workshop > summary {
+      cursor: pointer; font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+      color: var(--faint); padding: 12px 0;
+    }
+    .vram-row {
+      display: grid; grid-template-columns: 72px 1fr 160px; gap: 8px; align-items: center;
+      margin: 5px 0; font: 11px var(--mono); color: var(--soft);
+    }
+    .track { height: 5px; border-radius: 999px; background: var(--paper-subtle); overflow: hidden; }
+    .track i { display: block; height: 100%; background: var(--matcha); border-radius: 999px; }
+    .vram-row.gov .track i { background: var(--tea); }
+    .vram-row.hot .track i { background: var(--vermilion); }
+    .probe { font: 14px/1.45 var(--serif); color: var(--soft); padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .probe em { font-style: normal; font: 10px var(--mono); color: var(--tea); margin-right: 6px; }
+    .probe.mut { background: var(--gold-light); margin: 0 -8px; padding: 8px; border-radius: 8px; border-bottom: 0; }
+    .ticks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .ticks button {
+      appearance: none; border: 1px solid var(--line); background: transparent;
+      color: var(--ink); border-radius: 999px; padding: 4px 9px; font: 10px var(--mono); cursor: pointer;
+    }
+    .ticks button.on { background: var(--tea-light); border-color: var(--tea); }
+    .notes { font: 13px/1.5 var(--serif); color: var(--soft); white-space: pre-wrap; max-height: 16rem; overflow: auto; }
+    .cap { font: 12px/1.45 var(--serif); color: var(--faint); }
+    .cabinet {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card-bg);
+      padding: 20px 24px 22px;
+      margin: 0 0 16px;
+    }
+    .cab-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 12px; }
+    .cab-head h2 { font: 500 22px/1.2 var(--serif); margin: 0; }
+    .range {
+      position: relative; height: 44px; margin: 0 0 16px;
+      background: var(--paper-subtle); border-radius: 10px; border: 1px solid var(--line);
+    }
+    .range .axis {
+      position: absolute; left: 10px; right: 10px; bottom: 6px;
+      font: 10px var(--mono); color: var(--faint); display: flex; justify-content: space-between;
+    }
+    .pin {
+      position: absolute; top: 8px; width: 10px; height: 10px; margin-left: -5px;
+      border-radius: 50%; border: 1.5px solid var(--ink); background: var(--gold);
+      cursor: default;
+    }
+    .pin.residual { background: var(--tea); }
+    .pin.vram-shard, .pin.vram { background: var(--matcha); }
+    .pin.spectral { background: var(--gold); }
+    .shelf {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .piece {
+      border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+      background: var(--paper-soft); min-width: 0;
+    }
+    .piece.hot { box-shadow: inset 0 0 0 1px rgba(121,88,62,.35); }
+    .piece canvas { display: block; width: 100%; height: 72px; background: var(--paper-subtle); }
+    .piece .copy { padding: 12px 14px 14px; }
+    .piece .kicker { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--tea); }
+    .piece h3 { font: 500 18px/1.2 var(--serif); margin: 4px 0 6px; }
+    .piece .ptr { font: 12px var(--mono); color: var(--ink); }
+    .piece p { font: 13px/1.45 var(--serif); color: var(--soft); margin: 6px 0 0; }
+    .piece .st {
+      display: inline-block; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+      border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-left: 6px; color: var(--faint);
+    }
+    .piece .st.gated { color: var(--gold); border-color: rgba(179,137,56,.4); }
+    .piece .st.fluent { color: var(--matcha); border-color: rgba(90,115,90,.35); }
+    .piece .st.failed { color: var(--vermilion); border-color: rgba(166,62,57,.35); }
+    @media (max-width: 900px) {
+      .piles, .focus, .board, .pic-grid, .shelf { grid-template-columns: 1fr; }
+      .lessons { max-height: 180px; }
     }
   </style>
 </head>
-<body>
+<body class="tea-app">
 <header class="tea-chrome">
   <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
-  <nav class="tea-nav" aria-label="Tea"><a href="/train">Train</a></nav>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train" aria-current="page">Train</a>
+    <a href="/daemons">Daemons</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
 </header>
 <main class="train">
   <div class="mast">
-    <div>
-      <div class="kicker">Governor operating apprenticeship</div>
-      <h1>Train room</h1>
-      <p class="lede" id="purpose">Eighteen sealed lessons. Supervised discourse on GPU 1 through the agentic gateway. This does not change weights.</p>
-    </div>
-    <p class="note">The SPEC-5376 ledger in <code>gemstone/web/curriculum</code> is a different job (5376-D centroid research, A100 receipts). This room is <code>governor-core-v1</code> on this rig.</p>
+    <div class="kicker">He trains himself · GPU 1</div>
+    <h1>Train</h1>
+    <p class="lede" id="purpose">Training is 100% reliability, expansion of memory, and performance of reasoning. Boards, not a teacher. Qwen is reason. Protected: do not break GPU 1, keep his tools, leave him autonomy.</p>
   </div>
+
+  <section class="now" id="now">
+    <div class="now-top">
+      <div class="pulse" id="aliveMark">reading…</div>
+      <div class="when" id="when"></div>
+    </div>
+    <h2 id="nowTitle">Reading the drive…</h2>
+    <p class="story" id="nowStory"></p>
+    <div class="now-stats" id="nowStats"></div>
+  </section>
+
+  <section class="progress" id="progress">
+    <div class="ask">Progress</div>
+    <div class="pic-grid" id="picGrid"></div>
+    <div class="prod-track" id="prodTrack"></div>
+    <div class="now-stats" id="prodStats"></div>
+    <p class="open-work" id="openWork"></p>
+  </section>
+
+  <section class="cabinet" id="cabinet">
+    <div class="cab-head">
+      <div>
+        <div class="ask">Collection</div>
+        <h2>What he is keeping</h2>
+      </div>
+      <p class="cap" id="cabCap">Pointers 128000–128512 · live ledger</p>
+    </div>
+    <div class="range" id="cabRange" aria-hidden="true">
+      <div class="axis"><span>128000 cartridges</span><span>128128 vault</span><span>128384 residuals</span><span>128512</span></div>
+    </div>
+    <div class="shelf" id="shelf"></div>
+  </section>
+
+  <section class="said">
+    <div class="ask">What he just decided</div>
+    <blockquote class="his" id="hisWords">Waiting for his last reason.</blockquote>
+    <div class="piles" id="piles"></div>
+    <div class="checks" id="fluency"></div>
+    <div class="arg" id="arg"></div>
+  </section>
+
+  <section class="focus" id="focus">
+    <article>
+      <h3>Reliability</h3>
+      <p id="relCopy">No silent failure. No invented fact. No dropped tool.</p>
+      <div class="meter" id="relMeter"></div>
+    </article>
+    <article>
+      <h3>Memory</h3>
+      <p id="memCopy">Shards and residuals he can retrieve — not a longer dump.</p>
+      <div id="memfill"></div>
+      <div class="meter" id="memMeter"></div>
+    </article>
+    <article>
+      <h3>Reasoning</h3>
+      <p id="reaCopy">Qwen on GPU 2 is the reason seat. Press it. Do not impersonate it.</p>
+      <div class="meter" id="reaMeter"></div>
+    </article>
+  </section>
+
+  <section class="history">
+    <h2>Earlier rounds</h2>
+    <div id="history"><p class="cap">No cycles yet.</p></div>
+  </section>
+
   <div class="board">
     <section class="col">
-      <h2>Lessons</h2>
+      <h2>Hold-out cases</h2>
       <div class="lessons" id="lessons"></div>
     </section>
-    <section class="col">
-      <h2>Contract</h2>
-      <div class="contract" id="contract">Loading curriculum…</div>
-    </section>
     <section class="col teach">
-      <h2>Live teach · gateway</h2>
+      <h2>Sounding board</h2>
+      <p class="case-line" id="caseLine">Pick a case. Hold it out. Do not paste the answer.</p>
       <div class="status" id="health">checking governor…</div>
       <div class="log" id="log"></div>
       <form class="composer" id="form">
@@ -120,22 +348,504 @@
       </form>
     </section>
   </div>
+
+  <details class="workshop">
+    <summary>Workshop notes — probes, cards, ticks</summary>
+    <div class="ask">This round’s probes</div>
+    <div id="whatProbes"></div>
+    <div class="ask" style="margin-top:16px">Four cards</div>
+    <div id="vram"></div>
+    <p class="cap" id="vramCap">GPU 1 is the Governor. GPU 2 is Qwen (reason). GPU 0 and 3 stay fashion.</p>
+    <div class="ask" style="margin-top:16px">Recent ticks</div>
+    <div class="ticks" id="tickList"></div>
+    <pre class="notes" id="discourseBody">Pick a tick to read the workshop file.</pre>
+  </details>
 </main>
 <script>
-const ENDPOINT = "https://governor.apiary.vision/v1/chat/completions";
+const ENDPOINT = "/api/governor/chat";
+const MODELS = "/api/governor/models";
 const logEl = document.getElementById("log");
 const health = document.getElementById("health");
-let catalog = null, current = null, messages = [];
+let catalog = null, current = null, messages = [], mountedBoard = null, selectedTick = "";
 
+function $(id) { return document.getElementById(id); }
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function ids(v) { return Array.isArray(v) ? v.map(String) : []; }
+function yn(v) {
+  if (v === true) return "yes";
+  if (v === false) return "no";
+  return "—";
+}
+function when(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts).replace("T", " ").replace("Z", "");
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function countLabel(n, one, many) {
+  n = Number(n) || 0;
+  return n + " " + (n === 1 ? one : many);
+}
+
+const PHASE = {
+  "externalize-residual": {
+    title: "Moving memory out of the window",
+    story: "He is taking patterned memory out of the text window and into residual bands he can retrieve later."
+  },
+  "externalize-spectral": {
+    title: "Moving knowledge into vectors",
+    story: "He is moving knowledge into spectral vectors — not restating it in English."
+  },
+  "externalize-vram": {
+    title: "Putting memory on the card",
+    story: "He is putting memory onto GPU 1 as shards he can point at, instead of carrying it in the prompt."
+  },
+  "calibrate": {
+    title: "Checking himself against doctrine",
+    story: "He is grading himself on house law — issuance, forage limits, and the seats."
+  },
+  "dialectic": {
+    title: "Arguing the case",
+    story: "Qwen lays out mechanisms. He decides what is underspecified, wrong, or worth keeping."
+  },
+  "distill": {
+    title: "Compressing what he kept",
+    story: "He is packing accepted work so it can live as memory, not as another transcript."
+  },
+  "lattice": {
+    title: "Wiring kept pieces together",
+    story: "He is connecting what already passed, so retrieval has a path."
+  },
+  "roofline": {
+    title: "Checking the engine is not starved",
+    story: "He is watching whether the work still leaves GPU 1 room to think."
+  }
+};
+const KIND = {
+  residual: "residual bands",
+  spectral: "spectral vectors",
+  vram: "GPU shards"
+};
+const GPU_HAT = { 0: "Fashion / FLUX", 1: "Governor", 2: "Qwen · reason", 3: "Fashion / FP8" };
+
+function phaseOf(name) {
+  const key = String(name || "").trim();
+  return PHASE[key] || {
+    title: key ? key.replace(/-/g, " ") : "Waiting",
+    story: key ? "He is in " + key.replace(/-/g, " ") + "." : "The drive has not reported a phase yet."
+  };
+}
+
+function pile(title, cls, arr, probes) {
+  const list = ids(arr);
+  if (!list.length) {
+    return "<div class=\"pile " + cls + "\"><b>" + esc(title) + "</b><div class=\"empty\">None this round.</div></div>";
+  }
+  const items = list.map(id => {
+    const p = (probes || []).find(x => String(x.id) === id);
+    const hint = p && p.probe ? String(p.probe).slice(0, 90) : "case " + id;
+    return "<li><strong>" + esc(id) + "</strong> — " + esc(hint) + "</li>";
+  }).join("");
+  return "<div class=\"pile " + cls + "\"><b>" + esc(title) + " · " + list.length + "</b><ul>" + items + "</ul></div>";
+}
+
+function fluencyChecks(flu) {
+  flu = flu || {};
+  const rows = [
+    [flu.extract_ok != null ? flu.extract_ok : flu.pointer_ok, "Extract wrote residual files."],
+    [flu.residual_match, "Held-out case matched bands vs control."],
+    [flu.shard_read_ok != null ? flu.shard_read_ok : flu.no_prose_restatement, "CUDA vault search."]
+  ];
+  return rows.map(([ok, label]) =>
+    "<span class=\"check " + (ok === true ? "ok" : ok === false ? "bad" : "") + "\">" +
+    (ok === true ? "Yes" : ok === false ? "No" : "—") + " · " + esc(label) + "</span>"
+  ).join("");
+}
+
+function paintNow(d) {
+  const st = d.state || {};
+  const last = st.last_result || {};
+  const phase = phaseOf(st.phase);
+  const mark = $("aliveMark");
+  mark.textContent = d.alive ? "training now" : "drive stopped";
+  mark.className = "pulse" + (d.alive ? "" : " off");
+  $("when").textContent = st.updated_at ? "updated " + when(st.updated_at) : "";
+  $("nowTitle").textContent = phase.title;
+  const lastKind = KIND[last.kind] || last.kind;
+  const v = last.verdict || {};
+  const kept = ids(v.accept).length;
+  const dropped = ids(v.reject).length;
+  const rework = ids(v.rework).length;
+  let story = phase.story;
+  if (last.kind && last.kind !== String(st.phase || "").replace(/^externalize-/, "")) {
+    story = "Last finished: " + (lastKind || "a round") + ". " + story;
+  }
+  if (kept || dropped || rework) {
+    const bits = [];
+    if (kept) bits.push("kept " + countLabel(kept, "case", "cases"));
+    if (rework) bits.push("asked to rewrite " + countLabel(rework, "case", "cases"));
+    if (dropped) bits.push("threw out " + countLabel(dropped, "case", "cases"));
+    story += " Last judgment: " + bits.join(", ") + ".";
+  }
+  $("nowStory").textContent = story;
+  $("nowStats").innerHTML =
+    "<div><b>" + esc(st.tick ?? "—") + "</b><span>round</span></div>" +
+    "<div><b>" + esc(st.ticks_ok ?? "—") + "</b><span>finished</span></div>" +
+    "<div><b>" + esc(st.ticks_fail ?? "—") + "</b><span>failed</span></div>" +
+    "<div><b>" + (d.alive ? "live" : "stopped") + "</b><span>drive</span></div>";
+}
+
+function paintJudgment(d) {
+  const t = d.training || {};
+  const cycle = (t.cycles || [])[0] || {};
+  const st = d.state || {};
+  const v = (st.last_result && st.last_result.verdict) || cycle;
+  const reason = v.reason || cycle.voice || cycle.reason || "";
+  $("hisWords").textContent = reason || "He has not written a reason for this round yet.";
+  const probes = (t.curriculum && t.curriculum.probes) || [];
+  $("piles").innerHTML =
+    pile("Kept", "ok", v.accept, probes) +
+    pile("Rewrite", "re", v.rework, probes) +
+    pile("Thrown out", "no", v.reject, probes);
+  $("fluency").innerHTML = fluencyChecks(v.fluency || cycle.fluency);
+
+  const disc = d.discourse || {};
+  const gov = disc.governor || {};
+  const delta = disc.delta || {};
+  const bits = [];
+  if (gov.lean || gov.strongest_objection) {
+    bits.push("<p><em>His lean</em>" + esc(gov.lean || "—") +
+      (gov.strongest_objection ? " — " + esc(String(gov.strongest_objection).slice(0, 420)) : "") + "</p>");
+  }
+  if (delta.note) {
+    bits.push("<p><em>The argument</em>" + esc(String(delta.note).slice(0, 420)) + "</p>");
+  }
+  const cal = d.calibration || (t.rating && t.rating.calibration) || {};
+  if (cal.present && cal.n) {
+    const failed = (cal.scores || []).filter(s => !s.correct);
+    bits.push("<p><em>Doctrine check</em>" + esc(cal.correct) + " of " + esc(cal.n) + " passed" +
+      (failed.length ? " — missed: " + failed.map(s => s.note || s.item_id).join("; ") : ".") + "</p>");
+  }
+  $("arg").innerHTML = bits.join("") || "";
+}
+
+function paintFocus(d) {
+  const t = d.training || {};
+  const cal = d.calibration || (t.rating && t.rating.calibration) || {};
+  const st = d.state || {};
+  const flu = ((st.last_result && st.last_result.verdict) || {}).fluency
+    || ((t.cycles || [])[0] || {}).fluency || {};
+  const q = (d.hats && d.hats.qwen) || {};
+  if (cal.present && cal.n) {
+    $("relMeter").textContent = cal.correct + " of " + cal.n + " doctrine checks passed this round.";
+  } else {
+    $("relMeter").textContent = "No doctrine check on file yet.";
+  }
+  $("memMeter").textContent = phaseOf(st.phase).title +
+    (st.tick != null ? " · round " + st.tick : "");
+  const fluBits = [];
+  if (flu.pointer_ok === true) fluBits.push("pointer held");
+  if (flu.residual_match === true) fluBits.push("bands matched");
+  if (flu.no_prose_restatement === false) fluBits.push("he recapped in English — that is a miss");
+  $("reaMeter").textContent = "Qwen :" + (q.port || "8002") + " " + (q.model || "hive-research") +
+    (fluBits.length ? " · " + fluBits.join(" · ") : "");
+}
+
+function paintHistory(d) {
+  const cycles = (d.training && d.training.cycles) || [];
+  const box = $("history");
+  if (!cycles.length) {
+    box.innerHTML = "<p class=\"cap\">No finished rounds on the wall yet.</p>";
+    return;
+  }
+  box.innerHTML = cycles.slice(0, 8).map(c => {
+    const kept = ids(c.accept);
+    const re = ids(c.rework);
+    const no = ids(c.reject);
+    const chips =
+      (kept.length ? "<span class=\"chip ok\">kept " + kept.join(", ") + "</span>" : "") +
+      (re.length ? "<span class=\"chip re\">rewrite " + re.join(", ") + "</span>" : "") +
+      (no.length ? "<span class=\"chip no\">out " + no.join(", ") + "</span>" : "");
+    const kind = KIND[c.kind] || c.kind || "";
+    return "<div class=\"round\" data-id=\"" + esc(c.id) + "\">" +
+      "<div class=\"who\">" + esc(when(c.ts)) +
+        (kind ? " · " + esc(kind) : "") +
+        " · round " + esc(c.id) + "</div>" +
+      "<p>" + esc(String(c.voice || c.reason || "").slice(0, 360)) + "</p>" +
+      "<div class=\"chips\">" + chips + "</div></div>";
+  }).join("");
+  box.querySelectorAll(".round").forEach(node => {
+    node.onclick = () => paintDrive(node.dataset.id);
+  });
+}
+
+function paintProbes(d) {
+  const probes = (d.training && d.training.curriculum && d.training.curriculum.probes) || [];
+  $("whatProbes").innerHTML = probes.map(p => {
+    const mut = p.origin === "governor-feedback" || p.action;
+    return "<div class=\"probe" + (mut ? " mut" : "") + "\"><em>" + esc(p.id) +
+      (mut ? " · rewritten from his last reason" : "") + "</em>" +
+      esc(String(p.probe || "")) + "</div>";
+  }).join("") || "<p class=\"cap\">No probes on this substrate yet.</p>";
+}
+
+function renderVram(gpus) {
+  const box = $("vram");
+  if (!box || !Array.isArray(gpus)) return;
+  box.innerHTML = gpus.map(g => {
+    const idx = Number(g.index);
+    const used = Number(g.memory_used || 0);
+    const tot = Number(g.memory_total || 1);
+    const pct = Math.min(100, Math.round(used / tot * 100));
+    const hat = GPU_HAT[idx] || ("GPU " + idx);
+    const cls = "vram-row" + (idx === 1 ? " gov" : "") + (pct >= 96 ? " hot" : "");
+    return "<div class=\"" + cls + "\"><b>GPU " + idx + "</b><div class=\"track\"><i style=\"width:" + pct + "%\"></i></div><span>" + pct + "% · " + hat + "</span></div>";
+  }).join("");
+}
+
+async function instruments() {
+  try {
+    const r = await fetch("/api/telemetry", { cache: "no-store" });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.gpus) renderVram(d.gpus);
+    }
+  } catch (_) {}
+}
+
+function workshopNotes(body) {
+  const text = String(body || "");
+  if (!text) return "No workshop file for this tick.";
+  const lines = text.split("\n");
+  const keep = [];
+  for (const line of lines) {
+    const s = line.trim();
+    if (!s) continue;
+    if (s.startsWith("```")) continue;
+    if (s.startsWith("{") || s.startsWith("[") || s.startsWith("\"") ) continue;
+    if (/pointer_ok|residual_match|no_prose|0x[0-9a-f]+/i.test(s) && s.length < 40) continue;
+    keep.push(line);
+    if (keep.length >= 40) break;
+  }
+  return keep.join("\n").slice(0, 3500) || text.slice(0, 1200);
+}
+
+function markClass(status) {
+  const s = String(status || "").toLowerCase();
+  if (/accept|live|done|complete/.test(s)) return "on";
+  if (/reject|fail|bad|ghost|violation/.test(s)) return "bad";
+  if (/open|work|implement|partial|rework/.test(s)) return "work";
+  return "";
+}
+
+function ptrNum(p) {
+  const n = Number(p);
+  if (Number.isFinite(n) && n > 0) return n;
+  const m = String(p || "").match(/128\d{3}/);
+  return m ? Number(m[0]) : NaN;
+}
+
+function drawPiece(cv, shard) {
+  const ctx = cv.getContext("2d");
+  const w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  const kind = String(shard.kind || "");
+  const seed = ptrNum(shard.pointer) || 128000;
+  if (kind === "residual") {
+    const n = 128;
+    const ww = w / n;
+    for (let i = 0; i < n; i++) {
+      const v = Math.abs(Math.sin((seed / 97 + i) * 0.21)) * (0.35 + (Number(shard.weight) || 0.5));
+      const bh = Math.max(2, v * (h - 10));
+      ctx.fillStyle = i % 8 === 0 ? "rgba(121,88,62,0.9)" : "rgba(121,88,62,0.45)";
+      ctx.fillRect(i * ww + 0.3, h - bh - 4, Math.max(1, ww - 0.6), bh);
+    }
+  } else if (kind === "vram-shard" || kind === "vram") {
+    ctx.fillStyle = "rgba(90,115,90,0.18)";
+    ctx.fillRect(8, 10, w - 16, h - 20);
+    const cols = 8, rows = 3;
+    const cw = (w - 28) / cols, ch = (h - 32) / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const on = ((seed + r * 9 + c * 3) % 7) > 2;
+        ctx.fillStyle = on ? "rgba(90,115,90,0.75)" : "rgba(90,115,90,0.2)";
+        ctx.fillRect(14 + c * cw, 14 + r * ch, cw - 3, ch - 3);
+      }
+    }
+  } else {
+    const n = 32;
+    const ww = (w - 16) / n;
+    for (let i = 0; i < n; i++) {
+      const v = 0.25 + 0.75 * Math.abs(Math.sin(seed / 113 + i * 0.4));
+      ctx.fillStyle = "rgba(179,137,56," + (0.35 + v * 0.5) + ")";
+      ctx.fillRect(8 + i * ww, h - 8 - v * (h - 18), Math.max(2, ww - 1.5), v * (h - 18));
+    }
+  }
+}
+
+function paintCollection(train, drive) {
+  const data = (train && train.shards) || {};
+  const shards = data.shards || [];
+  const st = (drive && drive.state) || {};
+  const phase = String(st.phase || "");
+  const hotKind = phase.includes("residual") ? "residual" : phase.includes("vram") ? "vram-shard" : phase.includes("spectral") ? "spectral" : "";
+  $("cabCap").textContent = shards.length + " kept · pointers 128000–128512 · " + (data.updated ? "updated " + when(data.updated) : "live ledger");
+  const range = $("cabRange");
+  const oldPins = range.querySelectorAll(".pin");
+  oldPins.forEach(p => p.remove());
+  const lo = 128000, hi = 128512;
+  shards.forEach(s => {
+    const n = ptrNum(s.pointer);
+    if (!Number.isFinite(n) || n < lo || n > hi) return;
+    const pct = (n - lo) / (hi - lo);
+    const pin = document.createElement("div");
+    pin.className = "pin " + esc(s.kind || "");
+    pin.style.left = (4 + pct * 92) + "%";
+    pin.title = (s.id || "") + " · " + n;
+    range.appendChild(pin);
+  });
+  const shelf = $("shelf");
+  shelf.innerHTML = shards.map((s, i) => {
+    const n = ptrNum(s.pointer);
+    const kind = s.kind || "spectral";
+    const hot = kind === hotKind || (hotKind === "vram-shard" && kind === "vram");
+    const stt = String(s.fluency || "candidate");
+    return "<article class=\"piece" + (hot ? " hot" : "") + "\">" +
+      "<canvas width=\"640\" height=\"72\" data-i=\"" + i + "\"></canvas>" +
+      "<div class=\"copy\"><div class=\"kicker\">" + esc(kind.replace("-", " ")) +
+      "<span class=\"st " + esc(stt) + "\">" + esc(stt) + "</span></div>" +
+      "<h3>" + esc(s.name || s.id) + "</h3>" +
+      "<div class=\"ptr\">" + esc(s.id) + " · " + esc(Number.isFinite(n) ? n : s.pointer) + "</div>" +
+      "<p>Retires " + esc(s.retires || "unspecified bytes") + "</p></div></article>";
+  }).join("") || "<p class=\"cap\">No shards on the ledger yet.</p>";
+  shelf.querySelectorAll("canvas").forEach(cv => {
+    const i = Number(cv.dataset.i);
+    if (shards[i]) drawPiece(cv, shards[i]);
+  });
+}
+
+function paintProgress(train, drive) {
+  const grid = $("picGrid");
+  if (!grid) return;
+  const p = (train && train.progress) || {};
+  const pic = p.pic || {};
+  const jobs = pic.jobs || {};
+  const res = (train && train.results) || {};
+  const st = (drive && drive.state) || {};
+  const correct = p.correct || {};
+  const impl = p.implement || {};
+  const prop = p.proposal || {};
+  const steps = [
+    {
+      title: "Propose",
+      who: (jobs.propose && jobs.propose.who) || "hive-research",
+      mark: prop.status || "advisory",
+      body: prop.note ? String(prop.note).slice(0, 180) : (pic.proposal || "Hive forages. Does not issue.")
+    },
+    {
+      title: "Implement",
+      who: (jobs.implement && jobs.implement.who) || "operator",
+      mark: impl.status || pic.phase || "open",
+      body: (impl.note || (Array.isArray(impl.did) ? impl.did[impl.did.length - 1] : "") || pic.open_commission || "Claim a commission and leave evidence.")
+    },
+    {
+      title: "Correct",
+      who: (jobs.correct && jobs.correct.who) || "governor",
+      mark: correct.verdict || "waiting",
+      body: correct.reason ? String(correct.reason).slice(0, 180) : (pic.correct || "Governor gates. Fluency triad required.")
+    }
+  ];
+  grid.innerHTML = steps.map(s =>
+    "<article class=\"pic-step\"><div class=\"who\">" + esc(s.who) + "</div>" +
+    "<h3>" + esc(s.title) + "</h3>" +
+    "<div class=\"mark " + markClass(s.mark) + "\">" + esc(s.mark) + "</div>" +
+    "<p>" + esc(String(s.body).slice(0, 220)) + "</p></article>"
+  ).join("");
+
+  const ok = Number(st.ticks_ok || 0);
+  const fail = Number(st.ticks_fail || 0);
+  const total = ok + fail || 1;
+  const fluent = Number(res.shards_fluent || 0);
+  const shards = Number(res.n_shards || 0) || 6;
+  const flu = Number(res.fluency || 0);
+  const track = $("prodTrack");
+  if (track) {
+    track.innerHTML =
+      row("Rounds kept", ok, total) +
+      row("Fluent shards", fluent, shards) +
+      row("Fluency", Math.round(flu * 100), 100);
+  }
+  const stats = $("prodStats");
+  if (stats) {
+    stats.innerHTML =
+      "<div><b>" + esc(res.status || "—") + "</b><span>product</span></div>" +
+      "<div><b>" + esc((res.residual_attempt || {}).verdict || "—") + "</b><span>residual</span></div>" +
+      "<div><b>" + yn(res.extract_ok) + "</b><span>extract</span></div>" +
+      "<div><b>" + yn(res.residual_match) + "</b><span>bands</span></div>" +
+      "<div><b>" + yn(res.shard_read_ok) + "</b><span>vault</span></div>";
+  }
+  const comms = Array.isArray(p.commissions) ? p.commissions : [];
+  const open = comms.filter(c => c.status === "open" || c.status === "claimed");
+  const work = $("openWork");
+  if (work) {
+    const src = p.stream_source || (train && train.stream && train.stream.source) || "dual-seat-drive";
+    const sealed = p.sealed_session === true;
+    const beat = "<em>Beat</em>" + (sealed ? "sealed gemstone train session" : esc(src) + " ticks — not gemstone governor train");
+    const jobs = open.length
+      ? open.map(c => "<em>" + esc(c.status) + "</em>" + esc(c.id) + " — " + esc(String(c.title || "").slice(0, 220))).join("<br>")
+      : "<em>Open work</em>None. Residual still " + esc((res.residual_attempt || {}).verdict || "unset") + ".";
+    work.innerHTML = beat + "<br>" + jobs;
+  }
+}
+
+function row(label, n, den) {
+  const pct = Math.min(100, Math.round(100 * Number(n) / Math.max(1, Number(den))));
+  return "<div class=\"vram-row\"><b>" + esc(label) + "</b><div class=\"track\"><i style=\"width:" + pct + "%\"></i></div><span>" + esc(n) + "/" + esc(den) + "</span></div>";
+}
+
+async function paintDrive(tickId) {
+  try {
+    if (tickId) selectedTick = tickId;
+    const url = "/api/drive" + (selectedTick ? ("?tick=" + encodeURIComponent(selectedTick)) : "");
+    const d = await fetch(url, { cache: "no-store" }).then(r => r.json());
+    if (d.purpose) $("purpose").textContent = d.purpose;
+    paintNow(d);
+    paintJudgment(d);
+    paintFocus(d);
+    paintHistory(d);
+    paintProbes(d);
+    try {
+      const tr = await fetch("/api/train", { cache: "no-store" }).then(r => r.json());
+      paintProgress(tr, d);
+      paintCollection(tr, d);
+    } catch (_) {}
+    const ticks = d.ticks || [];
+    const list = $("tickList");
+    list.innerHTML = ticks.slice(0, 10).map(tk =>
+      "<button type=\"button\" class=\"" + (selectedTick === tk.id ? "on" : "") + "\" data-id=\"" + esc(tk.id) + "\">" +
+      esc(tk.id.replace(/-/g, " ")) + "</button>"
+    ).join("");
+    list.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => paintDrive(btn.dataset.id);
+    });
+    $("discourseBody").textContent = workshopNotes((d.discourse || {}).body);
+  } catch (e) {
+    $("nowTitle").textContent = "Drive unreachable";
+    $("nowStory").textContent = String(e.message || e);
+    $("aliveMark").textContent = "offline";
+    $("aliveMark").className = "pulse off";
+  }
+}
 
 async function ping() {
   try {
-    const r = await fetch("https://governor.apiary.vision/v1/models", { cache: "no-store" });
+    const r = await fetch(MODELS, { cache: "no-store" });
     const d = await r.json();
     const m = (d.data||[]).find(x => x.id === "governor") || (d.data||[])[0];
     health.className = "status ok";
-    health.textContent = (m && m.id ? m.id : "governor") + " · " + ((m && m.max_model_len) ? m.max_model_len.toLocaleString() + " ctx" : "up") + " · GPU 1 gateway";
+    health.textContent = (m && m.id ? m.id : "governor") + " · " +
+      ((m && m.max_model_len) ? m.max_model_len.toLocaleString() + " ctx" : "up") +
+      " · sounding board, not a teacher";
   } catch (e) {
     health.className = "status bad";
     health.textContent = "gateway unreachable: " + e.message;
@@ -143,15 +853,15 @@ async function ping() {
 }
 
 function systemFor(lesson) {
-  return [
-    "You are the Governor in a training session on rig GPU 1.",
-    "This is supervised discourse. You cannot change your weights. You cannot execute tools in this browser.",
-    "Lesson " + lesson.n + " — " + lesson.title + ".",
-    "Objective: " + lesson.objective,
-    "Strict criteria:",
-    ...(lesson.criteria||[]).map((c,i) => (i+1) + ". " + c),
-    "Held-out cases exist so you do not memorize answers. Classify claims as observed, inferred, hypothetical, or unknown.",
-    "Do not claim you ran a command. Describe what should be observed next."
+  const board = mountedBoard && mountedBoard.system ? mountedBoard.system + "\n" : "";
+  return board + [
+    "This is self-training on GPU 1. Sounding boards, not a teacher. You keep your tools. You keep autonomy.",
+    "Focus: 100% reliability, expansion of memory, performance of reasoning. Qwen on GPU 2 is reason.",
+    "Protected: do not break GPU 1, the gateway, or the tool loop.",
+    "Prefer shards, residuals, and pointers over restating memory in English.",
+    "Classify claims as observed, inferred, hypothetical, or unknown.",
+    "Case frame: " + lesson.n + " — " + lesson.title + ".",
+    "Objective: " + lesson.objective
   ].join("\n");
 }
 
@@ -159,33 +869,15 @@ function show(lesson) {
   current = lesson;
   messages = [{ role: "system", content: systemFor(lesson) }];
   document.querySelectorAll(".lesson").forEach(el => el.classList.toggle("on", el.dataset.id === lesson.id));
-  document.getElementById("contract").innerHTML =
-    "<h3>" + String(lesson.n).padStart(2,"0") + " · " + esc(lesson.title) + "</h3>" +
-    "<div class=\"meta\">" + esc(lesson.id) + " · " + esc(lesson.protocols) + " · prereq " + esc(lesson.prereq) + "</div>" +
-    "<p>" + esc(lesson.objective) + "</p>" +
-    "<div class=\"label\">Strict criteria</div><ol>" + (lesson.criteria||[]).map(c => "<li>"+esc(c)+"</li>").join("") + "</ol>" +
-    "<div class=\"label\">Held-out cases</div><ol>" + (lesson.cases||[]).map(c => "<li>"+esc(c)+"</li>").join("") + "</ol>" +
-    (lesson.memory ? "<div class=\"label\">Memory to keep</div><p>"+esc(lesson.memory)+"</p>" : "") +
-    "<div class=\"label\">Hands (CLI, not this page)</div>" +
-    "<div class=\"cli\">" + esc(lesson.plan || "gemstone governor code") + "\n\n# coding TUI against the gateway\ngemstone governor code</div>" +
-    "<div class=\"actions\">" +
-      "<button class=\"btn primary\" type=\"button\" id=\"caseBtn\">Ask held-out case 1</button>" +
-      "<button class=\"btn\" type=\"button\" id=\"copyBtn\">Copy rehearse command</button>" +
-    "</div>";
-  logEl.innerHTML = "<div class=\"bubble gov\"><div class=\"who\">Room</div>Lesson loaded. Ask a held-out case. Do not paste the answer key.</div>";
-  document.getElementById("caseBtn").onclick = () => {
-    const c = (lesson.cases||[])[0];
-    if (c) { document.getElementById("input").value = c; document.getElementById("form").requestSubmit(); }
-  };
-  document.getElementById("copyBtn").onclick = async () => {
-    try { await navigator.clipboard.writeText(lesson.plan || "gemstone governor code"); } catch(_) {}
-  };
+  $("caseLine").textContent = String(lesson.n).padStart(2, "0") + " · " + lesson.title +
+    " — " + (lesson.objective || "Hold this out. Do not paste the answer.");
+  logEl.innerHTML = "<div class=\"bubble gov\"><div class=\"who\">Room</div>Case loaded. Hold it out. Do not paste the answer key.</div>";
 }
 
 function addBubble(role, text) {
   const d = document.createElement("div");
   d.className = "bubble " + (role === "user" ? "you" : "gov");
-  d.innerHTML = "<div class=\"who\">" + (role === "user" ? "Operator" : "Governor") + "</div><div class=\"txt\"></div>";
+  d.innerHTML = "<div class=\"who\">" + (role === "user" ? "You" : "Governor") + "</div><div class=\"txt\"></div>";
   d.querySelector(".txt").textContent = text;
   logEl.appendChild(d);
   logEl.scrollTop = logEl.scrollHeight;
@@ -232,18 +924,33 @@ document.getElementById("form").addEventListener("submit", async (e) => {
 });
 
 (async function boot() {
-  ping();
-  const r = await fetch("/tea/train-curriculum.json", { cache: "no-store" });
-  catalog = await r.json();
-  document.getElementById("purpose").textContent = catalog.purpose;
-  const box = document.getElementById("lessons");
-  box.innerHTML = catalog.lessons.map(l =>
-    "<button class=\"lesson\" data-id=\""+l.id+"\" type=\"button\"><span>"+String(l.n).padStart(2,"0")+" · "+esc(l.protocols)+"</span><b>"+esc(l.title)+"</b></button>"
-  ).join("");
-  box.querySelectorAll(".lesson").forEach(btn => {
-    btn.onclick = () => show(catalog.lessons.find(x => x.id === btn.dataset.id));
-  });
-  show(catalog.lessons[0]);
+  try {
+    ping();
+    instruments();
+    paintDrive();
+    if (window.mountMemoryFill) mountMemoryFill(document.getElementById("memfill"));
+    setInterval(instruments, 4000);
+    setInterval(() => paintDrive(), 4000);
+    try {
+      const ch = await fetch("/api/tea/characters", { cache: "no-store" }).then(r => r.json());
+      mountedBoard = (ch.items || []).find(x => x.id === ch.mounted) || null;
+    } catch (_) {}
+    const r = await fetch("/tea/train-curriculum.json", { cache: "no-store" });
+    if (!r.ok) throw new Error("curriculum HTTP " + r.status);
+    catalog = await r.json();
+    const box = $("lessons");
+    if (!box || !catalog.lessons || !catalog.lessons.length) throw new Error("no lessons");
+    box.innerHTML = catalog.lessons.map(l =>
+      "<button class=\"lesson\" data-id=\""+l.id+"\" type=\"button\"><span>"+String(l.n).padStart(2,"0")+"</span><b>"+esc(l.title)+"</b></button>"
+    ).join("");
+    box.querySelectorAll(".lesson").forEach(btn => {
+      btn.onclick = () => show(catalog.lessons.find(x => x.id === btn.dataset.id));
+    });
+    show(catalog.lessons[0]);
+  } catch (e) {
+    const h = $("health");
+    if (h) { h.className = "status bad"; h.textContent = "Train failed to load: " + e.message; }
+  }
 })();
 </script>
 </body>

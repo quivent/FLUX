@@ -16,6 +16,9 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
@@ -24,10 +27,10 @@
 <main class="desk">
   <div class="kicker"><a href="/desk">Desk</a> · jury</div>
   <h1>Jury law</h1>
-  <p class="lede">How FLUX beauty is judged. Gamma, adversarial rubrics, uniqueness, and sensory gates — each change is written to the live algorithm.</p>
+  <p class="lede">How FLUX beauty is judged. The models rate in words. These toggles are the law around that scale — not gamma.</p>
   <div class="desk-lanes">
-    <button class="on" data-lane="microgreens">Microgreens · GPU 0</button>
-    <button data-lane="fashion">Fashion · GPU 3</button>
+    <button class="on" data-lane="fashion">GPU 3 · Beauty jury</button>
+    <button data-lane="microgreens">Microgreens · GPU 0</button>
     <button data-lane="arcane">Arcane · GPU 0</button>
   </div>
   <div class="desk-status" id="desk-status">loading…</div>
@@ -46,38 +49,23 @@
       <input type="number" id="minj" min="1" max="3" value="1" style="width:4rem">
     </label>
   </div>
-  <div class="stack" style="margin-top:18px" id="gammas"></div>
+  <p class="note" style="margin-top:18px">The rating scale lives on <a href="/desk">Desk</a>: failed · broken · obvious · competent · specialist · flawless.</p>
 </main>
 <script src="/tea/desk.js"></script>
 <script>
   const D = TeaDesk;
-  const KEYS = ["pixtral","qwen","decoder","governor"];
-  const NAMES = { pixtral: "Beauty γ", qwen: "Structure γ", decoder: "Decoder γ", governor: "Governor γ" };
-  let jury = { gamma: {} };
+  let jury = {};
   function payload() {
-    KEYS.forEach(k => { const el = D.$("g-"+k); if (el) jury.gamma[k] = el.value / 10; });
     return { jury: {
       mode: D.$("mode").value,
       adversarial: D.$("adv").checked,
       text_from_gates: D.$("gates").checked,
       uniqueness: D.$("uniq").checked,
       gate_triage: D.$("triage").checked,
-      min_judges: parseInt(D.$("minj").value, 10) || 1,
-      gamma: jury.gamma
+      min_judges: parseInt(D.$("minj").value, 10) || 1
     }};
   }
   const push = D.debounce(() => D.save(payload()), 160);
-  function drawGamma() {
-    D.$("gammas").innerHTML = KEYS.map(k => {
-      const g = Number((jury.gamma||{})[k] || 1.5);
-      return '<div class="meter"><div class="top"><h3>' + NAMES[k] + '</h3><span class="val" id="gv-' + k + '">' + g.toFixed(1) + 'γ</span></div>'
-        + '<input type="range" min="10" max="30" value="' + Math.round(g*10) + '" id="g-' + k + '">'
-        + '<div class="hint">Higher γ punishes mid scores. 1.0 is linear.</div></div>';
-    }).join("");
-    KEYS.forEach(k => {
-      D.$("g-"+k).oninput = () => { D.$("gv-"+k).textContent = (D.$("g-"+k).value/10).toFixed(1) + "γ"; push(); };
-    });
-  }
   ["mode","adv","gates","uniq","triage","minj"].forEach(id => {
     document.addEventListener("change", e => { if (e.target && e.target.id === id) push(); });
   });
@@ -90,7 +78,6 @@
     D.$("uniq").checked = !!jury.uniqueness;
     D.$("triage").checked = !!jury.gate_triage;
     D.$("minj").value = jury.min_judges || 1;
-    drawGamma();
     D.status("live · " + D.getLane(), "ok");
   }
   D.bindLanes(paint);

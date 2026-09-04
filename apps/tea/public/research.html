@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f7f5f0">
+<title>Research — Hive protocol</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
+<style>
+  main { max-width: 920px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 96px; }
+  .kicker { font: 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(40px, 6vw, 76px)/.9 var(--serif); letter-spacing: -.05em; margin: 10px 0 12px; }
+  .lede { font: 400 17px/1.6 var(--serif); color: var(--soft); max-width: 42rem; }
+  .meta { font: 11px/1.45 var(--mono); color: var(--faint); margin: 16px 0 28px; }
+  .paper {
+    display: block; color: inherit; text-decoration: none;
+    border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px;
+    background: var(--card-bg); margin: 0 0 12px;
+  }
+  .paper:hover { border-color: var(--line-hover); }
+  .paper b { display: block; font: 500 22px/1.2 var(--serif); }
+  .paper .who { font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--tea); margin-bottom: 6px; }
+  .paper p { margin: 8px 0 0; font: 400 15px/1.5 var(--serif); color: var(--soft); }
+  article.full { font: 400 17px/1.65 var(--serif); color: var(--ink); }
+  article.full h1 { font-size: clamp(32px, 5vw, 52px); }
+  article.full h2 { font: 500 22px/1.25 var(--serif); margin: 28px 0 8px; }
+  article.full h3 { font: 500 18px/1.3 var(--serif); margin: 20px 0 6px; }
+  article.full p { margin: 0 0 14px; }
+  article.full ul, article.full ol { margin: 0 0 16px 1.2em; }
+  article.full code { font: 13px var(--mono); }
+  article.full pre { background: var(--paper-subtle); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; font: 12px/1.45 var(--mono); }
+  .back { font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--tea); }
+</style>
+</head>
+<body class="tea-app">
+<main>
+  <div class="kicker">hive-research · GPU 2 · Qwen swarm</div>
+  <h1>Research</h1>
+  <p class="lede">Formal papers on the hive protocol. Twenty-four anonymous swarm agents foraged the protocol from different scholarly angles on the idle Qwen tenant. The collection is assembled here, not in the jury mix.</p>
+  <div class="meta" id="meta">Loading collection…</div>
+  <div id="list"></div>
+  <article class="full" id="full" hidden></article>
+</main>
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function renderIndex(d) {
+    const papers = d.papers || [];
+    $('meta').textContent = (d.swarm && d.swarm.ok != null)
+      ? (papers.length + ' papers · swarm ' + d.swarm.ok + '/' + d.swarm.n + ' agents · ' + (d.model || 'hive-research') + ' · GPU 2')
+      : (papers.length + ' papers');
+    $('list').innerHTML = papers.map(p =>
+      '<a class="paper" href="/research/' + encodeURIComponent(p.slug) + '">' +
+        '<div class="who">' + esc(p.angle || 'hive protocol') + '</div>' +
+        '<b>' + esc(p.title) + '</b>' +
+        '<p>' + esc(p.abstract || '') + '</p>' +
+      '</a>'
+    ).join('') || '<p class="lede">No papers yet.</p>';
+  }
+  function $(id) { return document.getElementById(id); }
+  async function load() {
+    const path = (location.pathname || '/research').replace(/\/+$/, '') || '/research';
+    const slug = path === '/research' ? '' : path.replace(/^\/research\//, '');
+    const d = await fetch('/api/research', { cache: 'no-store' }).then(r => r.json());
+    if (!slug) { renderIndex(d); return; }
+    const paper = (d.papers || []).find(p => p.slug === slug);
+    $('list').hidden = true;
+    $('full').hidden = false;
+    if (!paper) {
+      $('meta').textContent = 'missing';
+      $('full').innerHTML = '<p><a class="back" href="/research">← collection</a></p><p>No paper at this slug.</p>';
+      return;
+    }
+    $('meta').innerHTML = '<a class="back" href="/research">← collection</a>';
+    const html = paper.html || ('<h1>' + esc(paper.title) + '</h1><p>' + esc(paper.abstract || '') + '</p>');
+    $('full').innerHTML = html;
+    document.title = paper.title + ' — Research';
+  }
+  load().catch(err => { $('meta').textContent = String(err); });
+</script>
+</body>
+</html>

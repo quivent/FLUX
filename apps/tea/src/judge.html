@@ -118,6 +118,9 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
@@ -126,14 +129,21 @@
 <main>
   <div class="kicker">Live controller · weights · gamma · hive</div>
   <h1>Judging algorithm</h1>
-  <p class="lede">This page writes the algorithm the evaluators actually use. Each studio has its own jury, sqlite, and wall. Microgreens is the live public work. Move a slider, it persists.</p>
+  <p class="lede">Final beauty jury on GPU 3 FP8: 256×256, 18 steps, locked fashion brief. This page is the algorithm — move a slider, it persists on the fashion sqlite. GPU 0 stays off this run.</p>
 
   <div class="lanes">
-    <button class="on" id="lane-microgreens" onclick="setLane('microgreens')">Microgreens · GPU 0</button>
-    <button id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3</button>
+    <button class="on" id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3 FP8</button>
+    <button id="lane-microgreens" onclick="setLane('microgreens')">Microgreens · GPU 0</button>
     <button id="lane-arcane" onclick="setLane('arcane')">Arcane · GPU 0</button>
   </div>
   <div class="meta" id="laneMeta">loading…</div>
+  <div class="status" id="runHud" style="margin-bottom:12px">
+    <div class="stat"><b id="runSize">256²</b><span>frame size</span></div>
+    <div class="stat"><b id="runSteps">18</b><span>steps</span></div>
+    <div class="stat"><b id="runProg">—</b><span>FP8 stream</span></div>
+    <div class="stat"><b id="runPrec">FP8</b><span>GPU 3</span></div>
+  </div>
+  <div class="frames" id="livewall"></div>
 
   <div class="status">
     <div class="stat" id="stat-scored"><b>—</b><span>scored in last 24</span></div>
@@ -183,7 +193,7 @@
 </main>
 <script>
   const SEATS = [
-    { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
+    { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'pixtral', port: '8004' },
     { key: 'qwen', label: 'Structure', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
     { key: 'decoder', label: 'Decoder', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
     { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
@@ -191,7 +201,7 @@
   let lane = (function () {
     const h = location.hash.replace('#','');
     if (h === 'fashion' || h === 'arcane' || h === 'microgreens') return h;
-    return 'microgreens';
+    return 'fashion';
   })();
   let current = {
     mode: 'parallel',
@@ -453,16 +463,45 @@
     } catch (err) {
       $('laneMeta').textContent = 'controller unavailable';
     }
+    paintRun();
+  }
+
+  async function paintRun() {
+    try {
+      const res = await fetch('/api/protocol?lane=fashion', { cache: 'no-store' });
+      const d = await res.json();
+      const s = d.stream || {};
+      const w = s.width || 256, h = s.height || 256, steps = s.steps || 18;
+      const size = $('runSize'); if (size) size.textContent = w + '×' + h;
+      const stp = $('runSteps'); if (stp) stp.textContent = steps;
+      const prog = $('runProg');
+      if (prog) {
+        prog.textContent = (s.done || 0) + '/' + (s.n || 256);
+        const cap = prog.parentElement && prog.parentElement.querySelector('span');
+        if (cap) cap.textContent = 'FP8 ' + (s.status || '—');
+      }
+      const items = ((d.spectacles || {}).items) || [];
+      const wall = $('livewall');
+      if (wall) {
+        wall.innerHTML = items.slice(0, 12).map((it) => {
+          const src = it.image_url || '';
+          const score = it.composite_score != null ? Number(it.composite_score).toFixed(1) : '';
+          const img = src ? '<img src="/api/asset/thumbnail?w=256&src=' + encodeURIComponent(src) + '" alt="" style="width:100%;display:block;border-radius:6px">' : '';
+          return '<div>' + img + '<b>' + score + '</b></div>';
+        }).join('');
+      }
+    } catch (err) {}
   }
 
   window.addEventListener('hashchange', () => {
     const h = location.hash.replace('#','');
-    const next = (h === 'fashion' || h === 'arcane' || h === 'microgreens') ? h : 'microgreens';
+    const next = (h === 'fashion' || h === 'arcane' || h === 'microgreens') ? h : 'fashion';
     if (next !== lane) setLane(next);
   });
   renderSeats();
   preview();
   hydrate();
+  setInterval(function () { if (lane === 'fashion') { paintRun(); hydrate(); } else paintRun(); }, 4000);
 </script>
 </body>
 </html>

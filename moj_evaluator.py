@@ -96,7 +96,32 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 EVALUATOR_NAME = "moj_evaluator"
-EVALUATOR_VERSION = "3.1.0"
+EVALUATOR_VERSION = "3.1.1"
+
+
+def announce_route(station: str, job: Optional[Dict[str, Any]] = None, **extra: Any) -> None:
+    """Write the live jury station so the gallery board can show flow."""
+    root = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(root, ".fluxd", "jury_route.json")
+    rec: Dict[str, Any] = {"station": station, "ts": time.time()}
+    if isinstance(job, dict):
+        rec["job_id"] = job.get("id")
+        img = str(job.get("output") or job.get("filename") or extra.get("image") or "")
+        rec["image"] = os.path.basename(img)
+        rec["path"] = img
+        rec["prompt"] = str(job.get("prompt") or "")[:180]
+    for key, value in extra.items():
+        if key == "image" and rec.get("path"):
+            continue
+        rec[key] = value
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = "%s.%d.tmp" % (path, os.getpid())
+        with open(tmp, "w") as handle:
+            json.dump(rec, handle)
+        os.replace(tmp, path)
+    except Exception:
+        pass
 
 # --------------------------------------------------------------------------
 # Optional dependencies.  None of these may be required at import time: the dev
@@ -409,8 +434,8 @@ DEFAULT_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "remote": False,
     },
     PIXTRAL_CRITIC: {
-        "base_url": "http://127.0.0.1:8002/v1",
-        "model": "pixtral-critic",
+        "base_url": "http://127.0.0.1:8004/v1",
+        "model": "pixtral",
         "hf_model": "RedHatAI/pixtral-12b-quantized.w4a16",
         "vision": True,
         "enabled": True,
@@ -544,27 +569,184 @@ LEGACY_SEATS = ("pixtral", "qwen", "decoder", "governor")
 
 _JSON_CONTRACT = (
     "Return ONE JSON object and nothing else. No preamble, no markdown fence, no "
-    "trailing commentary. Every score is an integer or one-decimal float on a "
-    "0-100 scale where 100 is the theoretical maximum, not 'the best AI image you "
-    "have seen'. If you cannot see the image, or the image is blank or corrupt, "
-    'set every score to null and put the reason in "critique" -- do NOT guess a '
-    "number. A missing score is recoverable; an invented one poisons the whole "
-    "archive."
+    "trailing commentary. Every score is exactly one word from "
+    "failed | broken | obvious | competent | specialist | flawless. "
+    "Do not emit a number. If you cannot see the image, or the image is blank or "
+    "corrupt, set every score to null and put the reason in \"critique\" -- do NOT "
+    "guess a word. A missing score is recoverable; an invented one poisons the "
+    "whole archive."
 )
 
-_CALIBRATION = (
-    "Calibration anchors (absolute, museum-grade, NOT graded on a curve against "
-    "other generative output):\n"
-    "  96-100  no fault findable at 100% zoom by a hostile specialist.\n"
-    "  86-95   one trivial fault a specialist would have to hunt for.\n"
-    "  70-85   competent; a careful viewer finds a real fault within ten seconds.\n"
-    "  45-69   an obvious fault that a casual viewer notices immediately.\n"
-    "  20-44   structurally or tonally broken in a way that cannot be cropped out.\n"
-    "  0-19    failed render.\n"
-    "Most competent output lands in the 70-85 band. Scores above 90 must be "
-    "earned and must be justified by the critique. Never award a score you "
-    "cannot point at concrete evidence for."
+#: The synthesist is text-only by design. The vision contract above would make
+#: it null every score because it cannot see pixels -- which is exactly how
+#: quorum was dying with only Pixtral answering.
+_JSON_CONTRACT_SYNTHESIS = (
+    "Return ONE JSON object and nothing else. No preamble, no markdown fence, no "
+    "trailing commentary. Every score is exactly one word from "
+    "failed | broken | obvious | competent | specialist | flawless. "
+    "Do not emit a number. You cannot see the image by design: rate from the sworn "
+    "testimony and mechanical evidence you were handed. Never null scores because "
+    "you lack pixels. If the evidence is thin or contradictory, pick the lower "
+    "honest word and say so in \"critique\". Set scores to null only when there "
+    "is no testimony at all."
 )
+
+# Closed vocabulary the models rate with. Band midpoints keep the archive's
+# numeric composite; the words are what the judge is asked to emit.
+RATING_WORDS = ("failed", "broken", "obvious", "competent", "specialist", "flawless")
+RATING_MIDPOINTS = {
+    "failed": 10.0,
+    "broken": 32.0,
+    "obvious": 57.0,
+    "competent": 78.0,
+    "specialist": 90.5,
+    "flawless": 98.0,
+}
+RATING_CEILINGS = (
+    (19.0, "failed"),
+    (44.0, "broken"),
+    (69.0, "obvious"),
+    (85.0, "competent"),
+    (95.0, "specialist"),
+    (100.0, "flawless"),
+)
+_RATING_PHRASES = {
+    "failed render": "failed",
+    "failed": "failed",
+    "broken": "broken",
+    "cannot be cropped out": "broken",
+    "obvious fault": "obvious",
+    "obvious": "obvious",
+    "competent": "competent",
+    "specialist": "specialist",
+    "trivial fault": "specialist",
+    "one trivial fault": "specialist",
+    "flawless": "flawless",
+    "no fault findable": "flawless",
+    "none findable": "flawless",
+}
+_WORD_ENUM = '"failed"|"broken"|"obvious"|"competent"|"specialist"|"flawless"'
+
+
+def parse_rating_word(value: Any) -> Optional[str]:
+    """Map a model token onto the six-word scale, or None."""
+    if isinstance(value, (list, tuple)) and value:
+        return parse_rating_word(value[0])
+    if not isinstance(value, str):
+        return None
+    blob = " ".join(value.lower().replace("_", " ").split()).strip(" .,:;\"'`")
+    if not blob:
+        return None
+    if blob in _RATING_PHRASES:
+        return _RATING_PHRASES[blob]
+    for phrase, word in _RATING_PHRASES.items():
+        if blob.startswith(phrase) or phrase in blob:
+            return word
+    tok = blob.split()[0]
+    return tok if tok in RATING_WORDS else None
+
+
+def score_to_rating_word(score: float) -> str:
+    n = max(0.0, min(100.0, float(score)))
+    for ceiling, word in RATING_CEILINGS:
+        if n <= ceiling:
+            return word
+    return "flawless"
+
+
+def rating_word_to_score(word: str) -> Optional[float]:
+    parsed = parse_rating_word(word)
+    if parsed is None:
+        return None
+    return RATING_MIDPOINTS[parsed]
+
+
+_CALIBRATION = (
+    "Rate each axis with exactly one of these words (absolute, museum-grade, "
+    "NOT graded on a curve against other generative output):\n"
+    "  flawless    no fault findable at 100% zoom by a hostile specialist.\n"
+    "  specialist  one trivial fault a specialist would have to hunt for.\n"
+    "  competent   a careful viewer finds a real fault within ten seconds.\n"
+    "  obvious     an obvious fault that a casual viewer notices immediately.\n"
+    "  broken      structurally or tonally broken in a way that cannot be cropped out.\n"
+    "  failed      failed render.\n"
+    "Most honest work is competent. specialist and flawless must be earned and "
+    "justified by the critique. Never award a word you cannot point at concrete "
+    "evidence for. Do not emit a number."
+)
+
+_DEFAULT_PROMPTS_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "apps", "tea", "rating_prompts.json"
+)
+_DESK_BOARD_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), ".fluxd", "tea_desk.json"
+)
+
+
+def _read_json_object(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, "r") as handle:
+            data = json.load(handle)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def default_rating_prompts() -> Dict[str, Dict[str, str]]:
+    data = _read_json_object(_DEFAULT_PROMPTS_PATH)
+    out: Dict[str, Dict[str, str]] = {}
+    for role, axes in data.items():
+        if not isinstance(axes, dict):
+            continue
+        out[str(role)] = {
+            str(k): str(v).strip()
+            for k, v in axes.items()
+            if isinstance(v, str) and str(v).strip()
+        }
+    return out
+
+
+def load_rating_prompts() -> Dict[str, Dict[str, str]]:
+    """Defaults from rating_prompts.json, overlaid by the desk board."""
+    out = default_rating_prompts()
+    stored = _read_json_object(_DESK_BOARD_PATH).get("prompts")
+    if isinstance(stored, dict):
+        for role, axes in stored.items():
+            if not isinstance(axes, dict):
+                continue
+            bucket = out.setdefault(str(role), {})
+            for key, value in axes.items():
+                if isinstance(value, str) and value.strip():
+                    bucket[str(key)] = value.strip()
+    return out
+
+
+def rating_task_prompt(role: str) -> str:
+    """The user-facing rating prompt the language model is actually asked."""
+    spec = SPEC_BY_ROLE.get(role)
+    axes = list(spec.subscores) if spec else []
+    prompts = load_rating_prompts().get(role) or {}
+    lines = [
+        "RATE THIS FRAME",
+        "",
+        "For every axis below, answer with exactly one word:",
+        "failed | broken | obvious | competent | specialist | flawless",
+        "",
+        _CALIBRATION,
+        "",
+    ]
+    for axis in axes:
+        title = axis.replace("_", " ").upper()
+        body = (prompts.get(axis) or "").strip()
+        lines.append(title)
+        if body:
+            lines.append(body)
+        lines.append("")
+    lines.append(
+        "Set overall to the lowest honest word among the axes. "
+        "Return one JSON object and nothing else."
+    )
+    return "\n".join(lines).strip()
 
 SYSTEM_PROMPT_STRUCTURE = """You are the Structural Inspector of a museum-grade image jury.
 
@@ -597,13 +779,13 @@ an inaccurate inventory is worse than a harsh score.
 
 {contract}
 Schema:
-{{"anatomy": <0-100>, "geometry": <0-100>, "edge_integrity": <0-100>,
-  "artifact_freedom": <0-100>, "focus_coherence": <0-100>, "overall": <0-100>,
+{{"anatomy": {_WORD_ENUM}, "geometry": {_WORD_ENUM}, "edge_integrity": {_WORD_ENUM},
+  "artifact_freedom": {_WORD_ENUM}, "focus_coherence": {_WORD_ENUM}, "overall": {_WORD_ENUM},
   "scene_inventory": ["<literal thing depicted>", "..."],
   "worst_defect": "<the single worst defect and where it is in the frame, or
   'none findable'>",
   "critique": "<one sentence naming that worst defect, or stating that none was
-  findable>"}}"""
+  findable>"}}""".replace("{_WORD_ENUM}", _WORD_ENUM)
 
 SYSTEM_PROMPT_AESTHETIC = """You are the Palette & Medium Critic of a museum-grade image jury.
 
@@ -639,14 +821,14 @@ will reason from these, so describe rather than praise.
 
 {contract}
 Schema:
-{{"palette_cohesion": <0-100>, "lighting_authenticity": <0-100>,
-  "medium_authenticity": <0-100>, "tonal_range": <0-100>, "atmosphere": <0-100>,
-  "overall": <0-100>,
+{{"palette_cohesion": {_WORD_ENUM}, "lighting_authenticity": {_WORD_ENUM},
+  "medium_authenticity": {_WORD_ENUM}, "tonal_range": {_WORD_ENUM}, "atmosphere": {_WORD_ENUM},
+  "overall": {_WORD_ENUM},
   "observed_palette": "<the actual dominant hues and their relationship>",
   "observed_medium": "<the medium the surface actually reads as>",
   "observed_light": "<the light sources you can name and their temperature>",
   "critique": "<one sentence naming the single decision that most cheapens the
-  image, or the single decision that most elevates it>"}}"""
+  image, or the single decision that most elevates it>"}}""".replace("{_WORD_ENUM}", _WORD_ENUM)
 
 SYSTEM_PROMPT_SYNTHESIS = """You are the Governor, presiding over a museum-grade image jury.
 
@@ -692,13 +874,13 @@ work; the epigram is a crown, not a courtesy.
 
 {contract}
 Schema:
-{{"subject_fidelity": <0-100>, "attribute_binding": <0-100>,
-  "scene_completeness": <0-100>, "evidence_consistency": <0-100>,
-  "exhibition_readiness": <0-100>, "overall": <0-100>,
+{{"subject_fidelity": {_WORD_ENUM}, "attribute_binding": {_WORD_ENUM},
+  "scene_completeness": {_WORD_ENUM}, "evidence_consistency": {_WORD_ENUM},
+  "exhibition_readiness": {_WORD_ENUM}, "overall": {_WORD_ENUM},
   "missing_elements": ["<prompt element absent from the testimony>", "..."],
   "epigram": "<one spare poetic line, or null>",
   "critique": "<one sentence stating your verdict and the decisive piece of
-  testimony behind it>"}}"""
+  testimony behind it>"}}""".replace("{_WORD_ENUM}", _WORD_ENUM)
 
 SYSTEM_PROMPTS = {
     "structure": SYSTEM_PROMPT_STRUCTURE,
@@ -724,15 +906,47 @@ def fortiche_rubric() -> str:
     return ""
 
 
-def system_prompt_for(role: str, arcane: bool = False) -> str:
+EQUINE_STRUCTURE_ADDENDUM = """
+THIS FRAME DEPICTS A HORSE. Anatomy scoring is unforgiving and is the point of
+this commission. Count, then write the count into worst_defect if it is wrong:
+- Legs: exactly four, each with a hoof. Extra limbs, melted fetlocks, a fifth
+  cannon bone, or a leg that becomes grass is a hard fail (anatomy = failed or broken).
+- Head: one equine head, two ears, two eyes, a muzzle. A human face, a second
+  ghost head, or a skull that melts into mane fails.
+- Spine and neck: one continuous topline. No extra necks.
+- Tail and mane belong to THIS animal.
+If you cannot count four clean legs you MUST name the defect. "none findable"
+on a horse is a lie. Do not let a pretty coat or sunset rescue the anatomy score.
+"""
+
+
+def _prompt_is_equine(prompt: str) -> bool:
+    blob = (prompt or "").lower()
+    return any(
+        token in blob
+        for token in ("horse", "horses", "equine", "stallion", "mare", "foal", "pony")
+    )
+
+
+def system_prompt_for(
+    role: str, arcane: bool = False, from_evidence: bool = False, prompt: str = ""
+) -> str:
     """Render the system prompt for ``role``.
 
     On an Arcane-lineage job the Palette & Medium Critic gets
     ``FORTICHE_RUBRIC`` spliced in, so the aesthetic lens grades against the
     house style rather than generic good taste.
+
+    ``from_evidence`` is the text-from-gates path: the seat is not looking at
+    pixels, so the vision contract must not tell it to null every score.
     """
     template = SYSTEM_PROMPTS.get(role, SYSTEM_PROMPT_SYNTHESIS)
-    text = template.format(calibration=_CALIBRATION, contract=_JSON_CONTRACT)
+    contract = (
+        _JSON_CONTRACT_SYNTHESIS
+        if role == "synthesis" or from_evidence
+        else _JSON_CONTRACT
+    )
+    text = template.format(calibration=_CALIBRATION, contract=contract)
     if arcane and role in FORTICHE_ROLES:
         rubric = fortiche_rubric()
         if rubric:
@@ -742,6 +956,8 @@ def system_prompt_for(role: str, arcane: bool = False) -> str:
                 "rubric and generic good taste disagree, the house rubric wins:\n"
                 + rubric.strip()
             )
+    if role == "structure" and _prompt_is_equine(prompt):
+        text += "\n" + EQUINE_STRUCTURE_ADDENDUM
     return text
 
 
@@ -867,18 +1083,20 @@ def jobs_ledger_path() -> str:
     return prod
 
 
-def _align_uniqueness_db() -> None:
+def _align_uniqueness_db(output_dir: Optional[str] = None) -> None:
     """Point ``uniqueness_tracker`` at the resolved output dir.
 
     ``uniqueness_tracker`` hardcodes ``/root/Models/flux-output/jury.sqlite3``
     and is owned by another module, so we rebind the constant at runtime rather
     than editing it.  Off the production node this is what keeps the fingerprint
     ring buffer working instead of silently returning its 75.0 placeholder.
+    Protocol-branch collections keep their own ``jury.sqlite3`` so horse
+    fingerprints do not land in the fashion ring buffer.
     """
     if _uniqueness_tracker is None:
         return
     try:
-        target = sqlite_path()
+        target = os.path.join(output_dir, "jury.sqlite3") if output_dir else sqlite_path()
         if getattr(_uniqueness_tracker, "SQLITE_DB", None) != target:
             _uniqueness_tracker.SQLITE_DB = target
     except Exception:
@@ -1320,7 +1538,36 @@ def load_runtime_config(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if flag in cfg:
             runtime[flag] = bool(cfg[flag])
 
+    if cfg.get("output_dir"):
+        runtime["output_dir"] = str(cfg["output_dir"])
+
     return runtime
+
+
+def _vision_donor(
+    runtime: Dict[str, Any], exclude: str = ""
+) -> Optional[Dict[str, Any]]:
+    """First enabled vision endpoint, preferring the Pixtral critic.
+
+    Qwen on this box is hive-research, not a critic. When the structural
+    inspector is seated on a text-only Gemma, the only pair of eyes is Pixtral.
+    """
+    table = runtime.get("endpoints") or {}
+    order: List[str] = [PIXTRAL_CRITIC]
+    order.extend(key for key in table if key not in order)
+    for key in order:
+        if key == exclude:
+            continue
+        entry = table.get(key)
+        if not isinstance(entry, dict):
+            continue
+        if not entry.get("enabled", True):
+            continue
+        if entry.get("vision") and entry.get("base_url"):
+            donor = dict(entry)
+            donor["borrowed_vision"] = key
+            return donor
+    return None
 
 
 def endpoint_for(spec: JudgeSpec, runtime: Dict[str, Any]) -> Dict[str, Any]:
@@ -1328,6 +1575,15 @@ def endpoint_for(spec: JudgeSpec, runtime: Dict[str, Any]) -> Dict[str, Any]:
     entry = table.get(spec.endpoint)
     if not isinstance(entry, dict):
         entry = dict(DEFAULT_ENDPOINTS.get(spec.endpoint, {}))
+    else:
+        entry = dict(entry)
+    # Phase-1 inspectors must see the render. :8001 jury and :8002 hive
+    # reject images ("at most 0"). Pixtral on :8004 is the only pair of eyes,
+    # so a blind structural seat borrows it rather than scoring from hearsay.
+    if spec.phase == 1 and not bool(entry.get("vision")):
+        donor = _vision_donor(runtime, exclude=spec.endpoint)
+        if donor:
+            return donor
     return entry
 
 
@@ -1452,6 +1708,41 @@ def _clear_probe_cache() -> None:
         _AVAIL_CACHE.clear()
 
 
+def _fold_system_into_multimodal(
+    messages: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Pixtral vLLM 400s on a system string plus list-content user parts.
+
+    ``can only concatenate str (not "list") to str``. Fold the system prompt
+    into the first text part of the multimodal user message.
+    """
+    if not any(isinstance(m.get("content"), list) for m in messages):
+        return messages
+    sys_bits: List[str] = []
+    out: List[Dict[str, Any]] = []
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content")
+        if role == "system" and isinstance(content, str) and content.strip():
+            sys_bits.append(content.strip())
+            continue
+        if isinstance(content, list) and sys_bits:
+            prefix = "\n\n".join(sys_bits)
+            sys_bits = []
+            parts = list(content)
+            if parts and isinstance(parts[0], dict) and parts[0].get("type") == "text":
+                parts[0] = {
+                    "type": "text",
+                    "text": prefix + "\n\n" + str(parts[0].get("text") or ""),
+                }
+            else:
+                parts.insert(0, {"type": "text", "text": prefix})
+            out.append({"role": role, "content": parts})
+        else:
+            out.append(msg)
+    return out
+
+
 def _chat_completion(
     entry: Dict[str, Any],
     messages: List[Dict[str, Any]],
@@ -1462,7 +1753,7 @@ def _chat_completion(
     url = str(entry.get("base_url") or "").rstrip("/") + "/chat/completions"
     payload: Dict[str, Any] = {
         "model": entry.get("model") or "visual-witness",
-        "messages": messages,
+        "messages": _fold_system_into_multimodal(messages),
         "temperature": float(runtime.get("temperature", 0.15)),
         "top_p": float(runtime.get("top_p", 0.9)),
         "max_tokens": int(runtime.get("max_tokens", 640)),
@@ -1634,7 +1925,7 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
 
 
 def _num(value: Any) -> Optional[float]:
-    """Coerce ints, floats, ``"82"``, ``"82/100"``, ``{"score": 82}`` to a float."""
+    """Coerce ints, floats, rating words, ``"82"``, ``"82/100"``, ``{"score": 82}``."""
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
@@ -1642,12 +1933,17 @@ def _num(value: Any) -> Optional[float]:
         if num != num or num in (float("inf"), float("-inf")):
             return None
         return num
+    if isinstance(value, (list, tuple)) and value:
+        return _num(value[0])
     if isinstance(value, dict):
-        for key in ("score", "value", "rating", "overall"):
+        for key in ("score", "value", "rating", "word", "overall"):
             if key in value:
                 return _num(value[key])
         return None
     if isinstance(value, str):
+        word_score = rating_word_to_score(value)
+        if word_score is not None:
+            return word_score
         match = _NUM_RE.search(value)
         if match:
             try:
@@ -1726,6 +2022,24 @@ def coerce_scorecard(
             if num is not None:
                 subscores[name] = round(_clamp(num * factor), 1)
 
+    # Models sometimes rename the rubric (anti_cgi, chiaroscuro, …). A real
+    # number at the top level is still a score; inventing one from nothing is not.
+    skip_extra = set(_OVERALL_KEYS) | set(_CRITIQUE_KEYS) | set(spec.evidence_keys) | {
+        "scale",
+        "max_score",
+        "subscores",
+        "scores",
+        "dimensions",
+        "criteria",
+        "available",
+    }
+    for name, value in lower.items():
+        if name in subscores or name in skip_extra:
+            continue
+        num = _num(value)
+        if num is not None:
+            subscores[name] = round(_clamp(num * factor), 1)
+
     overall = None
     for key in _OVERALL_KEYS:
         if key in lower:
@@ -1760,6 +2074,9 @@ def coerce_scorecard(
             observations,
             "scorecard carried no usable numeric score (keys: %s)" % detail,
         )
+    ratings = {name: score_to_rating_word(val) for name, val in subscores.items()}
+    ratings["overall"] = score_to_rating_word(overall)
+    observations["ratings"] = ratings
     return round(float(overall), 1), subscores, critique, observations, None
 
 
@@ -1779,6 +2096,7 @@ def _blank_judge(spec: JudgeSpec, entry: Dict[str, Any]) -> Dict[str, Any]:
         "score_key": spec.score_key,
         "phase": spec.phase,
         "vision": bool(entry.get("vision", True)),
+        "borrowed_vision": entry.get("borrowed_vision") or None,
         "score": None,
         "subscores": {},
         "observations": {},
@@ -1801,7 +2119,7 @@ def _degraded(
 
 
 def _user_content_vision(
-    prompt: str, job: Optional[Dict[str, Any]], data_uri: str
+    prompt: str, job: Optional[Dict[str, Any]], data_uri: str, role: str = ""
 ) -> List[Dict[str, Any]]:
     job = job or {}
     meta_bits = []
@@ -1816,9 +2134,13 @@ def _user_content_vision(
         "RENDER METADATA\n"
         "---------------\n"
         "%s\n\n"
-        "Inspect the attached render against your rubric and return your JSON "
-        "scorecard now."
-        % (prompt or "(no prompt recorded)", ", ".join(meta_bits) or "(none)")
+        "%s\n\n"
+        "Look at the attached render. Answer the rating prompt."
+        % (
+            prompt or "(no prompt recorded)",
+            ", ".join(meta_bits) or "(none)",
+            rating_task_prompt(role or "aesthetic"),
+        )
     )
     return [
         {"type": "text", "text": text},
@@ -1826,7 +2148,7 @@ def _user_content_vision(
     ]
 
 
-def _user_text_synthesis(prompt: str, evidence: Dict[str, Any]) -> str:
+def _user_text_synthesis(prompt: str, evidence: Dict[str, Any], role: str = "synthesis") -> str:
     return (
         "COMMISSIONING PROMPT\n"
         "--------------------\n"
@@ -1834,10 +2156,12 @@ def _user_text_synthesis(prompt: str, evidence: Dict[str, Any]) -> str:
         "SWORN TESTIMONY AND MECHANICAL EVIDENCE (JSON)\n"
         "----------------------------------------------\n"
         "%s\n\n"
-        "Adjudicate on this evidence alone and return your JSON scorecard now."
+        "%s\n\n"
+        "Adjudicate on this evidence alone. Answer the rating prompt."
         % (
             prompt or "(no prompt recorded)",
             json.dumps(_jsonable(evidence), indent=2, sort_keys=True)[:12000],
+            rating_task_prompt(role or "synthesis"),
         )
     )
 
@@ -1888,6 +2212,11 @@ def judge_image(
         }
 
     entry = endpoint_for(spec, runtime)
+    if entry.get("borrowed_vision"):
+        LOG.info(
+            "judge %s borrowing vision from %s at %s"
+            % (spec.role, entry.get("borrowed_vision"), entry.get("base_url"))
+        )
     force_text = bool(runtime.get("text_from_gates"))
     endpoint_sees_images = bool(entry.get("vision", True)) and not force_text
 
@@ -1897,7 +2226,15 @@ def judge_image(
         return _degraded(spec, runtime, "endpoint %r has no base_url" % spec.endpoint)
 
     messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": system_prompt_for(spec.role, arcane=arcane)}
+        {
+            "role": "system",
+            "content": system_prompt_for(
+                spec.role,
+                arcane=arcane,
+                from_evidence=not endpoint_sees_images,
+                prompt=prompt,
+            ),
+        }
     ]
 
     sent_user = False
@@ -1913,10 +2250,10 @@ def judge_image(
                 return _degraded(spec, runtime, err or "image encoding failed")
             endpoint_sees_images = False
         else:
-            content = _user_content_vision(prompt, job, data_uri)
+            content = _user_content_vision(prompt, job, data_uri, role=spec.role)
             if evidence:
                 content.insert(
-                    0, {"type": "text", "text": _user_text_synthesis(prompt, evidence)}
+                    0, {"type": "text", "text": _user_text_synthesis(prompt, evidence, role=spec.role)}
                 )
             messages.append({"role": "user", "content": content})
             sent_user = True
@@ -1930,7 +2267,7 @@ def judge_image(
                 runtime,
                 "seat cannot see images and no mechanical evidence was supplied",
             )
-        messages.append({"role": "user", "content": _user_text_synthesis(prompt, evidence)})
+        messages.append({"role": "user", "content": _user_text_synthesis(prompt, evidence, role=spec.role)})
 
     if not judge_available(spec.role, runtime):
         return _degraded(
@@ -1970,6 +2307,7 @@ def judge_image(
         {
             "score": score,
             "subscores": subscores,
+            "ratings": (observations or {}).get("ratings") or {},
             "observations": observations,
             "critique": critique or "(judge returned no critique)",
             "degraded": False,
@@ -2215,7 +2553,7 @@ UNIQUENESS_UNAVAILABLE = {
 }
 
 
-def uniqueness_block(job_id: str, image_path: str) -> Dict[str, Any]:
+def uniqueness_block(job_id: str, image_path: str, output_dir: Optional[str] = None) -> Dict[str, Any]:
     """Real 128-d perceptual fingerprint work via ``uniqueness_tracker``."""
     if _uniqueness_tracker is None:
         block = dict(UNIQUENESS_UNAVAILABLE)
@@ -2226,7 +2564,7 @@ def uniqueness_block(job_id: str, image_path: str) -> Dict[str, Any]:
         block["error"] = "no render on disk to fingerprint"
         return block
 
-    _align_uniqueness_db()
+    _align_uniqueness_db(output_dir)
     try:
         data = _uniqueness_tracker.evaluate_uniqueness(job_id, image_path)
     except Exception as exc:
@@ -2369,7 +2707,18 @@ def _run_phase1(
     if not specs:
         return results
 
-    if str(runtime.get("mode") or "parallel").lower() == "sequential":
+    serialize = str(runtime.get("mode") or "parallel").lower() == "sequential"
+    if not serialize:
+        urls = [
+            str(endpoint_for(spec, runtime).get("base_url") or "") for spec in specs
+        ]
+        live = [url for url in urls if url]
+        if live and len(live) != len(set(live)):
+            # Two lenses on one vLLM (Pixtral as both inspector and critic)
+            # must not share a single in-flight multimodal slot.
+            serialize = True
+
+    if serialize:
         for spec in specs:
             if time.time() >= deadline:
                 results[spec.role] = _degraded(
@@ -2525,7 +2874,9 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
     arcane_job = is_arcane_job(job)
 
     # --- evidence -------------------------------------------------------
-    uniq = uniqueness_block(jid, image_path)
+    announce_route("uniqueness", job, image=image_path)
+    uniq = uniqueness_block(jid, image_path, runtime.get("output_dir"))
+    announce_route("sensory_gates", job, image=image_path)
     gate_budget = float(timeouts.get("gates") or 10.0)
     gates = sensory_gate_block(image_path, job, prompt, gate_budget)
     arcane = arcane_block(image_path, job, prompt, gate_budget)
@@ -2534,6 +2885,17 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
     active = [s for s in JUDGES if judge_enabled(s, runtime)]
     phase1_specs = [s for s in active if s.phase == 1]
     phase2_specs = [s for s in active if s.phase == 2]
+
+    vis_urls = [
+        str(endpoint_for(spec, runtime).get("base_url") or "") for spec in phase1_specs
+    ]
+    live_vis = [url for url in vis_urls if url]
+    if live_vis and len(live_vis) != len(set(live_vis)):
+        judge_t = float(timeouts.get("judge") or 25.0)
+        needed = judge_t * (len(phase1_specs) + max(1, len(phase2_specs))) + 10.0
+        if needed > budget:
+            budget = needed
+            phase1_share = min(0.80, (judge_t * len(phase1_specs) + 5.0) / budget)
 
     deadline = started + budget
     phase1_deadline = min(deadline, time.time() + budget * phase1_share)
@@ -2581,6 +2943,7 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
                 "This seat may not receive pixels; score the render from this evidence."
             ),
         }
+        announce_route("witness", job, image=image_path)
         results = _run_phase1(
             phase1_specs,
             image_path,
@@ -2591,6 +2954,7 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
             phase1_deadline,
             evidence=mechanical,
         )
+        announce_route("pixtral", job, image=image_path)
 
     visual_survivors = [
         results[s.role]
@@ -2628,6 +2992,7 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
         "arcane_job": arcane_job,
     }
 
+    announce_route("governor", job, image=image_path)
     results.update(
         _run_phase2(
             phase2_specs,
@@ -2847,6 +3212,14 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
         elapsed_ms=receipt["elapsed_ms"],
         evaluator_version=EVALUATOR_VERSION,
     )
+    announce_route(
+        "composite",
+        job,
+        image=image_path,
+        composite=receipt.get("curved_score") or receipt.get("raw_composite"),
+        tier=receipt.get("tier"),
+        unscored=receipt.get("unscored"),
+    )
     return receipt
 
 
@@ -3030,7 +3403,96 @@ def _self_test() -> int:
     )
     check("scorecard coerced to a real number", score == 78.0 and err is None, "score=%s" % score)
     check("subscores survived coercion", subs.get("anatomy") == 81.0)
+    word_card = {
+        "anatomy": "obvious",
+        "geometry": "competent",
+        "edge_integrity": "broken",
+        "artifact_freedom": "specialist",
+        "focus_coherence": "competent",
+        "overall": "competent",
+        "critique": "left fetlock melts into grass.",
+    }
+    wscore, wsubs, _, wobs, werr = coerce_scorecard(word_card, JUDGE_STRUCTURE)
+    check("word scorecard is not degraded", werr is None and wscore == 78.0, "score=%s err=%s" % (wscore, werr))
+    check("word anatomy maps to obvious band", wsubs.get("anatomy") == 57.0)
+    check("ratings ride with observations", (wobs.get("ratings") or {}).get("overall") == "competent")
+    check(
+        "prompt asks for words not 0-100",
+        "failed | broken | obvious | competent | specialist | flawless"
+        in system_prompt_for("structure"),
+    )
+    task = rating_task_prompt("structure")
+    check("rating task is a prompt", task.startswith("RATE THIS FRAME"))
+    check("rating task names anatomy", "ANATOMY" in task and "Does the body hold?" in task)
+    vision = _user_content_vision("a horse", {"id": "t"}, "data:image/png;base64,xx", role="structure")
+    check(
+        "vision user message carries the rating prompt",
+        "RATE THIS FRAME" in vision[0]["text"] and "ANATOMY" in vision[0]["text"],
+    )
     check("non-scored evidence captured", bool(obs.get("scene_inventory")))
+    check(
+        "synthesis contract does not null for lack of pixels",
+        "If you cannot see the image, or the image is blank or corrupt"
+        not in system_prompt_for("synthesis"),
+    )
+    check(
+        "vision contract still forbids guessing without pixels",
+        "If you cannot see the image, or the image is blank or corrupt"
+        in system_prompt_for("structure"),
+    )
+    check(
+        "text-from-gates structure must score from evidence",
+        "If you cannot see the image, or the image is blank or corrupt"
+        not in system_prompt_for("structure", from_evidence=True),
+    )
+    null_card = {
+        "anatomy": None,
+        "geometry": None,
+        "overall": None,
+        "critique": "I cannot see the image.",
+    }
+    score, _, _, _, err = coerce_scorecard(null_card, JUDGE_STRUCTURE)
+    check("all-null scorecard stays degraded", score is None and bool(err))
+    renamed = {"anti_cgi": 57, "chiaroscuro": 61, "critique": "flat fill"}
+    score, _, _, _, err = coerce_scorecard(renamed, JUDGE_AESTHETIC)
+    check(
+        "renamed numeric keys still form a score",
+        err is None and score == 59.0,
+        "score=%s err=%s" % (score, err),
+    )
+    seated = load_runtime_config(
+        {
+            "endpoints": {
+                VISUAL_WITNESS: {
+                    "base_url": "http://127.0.0.1:8001/v1",
+                    "model": "jury",
+                    "vision": False,
+                    "enabled": True,
+                },
+                PIXTRAL_CRITIC: {
+                    "base_url": "http://127.0.0.1:8004/v1",
+                    "model": "pixtral",
+                    "vision": True,
+                    "enabled": True,
+                },
+                GOVERNOR: {
+                    "base_url": "http://127.0.0.1:8800/v1",
+                    "model": "governor",
+                    "vision": False,
+                    "enabled": True,
+                },
+            }
+        }
+    )
+    check(
+        "structure stays on the text jury seat",
+        endpoint_for(JUDGE_STRUCTURE, seated).get("model") == "jury"
+        and endpoint_for(JUDGE_STRUCTURE, seated).get("vision") is False,
+    )
+    check(
+        "synthesis stays text-only on the governor gateway",
+        endpoint_for(JUDGE_SYNTHESIS, seated).get("vision") is False,
+    )
 
     print("\n[4] Degraded path (all three endpoints unreachable)")
     _clear_probe_cache()

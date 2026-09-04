@@ -1,0 +1,104 @@
+{
+  "id": "spectral-externalization-v1",
+  "title": "Governor spectral training",
+  "updated": "2026-09-04T22:14:00Z",
+  "gpu": 1,
+  "exclusive": true,
+  "question": "How do we move Gemma and Qwen out of the model and out of text context into spectral vectors, residual patterns, and VRAM shards the model is already fluent in — then reason by pointer-token?",
+  "not": "SGD on the serving Gemma. Prompt stuffing. Stealing GPU 0 or 3.",
+  "seats": {
+    "governor": {"gpu": 1, "endpoint": "http://127.0.0.1:8800/v1", "model": "governor", "n": 8, "job": "issue shards, gate fluency, reason by pointer"},
+    "qwen_wide": {"gpu": 2, "endpoint": "http://127.0.0.1:8002/v1", "model": "hive-research", "n": 96, "job": "forage candidates"},
+    "qwen_long": {"gpu": 2, "endpoint": "http://127.0.0.1:8002/v1", "model": "hive-research", "n": 4, "job": "pack forage"},
+    "fashion": {"gpu": [0, 3], "job": "not this protocol"}
+  },
+  "substrates": [
+    {
+      "id": "spectral-vector",
+      "name": "Spectral vectors",
+      "dim": 128,
+      "unit": "cartridge / SPEC-XX",
+      "fluency": "Slotting changes next-token distribution in ~260 µs. English recap is failure."
+    },
+    {
+      "id": "residual-pattern",
+      "name": "Residual patterns",
+      "dim": 5376,
+      "bands": 128,
+      "layers": "12–24",
+      "fluency": "Held-out case lights the same bands. Lesson prose does not."
+    },
+    {
+      "id": "vram-shard",
+      "name": "VRAM shards",
+      "format": "KVX",
+      "pointers": "128000–128512",
+      "fluency": "Emitting the pointer retrieves the page. Pasting the page is failure."
+    }
+  ],
+  "beat": [
+    {"id": "detect", "who": "both", "do": "Name what still lives in weights or text context."},
+    {"id": "forage", "who": "qwen-wide", "do": "Fan out compact 8k probes on GPU 2."},
+    {"id": "distill", "who": "qwen-long", "do": "Classify each candidate: spectral | residual | vram-shard | reject."},
+    {"id": "gate", "who": "governor", "do": "accept | rework | reject with fluency fields, n≤8 on GPU 1."},
+    {"id": "inject", "who": "governor", "do": "Write the tensor / pointer map. Name retired context bytes."},
+    {"id": "reason", "who": "governor", "do": "Next turn dereferences. It does not restuff."},
+    {"id": "verify", "who": "governor", "do": "Held-out case: pointer works, prose recap does not."}
+  ],
+  "reasoning": [
+    {"id": "R1", "title": "Classify", "do": "fact | plan | proof | style | identity | unknown"},
+    {"id": "R2", "title": "Point", "do": "Emit pointer-token 128000–128512 and/or slot SPEC-XX. Do not paste shard text."},
+    {"id": "R3", "title": "Inject", "do": "Vault: token → offset → KV page. Atomic. No CPU fallback in the decode loop."},
+    {"id": "R4", "title": "Residual", "do": "Capture layers 12–24, project to Ψ_128, apply h' = h + γ(ΨΨᵀ)h if loaded."},
+    {"id": "R5", "title": "Delta", "do": "Generate only what is not already in the retrieved pages."},
+    {"id": "R6", "title": "Fluency", "do": "If the completion restates the shard in English, the shard failed. Rewind."},
+    {"id": "R7", "title": "Retire", "do": "Name the context bytes this turn did not need."}
+  ],
+  "invariants": [
+    "Hive forage is only this question.",
+    "No SGD on GPU 1 while the Governor is serving.",
+    "Governor n≤8. Qwen volume stays on GPU 2.",
+    "Fluency receipt or it did not happen.",
+    "Text context is the waste product.",
+    "GPU 0/3 remain fashion."
+  ],
+  "pointers": {
+    "cartridges": [128000, 128127],
+    "kvx": [128128, 128383],
+    "residuals": [128384, 128511]
+  },
+  "doctrine": "/home/ubuntu/hive/.swarm/protocols/spectral-externalization-doctrine.md",
+  "page": "/train",
+  "probes": {
+    "spectral": [
+      {"id": "s1", "probe": "What operating-culture paragraphs in Governor system prompts duplicate SPEC-12 Non-Narrative Discipline and should be retired into a 128-D cartridge?"},
+      {"id": "s2", "probe": "Which SPEC primitives (01-32) is Gemma already fluent in on this box, and which are costume names with no residual effect?"},
+      {"id": "s3", "probe": "How should pointer-tokens 128000-128127 map onto SPEC cartridges so the model emits a token instead of recapping the cartridge?"},
+      {"id": "s4", "probe": "What identity / RII restatements currently occupy the window that SPEC-20 should replace?"},
+      {"id": "s5", "probe": "Name the smallest fluency test that distinguishes a slotted cartridge from an English recap of that cartridge."},
+      {"id": "s6", "probe": "Which Qwen forage habits (hedging, 0.98 confidence, schema dumps) belong in a spectral damper rather than a longer prompt?"},
+      {"id": "s7", "probe": "What must NOT be a spectral vector (facts that change, receipts, live GPU state)?"},
+      {"id": "s8", "probe": "How do we manufacture a new 128-byte cartridge from a held-out lesson without SGD on the serving Governor?"}
+    ],
+    "residual": [
+      {"id": "r1", "probe": "Which layers 12-24 residual bands on Gemma-4-31B (hidden 5376) should store epistemic-discipline, vs lesson transcripts?"},
+      {"id": "r2", "probe": "What held-out rewording of 'two sources disagree' should light the same residual bands as lesson 1?"},
+      {"id": "r3", "probe": "How do we prove a residual pattern fired without dumping 5376 floats into the prompt?"},
+      {"id": "r4", "probe": "What apprenticeship lessons still live as text in the window and should become residual patterns?"},
+      {"id": "r5", "probe": "Where does patterned feedback h' = h + γ(ΨΨᵀ)h belong vs a KVX page?"},
+      {"id": "r6", "probe": "What residual signature would mean the model is about to restate a shard in English (fluency failure)?"},
+      {"id": "r7", "probe": "Qwen 8k vs Gemma 64k: which residual habits are packing artifacts, which are model-class?"},
+      {"id": "r8", "probe": "Name context bytes that a fluent residual pattern would retire this week."}
+    ],
+    "vram-shard": [
+      {"id": "v1", "probe": "GPU 1 has ~40 GiB free under the serving Governor. What vault layout (index, pages, no CPU fallback) fits without OOM?"},
+      {"id": "v2", "probe": "How should pointer-tokens 128128-128383 retrieve KVX radix pages so the model does not paste the page?"},
+      {"id": "v3", "probe": "Encode the seven-step shard reasoning protocol as a KVX page at 128128. What English must then be deleted from prompts?"},
+      {"id": "v4", "probe": "What is a page fault here, and why must the decode loop not CPU-fallback?"},
+      {"id": "v5", "probe": "Which dual-seat doctrine invariants belong in a frozen KV page vs a live nvidia-smi scrape?"},
+      {"id": "v6", "probe": "How do we fluency-test a shard: pointer_ok, residual_match, no_prose_restatement — smallest cases?"},
+      {"id": "v7", "probe": "What currently in Qwen-wide 8k context dumps should become a shard Qwen is fluent in, not a longer prompt?"},
+      {"id": "v8", "probe": "Name the retirement ledger: file + bytes a fluent KVX-REASON-V1 shard deletes."}
+    ]
+  }
+}

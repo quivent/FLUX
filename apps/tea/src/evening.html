@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1a140c">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>An Evening with the Horses — Tea</title>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+<style>
+  html, body { height: 100%; }
+  body.evening { margin: 0; background: #100e0c; color: #f4efe6; overflow: hidden; }
+  body.evening header.tea-chrome {
+    background: rgba(16,14,12,.78); border-bottom-color: rgba(244,239,230,.08); color: #f4efe6;
+  }
+  body.evening .tea-word, body.evening nav.tea-nav a { color: #cfc6b8; }
+  body.evening nav.tea-nav a[aria-current="page"] { color: #f4efe6; background: rgba(179,137,56,.18); }
+  .clock {
+    position: absolute; top: 0; left: 0; height: 3px; width: 0; z-index: 8;
+    background: linear-gradient(90deg, #b38938, #e7b5b6); pointer-events: none;
+  }
+  .stage { position: relative; height: calc(100vh - 56px); overflow: hidden; }
+  .film { position: absolute; inset: 0; background: #0c0a08; overflow: hidden; }
+  .film video {
+    width: 100%; height: 100%; object-fit: contain; display: block; background: #0c0a08;
+  }
+  .veil {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(16,14,12,.92) 0%, rgba(16,14,12,.2) 48%, rgba(16,14,12,.4)),
+      linear-gradient(180deg, transparent 38%, rgba(16,14,12,.7));
+  }
+  .copy {
+    position: relative; z-index: 4;
+    width: min(46vw, 620px); height: 100%;
+    padding: clamp(28px, 5vw, 64px);
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .kicker { font: 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: #b38938; margin-bottom: 12px; }
+  .act-title { font: 400 clamp(40px, 6.4vw, 88px)/.92 var(--serif); letter-spacing: -.05em; margin: 0 0 16px; max-width: 13ch; }
+  .act-body { font: 400 18px/1.6 var(--serif); color: #d7cfc3; max-width: 38rem; margin: 0 0 22px; }
+  .letter {
+    font: 400 19px/1.55 var(--serif); color: #f4efe6; max-width: 28rem;
+    border-left: 2px solid #b38938; padding: 2px 0 2px 16px; margin: 0 0 22px;
+  }
+  .cta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cta a, .next {
+    display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 8px;
+    border: 1px solid #f4efe6; background: #f4efe6; color: #14110e;
+    font: 500 13px/1 var(--sans); text-decoration: none; cursor: pointer;
+  }
+  .cta a.ghost, .next.ghost { background: transparent; color: #f4efe6; border-color: rgba(244,239,230,.28); }
+  .layer {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    padding: 64px 36px 88px max(42vw, 300px);
+  }
+  .layer.on { display: flex; }
+  .merge { display: none; gap: 8px; }
+  .merge.on { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  .cellx {
+    position: relative; overflow: hidden; border-radius: 12px;
+    border: 1px solid rgba(244,239,230,.12); background: #1a1714;
+    animation: rise .7s ease both;
+  }
+  .cellx:nth-child(2) { animation-delay: .08s; }
+  .cellx:nth-child(3) { animation-delay: .16s; }
+  .cellx:nth-child(4) { animation-delay: .24s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+  .cellx img, .cellx video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cellx.native { display: grid; place-items: center; background: #0c0a08; }
+  .cellx.native img { width: 256px; height: 256px; max-width: none; object-fit: none; image-rendering: auto; }
+  .cellx span {
+    position: absolute; left: 10px; bottom: 10px;
+    font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+    color: #f4efe6; text-shadow: 0 1px 8px #000;
+  }
+  .flip {
+    display: none; align-items: stretch; justify-content: flex-end;
+  }
+  .flip.on { display: flex; }
+  .flip-stage {
+    position: relative; width: min(46vw, 520px); aspect-ratio: 1;
+    border-radius: 14px; overflow: hidden; border: 1px solid rgba(244,239,230,.16);
+    cursor: ew-resize; align-self: center;
+  }
+  .flip-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .flip-stage .bf { clip-path: inset(0 50% 0 0); }
+  .flip-bar { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #f4efe6; box-shadow: 0 0 16px #b38938; }
+  .flip-lab {
+    position: absolute; top: 12px; font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+    padding: 5px 8px; border-radius: 999px; background: rgba(16,14,12,.7);
+  }
+  .flip-lab.l { left: 12px; } .flip-lab.r { right: 12px; }
+  .vids { display: none; gap: 10px; align-items: center; }
+  .vids.on { display: flex; }
+  .vids figure { margin: 0; flex: 1; min-width: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(244,239,230,.12); }
+  .vids video { width: 100%; height: min(46vh, 420px); object-fit: cover; display: block; background: #000; }
+  .vids figcaption { padding: 8px 10px; font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #cfc6b8; background: rgba(16,14,12,.7); }
+  .hive, .train {
+    display: none; flex-direction: column; justify-content: center; gap: 14px;
+  }
+  .hive.on, .train.on { display: flex; }
+  .spec {
+    display: flex; align-items: flex-end; gap: 2px; height: 120px;
+    padding: 8px; border-radius: 12px; background: rgba(16,14,12,.45);
+    border: 1px solid rgba(244,239,230,.1);
+  }
+  .spec i { flex: 1; background: linear-gradient(180deg, #e7b5b6, #b38938); opacity: .85; border-radius: 2px 2px 0 0; }
+  .meters { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+  .meters div {
+    padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(244,239,230,.12);
+    background: rgba(16,14,12,.5);
+  }
+  .meters b { display: block; font: 400 28px/1 var(--serif); }
+  .meters span { font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #a69e94; }
+  .path { display: none; align-items: center; }
+  .path.on { display: flex; }
+  .stations { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stn {
+    min-width: 104px; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid rgba(244,239,230,.14); background: rgba(16,14,12,.5);
+    font: 11px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: #cfc6b8;
+  }
+  .stn b { display: block; font: 400 17px/1.15 var(--serif); letter-spacing: 0; text-transform: none; color: #f4efe6; margin-bottom: 4px; }
+  .stn.on { border-color: #b38938; box-shadow: 0 0 0 4px rgba(179,137,56,.16); }
+  .wall {
+    display: none; flex-wrap: wrap; align-content: center; justify-content: flex-start;
+    gap: 6px; overflow: auto;
+  }
+  .wall.on { display: flex; }
+  .wall a {
+    position: relative; flex: 0 0 256px; width: 256px; height: 256px;
+    overflow: hidden; border: 1px solid rgba(244,239,230,.1);
+  }
+  .wall img { width: 256px; height: 256px; object-fit: none; display: block; }
+  .delta {
+    position: absolute; right: 7px; bottom: 7px; font: 600 11px/1 var(--mono);
+    padding: 4px 7px; border-radius: 6px; background: rgba(18,16,14,.82); color: #d5e8c8;
+  }
+  .rail {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px clamp(18px, 4vw, 48px) 16px;
+    background: linear-gradient(transparent, rgba(16,14,12,.92));
+    font: 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #a69e94;
+  }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(244,239,230,.2); cursor: pointer; }
+  .dots i.on { background: #b38938; }
+  .live-count { color: #d5e8c8; }
+  @media (max-width: 900px) {
+    .copy { width: 100%; background: linear-gradient(transparent, rgba(16,14,12,.94) 30%); min-height: 48vh; }
+    .layer { padding: 16px 14px 86px; }
+    .merge { grid-template-rows: 1fr 1fr; }
+    .wall { grid-template-columns: repeat(3, 1fr); }
+    .flip-stage { width: min(86vw, 420px); }
+    .vids { flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cellx { animation: none; }
+    .clock { display: none; }
+  }
+</style>
+</head>
+<body class="tea-app evening">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/evening" aria-current="page">Evening</a>
+    <a href="/hive">Hive</a>
+    <a href="/train">Train</a>
+    <a href="/desk">Desk</a>
+  </nav>
+</header>
+<div class="clock" id="clock"></div>
+<div class="stage">
+  <div class="film" id="film">
+    <video id="filmVid" autoplay muted loop playsinline src="/exhibition/stallion-gait-projection.mp4"></video>
+  </div>
+  <div class="veil"></div>
+  <div class="copy">
+    <div class="kicker" id="kicker">Tonight’s showing</div>
+    <h1 class="act-title" id="title">An Evening with the Horses</h1>
+    <p class="act-body" id="body"></p>
+    <p class="letter" id="letter" hidden></p>
+    <div class="cta" id="cta"></div>
+  </div>
+  <div class="layer merge" id="merge"></div>
+  <div class="layer flip" id="flip"></div>
+  <div class="layer vids" id="vids"></div>
+  <div class="layer hive" id="hive"></div>
+  <div class="layer train" id="train"></div>
+  <div class="layer path" id="path"><div class="stations" id="stations"></div></div>
+  <div class="layer wall" id="wall"></div>
+  <div class="rail">
+    <span id="hint">Space · continue · P pause</span>
+    <span class="dots" id="dots"></span>
+    <span class="live-count" id="count">live</span>
+  </div>
+</div>
+<script>
+  const R2 = "https://pub-197bed319eda457da858ab89c061ed38.r2.dev/site/";
+  const PAIRS = [
+    ["protocol-fashion-stream-20260904-212142-019.png", "protocol-fashion-stream-20260904-200126-019.png"],
+    ["protocol-fashion-stream-20260904-212142-027.png", "protocol-fashion-stream-20260904-200126-027.png"],
+    ["protocol-fashion-stream-20260904-212142-041.png", "protocol-fashion-stream-20260904-200126-041.png"],
+    ["protocol-fashion-stream-20260904-212142-081.png", "protocol-fashion-stream-20260904-200126-081.png"]
+  ];
+  const STATIONS = [
+    ["generate", "FLUX"], ["uniqueness", "sieve"], ["sensory_gates", "gates"],
+    ["witness", "structure"], ["pixtral", "beauty"], ["governor", "law"], ["composite", "verdict"]
+  ];
+  const ACTS = [
+    { kicker: "A private showing · not forever", title: "The house, in motion",
+      body: "We do not open on a magnified 256² still. The Stallion is 7,584 recovered states as gait — that is the large work. The horses come later, as a field, at the size they were made.", visual: "film", cta: "Begin" },
+    { kicker: "Act I · the brief", title: "One sentence, held still",
+      letter: "Horses of exquisite beauty of all shapes and characters, in motion or still, with attention paid to detail and novelty, and some thin glimmer of the fantasy and hearts of horses. The beauty must show here. One or a few horses.",
+      body: "GPU 3 writes them at 256×256. That grain is the study, not a poster. Fashion 1024s and the atlas films are the large surfaces.", visual: "film" },
+    { kicker: "Act II · the house", title: "Four rooms, one night",
+      body: "Horses on GPU 3. Fashion already judged. Harvest on GPU 0. Stallion as motion atlas. They do not share a wall. Tonight they share a stage — then they separate again.", visual: "merge" },
+    { kicker: "Act III · the flip", title: "FP8 against BF16",
+      body: "Same locked fashion brief. Left is GPU 3 FP8 at ~9.2s. Right is GPU 0 BF16 at ~14s. Drag, or watch it breathe. Not the same seed. The difference is the metal.", visual: "flip" },
+    { kicker: "Act IV · motion", title: "Stillness learns to walk",
+      body: "The Stallion is 7,584 recovered states projected as gait. The Bell is a 48-state authored path. Latent cartography, not video diffusion. The horse stills are the same engine, held.", visual: "vids" },
+    { kicker: "Act V · hive research", title: "Qwen forages",
+      body: "Hive-research is live on the comb. It proposes jury calibrations, ranks charters, and feeds the Governor as a sounding board — not a teacher. The spectrum is residual, 128 bands.", visual: "hive" },
+    { kicker: "Act VI · he trains himself", title: "GPU 1 does not rest",
+      body: "Reliability, memory, reasoning. Dual-seat drive: Governor plus hive. Exclusive on the card. You keep the tools. He keeps autonomy. The tick is the proof.", visual: "train" },
+    { kicker: "Act VII · the sieve", title: "Before anyone speaks",
+      body: "Uniqueness, then DINOv2 + SigLIP. Redundant clusters and unfinished frames never buy a number. Generate → uniqueness → gates → witness → Pixtral → Governor → composite.", visual: "path", station: "uniqueness" },
+    { kicker: "Act VIII · the field", title: "256, and no closer",
+      body: "Each horse is a 256-pixel tile. Shown at native size, as a field — the way a study is shown, not a billboard. Deltas sit on the tiles that earned them.", visual: "wall", finale: true }
+  ];
+
+  let i = 0, paused = false, tick = null, t0 = 0;
+  const HOLD = 8200;
+  let horses = [], fashion = [], greens = [], motion = [];
+  let train = {}, hiveLive = {};
+  let pairN = 0, flipTimer = 0;
+  const $ = (id) => document.getElementById(id);
+  const thumb = (url, w) => {
+    const u = String(url || "");
+    if (u.startsWith("http")) return u;
+    return "/api/asset/thumbnail?w=" + (w || 640) + "&src=" + encodeURIComponent(u);
+  };
+  const pathOf = (im) => im && (im.path || im.url) || "";
+
+  function paintFilm() { /* stallion gait is the large surface — never a 256² closeup */ }
+
+  function paintMerge() {
+    const h = horses[0], f = fashion[0], g = greens[0];
+    $("merge").innerHTML =
+      cell("Horses · 256² native", pathOf(h), true) +
+      cell("Fashion · 1024²", pathOf(f), false) +
+      cell("Harvest · 1024²", pathOf(g), false) +
+      '<div class="cellx"><video autoplay muted loop playsinline src="/exhibition/stallion-gait-projection.mp4"></video><span>Stallion · atlas</span></div>';
+  }
+  function cell(label, url, native) {
+    if (!url) return '<div class="cellx"><span>' + label + "</span></div>";
+    const cls = native ? "cellx native" : "cellx";
+    const w = native ? 256 : 720;
+    return '<div class="' + cls + '"><img src="' + thumb(url, w) + '" width="' + (native ? 256 : "") + '" height="' + (native ? 256 : "") + '" alt=""><span>' + label + "</span></div>";
+  }
+
+  function paintFlip() {
+    const p = PAIRS[pairN % PAIRS.length];
+    const fp8 = "/outputs/" + p[0], bf = "/outputs/" + p[1];
+    $("flip").innerHTML = '<div class="flip-stage" id="flipStage">'
+      + '<img src="' + thumb(bf, 720) + '" alt="BF16">'
+      + '<img class="bf" id="fp8clip" src="' + thumb(fp8, 720) + '" alt="FP8">'
+      + '<div class="flip-bar" id="flipBar"></div>'
+      + '<span class="flip-lab l">FP8 · 9.2s</span><span class="flip-lab r">BF16 · 14s</span>'
+      + "</div>";
+    const stage = $("flipStage"), clip = $("fp8clip"), bar = $("flipBar");
+    const setX = (x) => {
+      const r = stage.getBoundingClientRect();
+      let t = (x - r.left) / r.width; t = Math.max(0.04, Math.min(0.96, t));
+      const pct = (t * 100).toFixed(1);
+      clip.style.clipPath = "inset(0 " + (100 - pct) + "% 0 0)";
+      bar.style.left = pct + "%";
+    };
+    stage.onpointerdown = (e) => { stage.setPointerCapture(e.pointerId); setX(e.clientX); };
+    stage.onpointermove = (e) => { if (e.buttons) setX(e.clientX); };
+    let t = 0.5, dir = 1;
+    clearInterval(flipTimer);
+    flipTimer = setInterval(() => {
+      if (paused) return;
+      t += dir * 0.006; if (t > 0.9 || t < 0.1) dir *= -1;
+      const r = stage.getBoundingClientRect();
+      setX(r.left + t * r.width);
+    }, 30);
+  }
+
+  function paintVids() {
+    $("vids").innerHTML =
+      '<figure><video autoplay muted loop playsinline src="/exhibition/stallion-gait-projection.mp4"></video><figcaption>Stallion gait · 140 states</figcaption></figure>'
+      + '<figure><video autoplay muted loop playsinline src="/exhibition/bell-learns-the-wind.mp4"></video><figcaption>A bell learns the wind · 48</figcaption></figure>';
+  }
+
+  function paintHive() {
+    const bands = ((train.spectral || {}).live_bands || []).slice(0, 64);
+    const spec = bands.length
+      ? '<div class="spec">' + bands.map((v) => {
+          const h = Math.max(4, Math.min(100, Number(v) * 400));
+          return '<i style="height:' + h + '%"></i>';
+        }).join("") + "</div>"
+      : "";
+    const model = (hiveLive && hiveLive.model) || "hive-research";
+    const live = hiveLive && hiveLive.live ? "live" : "quiet";
+    const cos = (train.spectral || {}).cosine_heldout;
+    $("hive").innerHTML =
+      '<div class="meters">'
+      + '<div><b>' + model + '</b><span>hive · ' + live + '</span></div>'
+      + '<div><b>' + (cos != null ? Number(cos).toFixed(3) : "—") + '</b><span>held-out cosine</span></div>'
+      + '<div><b>128</b><span>spectral bands</span></div>'
+      + "</div>" + spec;
+  }
+
+  function paintTrain() {
+    const st = train.stream || {};
+    const res = train.results || {};
+    $("train").innerHTML =
+      '<div class="meters">'
+      + '<div><b>' + (st.done || res.tick || "—") + '</b><span>tick · ' + (st.id || "drive") + '</span></div>'
+      + '<div><b>GPU ' + (train.gpu || 1) + '</b><span>' + (train.exclusive ? "exclusive" : "shared") + '</span></div>'
+      + '<div><b>' + (res.residual_match != null ? String(res.residual_match) : "—") + '</b><span>residual match</span></div>'
+      + "</div>"
+      + '<p class="act-body" style="margin:0;max-width:none">' + (train.question || "He trains himself.") + "</p>";
+  }
+
+  function paintPath(on) {
+    $("stations").innerHTML = STATIONS.map(([id, sub]) =>
+      '<div class="stn' + (id === on ? " on" : "") + '"><b>' + id.replace("_", " ") + "</b>" + sub + "</div>"
+    ).join("");
+  }
+  function paintWall() {
+    const src = horses.filter((h) => h.composite != null).slice(0, 8);
+    const use = src.length ? src : horses.slice(0, 8);
+    $("wall").innerHTML = use.map((im) => {
+      const d = im.beauty_delta_pct;
+      const mark = (d != null && Number.isFinite(+d))
+        ? '<span class="delta">' + (+d > 0 ? "+" : "") + Number(d).toFixed(1) + "%</span>" : "";
+      return '<a href="' + pathOf(im) + '" target="_blank" rel="noreferrer"><img src="' + thumb(pathOf(im), 256) + '" width="256" height="256" alt="">' + mark + "</a>";
+    }).join("");
+  }
+
+  const LAYERS = ["merge", "flip", "vids", "hive", "train", "path", "wall"];
+  function show(n) {
+    i = (n + ACTS.length) % ACTS.length;
+    const a = ACTS[i];
+    $("kicker").textContent = a.kicker;
+    $("title").textContent = a.title;
+    $("body").textContent = a.body || "";
+    $("body").hidden = !a.body;
+    $("letter").hidden = !a.letter;
+    $("letter").textContent = a.letter || "";
+    LAYERS.forEach((id) => $(id).classList.toggle("on", a.visual === id));
+    if (a.visual === "merge") paintMerge();
+    if (a.visual === "flip") { pairN++; paintFlip(); }
+    if (a.visual === "vids") paintVids();
+    if (a.visual === "hive") paintHive();
+    if (a.visual === "train") paintTrain();
+    if (a.visual === "path") paintPath(a.station);
+    if (a.visual === "wall") paintWall();
+    $("cta").innerHTML = a.finale
+      ? '<a href="/gallery/">Live wall</a><a class="ghost" href="/desk">Desk</a><a class="ghost" href="/hive">Hive</a><a class="ghost" href="/train">Train</a>'
+      : '<button class="next" type="button">' + (a.cta || "Continue") + "</button>";
+    const btn = $("cta").querySelector(".next");
+    if (btn) btn.onclick = () => { restartClock(); show(i + 1); };
+    $("dots").innerHTML = ACTS.map((_, k) => "<i class='" + (k === i ? "on" : "") + "'></i>").join("");
+    document.querySelectorAll(".dots i").forEach((el, k) => { el.onclick = () => { restartClock(); show(k); }; });
+    $("hint").textContent = paused ? "Paused · P resume" : (a.finale ? "This showing is temporary" : "Space · continue · P pause");
+    restartClock();
+  }
+
+  function restartClock() {
+    t0 = performance.now();
+    $("clock").style.width = "0";
+  }
+  function loop(now) {
+    if (!paused) {
+      const p = Math.min(1, (now - t0) / HOLD);
+      $("clock").style.width = (p * 100) + "%";
+      if (p >= 1) { show(i + 1); t0 = now; }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); show(i + 1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); show(i - 1); }
+    if (e.key === "p" || e.key === "P") { paused = !paused; restartClock(); $("hint").textContent = paused ? "Paused · P resume" : "Space · continue · P pause"; }
+    if (e.key === "Escape") location.href = "/gallery/";
+  });
+
+  async function grab(scope) {
+    try {
+      const j = await fetch("/api/recent-images?scope=" + scope + "&limit=24", { cache: "no-store" }).then((r) => r.json());
+      return j.images || [];
+    } catch (_) { return []; }
+  }
+  async function boot() {
+    const [h, f, g, m, tr, dk] = await Promise.all([
+      grab("silken-horses"), grab("fashion"), grab("microgreens"), grab("movement"),
+      fetch("/api/train", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+      fetch("/api/tea/desk?lane=fashion", { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
+    ]);
+    horses = h; fashion = f; greens = g; motion = m; train = tr || {}; hiveLive = (dk && dk.hive) || {};
+    const st = (dk && dk.stream) || train.stream || {};
+    $("count").textContent = (horses.length ? horses.length + " horses" : "—")
+      + " · " + (fashion.length ? "fashion" : "")
+      + " · train " + ((train.stream || {}).done || "—")
+      + " · hive " + ((hiveLive.live && "live") || "—");
+    paintFilm();
+    show(0);
+    requestAnimationFrame(loop);
+  }
+  boot();
+</script>
+</body>
+</html>

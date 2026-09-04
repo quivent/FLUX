@@ -13,11 +13,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"local/flux/internal/jury"
 )
 
 const (
 	fashionPrompt     = "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
 	microgreensPrompt = "Red Rambo radish microgreens, deep violet-purple cotyledons, plum and amethyst leaves, ruby-magenta stems, soil-grown microgreens only, no people, no hands, extreme macro photography, dew droplets, 100mm macro lens, photorealistic culinary still, Belarro Berlin harvest"
+	horsesPrompt      = "Horses of exquisite beauty of all shapes and characters, in motion or still, with attention paid to detail and novelty, and some thin glimmer of the fantasy and hearts of horses. The beauty must show here. One or a few horses. True equine anatomy: four legs, a real horse head, mane and tail that belong to the body; no extra limbs, no melted joints."
 )
 
 type studioSpec struct {
@@ -60,6 +63,19 @@ func builtinStudios() []studioSpec {
 			Branch: true,
 			Lane:   "microgreens",
 			Worker: "flux-gpu0",
+		},
+		{
+			Slug:   "silken-horses",
+			Title:  "Silken horses",
+			Kicker: "GPU 3 · live · equine beauty",
+			Prompt: horsesPrompt,
+			GPU:    3,
+			Socket: "flux-gpu3.sock",
+			Wall:   "/collections/silken-horses",
+			Scope:  "silken-horses",
+			Branch: true,
+			Lane:   "silken-horses",
+			Worker: "flux-gpu3",
 		},
 	}
 }
@@ -231,6 +247,16 @@ func (s Server) studioSnapshot(st studioSpec) map[string]any {
 		snap["jury_up"] = s.microgreensJuryAlive()
 		snap["frames"] = s.listStudyFrames(st.Slug, 8)
 	}
+	if st.Slug == "fashion" {
+		snap["audit"] = digestAudit(s.juryDirForLane("fashion"), 24)
+		snap["jury_up"] = s.fashionJuryAlive()
+		snap["frames"] = s.listStudyFrames(st.Slug, 8)
+	}
+	if st.Slug == "silken-horses" {
+		snap["audit"] = digestAudit(s.juryDirForLane("silken-horses"), 24)
+		snap["jury_up"] = s.fashionJuryAlive()
+		snap["frames"] = s.listStudyFrames(st.Slug, 8)
+	}
 	return snap
 }
 
@@ -296,6 +322,8 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 		Guidance  float64  `json:"guidance"`
 		Depth     int      `json:"depth"`
 		Seed      string   `json:"seed"`
+		Width     int      `json:"width"`
+		Height    int      `json:"height"`
 		Judge     bool     `json:"judge"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
@@ -315,10 +343,14 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 		s.stopStudioStreamer(st)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "stopped": true, "studio": s.studioSnapshot(st)})
 	case "configure":
-		s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed)
+		if st.Slug == "microgreens" {
+			s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed, req.Width, req.Height)
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "saved": true, "studio": s.studioSnapshot(st)})
 	case "reload":
-		s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed)
+		if st.Slug == "microgreens" {
+			s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed, req.Width, req.Height)
+		}
 		_ = s.setStudioPaused(st.Slug, false)
 		s.stopStudioStreamer(st)
 		_ = os.Remove(s.studioStatePath(st))
@@ -329,7 +361,9 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 		time.Sleep(200 * time.Millisecond)
 		writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "reloaded": true, "studio": s.studioSnapshot(st)})
 	case "start", "kickstart":
-		s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed)
+		if st.Slug == "microgreens" {
+			s.writeMicrogreensStudy(req.Varieties, req.Shots, req.Life, req.Guidance, req.Steps, req.Depth, req.N, req.Seed, req.Width, req.Height)
+		}
 		_ = s.setStudioPaused(st.Slug, false)
 		if !unixWorkerAlive(s.studioSocketPath(st)) {
 			if err := s.startStudioWorker(st); err != nil {
@@ -344,7 +378,13 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 		time.Sleep(200 * time.Millisecond)
 		writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "started": true, "studio": s.studioSnapshot(st)})
 	case "judge-start":
-		if err := s.startMicrogreensJury(); err != nil {
+		var err error
+		if st.Slug == "fashion" || st.Slug == "silken-horses" {
+			err = s.startFashionJury()
+		} else {
+			err = s.startMicrogreensJury()
+		}
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -394,9 +434,16 @@ func (s Server) startStudioStreamer(st studioSpec, n, steps int, prompt string) 
 	if n != 512 {
 		n = 256
 	}
-	if steps != 18 {
+	study := s.loadMicrogreensStudy()
+	steps = clampStudySteps(steps)
+	if steps == 0 {
+		steps = clampStudySteps(jsonInt(study["steps"], 28))
+	}
+	if steps == 0 {
 		steps = 28
 	}
+	width := clampStudySize(jsonInt(study["width"], 1024))
+	height := clampStudySize(jsonInt(study["height"], 1024))
 	if strings.TrimSpace(prompt) == "" {
 		prompt = st.Prompt
 	}
@@ -415,6 +462,8 @@ func (s Server) startStudioStreamer(st studioSpec, n, steps int, prompt string) 
 		filepath.Join(s.cfg.Root, "protocol_stream.py"),
 		"--n", strconv.Itoa(n),
 		"--steps", strconv.Itoa(steps),
+		"--width", strconv.Itoa(width),
+		"--height", strconv.Itoa(height),
 		"--depth", "2",
 		"--prompt", prompt,
 		"--socket", sock,
@@ -502,6 +551,8 @@ func (s Server) loadMicrogreensStudy() map[string]any {
 		"life":      80,
 		"guidance":  4.0,
 		"steps":     28,
+		"width":     1024,
+		"height":    1024,
 		"n":         256,
 		"depth":     2,
 		"seed":      "random",
@@ -521,7 +572,82 @@ func (s Server) loadMicrogreensStudy() map[string]any {
 	return cfg
 }
 
-func (s Server) writeMicrogreensStudy(varieties, shots []string, life int, guidance float64, steps, depth, n int, seed string) {
+func clampStudySteps(steps int) int {
+	if steps < 8 {
+		return 0
+	}
+	if steps > 64 {
+		return 64
+	}
+	return steps
+}
+
+func clampStudySize(n int) int {
+	if n < 256 {
+		return 256
+	}
+	if n > 1280 {
+		return 1280
+	}
+	return (n / 64) * 64
+}
+
+func jsonInt(v any, fallback int) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case json.Number:
+		n, err := t.Int64()
+		if err == nil {
+			return int(n)
+		}
+	}
+	return fallback
+}
+
+func (s Server) applyHiveRender(render map[string]any, rationale string) {
+	if render == nil {
+		return
+	}
+	cfg := s.loadMicrogreensStudy()
+	if steps := clampStudySteps(jsonInt(render["steps"], 0)); steps != 0 {
+		cfg["steps"] = steps
+	}
+	if w := jsonInt(render["width"], 0); w > 0 {
+		cfg["width"] = clampStudySize(w)
+	}
+	if h := jsonInt(render["height"], 0); h > 0 {
+		cfg["height"] = clampStudySize(h)
+	}
+	if g, ok := asFloat(render["guidance"]); ok && g >= 1.5 && g <= 6 {
+		cfg["guidance"] = g
+	}
+	if life := jsonInt(render["life"], -1); life >= 0 && life <= 100 {
+		cfg["life"] = life
+	}
+	if depth := jsonInt(render["depth"], 0); depth >= 1 && depth <= 3 {
+		cfg["depth"] = depth
+	}
+	cfg["designed_by"] = "hive"
+	cfg["designed_at"] = time.Now().Unix()
+	if strings.TrimSpace(rationale) != "" {
+		cfg["design_rationale"] = strings.TrimSpace(rationale)
+	}
+	if err := os.MkdirAll(filepath.Dir(s.microgreensStudyPath()), 0o755); err != nil {
+		return
+	}
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(s.microgreensStudyPath(), append(raw, '\n'), 0o644)
+}
+
+func (s Server) writeMicrogreensStudy(varieties, shots []string, life int, guidance float64, steps, depth, n int, seed string, width, height int) {
 	cfg := s.loadMicrogreensStudy()
 	if len(varieties) > 0 {
 		cfg["varieties"] = varieties
@@ -535,8 +661,14 @@ func (s Server) writeMicrogreensStudy(varieties, shots []string, life int, guida
 	if guidance > 0 {
 		cfg["guidance"] = guidance
 	}
-	if steps == 18 || steps == 28 {
-		cfg["steps"] = steps
+	if s := clampStudySteps(steps); s != 0 {
+		cfg["steps"] = s
+	}
+	if width > 0 {
+		cfg["width"] = clampStudySize(width)
+	}
+	if height > 0 {
+		cfg["height"] = clampStudySize(height)
 	}
 	if depth >= 1 && depth <= 3 {
 		cfg["depth"] = depth
@@ -547,6 +679,7 @@ func (s Server) writeMicrogreensStudy(varieties, shots []string, life int, guida
 	if seed == "random" || seed == "sequential" {
 		cfg["seed"] = seed
 	}
+	cfg["designed_by"] = "operator"
 	if err := os.MkdirAll(filepath.Dir(s.microgreensStudyPath()), 0o755); err != nil {
 		return
 	}
@@ -582,14 +715,58 @@ func (s Server) listStudyFrames(slug string, limit int) []map[string]any {
 	if limit > 0 && len(items) > limit {
 		items = items[:limit]
 	}
+	scores := verdictScoresByName(dir)
 	out := make([]map[string]any, 0, len(items))
 	for _, it := range items {
 		rel := filepath.ToSlash(filepath.Join("collections", slug, it.name))
-		out = append(out, map[string]any{
+		row := map[string]any{
 			"name": it.name,
 			"path": "/outputs/" + rel,
 			"url":  "/outputs/" + rel,
-		})
+		}
+		if sc, ok := scores[it.name]; ok {
+			row["score"] = sc
+		} else {
+			for id, sc := range scores {
+				if id != "" && strings.Contains(it.name, id) {
+					row["score"] = sc
+					break
+				}
+			}
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+func verdictScoresByName(dir string) map[string]float64 {
+	out := map[string]float64{}
+	db, err := jury.InitDB(dir)
+	if err != nil {
+		return out
+	}
+	rows, err := db.Query(`
+		SELECT v.job_id, COALESCE(v.composite_score, 0), COALESCE(f.filepath, '')
+		FROM jury_verdicts v
+		LEFT JOIN visual_fingerprints f ON f.job_id = v.job_id
+		WHERE v.composite_score IS NOT NULL
+	`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var jobID, fp string
+		var score float64
+		if rows.Scan(&jobID, &score, &fp) != nil {
+			continue
+		}
+		if fp != "" {
+			out[filepath.Base(fp)] = score
+		}
+		if jobID != "" {
+			out[jobID] = score
+		}
 	}
 	return out
 }
@@ -600,6 +777,46 @@ func (s Server) microgreensJuryPidPath() string {
 
 func (s Server) microgreensJuryAlive() bool {
 	return pidAlive(s.microgreensJuryPidPath())
+}
+
+func (s Server) fashionJuryPidPath() string {
+	return filepath.Join(s.cfg.Root, ".fluxd", "gpu3_moj_evaluator.pid")
+}
+
+func (s Server) fashionJuryAlive() bool {
+	return pidAlive(s.fashionJuryPidPath())
+}
+
+func (s Server) startFashionJury() error {
+	if s.fashionJuryAlive() {
+		return nil
+	}
+	out := s.cfg.OutputDir
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return err
+	}
+	logPath := filepath.Join(s.cfg.Root, ".fluxd", "gpu3_moj_evaluator.log")
+	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(s.cfg.Python, "-u", filepath.Join(s.cfg.Root, "moj_evaluator.py"), "--serve")
+	cmd.Dir = s.cfg.Root
+	cmd.Stdout = logf
+	cmd.Stderr = logf
+	cmd.Env = append(os.Environ(),
+		"MOJ_JOBS_LEDGER="+filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.jobs.jsonl"),
+		"MOJ_OUTPUT_DIR="+out,
+		"OUT_DIR="+out,
+		"FLUX_OUTPUT_DIR="+out,
+	)
+	if err := cmd.Start(); err != nil {
+		_ = logf.Close()
+		return err
+	}
+	_ = os.WriteFile(s.fashionJuryPidPath(), []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0o644)
+	_ = cmd.Process.Release()
+	return nil
 }
 
 func (s Server) startMicrogreensJury() error {

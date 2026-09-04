@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f7f5f0">
+<meta http-equiv="Cache-Control" content="no-store">
 <title>Desk — Tea</title>
 <link rel="stylesheet" href="/tea/tea.css">
 <script src="/tea/tea-shell.js"></script>
@@ -16,61 +17,349 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
   </nav>
 </header>
 <main class="desk">
-  <div class="kicker">Operator · live</div>
+  <div class="kicker">Operator · live control panel</div>
   <h1>Desk</h1>
-  <p class="lede">Meters that write through. Hive mix, jury law, and movement pace — each room saves as you touch it.</p>
+  <p class="lede">The board for this run. The language models rate in words — failed, broken, obvious, competent, specialist, flawless. These sliders are that scale. GPU 3 beauty is the default jury.</p>
+
   <div class="desk-lanes">
-    <button class="on" data-lane="microgreens">Microgreens · GPU 0</button>
-    <button data-lane="fashion">Fashion · GPU 3</button>
+    <button class="on" data-lane="fashion">GPU 3 · Beauty jury</button>
+    <button data-lane="microgreens">Microgreens · GPU 0</button>
     <button data-lane="arcane">Arcane · GPU 0</button>
   </div>
   <div class="desk-status" id="desk-status">loading…</div>
-  <div class="desk-grid">
-    <a class="desk-card" href="/desk/hive">
-      <h2>Hive mix</h2>
-      <p>How much the hive leans on beauty, structure, decoder, and governor.</p>
-      <span class="foot" id="sum-hive">—</span>
-    </a>
-    <a class="desk-card" href="/desk/jury">
+
+  <div class="desk-hud" id="hud">
+    <div class="stat"><b id="hud-prog">—</b><span>stream</span></div>
+    <div class="stat"><b id="hud-size">256²</b><span>frame</span></div>
+    <div class="stat"><b id="hud-steps">18</b><span>steps</span></div>
+    <div class="stat"><b id="hud-scored">—</b><span>scored / 24</span></div>
+  </div>
+
+  <div class="desk-formula" id="scale-legend">
+    failed · broken · obvious · competent · specialist · flawless
+  </div>
+  <div class="desk-preview" id="preview">waiting for a verdict…</div>
+
+  <div class="desk-panels">
+    <section class="desk-panel">
+      <h2>How they rate</h2>
+      <p class="note">Each axis is a word the model must pick. The slider shows the last honest verdict on this lane — not a mix weight, not a gamma.</p>
+      <div class="desk-seats" id="seats"></div>
+    </section>
+
+    <section class="desk-panel">
       <h2>Jury law</h2>
-      <p>How FLUX beauty is judged: gamma, adversarial, gates, uniqueness.</p>
-      <span class="foot" id="sum-jury">—</span>
-    </a>
-    <a class="desk-card" href="/desk/pace">
+      <p class="note">How a frame is allowed to become a number. Unscored stays unscored — nothing here invents a composite.</p>
+      <div class="stack">
+        <label class="toggle">Mode
+          <select id="mode">
+            <option value="parallel">parallel</option>
+            <option value="sequential">sequential</option>
+          </select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="adv"> Adversarial (museum-grade)</label>
+        <label class="toggle"><input type="checkbox" id="gates"> Text from sensory gates</label>
+        <label class="toggle"><input type="checkbox" id="uniq"> Uniqueness influence</label>
+        <label class="toggle"><input type="checkbox" id="triage"> Gate triage (reject before the jury sits)</label>
+        <label class="toggle">Min judges
+          <input type="number" id="minj" min="1" max="3" value="1" style="width:4rem">
+        </label>
+        <label class="toggle">Preset
+          <select id="preset"><option value="">load preset…</option></select>
+        </label>
+      </div>
+    </section>
+
+    <section class="desk-panel">
       <h2>Pace</h2>
-      <p>How fast the motion wall breathes, and the intended stream grain.</p>
-      <span class="foot" id="sum-pace">—</span>
-    </a>
-    <a class="desk-card" href="/scores">
-      <h2>Scores</h2>
-      <p>Recent composites, spectacles, and per-seat marks.</p>
-      <span class="foot" id="sum-scores">—</span>
-    </a>
+      <p class="note">Motion wall grain, and the size of the next GPU 3 batch. Fashion stays paused unless you start it elsewhere.</p>
+      <div class="stack" id="pace-meters"></div>
+    </section>
+
+    <section class="desk-panel">
+      <h2>Write through</h2>
+      <div class="desk-actions">
+        <button class="primary" id="btnApply">Apply now</button>
+        <button id="btnHive">Ask the hive</button>
+        <button class="primary" id="btnHiveApply">Hive calibrate &amp; apply</button>
+        <a class="op-btn ghost" href="/jury" style="display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:inherit">Open jury chamber</a>
+      </div>
+      <div class="desk-hive" id="hivebox">Hive is idle. Ask it to propose a calibration from recent verdicts on this lane.</div>
+    </section>
+
+    <section class="desk-panel">
+      <h2>Recent verdicts</h2>
+      <p class="note">Last receipts on this lane’s audit. Unscored frames keep their reason.</p>
+      <div class="desk-frames" id="frames"></div>
+    </section>
   </div>
 </main>
 <script src="/tea/desk.js"></script>
 <script>
   const D = TeaDesk;
+  const WORDS = ["failed", "broken", "obvious", "competent", "specialist", "flawless"];
+  const SEATS = [
+    {
+      role: "aesthetic", key: "pixtral", title: "Beauty", enable: "enable_pixtral",
+      hint: "Pixtral rates the object in a medium.",
+      axes: [
+        { id: "palette_cohesion", title: "Palette" },
+        { id: "lighting_authenticity", title: "Light" },
+        { id: "medium_authenticity", title: "Medium" },
+        { id: "tonal_range", title: "Tone" },
+        { id: "atmosphere", title: "Atmosphere" }
+      ]
+    },
+    {
+      role: "structure", key: "qwen", title: "Structure", enable: "enable_witness",
+      hint: "Witness rates whether the world holds together.",
+      axes: [
+        { id: "anatomy", title: "Anatomy" },
+        { id: "geometry", title: "Geometry" },
+        { id: "edge_integrity", title: "Edges" },
+        { id: "artifact_freedom", title: "Artifacts" },
+        { id: "focus_coherence", title: "Focus" }
+      ]
+    },
+    {
+      role: "synthesis", key: "governor", title: "Governor", enable: "enable_governor",
+      hint: "Governor rates the brief against sworn testimony.",
+      axes: [
+        { id: "subject_fidelity", title: "Subject" },
+        { id: "attribute_binding", title: "Binding" },
+        { id: "scene_completeness", title: "Scene" },
+        { id: "evidence_consistency", title: "Evidence" },
+        { id: "exhibition_readiness", title: "Exhibition" }
+      ]
+    }
+  ];
+  let hive = { enable_pixtral: true, enable_witness: true, enable_governor: true };
+  let jury = { mode: "parallel", adversarial: true, text_from_gates: true, uniqueness: true, gate_triage: false, min_judges: 1 };
+  let pace = { movement_ms: 83, stream_n: 256, stream_steps: 18 };
+  let ratings = {};
+  let hydrating = false;
+
+  function wordIndex(word) {
+    const i = WORDS.indexOf(String(word || "").toLowerCase());
+    return i < 0 ? -1 : i;
+  }
+  function preview() {
+    const parts = [];
+    SEATS.forEach((s) => {
+      const card = ratings[s.role] || {};
+      const w = card.overall || card[s.axes[0].id];
+      if (w) parts.push(s.title + " " + w);
+    });
+    D.$("preview").textContent = parts.length
+      ? ("last verdict · " + parts.join(" · "))
+      : "waiting for a verdict…";
+  }
+  function payload() {
+    return {
+      hive: {
+        enable_pixtral: !!hive.enable_pixtral, enable_witness: !!hive.enable_witness, enable_governor: !!hive.enable_governor
+      },
+      jury: {
+        mode: D.$("mode").value,
+        adversarial: D.$("adv").checked,
+        text_from_gates: D.$("gates").checked,
+        uniqueness: D.$("uniq").checked,
+        gate_triage: D.$("triage").checked,
+        min_judges: parseInt(D.$("minj").value, 10) || 1
+      },
+      pace: pace
+    };
+  }
+  const push = D.debounce(function () {
+    if (hydrating) return;
+    readLaw();
+    D.save(payload());
+  }, 180);
+
+  function readLaw() {
+    jury.mode = D.$("mode").value;
+    jury.adversarial = D.$("adv").checked;
+    jury.text_from_gates = D.$("gates").checked;
+    jury.uniqueness = D.$("uniq").checked;
+    jury.gate_triage = D.$("triage").checked;
+    jury.min_judges = parseInt(D.$("minj").value, 10) || 1;
+  }
+
+  function drawSeats() {
+    D.$("seats").innerHTML = SEATS.map((s) => {
+      const card = ratings[s.role] || {};
+      const axes = s.axes.map((ax) => {
+        const word = card[ax.id] || "";
+        const idx = wordIndex(word);
+        const ticks = WORDS.map((w, i) => '<span class="' + (i === idx ? "on" : "") + '">' + w + "</span>").join("");
+        return '<div class="meter" style="padding:14px 16px"><div class="top"><h3 style="font-size:20px">' + ax.title + '</h3><span class="val" id="wv-' + s.role + '-' + ax.id + '">' + (word || "—") + '</span></div>'
+          + '<input type="range" min="0" max="5" step="1" value="' + (idx < 0 ? 0 : idx) + '" id="w-' + s.role + '-' + ax.id + '" disabled>'
+          + '<div class="word-scale">' + ticks + "</div></div>";
+      }).join("");
+      const extra = '<label class="toggle" style="margin-top:10px;padding:10px 12px"><input type="checkbox" id="en-' + s.key + '"' + (hive[s.enable] !== false ? " checked" : "") + "> seated</label>";
+      return '<div class="meter"><div class="top"><h3>' + s.title + '</h3><span class="val" id="ov-' + s.role + '">' + (card.overall || "—") + '</span></div>'
+        + '<div class="hint">' + s.hint + '</div>' + extra
+        + '<div class="stack" style="margin-top:12px">' + axes + "</div></div>";
+    }).join("");
+    SEATS.forEach((s) => {
+      const en = D.$("en-" + s.key);
+      if (en) en.onchange = function () { hive[s.enable] = this.checked; push(); };
+    });
+  }
+
+  function drawPace() {
+    const rows = [
+      { id: "movement_ms", title: "Motion grain", min: 24, max: 400, val: pace.movement_ms, fmt: (v) => v + " ms" },
+      { id: "stream_n", title: "Batch size", min: 256, max: 512, step: 256, val: pace.stream_n, fmt: (v) => v + " frames" },
+      { id: "stream_steps", title: "Steps", min: 18, max: 28, step: 10, val: pace.stream_steps, fmt: (v) => v + " steps" }
+    ];
+    D.$("pace-meters").innerHTML = rows.map((r) =>
+      '<div class="meter"><div class="top"><h3>' + r.title + '</h3><span class="val" id="pv-' + r.id + '">' + r.fmt(r.val) + '</span></div>'
+      + '<input type="range" min="' + r.min + '" max="' + r.max + '"' + (r.step ? ' step="' + r.step + '"' : "") + ' value="' + r.val + '" id="p-' + r.id + '">'
+      + '</div>'
+    ).join("");
+    rows.forEach((r) => {
+      D.$("p-" + r.id).oninput = function () {
+        let v = parseInt(this.value, 10);
+        if (r.id === "stream_n") v = v >= 512 ? 512 : 256;
+        if (r.id === "stream_steps") v = v >= 23 ? 28 : 18;
+        pace[r.id] = v;
+        D.$("pv-" + r.id).textContent = r.fmt(v);
+        push();
+      };
+    });
+  }
+
+  ["mode", "adv", "gates", "uniq", "triage", "minj"].forEach((id) => {
+    document.addEventListener("change", (e) => { if (e.target && e.target.id === id) push(); });
+  });
+
+  D.$("preset").onchange = async function () {
+    const name = this.value;
+    if (!name) return;
+    try {
+      const r = await fetch("/api/jury/presets?lane=" + encodeURIComponent(D.getLane()), { cache: "no-store" });
+      const d = await r.json();
+      const p = (d.presets || []).find((x) => x.name === name);
+      if (!p) return;
+      if (p.mode) D.$("mode").value = p.mode;
+      if (p.adversarial_mode != null) D.$("adv").checked = !!p.adversarial_mode;
+      push();
+    } catch (e) { D.status(String(e), "bad"); }
+  };
+
+  async function hiveAsk(apply) {
+    D.$("hivebox").textContent = "asking the hive…";
+    try {
+      const r = await fetch("/api/protocol/calibrate?lane=" + encodeURIComponent(D.getLane()), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: !!apply })
+      });
+      const d = await r.json();
+      D.$("hivebox").textContent = JSON.stringify(d.calibration || d, null, 2).slice(0, 2400);
+      if (apply) await paint();
+    } catch (e) {
+      D.$("hivebox").textContent = String(e);
+    }
+  }
+  D.$("btnApply").onclick = function () { readLaw(); D.save(payload()); };
+  D.$("btnHive").onclick = function () { hiveAsk(false); };
+  D.$("btnHiveApply").onclick = function () { hiveAsk(true); };
+
+  function frameWord(f) {
+    const cards = f.scores || [];
+    const words = cards.map((c) => {
+      const r = (c.ratings || {}).overall;
+      if (r) return r;
+      if (c.score != null) {
+        const n = Number(c.score);
+        if (n <= 19) return "failed";
+        if (n <= 44) return "broken";
+        if (n <= 69) return "obvious";
+        if (n <= 85) return "competent";
+        if (n <= 95) return "specialist";
+        return "flawless";
+      }
+      return "";
+    }).filter(Boolean);
+    return words[0] || "—";
+  }
+  function paintHud(d) {
+    const st = d.stream || {};
+    const n = st.n || 0, done = st.done || 0;
+    D.$("hud-prog").textContent = st.status ? (done + " / " + n) : "idle";
+    D.$("hud-size").textContent = (st.width || 256) + "²";
+    D.$("hud-steps").textContent = st.steps || pace.stream_steps || 18;
+    const a = d.audit || {};
+    D.$("hud-scored").textContent = (a.scored || 0) + " / " + ((a.scored || 0) + (a.unscored || 0) || 24);
+    const next = (d.ratings && typeof d.ratings === "object") ? d.ratings : ratings;
+    const sig = JSON.stringify(next);
+    if (sig !== JSON.stringify(ratings)) {
+      ratings = next;
+      drawSeats();
+    }
+    preview();
+    const frames = a.frames || [];
+    D.$("frames").innerHTML = frames.slice().reverse().slice(0, 12).map((f) => {
+      const word = frameWord(f);
+      const tier = f.tier || (f.unscored ? "unscored" : "—");
+      return "<div><b>" + word + "</b> · " + tier + (f.uniq_cat ? "<br>" + f.uniq_cat : "") + "</div>";
+    }).join("") || "<div>no receipts on this lane yet</div>";
+    const sel = D.$("preset");
+    if (sel && (d.presets || []).length && sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">load preset…</option>' + (d.presets || []).map((p) => '<option value="' + p.name + '">' + p.name + "</option>").join("");
+    }
+  }
+
   async function paint() {
+    hydrating = true;
     try {
       const d = await D.load();
-      const h = d.desk.hive, j = d.desk.jury, p = d.desk.pace, a = d.audit || {};
-      D.$("sum-hive").textContent =
-        Math.round((h.pixtral||0)*100) + "% beauty · " + Math.round((h.qwen||0)*100) + "% structure · " + Math.round((h.governor||0)*100) + "% governor";
-      D.$("sum-jury").textContent = (j.mode||"parallel") + (j.adversarial ? " · adversarial" : "") + " · γ " + Number((j.gamma||{}).pixtral||1.5).toFixed(1);
-      D.$("sum-pace").textContent = p.movement_ms + " ms / frame · stream " + p.stream_n + " × " + p.stream_steps;
-      D.$("sum-scores").textContent = (a.scored||0) + " scored · " + (a.spectacles||0) + " spectacles · mean " + (a.mean_raw?Number(a.mean_raw).toFixed(1):"—");
-      D.status((d.hive && d.hive.live ? "hive live · " : "hive down · ") + D.getLane(), d.hive && d.hive.live ? "ok" : "");
-    } catch (e) { D.status(String(e), "bad"); }
+      const h = (d.desk && d.desk.hive) || {};
+      hive.enable_pixtral = h.enable_pixtral !== false;
+      hive.enable_witness = h.enable_witness !== false;
+      hive.enable_governor = h.enable_governor !== false;
+      jury = Object.assign(jury, d.desk.jury || {});
+      pace = Object.assign(pace, d.desk.pace || {});
+      ratings = d.ratings || {};
+      D.$("mode").value = jury.mode || "parallel";
+      D.$("adv").checked = !!jury.adversarial;
+      D.$("gates").checked = !!jury.text_from_gates;
+      D.$("uniq").checked = !!jury.uniqueness;
+      D.$("triage").checked = !!jury.gate_triage;
+      D.$("minj").value = jury.min_judges || 1;
+      drawPace();
+      paintHud(d);
+      D.status((d.hive && d.hive.live ? "hive live · " : "hive down · ") + "GPU 3 beauty jury · " + D.getLane(), d.hive && d.hive.live ? "ok" : "");
+    } catch (e) {
+      D.status(String(e), "bad");
+    } finally {
+      hydrating = false;
+    }
+  }
+  async function refreshHud() {
+    if (document.hidden || hydrating) return;
+    try {
+      const d = await D.load();
+      paintHud(d);
+      D.status((d.hive && d.hive.live ? "hive live · " : "hive down · ") + "GPU 3 beauty jury · " + D.getLane(), d.hive && d.hive.live ? "ok" : "");
+    } catch (e) {
+      D.status(String(e), "bad");
+    }
   }
   D.bindLanes(paint);
   paint();
+  setInterval(refreshHud, 2000);
 </script>
 </body>
 </html>

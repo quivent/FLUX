@@ -1,6 +1,7 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <link rel="stylesheet" href="/tea/tea.css">
 <script src="/tea/tea-shell.js"></script>
 <title>Images of Beauty — Tea Gallery</title>
@@ -19,13 +20,12 @@
   .cell {
     position: relative; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line);
     background: var(--paper-subtle); aspect-ratio: 1; display: block;
-    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(9px) scale(0.985); } }
   .cell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
   .cell:hover img { transform: scale(1.045); }
   .cell figcaption {
-    position: absolute; inset: auto 0 0 0; padding: 20px 10px 8px;
+    position: absolute; inset: auto 0 0 0; padding: 20px 72px 8px 10px;
     font-family: var(--mono); font-size: 10px; color: #f4f1ea;
     background: linear-gradient(transparent, rgba(39, 35, 31, 0.78));
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -35,6 +35,15 @@
     border-radius: 999px; background: rgba(179, 137, 56, 0.92); color: #1a140c;
     font-weight: 600; letter-spacing: .06em;
   }
+  .cell .delta {
+    position: absolute; right: 8px; bottom: 8px; z-index: 6;
+    font: 600 11px/1 var(--mono); letter-spacing: .03em;
+    padding: 4px 7px; border-radius: 6px;
+    background: rgba(18, 16, 14, 0.82); color: #f4f1ea;
+    pointer-events: none;
+  }
+  .cell .delta.up { color: #d5e8c8; }
+  .cell .delta.down { color: #f0c4be; }
   .cell.crown { border-color: rgba(179, 137, 56, 0.7); }
   .cell.fresh { border-color: rgba(121, 88, 62, 0.55); box-shadow: 0 10px 28px rgba(121, 88, 62, 0.12); }
   .opening {
@@ -66,11 +75,51 @@
   .copy-btn.copied { background: var(--matcha); border-color: var(--matcha); color: #fff; opacity: 1 !important; }
   .gallery-hero { margin: 8px 0 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
   .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--tea); margin-bottom: 8px; }
-  .hero-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+  .hero-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+  .op-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .op-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 9px 14px; border-radius: 8px; border: 1px solid var(--ink);
+    background: var(--ink); color: var(--paper);
+    font: 500 13px/1 var(--sans); letter-spacing: .02em;
+    text-decoration: none; white-space: nowrap;
+  }
+  .op-btn.ghost { background: var(--paper); color: var(--ink); border-color: var(--line); }
+  .op-btn:hover { border-color: var(--tea); }
+  .tea-chrome-end .op-btn { padding: 7px 12px; font-size: 12px; }
   .hero-title { font: 400 clamp(28px, 4vw, 44px)/1.1 var(--serif); color: var(--ink); margin: 0; letter-spacing: -0.03em; }
   .hero-desc { font: 400 15px/1.6 var(--serif); color: var(--soft); max-width: 820px; margin: 0; }
+  .board {
+    position: sticky; top: 10px; z-index: 40;
+    margin: 0 0 22px; padding: 16px 18px 14px;
+    border: 2px solid var(--ink); border-radius: 16px; background: var(--paper);
+    box-shadow: 0 18px 40px rgba(39, 35, 31, 0.12);
+  }
+  .board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .board-head h2 { margin: 0; font: 400 28px/1 var(--serif); letter-spacing: -0.03em; color: var(--ink); }
+  .board-head .saved { font: 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--matcha); }
+  .board-top { display: grid; grid-template-columns: 1.4fr .9fr; gap: 16px; margin-bottom: 12px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .st {
+    padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--paper); font: 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--soft);
+  }
+  .st b { display: block; font: 500 13px/1.2 var(--serif); letter-spacing: 0; text-transform: none; color: var(--ink); margin-bottom: 2px; }
+  .st.on { border-color: var(--tea); background: var(--tea-light); color: var(--tea); box-shadow: 0 0 0 2px var(--tea-light); }
+  .st.done { border-color: var(--matcha); color: var(--matcha); }
+  .now { margin-top: 10px; font: 13px/1.45 var(--serif); color: var(--ink); }
+  .now small { display: block; color: var(--faint); font: 11px var(--mono); margin-top: 4px; }
+  .verdict { font: 13px/1.45 var(--serif); color: var(--soft); }
+  .verdict strong { color: var(--ink); font-size: 32px; font-family: var(--serif); }
+  .board-params { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .board-params label { display: block; font: 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .board-params input[type=range] { width: 100%; accent-color: var(--tea); }
+  .board-params .val { color: var(--tea); font: 600 12px var(--mono); }
+  .board-toggles { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; font: 13px var(--sans); color: var(--ink); }
+  .board-toggles label { display: inline-flex; align-items: center; gap: 6px; }
+  @media (max-width: 800px) { .board-top { grid-template-columns: 1fr; } .board { position: static; } }
   .live-pill { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(90, 115, 90, 0.35); background: var(--matcha-light); color: var(--matcha); }
-  .live-pill .orb { width: 7px; height: 7px; border-radius: 50%; background: var(--matcha); animation: pulseOrb 2s infinite; }
+  .live-pill .orb { width: 7px; height: 7px; border-radius: 50%; background: var(--matcha); }
   .live-pill.curated { border-color: rgba(121, 88, 62, 0.35); background: var(--tea-light); color: var(--tea); }
   .live-pill.curated .orb { background: var(--tea); animation: none; }
   @keyframes pulseOrb { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -84,14 +133,19 @@
   <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
   <nav class="tea-nav" aria-label="Tea">
     <a href="/gallery/">Gallery</a>
-    <a href="/studio/microgreens">Study</a>
+    <a href="/protocol">Protocol</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
   </nav>
   <div class="tea-chrome-end">
+    <a class="op-btn" href="/jury">Jury</a>
+    <a class="op-btn ghost" href="/desk">Configuration / Desk</a>
     <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
   </div>
 </header>
@@ -101,13 +155,54 @@
     <div class="hero-eyebrow" id="hero-eyebrow">⚡ REAL-TIME GENERATIVE STREAM · FLOW-MATCHING BF16</div>
     <div class="hero-heading-row">
       <h1 class="hero-title" id="hero-title">Live Gallery</h1>
-      <span class="live-pill" id="live-pill"><i class="orb"></i> LIVE STREAM</span>
+      <div class="op-btns">
+        <a class="op-btn" href="/protocol">Protocol</a>
+        <a class="op-btn" href="/judge">Judge</a>
+        <a class="op-btn ghost" href="/desk">Desk</a>
+        <span class="live-pill" id="live-pill"><i class="orb"></i> LIVE STREAM</span>
+      </div>
     </div>
     <p class="hero-desc" id="hero-desc">
       Streaming real-time flow-matching generations directly from the GPU sieve.
       Each artwork settles in ~6.3 seconds and prepends immediately to the top-left of the grid.
+      <a href="/evening" style="color:var(--tea)">Tonight’s showing →</a>
     </p>
   </div>
+
+  <aside class="board" id="board">
+    <div class="board-head">
+      <h2>Jury</h2>
+      <span class="saved" id="boardSaved">live · write-through</span>
+    </div>
+    <div class="board-top">
+      <div>
+        <div class="label">Flow</div>
+        <div class="flow" id="flow">
+          <div class="st"><b>generate</b>FLUX</div>
+          <div class="st"><b>uniqueness</b>sieve</div>
+          <div class="st"><b>sensory gates</b>gates</div>
+          <div class="st"><b>witness</b>structure</div>
+          <div class="st"><b>pixtral</b>beauty</div>
+          <div class="st"><b>governor</b>law</div>
+          <div class="st"><b>composite</b>verdict</div>
+        </div>
+        <div class="now" id="now">waiting for a frame</div>
+      </div>
+      <div>
+        <div class="label">Last verdict</div>
+        <div class="verdict" id="verdict">no receipt yet</div>
+      </div>
+    </div>
+    <div class="label">Parameters · write through</div>
+    <div class="board-params" id="boardParams"></div>
+    <div class="board-toggles">
+      <label><input type="checkbox" id="b-adv"> adversarial</label>
+      <label><input type="checkbox" id="b-uniq" checked> uniqueness</label>
+      <label><input type="checkbox" id="b-gates" checked> text from gates</label>
+      <label><input type="checkbox" id="b-triage"> gate triage</label>
+      <label>min judges <input type="number" id="b-min" min="1" max="3" value="2" style="width:3.2em"></label>
+    </div>
+  </aside>
 
   <div class="bar">
     <span class="label" id="collection-name">Images of Beauty</span>
@@ -138,9 +233,14 @@
   const MICROGREENS_COLLECTION = COLLECTION_SLUG === 'microgreens';
   const BRANCH = COLLECTION_SLUG !== '' && COLLECTION_SLUG !== 'fashion' && COLLECTION_SLUG !== 'arcane';
   const LIVE_GALLERY = !PORTRAITS && !ARCANE && COLLECTION_SLUG === '';
-  const MICROGREENS = LIVE_GALLERY || MICROGREENS_COLLECTION;
+  // Microgreens is GPU 0 and lives only at /collections/microgreens.
+  // /gallery/ is the GPU 3 beauty wall (latest protocol branch).
+  const MICROGREENS = MICROGREENS_COLLECTION;
   const FASHION = FASHION_COLLECTION;
-  const ROOM_SCOPE = PORTRAITS ? 'portraits' : ARCANE ? 'arcane' : FASHION_COLLECTION ? 'fashion' : MICROGREENS ? 'microgreens' : BRANCH ? COLLECTION_SLUG : 'microgreens';
+  const LIVE_BANNED = { fashion: 1, arcane: 1, microgreens: 1, portraits: 1 };
+  const SPROUT = /microgreen|sprout|rambo|belarro|pea[\s_-]*shoot|cotyledon/i;
+  let LIVE_SLUG = LIVE_GALLERY ? 'silken-horses' : '';
+  let ROOM_SCOPE = PORTRAITS ? 'portraits' : ARCANE ? 'arcane' : FASHION_COLLECTION ? 'fashion' : MICROGREENS ? 'microgreens' : BRANCH ? COLLECTION_SLUG : (LIVE_GALLERY ? 'silken-horses' : '');
   const VANITY = /princess|rose|celadon|kintsugi|tea[\s_-]*bowl|italian supermodel|italian-supermodel/i;
   // historyOffset tracks how many items have been loaded from the paginated
   // history API. It must NOT be incremented by live-stream events — those
@@ -186,14 +286,23 @@
     $('collection-name').textContent = 'Collection · Fashion';
     $('empty').innerHTML = '<b>No fashion frames yet.</b>The live stream writes only here.';
   } else if (MICROGREENS) {
-    document.title = LIVE_GALLERY ? 'Microgreens — Tea Gallery' : 'Microgreens — Collection';
-    $('hero-eyebrow').textContent = LIVE_GALLERY ? '🌿 LIVE STREAM · MICROGREENS · GPU 0' : '🌿 COLLECTION · MICROGREENS · GPU 0';
+    document.title = 'Microgreens — Collection';
+    $('hero-eyebrow').textContent = '🌿 COLLECTION · MICROGREENS · GPU 0';
     $('hero-title').textContent = 'Microgreens';
     $('hero-desc').textContent = 'Belarro soil-grown harvest. Red Rambo, pea shoots, sunflower, broccoli, nasturtium, amaranth. Macro, bunch, and plated stills — never people.';
     $('live-pill').className = 'live-pill';
     $('live-pill').innerHTML = '<i class="orb"></i> MICROGREENS';
-    $('collection-name').textContent = LIVE_GALLERY ? 'Microgreens beauty' : 'Collection · Microgreens';
+    $('collection-name').textContent = 'Collection · Microgreens';
     $('empty').innerHTML = '<b>No microgreen frames yet.</b>Start the studio at /studio/microgreens.';
+  } else if (LIVE_GALLERY) {
+    document.title = 'Silken Horses — Tea Gallery';
+    $('hero-eyebrow').textContent = 'LIVE · GPU 3 FP8 · SILKEN-HORSES';
+    $('hero-title').textContent = 'Silken Horses';
+    $('hero-desc').textContent = 'The live GPU 3 beauty wall. Sprouts and microgreens never land here.';
+    $('live-pill').className = 'live-pill';
+    $('live-pill').innerHTML = '<i class="orb"></i> GPU 3';
+    $('collection-name').textContent = 'Collection · silken-horses';
+    $('empty').innerHTML = '<b>Waiting for a new brief.</b>Sprouts are not this wall.';
   } else if (BRANCH) {
     const label = COLLECTION_SLUG.replace(/-/g, ' ');
     document.title = label + ' — Collection';
@@ -260,8 +369,9 @@
     const raw = String(name || url.split('/').pop() || '').replace(/\.png$/i, '');
     const titled = raw.match(/^(.*?)--g\d{4}-\d{2}-s\d+$/);
     if (titled) return titled[1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    if (COLLECTION_SLUG && raw.indexOf('protocol-' + COLLECTION_SLUG) === 0) {
-      return COLLECTION_SLUG.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) + ' · ' + raw.replace('protocol-' + COLLECTION_SLUG + '-', '');
+    const slug = COLLECTION_SLUG || LIVE_SLUG;
+    if (slug && raw.indexOf('protocol-' + slug) === 0) {
+      return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) + ' · ' + raw.replace('protocol-' + slug + '-', '');
     }
     if (/microgreens/i.test(raw)) return 'Microgreens · ' + raw.replace(/^protocol-microgreens-(stream-)?/, '');
     if (/fashion/i.test(raw)) return 'Fashion · ' + raw.replace(/^protocol-fashion-stream-/, '');
@@ -289,6 +399,12 @@
       if (u.includes('/protocol-') || /protocol-/.test(pathHay)) return false;
       return true;
     }
+    if (LIVE_GALLERY) {
+      if (SPROUT.test(pathHay) || u.includes('/microgreens/') || /protocol-microgreens/i.test(pathHay)) return false;
+      if (!LIVE_SLUG || LIVE_BANNED[LIVE_SLUG]) return false;
+      const prefix = '/outputs/collections/' + LIVE_SLUG + '/';
+      return u.includes(prefix) || String(name || '').indexOf('protocol-' + LIVE_SLUG) === 0;
+    }
     if (MICROGREENS) {
       return u.includes('/outputs/collections/microgreens/') || String(name || '').indexOf('protocol-microgreens') === 0;
     }
@@ -315,11 +431,43 @@
     return '/outputs/' + raw.split('/').pop();
   }
 
-  function addCell(url, name, fresh, append, score, crown) {
+  function deltaHTML(delta) {
+    if (delta == null || delta === '' || !Number.isFinite(Number(delta))) return '';
+    const n = Number(delta);
+    const cls = n > 0 ? 'up' : n < 0 ? 'down' : '';
+    const sign = n > 0 ? '+' : '';
+    return `<span class="delta ${cls}">${sign}${n.toFixed(1)}%</span>`;
+  }
+
+  function applyBeauty(fig, score, delta) {
+    if (!fig) return;
+    const cap = fig.querySelector('figcaption');
+    if (cap && score != null && score !== '' && Number.isFinite(Number(score))) {
+      const text = Number(score).toFixed(1);
+      const chip = cap.querySelector('.score');
+      if (chip) chip.textContent = text;
+      else cap.insertAdjacentHTML('afterbegin', `<span class="score">${text}</span> `);
+    }
+    const html = deltaHTML(delta);
+    if (!html) return;
+    const mark = fig.querySelector('.delta');
+    if (mark) mark.outerHTML = html;
+    else {
+      const a = fig.querySelector('a');
+      (a || fig).insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  function addCell(url, name, fresh, append, score, crown, delta) {
     if (!url) return false;
+    if (LIVE_GALLERY && (SPROUT.test(haystack(url, name)) || String(url).includes('/microgreens/') || /protocol-microgreens/i.test(String(url) + ' ' + String(name || '')))) return false;
     if (!PORTRAITS && !belongsOnWall(url, name)) return false;
     const fileKey = normalizeKey(url);
-    if (!fileKey || seen.has(fileKey)) return false;
+    if (!fileKey) return false;
+    if (seen.has(fileKey)) {
+      applyBeauty(document.querySelector('.cell[data-file-key="' + CSS.escape(fileKey) + '"]'), score, delta);
+      return false;
+    }
     seen.add(fileKey);
 
     let canonicalUrl = String(url || '');
@@ -338,6 +486,7 @@
       : '') + displayName(name, canonicalUrl);
     fig.innerHTML = `<a href="${canonicalUrl}" target="_blank" rel="noreferrer">`
       + `<img loading="lazy" decoding="async" src="${thumb(canonicalUrl)}" alt="">`
+      + deltaHTML(delta)
       + `<figcaption>${caption}</figcaption></a>`
       + `<button class="copy-btn" onclick="copyImageLink(event, '${canonicalUrl}')" title="Copy Image Link">`
       + `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`
@@ -374,8 +523,6 @@
     const cells = Array.from($('grid').querySelectorAll('.cell:not(.skeleton)'));
     while (cells.length > cap) {
       const extra = cells.pop();
-      const key = extra.dataset.fileKey;
-      if (key) seen.delete(key);
       extra.remove();
     }
     $('more').hidden = true;
@@ -393,12 +540,51 @@
     return r.json();
   }
 
+  function paintLiveHero(branch) {
+    if (!LIVE_GALLERY || !branch) return;
+    const slug = branch.slug;
+    const label = slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const prompt = String(branch.prompt || (branch.stream && branch.stream.prompt) || '').trim();
+    const status = branch.status || (branch.stream && branch.stream.status) || '';
+    document.title = label + ' — Tea Gallery';
+    $('hero-eyebrow').textContent = 'LIVE · GPU 3 FP8 · ' + slug.toUpperCase();
+    $('hero-title').textContent = label;
+    $('hero-desc').textContent = prompt || 'The live GPU 3 beauty wall. Microgreens stay on their own collection.';
+    $('live-pill').innerHTML = '<i class="orb"></i> ' + (status === 'running' ? 'LIVE' : 'GPU 3');
+    $('collection-name').textContent = 'Collection · ' + slug;
+    $('empty').innerHTML = '<b>This brief has not settled a frame yet.</b>Start it from /protocol. Microgreens are not this wall.';
+  }
+
+  function pickLiveBranch(branches) {
+    const rows = (branches || []).filter((b) => b && b.slug && !LIVE_BANNED[b.slug]);
+    const running = rows.filter((b) => b.status === 'running');
+    const pool = running.length ? running : rows;
+    pool.sort((a, b) => {
+      const ta = Number((a.stream && a.stream.updated_at) || a.updated_at || 0);
+      const tb = Number((b.stream && b.stream.updated_at) || b.updated_at || 0);
+      return tb - ta;
+    });
+    return pool[0] || null;
+  }
+
+  async function resolveLiveGallery() {
+    if (!LIVE_GALLERY) return;
+    try {
+      const j = await fetchJSON('/api/protocol/branches');
+      const branch = pickLiveBranch(j.branches);
+      if (!branch || LIVE_BANNED[branch.slug] || SPROUT.test(branch.slug)) return;
+      LIVE_SLUG = branch.slug;
+      ROOM_SCOPE = branch.slug;
+      paintLiveHero(branch);
+    } catch (_) {}
+  }
+
   async function revealSequentially(images, firstPage) {
     if (firstPage) {
       finishOpening(images.length > 0);
     }
     for (const im of images) {
-      addCell(im.path || im.url, im.name, false, true);
+      addCell(im.path || im.url, im.name, false, true, im.composite, false, im.beauty_delta_pct);
     }
   }
 
@@ -426,6 +612,10 @@
 
   async function backfill() {
     if (PORTRAITS) return loadTopRated();
+    if (LIVE_GALLERY && !ROOM_SCOPE) {
+      finishOpening(false);
+      return;
+    }
     if (fetching) return;
     const visible = $('grid').querySelectorAll('.cell:not(.skeleton)').length;
     const need = wallCap() - visible;
@@ -511,11 +701,13 @@
           const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
           // Replay arrives newest-first and each cell is prepended; walk it oldest-first so the newest ends on top. (fable 2026-08-21)
           for (const j of doneJobs.slice().reverse()) {
+            const created = Number(j.created || j.started || j.finished || 0);
+            if (!created || created < streamStartedAt - 1) continue;
             const url = jobAssetUrl(j);
             if (!belongsOnWall(url, j.filename || j.output || j.prompt || j.id, j.prompt)) continue;
             const key = normalizeKey(url);
             if (key && !seen.has(key)) {
-              if (addCell(url, j.prompt || j.id, true, false)) {
+              if (addCell(url, j.filename || j.output || j.id, false, false)) {
                 total += 1;
                 $('s-collection').textContent = total;
                 updateShown();
@@ -534,21 +726,20 @@
     function startLivePoll() {
       setInterval(async () => {
         try {
-          const j = await fetchJSON('/api/recent-images?scope=' + ROOM_SCOPE + '&limit=12&offset=0');
+          const j = await fetchJSON('/api/recent-images?scope=' + ROOM_SCOPE + '&limit=' + Math.max(24, wallCap()) + '&offset=0');
           const imgs = j.images || [];
           // Walk oldest-first so the newest lands on top after prepending.
           for (let i = imgs.length - 1; i >= 0; i--) {
             const im = imgs[i];
             const url = im.path || im.url;
             const key = normalizeKey(url);
-            if (key && !seen.has(key)) {
-              if (addCell(url, im.name, true, false)) {
-                total = j.total || (total + 1);
-                liveLeadCount += 1;
-                $('s-collection').textContent = total;
-                $('more').hidden = true;
-                updateShown();
-              }
+            if (!key) continue;
+            if (addCell(url, im.name, false, false, im.composite, false, im.beauty_delta_pct)) {
+              total = j.total || (total + 1);
+              liveLeadCount += 1;
+              $('s-collection').textContent = total;
+              $('more').hidden = true;
+              updateShown();
             }
           }
         } catch (_) {}
@@ -617,6 +808,175 @@
     }).catch(() => {});
   }
 
-  backfill();
-  if (!PORTRAITS) { stream(); setupJobsLiveStream(); }
+  const FLOW = ["generate","uniqueness","sensory_gates","witness","pixtral","governor","composite"];
+  const FLOW_NAME = { generate:"FLUX", uniqueness:"sieve", sensory_gates:"gates", witness:"structure", pixtral:"beauty", governor:"law", composite:"verdict" };
+  let boardHydrating = false, boardSeated = false;
+  let boardJury = { weights: { pixtral: 0.28, qwen: 0.42, decoder: 0.1, governor: 0.2 }, strictness: { pixtral: 1.8, qwen: 2.2, decoder: 1.6, governor: 2.2 } };
+
+  function boardLane() {
+    if (MICROGREENS) return "microgreens";
+    if (ARCANE) return "arcane";
+    if (FASHION_COLLECTION) return "fashion";
+    if (COLLECTION_SLUG) return COLLECTION_SLUG;
+    return ROOM_SCOPE || LIVE_SLUG || "silken-horses";
+  }
+  function showBoard() { return LIVE_GALLERY || BRANCH; }
+
+  function paintFlow(station, generating) {
+    const el = $("flow");
+    if (!el) return;
+    const idx = FLOW.indexOf(station);
+    el.innerHTML = FLOW.map((id, i) => {
+      let cls = "st";
+      if (id === station) cls += " on";
+      else if (idx > 0 && i < idx) cls += " done";
+      const extra = (id === "generate" && generating) ? " · " + generating : "";
+      return '<div class="' + cls + '"><b>' + id.replace("_"," ") + "</b>" + (FLOW_NAME[id] || "") + extra + "</div>";
+    }).join("");
+  }
+  function paintNow(d) {
+    const el = $("now");
+    const hb = d.heartbeat || {};
+    const st = d.stream || {};
+    const gen = (d.generating || [])[0];
+    const bits = [];
+    if (st.status) bits.push((st.done || 0) + " / " + (st.n || 0) + " · " + (st.width || "?") + "² · " + (st.steps || "?") + " steps");
+    if (gen) bits.push("rendering " + String(gen.filename || gen.id).split("/").pop());
+    if (hb.station && hb.image) bits.push("jury " + hb.station + " · " + hb.image);
+    el.innerHTML = (bits[0] || "waiting") + (bits[1] ? "<small>" + bits.slice(1).join(" · ") + "</small>" : "");
+  }
+  function paintVerdict(d) {
+    const el = $("verdict");
+    const rows = d.latest || [];
+    const last = rows[rows.length - 1];
+    if (!last) { el.textContent = "no receipt yet"; return; }
+    const score = last.composite != null ? Number(last.composite).toFixed(1) : (last.raw != null ? Number(last.raw).toFixed(1) : "—");
+    const judges = Array.isArray(last.judges) ? last.judges : [];
+    const seats = judges.map((j) => {
+      if (!j) return "";
+      const n = j.calibrated_score != null ? Number(j.calibrated_score).toFixed(1) : (j.score != null ? Number(j.score).toFixed(1) : (j.degraded ? "deg" : "—"));
+      const who = j.model || j.role || "?";
+      const borrow = j.borrowed_vision ? " via " + j.borrowed_vision : "";
+      return (j.role || "?") + " " + n + " (" + who + borrow + ")";
+    }).filter(Boolean).join(" · ");
+    const uniq = last.uniqueness && last.uniqueness.category ? last.uniqueness.category : "";
+    el.innerHTML = "<strong>" + score + "</strong> " + (last.tier || "") + (last.unscored ? " unscored" : "")
+      + "<div>" + seats + "</div>"
+      + (uniq ? "<div>" + uniq + "</div>" : "");
+  }
+  function drawParams(cfg) {
+    const box = $("boardParams");
+    if (!box || box.dataset.ready === "1") return;
+    const w = (cfg && cfg.weights) || boardJury.weights;
+    const g = (cfg && cfg.strictness) || boardJury.strictness;
+    const keys = ["pixtral","qwen","decoder","governor"];
+    const names = { pixtral:"Beauty w / γ", qwen:"Structure w / γ", decoder:"Decoder w / γ", governor:"Governor w / γ" };
+    box.innerHTML = keys.map((k) => {
+      const wp = Math.round((w[k] || 0) * 100);
+      const gp = Math.round((g[k] || 1.5) * 10);
+      return '<label>' + names[k] + ' <span class="val" id="bv-' + k + '">' + wp + '% · ' + (gp/10).toFixed(1) + 'γ</span>'
+        + '<input type="range" min="0" max="100" value="' + wp + '" id="bw-' + k + '">'
+        + '<input type="range" min="10" max="30" value="' + gp + '" id="bg-' + k + '">'
+        + "</label>";
+    }).join("");
+    keys.forEach((k) => {
+      const upd = () => {
+        const wp = $("bw-" + k).value, gp = $("bg-" + k).value;
+        $("bv-" + k).textContent = wp + "% · " + (gp/10).toFixed(1) + "γ";
+        pushBoard();
+      };
+      $("bw-" + k).oninput = upd;
+      $("bg-" + k).oninput = upd;
+    });
+    ["b-adv","b-uniq","b-gates","b-triage","b-min"].forEach((id) => {
+      const el = $(id); if (el) el.onchange = pushBoard;
+    });
+    box.dataset.ready = "1";
+  }
+  function readBoard() {
+    const keys = ["pixtral","qwen","decoder","governor"];
+    const weights = {}, gamma = {};
+    keys.forEach((k) => {
+      const w = $("bw-" + k), g = $("bg-" + k);
+      if (w) weights[k] = (parseFloat(w.value) || 0) / 100;
+      if (g) gamma[k] = (parseFloat(g.value) || 15) / 10;
+    });
+    return {
+      lane: boardLane(),
+      hive: {
+        pixtral: weights.pixtral, qwen: weights.qwen, decoder: weights.decoder, governor: weights.governor,
+        enable_pixtral: true, enable_witness: true, enable_governor: true
+      },
+      jury: {
+        mode: "parallel",
+        adversarial: $("b-adv") && $("b-adv").checked,
+        uniqueness: $("b-uniq") && $("b-uniq").checked,
+        text_from_gates: $("b-gates") && $("b-gates").checked,
+        gate_triage: $("b-triage") && $("b-triage").checked,
+        min_judges: parseInt($("b-min") && $("b-min").value, 10) || 2,
+        gamma: gamma
+      }
+    };
+  }
+  let boardTimer = 0;
+  function pushBoard() {
+    if (boardHydrating) return;
+    clearTimeout(boardTimer);
+    boardTimer = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/tea/desk?lane=" + encodeURIComponent(boardLane()), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(readBoard())
+        });
+        const mark = $("boardSaved");
+        if (mark) mark.textContent = r.ok ? "saved · live" : "write failed";
+      } catch (_) {
+        const mark = $("boardSaved");
+        if (mark) mark.textContent = "write failed";
+      }
+    }, 200);
+  }
+  async function refreshBoard() {
+    if (!showBoard()) return;
+    const board = $("board");
+    if (board) board.hidden = false;
+    try {
+      const d = await fetchJSON("/api/protocol/route?scope=" + encodeURIComponent(ROOM_SCOPE || LIVE_SLUG || "silken-horses"));
+      const gen = (d.generating || [])[0];
+      paintFlow(d.station, gen ? String(gen.filename || gen.id).split("/").pop() : "");
+      paintNow(d);
+      paintVerdict(d);
+      const cfg = d.jury || {};
+      drawParams(cfg);
+      if (!boardSeated && $("b-adv")) {
+        boardSeated = true;
+        boardHydrating = true;
+        if (cfg.adversarial_mode != null) $("b-adv").checked = !!cfg.adversarial_mode;
+        if (cfg.uniqueness_influence != null) $("b-uniq").checked = cfg.uniqueness_influence !== false;
+        if (cfg.text_from_gates != null) $("b-gates").checked = !!cfg.text_from_gates;
+        if (cfg.gate_triage != null) $("b-triage").checked = !!cfg.gate_triage;
+        if (cfg.min_judges) $("b-min").value = cfg.min_judges;
+        const w = cfg.weights || {}, g = cfg.strictness || {};
+        ["pixtral","qwen","decoder","governor"].forEach((k) => {
+          if ($("bw-" + k) && w[k] != null) $("bw-" + k).value = Math.round(w[k] * 100);
+          if ($("bg-" + k) && g[k] != null) $("bg-" + k).value = Math.round(g[k] * 10);
+          if ($("bv-" + k) && w[k] != null) $("bv-" + k).textContent = Math.round((w[k] || 0) * 100) + "% · " + Number(g[k] || 1.5).toFixed(1) + "γ";
+        });
+        boardHydrating = false;
+      }
+    } catch (_) {}
+  }
+
+  (async function boot() {
+    if (LIVE_GALLERY) await resolveLiveGallery();
+    if (showBoard()) {
+      $("board").hidden = false;
+      drawParams(boardJury);
+      refreshBoard();
+      setInterval(refreshBoard, 1500);
+    }
+    backfill();
+    if (!PORTRAITS) { stream(); setupJobsLiveStream(); }
+  })();
 </script>

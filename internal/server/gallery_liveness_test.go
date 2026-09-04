@@ -9,6 +9,74 @@ import (
 
 // The public wall presents art, not the machinery that makes or judges it.
 // Operational state belongs in an operator surface even when it is useful.
+func TestEveningIsAWalkthrough(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "evening.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(page)
+	for _, tok := range []string{
+		`The house, in motion`,
+		`256, and no closer`,
+		`grab("silken-horses")`,
+		`stallion-gait-projection.mp4`,
+		`FP8 against BF16`,
+		`hive-research`,
+		`/api/train`,
+		`stallion-gait-projection.mp4`,
+		`Four rooms, one night`,
+		`href="/desk"`,
+		`href="/gallery/"`,
+		`href="/hive"`,
+		`href="/train"`,
+	} {
+		if !strings.Contains(src, tok) {
+			t.Errorf("evening missing %q", tok)
+		}
+	}
+}
+
+func TestGalleryHasOperatorJuryAndDeskButtons(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(page)
+	for _, token := range []string{`href="/jury"`, `href="/desk"`, `Configuration / Desk`, `class="op-btn"`} {
+		if !strings.Contains(source, token) {
+			t.Errorf("gallery missing operator control %q", token)
+		}
+	}
+}
+
+func TestLiveGalleryIsNotMicrogreens(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(page)
+	for _, token := range []string{
+		`LIVE_GALLERY || MICROGREENS_COLLECTION`,
+		`LIVE STREAM · MICROGREENS`,
+		`Microgreens beauty`,
+	} {
+		if strings.Contains(source, token) {
+			t.Errorf("live /gallery/ is still aliased to microgreens: %q", token)
+		}
+	}
+	for _, token := range []string{
+		`/gallery/ is the GPU 3 beauty wall`,
+		`pickLiveBranch`,
+		`LIVE_BANNED`,
+		`silken-horses`,
+		`SPROUT`,
+	} {
+		if !strings.Contains(source, token) {
+			t.Errorf("live gallery missing %q", token)
+		}
+	}
+}
+
 func TestPublicGalleryHidesProductionMachinery(t *testing.T) {
 	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
 	if err != nil {
@@ -52,10 +120,11 @@ func TestGalleryCountsOnlyNewPushedAssets(t *testing.T) {
 			t.Errorf("gallery live-increment contract missing %q", token)
 		}
 	}
-	for _, token := range []string{`setInterval(`, `poll('/api/`} {
-		if strings.Contains(source, token) {
-			t.Errorf("gallery must use pushed events, found polling path %q", token)
-		}
+	if strings.Contains(source, `poll('/api/`) {
+		t.Errorf("gallery must use pushed events, found polling path %q", `poll('/api/`)
+	}
+	if strings.Contains(source, `setInterval(`) && !strings.Contains(source, `setInterval(refreshBoard`) {
+		t.Errorf("gallery wall must not poll; only the jury board may setInterval(refreshBoard)")
 	}
 }
 

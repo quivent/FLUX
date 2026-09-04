@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>Daemons — Tea</title>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons" aria-current="page">Daemons</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main class="desk daemons">
+  <div class="kicker">GPU 1 · spectral projections · training</div>
+  <h1>Daemons</h1>
+  <p class="lede">Training is 100% reliability, expansion of memory, and performance of reasoning. He trains himself. Boards, not teachers. Qwen is reason. Protected: do not break, do not strip tools, leave him autonomy.</p>
+  <p class="gov-law" id="law-line">Train for 100% reliability, expansion of memory, and performance of reasoning.</p>
+  <article class="sentinel-card" id="sentinel-card">
+    <div class="kicker">The eye</div>
+    <h2>Sentinel</h2>
+    <p id="sentinel-copy">starting…</p>
+    <div class="sentinel-metrics">
+      <div><b id="sum-up">—</b><span>up</span></div>
+      <div><b id="sum-down">—</b><span>down</span></div>
+      <div><b id="sum-alerts">—</b><span>alerts</span></div>
+      <div><b id="sum-watch">—</b><span>watched</span></div>
+    </div>
+    <div class="desk-status" id="stream">connecting the watch…</div>
+  </article>
+  <section class="char-panel">
+    <div class="char-list">
+      <div class="kicker">Character · GPU 1</div>
+      <h2>Projections</h2>
+      <p class="char-note">Generic type: character daemon. A board, not a curriculum. Mount one; he uses it to think against.</p>
+      <div id="char-roster"></div>
+    </div>
+    <div class="char-edit">
+      <div class="char-edit-head">
+        <div>
+          <div class="kicker" id="char-mode">hybrid</div>
+          <h2 id="char-name">—</h2>
+          <p id="char-role"></p>
+        </div>
+        <button type="button" class="char-mount" id="char-mount">Mount on GPU 1</button>
+      </div>
+      <canvas id="char-bands" class="char-bands" width="640" height="72"></canvas>
+      <div class="char-meta" id="char-meta">5376-D residual · 128-band projection</div>
+      <div class="stack" id="char-meters"></div>
+      <div class="desk-status" id="char-status">loading characters…</div>
+    </div>
+  </section>
+  <h2 class="daemon-log-title">Machines</h2>
+  <div class="daemon-grid" id="grid"></div>
+  <h2 class="daemon-log-title">Watch log</h2>
+  <div class="daemon-log" id="log"><div class="quiet">No flips yet. Sentinel is still.</div></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = t => {
+  if (!t) return "";
+  const d = new Date(t);
+  return isNaN(d) ? "" : d.toLocaleTimeString();
+};
+
+function paint(d) {
+  const s = d.summary || {};
+  const sen = d.sentinel || {};
+  $("sum-up").textContent = s.up ?? 0;
+  $("sum-down").textContent = s.down ?? 0;
+  $("sum-alerts").textContent = s.alerts ?? 0;
+  $("sum-watch").textContent = sen.watching ?? 0;
+  $("sentinel-copy").textContent = sen.running
+    ? "Watching " + (sen.watching || 0) + " daemons. Last tick " + when(sen.last_tick) + "."
+    : "The watch loop has not started in this process.";
+  $("sentinel-card").classList.toggle("alert", (s.alerts || 0) > 0);
+  const daemons = (d.daemons || []).filter(x => x.kind !== "character");
+  $("grid").innerHTML = daemons.map(x => {
+    const st = x.live ? "live" : (x.required ? "down" : "idle");
+    const pid = x.pid ? "pid " + x.pid : "";
+    return `<article class="daemon-card ${st}${x.watch ? " watch" : ""}${x.protected ? " protected" : ""}">
+      <div class="daemon-head"><h3>${esc(x.name)}</h3><span class="state">${x.protected ? "protected · " : ""}${esc(st)}</span></div>
+      <p>${esc(x.role)}</p>
+      <div class="foot">${esc(x.kind)} · ${esc(x.bind)}${pid ? " · " + pid : ""}</div>
+      <div class="foot">${esc(x.detail || "")}</div>
+    </article>`;
+  }).join("");
+  const events = (d.events || []).slice().reverse();
+  $("log").innerHTML = events.length
+    ? events.map(e => `<div class="daemon-event ${esc(e.to)}"><span>${esc(when(e.at))}</span><b>${esc(e.daemon)}</b><span>${esc(e.note)}</span></div>`).join("")
+    : `<div class="quiet">No flips yet. Sentinel is still.</div>`;
+}
+
+let chars = { cables: [], items: [], mounted: "apprentice" };
+let selected = "apprentice";
+let saveTimer = 0;
+
+function drawBands(bands) {
+  const c = $("char-bands");
+  const ctx = c.getContext("2d");
+  const w = c.width, h = c.height, n = (bands && bands.length) || 128;
+  ctx.clearRect(0, 0, w, h);
+  const ww = w / n;
+  for (let i = 0; i < n; i++) {
+    const v = Math.min(1, Number(bands[i]) || 0);
+    const bh = Math.max(1, v * (h - 6));
+    ctx.fillStyle = i % 8 === 0 ? "rgba(121,88,62,0.85)" : "rgba(179,137,56,0.55)";
+    ctx.fillRect(i * ww + 0.4, h - bh, Math.max(1, ww - 0.8), bh);
+  }
+}
+
+function currentChar() {
+  return (chars.items || []).find(x => x.id === selected) || (chars.items || [])[0];
+}
+
+function paintChars() {
+  const mounted = chars.mounted;
+  $("char-roster").innerHTML = (chars.items || []).map(c => {
+    const on = c.id === selected ? " on" : "";
+    const mt = c.id === mounted ? " mounted" : "";
+    return `<button type="button" class="char-pick${on}${mt}" data-id="${esc(c.id)}">
+      <b>${esc(c.name)}</b>
+      <span>${esc(c.mode)} · ${esc(c.domain)}</span>
+    </button>`;
+  }).join("");
+  document.querySelectorAll(".char-pick").forEach(btn => {
+    btn.onclick = () => { selected = btn.dataset.id; paintChars(); };
+  });
+  const c = currentChar();
+  if (!c) return;
+  $("char-name").textContent = c.name;
+  $("char-role").textContent = c.role;
+  $("char-mode").textContent = (c.id === mounted ? "mounted · " : "") + (c.mode || "train") + " · GPU 1";
+  $("char-mount").textContent = c.id === mounted ? "Mounted" : "Mount on GPU 1";
+  $("char-meta").textContent = (chars.hidden_size || 5376) + "-D residual · " + (chars.bands || 128) + "-band · fused norm " + Number(c.fused_norm || 0).toFixed(3);
+  drawBands(c.bands);
+  const cables = chars.cables || [];
+  $("char-meters").innerHTML = cables.map(k => {
+    const pct = Math.round(((c.weights || {})[k.id] || 0) * 100);
+    return `<div class="meter"><div class="top"><h3>${esc(k.name)}</h3><span class="val" id="cv-${k.id}">${pct}%</span></div>
+      <input type="range" min="0" max="100" value="${pct}" id="cm-${k.id}">
+      <div class="hint">${esc(k.spec)} · ${esc(k.hint)}</div></div>`;
+  }).join("");
+  cables.forEach(k => {
+    const el = $("cm-" + k.id);
+    el.oninput = () => {
+      c.weights[k.id] = el.value / 100;
+      $("cv-" + k.id).textContent = el.value + "%";
+      queueSave();
+    };
+  });
+}
+
+function queueSave() {
+  $("char-status").textContent = "writing vectors…";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushChars, 160);
+}
+
+async function pushChars(extra) {
+  const c = currentChar();
+  const body = Object.assign({
+    mounted: chars.mounted,
+    items: c ? [{ id: c.id, name: c.name, role: c.role, mode: c.mode, domain: c.domain, weights: c.weights }] : []
+  }, extra || {});
+  try {
+    const r = await fetch("/api/tea/characters", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    chars = await r.json();
+    if (extra && extra.mounted) selected = extra.mounted;
+    paintChars();
+    $("char-status").textContent = "vectors live · " + (chars.mounted || "") + " mounted";
+    $("char-status").className = "desk-status ok";
+  } catch (e) {
+    $("char-status").textContent = String(e);
+    $("char-status").className = "desk-status bad";
+  }
+}
+
+$("char-mount").onclick = () => {
+  const c = currentChar();
+  if (c) pushChars({ mounted: c.id });
+};
+
+async function loadChars() {
+  try {
+    chars = await fetch("/api/tea/characters", { cache: "no-store" }).then(r => r.json());
+    selected = chars.mounted || (chars.items && chars.items[0] && chars.items[0].id) || "apprentice";
+    paintChars();
+    $("char-status").textContent = "vectors live · " + chars.mounted + " mounted";
+    $("char-status").className = "desk-status ok";
+  } catch (e) {
+    $("char-status").textContent = String(e);
+    $("char-status").className = "desk-status bad";
+  }
+}
+
+function connect() {
+  fetch("/api/tea/daemons", { cache: "no-store" }).then(r => r.json()).then(d => {
+    paint(d);
+    if (d.law && d.law.line) {
+      const law = document.getElementById("law-line");
+      if (law) law.textContent = d.law.line;
+    }
+    $("stream").textContent = "snapshot · " + ((d.daemons || []).length) + " daemons";
+    $("stream").className = "desk-status ok";
+  }).catch(e => {
+    $("stream").textContent = String(e);
+    $("stream").className = "desk-status bad";
+  });
+  const es = new EventSource("/api/tea/daemons/events");
+  es.addEventListener("daemons", ev => {
+    try { paint(JSON.parse(ev.data)); } catch (_) {}
+    $("stream").textContent = "sentinel live · event stream";
+    $("stream").className = "desk-status ok";
+  });
+  es.onerror = () => {
+    $("stream").textContent = "watch stream reconnecting";
+    $("stream").className = "desk-status";
+  };
+}
+connect();
+loadChars();
+</script>
+</body>
+</html>

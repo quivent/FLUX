@@ -476,6 +476,48 @@
     .verdicts { grid-template-columns: 1fr; }
     .shell > section, .shell > .split { margin-top: 42px; }
   }
+
+  .optics {
+    margin: 22px 0 0;
+    padding: 16px 18px 14px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: var(--radius);
+  }
+  .optics-kicker {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--faint); margin-bottom: 10px;
+  }
+  .optics-gpus {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .ogpu {
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 10px 11px; min-height: 92px;
+  }
+  .ogpu.down { opacity: 0.55; }
+  .ogpu.drift { border-color: var(--vermilion); }
+  .ogpu .i { font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: 0.08em; }
+  .ogpu h3 { font-size: 13px; font-weight: 650; margin: 4px 0 2px; }
+  .ogpu .m { font-family: var(--mono); font-size: 11px; color: var(--soft); word-break: break-all; }
+  .ogpu .q { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 6px; }
+  .optics-loop {
+    margin-top: 12px; display: grid; gap: 8px;
+  }
+  .oloop { font-size: 13px; }
+  .oloop b { font-weight: 650; }
+  .opath { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .ostep {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+    padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft);
+  }
+  .ostep.on { border-color: var(--chemtech); color: var(--ink); background: color-mix(in srgb, var(--chemtech) 12%, transparent); }
+  .ojury { font-family: var(--mono); font-size: 11px; color: var(--soft); margin-top: 6px; }
+  .odrift { margin-top: 8px; font-size: 12px; color: var(--vermilion); }
+  .oerr { color: var(--vermilion); }
+  @media (max-width: 900px) {
+    .optics-gpus { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
 <link rel="stylesheet" href="/tea/tea.css">
 </head>
@@ -491,6 +533,9 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
@@ -509,6 +554,13 @@
   <span class="sep" aria-hidden="true">|</span>
   <span class="quiet" id="connStamp">—</span>
 </div>
+
+<section class="optics" id="optics" aria-label="Who is online, who is judging, what the loop is">
+  <div class="optics-kicker">Live optics · this rig · measured</div>
+  <div class="optics-gpus" id="opticsGpus">loading sockets…</div>
+  <div class="optics-loop" id="opticsLoop"></div>
+  <div class="odrift" id="opticsDrift"></div>
+</section>
 
 <main class="shell">
 
@@ -679,6 +731,76 @@
   }
 
   function isNum(v) { return typeof v === "number" && isFinite(v); }
+
+  function kindLabel(kind) {
+    return ({
+      governor_gemma: "Governor · Gemma",
+      qwen: "Qwen volume",
+      flux_jury: "FLUX jury",
+      pixtral: "Pixtral",
+      drafter: "Drafter",
+      down: "down",
+      unknown: "unknown",
+      missing: "missing"
+    })[kind] || kind;
+  }
+
+  function renderOptics(d) {
+    if (!d || !d.ok) { return; }
+    var gpus = d.gpus || [];
+    var socks = d.sockets || [];
+    var gpuBy = {};
+    gpus.forEach(function (g) { gpuBy[String(g.index)] = g; });
+    var gpuForPort = { 8000: "1", 8001: "0", 8002: "2", 8003: "3", 8004: "3" };
+    $("opticsGpus").innerHTML = socks.filter(function (s) {
+      return s.port === 8000 || s.port === 8001 || s.port === 8002 || s.port === 8004;
+    }).map(function (s) {
+      var gi = gpuForPort[s.port];
+      var g = gpuBy[gi] || {};
+      var mem = (g.memory_used != null && g.memory_total != null)
+        ? Math.round(g.memory_used) + "/" + Math.round(g.memory_total) + " MiB · " + (g.utilization != null ? g.utilization + "%" : "")
+        : "";
+      var ids = (s.ids || []).slice(0, 3).join(", ") || "no /v1/models";
+      var drift = (s.port === 8002 && s.kind === "qwen") ? "" : "";
+      var cls = "ogpu" + (s.live ? "" : " down");
+      return '<article class="' + cls + '"><div class="i">:' + s.port + " · GPU " + (gi || "?") +
+        '</div><h3>' + esc(kindLabel(s.kind)) + '</h3><div class="m">' + esc(ids) +
+        '</div><div class="q">' + esc(mem) + (drift ? " · " + drift : "") + "</div></article>";
+    }).join("");
+    var loop = (d.loop && d.loop.arcane) || {};
+    var jury = (d.jury && d.jury.arcane) || {};
+    var path = loop.eval_path || [];
+    var w = jury.weights || {};
+    var order = jury.order || [];
+    var err = loop.error ? '<div class="oerr">' + esc(String(loop.error)) + "</div>" : "";
+    var status = loop.unplugged ? "unplugged" : (loop.running ? "running" : "idle");
+    $("opticsLoop").innerHTML =
+      '<div class="oloop"><b>Arcane loop</b> · ' + esc(status) +
+      (loop.id ? " · " + esc(loop.id) : "") +
+      (loop.evaluated != null ? " · evaluated " + esc(loop.evaluated) : "") +
+      err +
+      '<div class="opath">' + path.map(function (step) {
+        return '<span class="ostep">' + esc(step) + "</span>";
+      }).join("") + "</div>" +
+      '<div class="ojury">judging ' + esc(jury.mode || "") + " · " +
+      order.map(function (k) {
+        var wt = w[k];
+        return esc(k) + (wt != null ? " " + Math.round(wt * 100) + "%" : "");
+      }).join(" · ") + "</div></div>";
+    var notes = d.drift || [];
+    $("opticsDrift").textContent = notes.join(" ");
+  }
+
+  function loadOptics() {
+    return fetch("/api/optics", { cache: "no-store", credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(renderOptics)
+      .catch(function () {
+        if ($("opticsGpus")) $("opticsGpus").textContent = "optics unreachable";
+      });
+  }
+  loadOptics();
+  setInterval(loadOptics, 5000);
 
   /* Render a value, or an honest blank. Never a zero standing in for absence. */
   function put(el, value, unit, why) {

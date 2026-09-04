@@ -223,7 +223,7 @@
     /* Realms */
     .realms {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 18px;
       margin-bottom: 28px;
     }
@@ -369,9 +369,13 @@
     <a href="/jury">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/desk">Desk</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
+    <a href="/ledger">Ledger</a>
     <a href="https://charters.apiary.vision/" data-room="charters">Charters</a>
   </nav>
   <div class="tea-chrome-end">
@@ -396,6 +400,8 @@
       <p class="lede">A tea house over a four-card rig. Beauty is crowned in the chamber; worlds are forged in lacquer. The wall is the proof.</p>
       <div class="hero-actions">
         <a class="btn-primary" href="/gallery/">Enter the stream</a>
+        <a class="btn-ghost" href="/hive">Open the hive</a>
+        <a class="btn-ghost" href="/train">Train GPU 1</a>
         <a class="btn-ghost" href="/jury">Open the jury</a>
       </div>
       <div class="hero-meta">
@@ -423,7 +429,7 @@
     </div>
     <div class="sentinel">
       <div class="glyph g-qwen">壱</div>
-      <div><strong>Qwen 3.8</strong><em>Spatial geometry</em></div>
+      <div><strong>Qwen 3.8</strong><em>Reason</em></div>
     </div>
     <div class="sentinel">
       <div class="glyph g-decoder">参</div>
@@ -458,11 +464,26 @@
         <a class="dest" id="d-engine" href="/engine"><span>Hardware</span><strong>Engine Room</strong></a>
       </div>
     </article>
+    <article class="realm still">
+      <div class="eyebrow">Realm III · GPU 1</div>
+      <h2>Governor, hive &amp; watch</h2>
+      <p class="blurb">Charters, discourse, and gated outcomes. He trains himself. Qwen forages. Protected. Tools stay. Autonomy stays.</p>
+      <div class="destinations">
+        <a class="dest" id="d-hive" href="/hive"><span>Comb</span><strong>Hive</strong></a>
+        <a class="dest" id="d-governor" href="/governor"><span>Consultation</span><strong>Governor</strong></a>
+        <a class="dest" id="d-train" href="/train"><span>Sounding boards</span><strong>Train</strong></a>
+        <a class="dest" id="d-daemons" href="/daemons"><span>Projections</span><strong>Daemons</strong></a>
+      </div>
+    </article>
   </section>
 
   <nav class="utilities" aria-label="House tools">
+    <a href="/hive">Hive</a>
+    <a href="/charters">Charters</a>
     <a href="/protocol">Protocol</a>
     <a href="/judge">Judge</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
     <a href="/studies">Studies</a>
     <a href="/sentinel">Sentinel</a>
     <a href="/collections">Collections</a>
@@ -483,8 +504,9 @@
     <input type="text" id="commandInput" class="dock-input" placeholder="Whisper a prompt to the beauty agents — / to focus" onkeydown="handleCommandKey(event)">
     <div class="dock-links">
       <a href="/jury" class="dock-btn">Jury</a>
+      <a href="/train" class="dock-btn">Train</a>
+      <a href="/daemons" class="dock-btn">Daemons</a>
       <a href="/gallery/" class="dock-btn">Stream</a>
-      <a href="/movement" class="dock-btn">Motion</a>
     </div>
   </div>
 </div>

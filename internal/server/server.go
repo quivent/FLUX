@@ -259,6 +259,15 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/charters", s.chartersPage)
 	mux.HandleFunc("/charters/", s.chartersPage)
 	mux.HandleFunc("/api/charters", s.chartersAPI)
+	mux.HandleFunc("/hive", s.hivePage)
+	mux.HandleFunc("/hive/", s.hivePage)
+	mux.HandleFunc("/api/hive", s.hiveAPI)
+	mux.HandleFunc("/research", s.researchPage)
+	mux.HandleFunc("/research/", s.researchPage)
+	mux.HandleFunc("/api/research", s.researchAPI)
+	mux.HandleFunc("/ledger", s.ledgerPage)
+	mux.HandleFunc("/ledger/", s.ledgerPage)
+	mux.HandleFunc("/api/tea/ledger", s.ledgerAPI)
 	mux.HandleFunc("/reports", s.reportsPage)
 	mux.HandleFunc("/reports/", s.reportsPage)
 	mux.HandleFunc("/output-reports", s.reportsPage)
@@ -276,6 +285,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/flux/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/api/health", s.health)
 	mux.HandleFunc("/api/rig", s.rigStatusAPI)
+	mux.HandleFunc("/api/rig/ws", s.rigWS)
 	mux.HandleFunc("/api/governor/chat", s.governorChat)
 	mux.HandleFunc("/api/visionary/chat", s.visionaryChat)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
@@ -333,8 +343,11 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/studio", s.studiosPage)
 	mux.HandleFunc("/studio/", s.studiosPage)
 	mux.HandleFunc("/api/protocol/calibrate", s.protocolCalibrateAPI)
+	mux.HandleFunc("/api/protocol/route", s.protocolRouteAPI)
 	mux.HandleFunc("/api/arcane/protocol", s.arcaneProtocolAPI)
 	mux.HandleFunc("/api/arcane/jury/config", s.arcaneJuryConfigAPI)
+	mux.HandleFunc("/api/optics", s.opticsAPI)
+	mux.HandleFunc("/api/drive", s.driveAPI)
 	mux.HandleFunc("/arcane-studio", s.arcaneStudioPage)
 	mux.HandleFunc("/arcane-studio/", s.arcaneStudioPage)
 	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
@@ -368,6 +381,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/domains/", s.domainsPage)
 	mux.HandleFunc("/train", s.trainPage)
 	mux.HandleFunc("/train/", s.trainPage)
+	mux.HandleFunc("/api/train", s.trainAPI)
 	mux.HandleFunc("/jury", s.juryPage)
 	mux.HandleFunc("/jury/", s.juryPage)
 	mux.HandleFunc("/moj", s.juryPage)
@@ -385,6 +399,13 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/governor", s.governorPage)
 	mux.HandleFunc("/governor/", s.governorPage)
 	mux.HandleFunc("/api/governor/models", s.governorModels)
+	mux.HandleFunc("/api/governor/health", s.governorHealth)
+	mux.HandleFunc("/daemons", s.daemonsPage)
+	mux.HandleFunc("/daemons/", s.daemonsPage)
+	mux.HandleFunc("/api/tea/daemons", s.teaDaemonsAPI)
+	mux.HandleFunc("/api/tea/daemons/events", s.teaDaemonsEvents)
+	mux.HandleFunc("/api/tea/characters", s.teaCharactersAPI)
+	mux.HandleFunc("/api/tea/law", s.teaLawAPI)
 	mux.HandleFunc("/api/tea/desk", s.teaDeskAPI)
 	mux.HandleFunc("/api/tea/scores", s.teaScoresAPI)
 	mux.HandleFunc("/api/tea/movement", s.teaMovementAPI)
@@ -411,6 +432,10 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/sentinel/", s.sentinelPage)
 	mux.HandleFunc("/exhibition", s.exhibition)
 	mux.HandleFunc("/exhibition/", s.exhibition)
+	mux.HandleFunc("/evening", s.eveningPage)
+	mux.HandleFunc("/evening/", s.eveningPage)
+	mux.HandleFunc("/showcase", s.eveningPage)
+	mux.HandleFunc("/showcase/", s.eveningPage)
 	mux.HandleFunc("/staged/", s.staged)
 	mux.HandleFunc("/outputs/", s.output)
 	s.restoreAtlasReceipts()
@@ -420,6 +445,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	go s.runTelemetryProcessHub(ctx)
 	go s.runJobsHub(ctx)
 	go s.runModelHub(ctx)
+	go s.runRigHub(ctx)
+	go s.runTeaSentinel(ctx)
 
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
@@ -460,6 +487,10 @@ var readOnlyPaths = []string{
 	"/output-reports",
 	"/charters",
 	"/api/charters",
+	"/hive",
+	"/api/hive",
+	"/ledger",
+	"/api/tea/ledger",
 	"/portraits",
 	"/movement",
 	"/studies",
@@ -473,18 +504,26 @@ var readOnlyPaths = []string{
 	"/scores",
 	"/governor",
 	"/api/governor",
+	"/daemons",
+	"/api/tea/daemons",
+	"/api/tea/characters",
+	"/api/tea/law",
 	"/api/tea/scores",
 	"/api/tea/desk",
+	"/api/protocol/route",
 	"/api/tea/movement",
 	"/tea.css",
 	"/tea-shell.js",
 	"/spec",
 	"/sentinel",
 	"/exhibition",
+	"/evening",
+	"/showcase",
 	"/atelier",
 	"/rig",
 	"/domains",
 	"/train",
+	"/api/train",
 	// Motion Atlas may be browsed from the public listener, but all of its
 	// generation controls remain blocked because this gate also requires GET
 	// or HEAD and does not expose the render/model mutation routes.
@@ -492,6 +531,7 @@ var readOnlyPaths = []string{
 	"/outputs/",
 	"/api/health",
 	"/api/rig",
+	"/api/rig/ws",
 	"/api/protocol",
 	"/api/protocol/branches",
 	"/api/studios",
@@ -499,6 +539,8 @@ var readOnlyPaths = []string{
 	"/studio",
 	"/api/arcane/protocol",
 	"/api/arcane/jury/config",
+	"/api/optics",
+	"/api/drive",
 	"/api/jury/config",
 	"/api/jury/spectacles",
 	"/api/recent-images",
@@ -601,6 +643,10 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 	}
 	if host == "charters.apiary.vision" {
 		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "charters.html"))
+		return
+	}
+	if host == "hive.apiary.vision" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "hive.html"))
 		return
 	}
 	portalFile := filepath.Join(s.cfg.Root, "web", "portal", "index.html")
@@ -737,16 +783,17 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/moj")
 	rel = strings.TrimPrefix(rel, "/jury")
 	rel = strings.TrimPrefix(rel, "/")
-	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "jury.html"))
+	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
+	if rel == "" || rel == "index.html" || rel == "arcane" || rel == "arcane.html" {
+		http.ServeFile(w, r, filepath.Join(public, "study-beauty.html"))
 		return
 	}
-	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
+	file := filepath.Join(public, filepath.FromSlash(rel))
 	if info, err := os.Stat(file); err == nil && !info.IsDir() {
 		http.ServeFile(w, r, file)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "jury.html"))
+	http.ServeFile(w, r, filepath.Join(public, "study-beauty.html"))
 }
 
 func (s Server) juryConfigAPI(w http.ResponseWriter, r *http.Request) {
@@ -900,7 +947,13 @@ func protocolStreamStatePathFor(root, lane string) string {
 	switch strings.ToLower(strings.TrimSpace(lane)) {
 	case "fashion", "celadon", "still-life", "still_life", "gpu3", "fp8":
 		return filepath.Join(root, ".fluxd", "protocol_stream_gpu3.json")
+	case "arcane", "":
+		return protocolStreamStatePath(root)
 	default:
+		branch := protocolBranchStatePath(root, lane)
+		if _, err := os.Stat(branch); err == nil {
+			return branch
+		}
 		return protocolStreamStatePath(root)
 	}
 }
@@ -917,7 +970,7 @@ func protocolLane(r *http.Request) string {
 	case strings.HasSuffix(path, "/arcane"):
 		return "arcane"
 	default:
-		return "arcane"
+		return "fashion"
 	}
 }
 
@@ -1045,8 +1098,14 @@ func (s Server) protocolAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lane := protocolLane(r)
-	cfg, _ := jury.GetConfig(s.cfg.OutputDir)
-	spectacles, _ := jury.GetSpectacles(s.cfg.OutputDir, 12)
+	if lane != "fashion" && lane != "arcane" && lane != "microgreens" && lane != "celadon" && lane != "still-life" && lane != "gpu3" && lane != "fp8" {
+		if reservedProtocolBranches[lane] || !protocolBranchSlugPattern.MatchString(lane) {
+			lane = "fashion"
+		}
+	}
+	dir := s.juryDirForLane(lane)
+	cfg, _ := jury.GetConfig(dir)
+	spectacles, _ := jury.GetSpectacles(dir, 12)
 	loaded := false
 	device := ""
 	if ping, err := s.workerPing(); err == nil {
@@ -1088,7 +1147,7 @@ func (s Server) protocolAPI(w http.ResponseWriter, r *http.Request) {
 		{"id": "drafter", "role": "Gemma 12B decoder + Google MTP", "endpoint": "127.0.0.1:8003", "required": fashion, "live": tcpAlive("127.0.0.1:8003", 250*time.Millisecond), "note": "RedHatAI/gemma-4-12B-it-NVFP4"},
 		{"id": "gates", "role": "DINOv2-Giant + SigLIP", "endpoint": "in-process", "required": true, "live": nil, "note": "sensory gates inside moj_evaluator"},
 	}
-	_ = jury.ExportConfigJSON(s.cfg.OutputDir)
+	_ = jury.ExportConfigJSON(dir)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":     true,
 		"lane":   lane,
@@ -1113,11 +1172,12 @@ func (s Server) protocolAPI(w http.ResponseWriter, r *http.Request) {
 		"mandatory":   []string{"flux", "witness", "governor", "pixtral", "gates"},
 		"tenants":     tenants,
 		"jury":        cfg,
-		"presets":     mustPresets(s.cfg.OutputDir),
+		"presets":     mustPresets(dir),
 		"hive":        hive,
 		"live_models": live,
-		"audit":       digestAudit(s.cfg.OutputDir, 24),
-		"calibration": jury.LatestCalibration(s.cfg.OutputDir),
+		"audit":       digestAudit(dir, 24),
+		"calibration": jury.LatestCalibration(dir),
+		"lanes":       s.juryLaneButtons(),
 		"laws":        parseChorusLaws(s.cfg.Root),
 		"flux":        map[string]any{"loaded": loaded, "device": device, "model_dir": s.cfg.ModelDir},
 		"spectacles": map[string]any{
@@ -1228,6 +1288,8 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 }
 
@@ -1320,6 +1382,28 @@ func (s Server) sentinelEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s Server) eveningPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	if path == "/evening" || path == "/showcase" {
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "evening.html"))
+		return
+	}
+	if r.URL.Path == "/evening/" {
+		http.Redirect(w, r, "/evening", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path == "/showcase/" {
+		http.Redirect(w, r, "/showcase", http.StatusPermanentRedirect)
+		return
+	}
+	http.NotFound(w, r)
+}
+
 func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/exhibition/" {
 		http.Redirect(w, r, "/exhibition", http.StatusPermanentRedirect)
@@ -1362,34 +1446,6 @@ func (s Server) exhibition(w http.ResponseWriter, r *http.Request) {
 func (s Server) legacyAtelier(w http.ResponseWriter, r *http.Request) {
 	suffix := strings.TrimPrefix(r.URL.Path, "/atelier")
 	http.Redirect(w, r, "/gallery"+suffix, http.StatusPermanentRedirect)
-}
-
-func (s Server) governorChat(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
-	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://governor.influx.vision/v1/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		http.Error(w, "unable to create Governor request", http.StatusInternalServerError)
-		return
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
-	response, err := (&http.Client{Timeout: 5 * time.Minute}).Do(request)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	defer response.Body.Close()
-	w.Header().Set("Content-Type", response.Header.Get("Content-Type"))
-	w.WriteHeader(response.StatusCode)
-	_, _ = io.Copy(w, response.Body)
 }
 
 func (s Server) visionaryChat(w http.ResponseWriter, r *http.Request) {
@@ -4570,14 +4626,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	if offset < 0 {
 		offset = 0
 	}
-	scope := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
-	type recentImage struct {
-		Name     string
-		Path     string
-		URL      string
-		Kind     string
-		Modified int64
-	}
+	scope := s.galleryLiveScope(r, r.URL.Query().Get("scope"))
 	items := make([]recentImage, 0, limit)
 	outputDir, err := filepath.EvalSymlinks(s.cfg.OutputDir)
 	if err != nil {
@@ -4685,6 +4734,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		unique = append(unique, item)
 	}
 	items = unique
+	attachBeautyDifferentials(outputDir, items)
 	total := len(items)
 	if offset >= len(items) {
 		items = nil
@@ -4696,13 +4746,20 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		out = append(out, map[string]any{
+		row := map[string]any{
 			"name":     item.Name,
 			"path":     item.Path,
 			"url":      item.URL,
 			"kind":     item.Kind,
 			"modified": item.Modified,
-		})
+		}
+		if item.Composite != nil {
+			row["composite"] = *item.Composite
+		}
+		if item.BeautyDeltaPct != nil {
+			row["beauty_delta_pct"] = *item.BeautyDeltaPct
+		}
+		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "images": out, "total": total, "offset": offset, "limit": limit,

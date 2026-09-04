@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FP8 vs BF16 · Fashion generation</title>
+  <style>
+    :root { --paper:#12100e; --ink:#f3ead7; --muted:#b7ab9a; --gold:#c4a35a; --line:rgba(243,234,215,.14); --serif:"Iowan Old Style",Palatino,Georgia,serif; --mono:ui-monospace,Menlo,monospace; }
+    * { box-sizing:border-box }
+    html,body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--serif); }
+    a { color:var(--gold); }
+    main { max-width:1280px; margin:0 auto; padding:28px 28px 80px; }
+    .eyebrow { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); font-family:var(--mono); }
+    h1 { font-weight:500; font-size:clamp(32px,5vw,56px); line-height:.95; margin:8px 0 10px; letter-spacing:-.03em; }
+    .deck { max-width:62ch; color:var(--muted); font-size:16px; line-height:1.5; }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin:22px 0 28px; }
+    .stat { background:#181513; padding:14px 16px; }
+    .stat b { display:block; font-size:22px; font-weight:500; }
+    .stat span { font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+    .pair { margin-bottom:36px; }
+    .pair-head { display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:10px; }
+    .pair-head strong { color:var(--ink); letter-spacing:.14em; }
+    .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    figure { margin:0; border:1px solid var(--line); background:#1a1714; }
+    figure img { display:block; width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; cursor:zoom-in; }
+    figcaption { display:flex; justify-content:space-between; gap:8px; padding:8px 10px; font-family:var(--mono); font-size:10px; }
+    .who { color:var(--gold); text-transform:uppercase; }
+    .thumbs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 28px; }
+    .thumbs button { border:1px solid var(--line); background:#181513; color:var(--ink); font-family:var(--mono); font-size:10px; padding:6px 8px; cursor:pointer; }
+    dialog { border:0; padding:0; background:#000; max-width:96vw; max-height:96vh; }
+    dialog img { max-width:96vw; max-height:96vh; display:block; }
+    dialog::backdrop { background:rgba(0,0,0,.82); }
+    @media(max-width:800px) { .cols,.stats { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">r2://beauty-flux · same brief · 28 steps · 1024²</div>
+  <h1>FP8 next to BF16.</h1>
+  <p class="deck">Left is GPU 3 FP8 (<code>FLUX.1-dev-fp8</code>, stream 21:21). Right is GPU 0 BF16 (stream 20:01). Same locked fashion prompt. Different seeds. Canonical copies live in r2://beauty-flux/site/. This page reads them from R2, not local disk.</p>
+  <section class="stats">
+    <div class="stat"><b>41</b><span>side-by-side pairs</span></div>
+    <div class="stat"><b>9.2s</b><span>FP8 mean / frame</span></div>
+    <div class="stat"><b>14.0s</b><span>BF16 mean / frame</span></div>
+    <div class="stat"><b>1.53×</b><span>BF16 slower</span></div>
+  </section>
+  <p class="deck">Click a frame for the full PNG. Keys: j / k.</p>
+  <div class="thumbs" id="thumbs"></div>
+  <div id="stage"></div>
+</main>
+<script>
+const BASE="https://pub-197bed319eda457da858ab89c061ed38.r2.dev/site/";
+const PAIRS=[{"n": 19, "fp8": {"file": "protocol-fashion-stream-20260904-212142-019.png", "seed": "1850665653", "seconds": 9.19, "id": "20260904-212419-170f0e4e"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-019.png", "seed": "1846352485", "seconds": 15.6, "id": "20260904-201226-396f61f7"}}, {"n": 20, "fp8": {"file": "protocol-fashion-stream-20260904-212142-020.png", "seed": "1850674267", "seconds": 9.2, "id": "20260904-212428-bbeda496"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-020.png", "seed": "1846353702", "seconds": 12.35, "id": "20260904-201227-5493c834"}}, {"n": 21, "fp8": {"file": "protocol-fashion-stream-20260904-212142-021.png", "seed": "1850682869", "seconds": 9.18, "id": "20260904-212437-5e00afff"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-021.png", "seed": "1846368268", "seconds": 14.14, "id": "20260904-201242-53b381d0"}}, {"n": 22, "fp8": {"file": "protocol-fashion-stream-20260904-212142-022.png", "seed": "1850692701", "seconds": 9.15, "id": "20260904-212446-35e6584f"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-022.png", "seed": "1846381623", "seconds": 12.6, "id": "20260904-201255-a6479038"}}, {"n": 23, "fp8": {"file": "protocol-fashion-stream-20260904-212142-023.png", "seed": "1850701304", "seconds": 9.14, "id": "20260904-212455-8162853f"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-023.png", "seed": "1846394976", "seconds": 14.92, "id": "20260904-201309-9399c118"}}, {"n": 24, "fp8": {"file": "protocol-fashion-stream-20260904-212142-024.png", "seed": "1850711138", "seconds": 9.15, "id": "20260904-212505-2633f187"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-024.png", "seed": "1846408326", "seconds": 16.25, "id": "20260904-201322-3a297639"}}, {"n": 25, "fp8": {"file": "protocol-fashion-stream-20260904-212142-025.png", "seed": "1850719757", "seconds": 9.16, "id": "20260904-212514-6cd847d8"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-025.png", "seed": "1846422894", "seconds": 16.07, "id": "20260904-201337-bf6d9f7d"}}, {"n": 26, "fp8": {"file": "protocol-fashion-stream-20260904-212142-026.png", "seed": "1850729588", "seconds": 9.21, "id": "20260904-212523-0b995ea0"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-026.png", "seed": "1846438672", "seconds": 14.73, "id": "20260904-201352-b652e569"}}, {"n": 27, "fp8": {"file": "protocol-fashion-stream-20260904-212142-027.png", "seed": "1850738207", "seconds": 9.17, "id": "20260904-212532-07db2632"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-027.png", "seed": "1846455670", "seconds": 11.87, "id": "20260904-201409-9b8f3e65"}}, {"n": 28, "fp8": {"file": "protocol-fashion-stream-20260904-212142-028.png", "seed": "1850748043", "seconds": 9.17, "id": "20260904-212542-331da303"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-028.png", "seed": "1846470238", "seconds": 13.6, "id": "20260904-201424-3f14c1aa"}}, {"n": 29, "fp8": {"file": "protocol-fashion-stream-20260904-212142-029.png", "seed": "1850756653", "seconds": 9.19, "id": "20260904-212550-bfd7d2b1"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-029.png", "seed": "1846481163", "seconds": 14.19, "id": "20260904-201435-5df7911d"}}, {"n": 30, "fp8": {"file": "protocol-fashion-stream-20260904-212142-030.png", "seed": "1850766483", "seconds": 9.18, "id": "20260904-212600-7e0dd584"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-030.png", "seed": "1846495732", "seconds": 12.3, "id": "20260904-201450-616fb49d"}}, {"n": 31, "fp8": {"file": "protocol-fashion-stream-20260904-212142-031.png", "seed": "1850775088", "seconds": 9.17, "id": "20260904-212609-acad02d4"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-031.png", "seed": "1846509086", "seconds": 16.97, "id": "20260904-201503-e699ce4e"}}, {"n": 32, "fp8": {"file": "protocol-fashion-stream-20260904-212142-032.png", "seed": "1850784927", "seconds": 9.19, "id": "20260904-212619-d2566fa6"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-032.png", "seed": "1846521234", "seconds": 16.22, "id": "20260904-201515-00347704"}}, {"n": 33, "fp8": {"file": "protocol-fashion-stream-20260904-212142-033.png", "seed": "1850793534", "seconds": 9.16, "id": "20260904-212627-3b1fc62b"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-033.png", "seed": "1846538238", "seconds": 16.72, "id": "20260904-201532-ccd53640"}}, {"n": 34, "fp8": {"file": "protocol-fashion-stream-20260904-212142-034.png", "seed": "1850803368", "seconds": 9.16, "id": "20260904-212637-bb7bc1b0"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-034.png", "seed": "1846555247", "seconds": 14.44, "id": "20260904-201549-28ac2ca3"}}, {"n": 35, "fp8": {"file": "protocol-fashion-stream-20260904-212142-035.png", "seed": "1850811976", "seconds": 9.17, "id": "20260904-212646-d3f4189a"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-035.png", "seed": "1846572260", "seconds": 12.32, "id": "20260904-201606-1b02341d"}}, {"n": 36, "fp8": {"file": "protocol-fashion-stream-20260904-212142-036.png", "seed": "1850820594", "seconds": 9.19, "id": "20260904-212654-4ae70330"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-036.png", "seed": "1846585624", "seconds": 13.3, "id": "20260904-201619-ac185a0f"}}, {"n": 37, "fp8": {"file": "protocol-fashion-stream-20260904-212142-037.png", "seed": "1850830431", "seconds": 9.15, "id": "20260904-212704-63abf642"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-037.png", "seed": "1846598990", "seconds": 16.62, "id": "20260904-201633-46e4f5eb"}}, {"n": 38, "fp8": {"file": "protocol-fashion-stream-20260904-212142-038.png", "seed": "1850839167", "seconds": 9.13, "id": "20260904-212713-0b669e0c"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-038.png", "seed": "1846612356", "seconds": 17.49, "id": "20260904-201646-2d7758dd"}}, {"n": 39, "fp8": {"file": "protocol-fashion-stream-20260904-212142-039.png", "seed": "1850848989", "seconds": 9.17, "id": "20260904-212723-a9546fb2"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-039.png", "seed": "1846628140", "seconds": 12.96, "id": "20260904-201702-7a9efcb6"}}, {"n": 40, "fp8": {"file": "protocol-fashion-stream-20260904-212142-040.png", "seed": "1850857588", "seconds": 9.22, "id": "20260904-212731-7d57666a"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-040.png", "seed": "1846646354", "seconds": 14.23, "id": "20260904-201720-08e1f095"}}, {"n": 41, "fp8": {"file": "protocol-fashion-stream-20260904-212142-041.png", "seed": "1850867420", "seconds": 9.17, "id": "20260904-212741-9821a14b"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-041.png", "seed": "1846658502", "seconds": 12.59, "id": "20260904-201732-153af566"}}, {"n": 42, "fp8": {"file": "protocol-fashion-stream-20260904-212142-042.png", "seed": "1850876030", "seconds": 9.11, "id": "20260904-212750-3a60be84"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-042.png", "seed": "1846673089", "seconds": 13.54, "id": "20260904-201747-4e83661a"}}, {"n": 43, "fp8": {"file": "protocol-fashion-stream-20260904-212142-043.png", "seed": "1850885860", "seconds": 9.13, "id": "20260904-212800-19bc8fec"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-043.png", "seed": "1846685238", "seconds": 12.6, "id": "20260904-201759-c993bbf9"}}, {"n": 44, "fp8": {"file": "protocol-fashion-stream-20260904-212142-044.png", "seed": "1850894463", "seconds": 9.13, "id": "20260904-212808-a053f56b"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-044.png", "seed": "1846699818", "seconds": 16.89, "id": "20260904-201814-080236df"}}, {"n": 45, "fp8": {"file": "protocol-fashion-stream-20260904-212142-045.png", "seed": "1850903064", "seconds": 9.19, "id": "20260904-212817-94c14422"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-045.png", "seed": "1846711966", "seconds": 16.35, "id": "20260904-201826-b2a728fc"}}, {"n": 46, "fp8": {"file": "protocol-fashion-stream-20260904-212142-046.png", "seed": "1850912896", "seconds": 9.17, "id": "20260904-212827-af829c8c"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-046.png", "seed": "1846728972", "seconds": 15.36, "id": "20260904-201843-92f21f8a"}}, {"n": 47, "fp8": {"file": "protocol-fashion-stream-20260904-212142-047.png", "seed": "1850921498", "seconds": 9.16, "id": "20260904-212835-4b0ace4e"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-047.png", "seed": "1846744770", "seconds": 12.65, "id": "20260904-201859-b041e054"}}, {"n": 48, "fp8": {"file": "protocol-fashion-stream-20260904-212142-048.png", "seed": "1850931332", "seconds": 9.18, "id": "20260904-212845-daf5625a"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-048.png", "seed": "1846760571", "seconds": 13.2, "id": "20260904-201914-03a8a22f"}}, {"n": 49, "fp8": {"file": "protocol-fashion-stream-20260904-212142-049.png", "seed": "1850939957", "seconds": 9.17, "id": "20260904-212854-42685087"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-049.png", "seed": "1846772726", "seconds": 12.06, "id": "20260904-201926-3f0f752d"}}, {"n": 50, "fp8": {"file": "protocol-fashion-stream-20260904-212142-050.png", "seed": "1850949794", "seconds": 9.17, "id": "20260904-212904-2eed4ad2"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-050.png", "seed": "1846786095", "seconds": 13.3, "id": "20260904-201940-3dbcdf25"}}, {"n": 81, "fp8": {"file": "protocol-fashion-stream-20260904-212142-081.png", "seed": "1851233404", "seconds": 9.11, "id": "20260904-213347-4de10aa3"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-081.png", "seed": "1850534325", "seconds": 12.63, "id": "20260904-212208-83a59b2d"}}, {"n": 82, "fp8": {"file": "protocol-fashion-stream-20260904-212142-082.png", "seed": "1851243260", "seconds": 9.22, "id": "20260904-213357-f51361f7"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-082.png", "seed": "1850545141", "seconds": 12.6, "id": "20260904-212219-7835e21e"}}, {"n": 83, "fp8": {"file": "protocol-fashion-stream-20260904-212142-083.png", "seed": "1851251876", "seconds": 9.18, "id": "20260904-213406-f2c0597d"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-083.png", "seed": "1850547604", "seconds": 13.24, "id": "20260904-212221-6d65bda2"}}, {"n": 84, "fp8": {"file": "protocol-fashion-stream-20260904-212142-084.png", "seed": "1851261726", "seconds": 9.19, "id": "20260904-213415-98356be2"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-084.png", "seed": "1850560477", "seconds": 12.04, "id": "20260904-212234-09332eaf"}}, {"n": 85, "fp8": {"file": "protocol-fashion-stream-20260904-212142-085.png", "seed": "1851270355", "seconds": 9.18, "id": "20260904-213424-8d77f32a"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-085.png", "seed": "1850573023", "seconds": 14.66, "id": "20260904-212247-1f90f854"}}, {"n": 86, "fp8": {"file": "protocol-fashion-stream-20260904-212142-086.png", "seed": "1851280206", "seconds": 9.21, "id": "20260904-213434-1292644b"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-086.png", "seed": "1850585048", "seconds": 12.08, "id": "20260904-212259-d901e234"}}, {"n": 87, "fp8": {"file": "protocol-fashion-stream-20260904-212142-087.png", "seed": "1851288830", "seconds": 9.22, "id": "20260904-213443-02a154a3"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-087.png", "seed": "1850600040", "seconds": 12.78, "id": "20260904-212314-96ade2e0"}}, {"n": 88, "fp8": {"file": "protocol-fashion-stream-20260904-212142-088.png", "seed": "1851298676", "seconds": 9.13, "id": "20260904-213452-2377ebac"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-088.png", "seed": "1850612085", "seconds": 11.68, "id": "20260904-212326-94d20002"}}, {"n": 89, "fp8": {"file": "protocol-fashion-stream-20260904-212142-089.png", "seed": "1851307315", "seconds": 9.17, "id": "20260904-213501-865b44d6"}, "bf16": {"file": "protocol-fashion-stream-20260904-200126-089.png", "seed": "1850625850", "seconds": 13.63, "id": "20260904-212340-f1698c9c"}}];
+const stem=f=>f.replace(/\.png$/,'');
+function pairHTML(p){
+  const a=p.fp8, b=p.bf16;
+  return `<article class="pair" id="p${p.n}">
+    <div class="pair-head"><strong>FRAME ${String(p.n).padStart(3,'0')}</strong><span>same prompt · not the same seed</span></div>
+    <div class="cols">
+      <figure>
+        <img src="${BASE}thumbs/fp8/${stem(a.file)}.jpg" data-full="${BASE}fp8/${a.file}" alt="FP8 frame ${p.n}">
+        <figcaption><span class="who">GPU 3 · FP8</span><span>${a.seconds}s · seed ${a.seed}</span></figcaption>
+      </figure>
+      <figure>
+        <img src="${BASE}thumbs/bf16/${stem(b.file)}.jpg" data-full="${BASE}bf16/${b.file}" alt="BF16 frame ${p.n}">
+        <figcaption><span class="who">GPU 0 · BF16</span><span>${b.seconds}s · seed ${b.seed}</span></figcaption>
+      </figure>
+    </div>
+  </article>`;
+}
+const stage=document.getElementById('stage');
+stage.innerHTML=PAIRS.map(pairHTML).join('');
+document.getElementById('thumbs').innerHTML=PAIRS.map(p=>`<button data-n="${p.n}">${String(p.n).padStart(3,'0')}</button>`).join('');
+document.getElementById('thumbs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  document.getElementById('p'+b.dataset.n).scrollIntoView({behavior:'smooth',block:'start'});
+});
+const dlg=document.createElement('dialog'); dlg.innerHTML='<img alt="">'; document.body.appendChild(dlg);
+stage.addEventListener('click',e=>{
+  const img=e.target.closest('img'); if(!img) return;
+  dlg.querySelector('img').src=img.dataset.full; dlg.showModal();
+});
+dlg.addEventListener('click',()=>dlg.close());
+let i=PAIRS.length-1;
+function go(d){ i=(i+d+PAIRS.length)%PAIRS.length; document.getElementById('p'+PAIRS[i].n).scrollIntoView({behavior:'smooth',block:'start'}); }
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') dlg.close();
+  if(e.key==='j'||e.key==='ArrowDown') go(1);
+  if(e.key==='k'||e.key==='ArrowUp') go(-1);
+});
+</script>
+</body>
+</html>

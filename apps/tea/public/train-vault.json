@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "cudaMalloc": true,
+  "gpu": 1,
+  "pid": 885410,
+  "bytes": 805306368,
+  "dtype": "float16",
+  "layout": {
+    "index_entries": 512,
+    "index_span": "128000+",
+    "pages_bytes": 805304320,
+    "pages_base_f16": 1024,
+    "page_width": 128
+  },
+  "before": {
+    "used_mib": 63124.0,
+    "free_mib": 34127.0,
+    "total_mib": 97887.0,
+    "util": 99.0
+  },
+  "after": {
+    "used_mib": 64539.0,
+    "free_mib": 32712.0,
+    "total_mib": 97887.0,
+    "util": 0.0
+  },
+  "delta_used_mib": 1415.0,
+  "note": "Bounded vault beside serving Governor. Not a second 31B. Not SGD.",
+  "updated": "2026-09-04T23:52:35Z",
+  "socket": "/home/ubuntu/CLIs/flux/.fluxd/gpu1_vault.sock",
+  "alive": true
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "surface.train-results.v1",
+  "tick": 535,
+  "updated": "2026-09-04T23:06:13Z",
+  "gpu": 1,
+  "status": "gpu1_exclusive_plus_vault",
+  "fluency": 0.0,
+  "residual_match": false,
+  "pointer_ok": false,
+  "no_prose_restatement": null,
+  "issuance": "awaiting_correct",
+  "product": "vault_on_gpu1_after_prometheus_relocated",
+  "protocol": "spectral-externalization-v1 / PIC",
+  "gpu1_residents": [
+    {
+      "name": "VLLM::EngineCore",
+      "model": "governor",
+      "mib": 58860,
+      "role": "serving"
+    },
+    {
+      "name": "python3 cuda_shard_daemon",
+      "mib": 784,
+      "role": "bounded vault after free-HBM receipt"
+    }
+  ],
+  "residual_attempt": {
+    "attempted": false,
+    "verdict": "WAIT_CORRECT",
+    "reason": "Blind spots addressed HIS way: GPU 1 exclusive of second vLLM; vault on GPU 1; fluency measured by shard_read not pointer-tokens. Residual inject still not a kernel."
+  }
+}

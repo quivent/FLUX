@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Ledger — Tea</title>
+  <meta name="description" content="The work that settled on this rig — a Tea ledger of proven rooms, not announcements.">
+  <link rel="stylesheet" href="/tea.css">
+  <script src="/tea-shell.js"></script>
+  <style>
+    main.ledger {
+      width: min(920px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: clamp(36px, 6vw, 72px) 0 120px;
+    }
+    .eyebrow { color: var(--tea); font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; }
+    h1 {
+      margin: 14px 0 0;
+      font: 400 clamp(52px, 8vw, 96px)/.9 var(--serif);
+      letter-spacing: -.05em;
+    }
+    .lede {
+      margin: 22px 0 12px;
+      max-width: 540px;
+      color: var(--soft);
+      font: 400 18px/1.65 var(--serif);
+    }
+    .meta {
+      display: flex; flex-wrap: wrap; gap: 18px;
+      margin: 0 0 40px;
+      color: var(--faint);
+      font: 10px/1.4 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .meta b { color: var(--tea); font-weight: 500; }
+    .entry {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 18px;
+      padding: 28px 0;
+      border-top: 1px solid var(--line);
+    }
+    .entry:first-of-type { border-top: 0; padding-top: 8px; }
+    .num {
+      font: 400 28px/1 var(--serif);
+      color: var(--faint);
+      letter-spacing: -.03em;
+    }
+    .entry.settled .num { color: var(--matcha); }
+    .entry.open .num { color: var(--vermilion); }
+    .entry h2 {
+      margin: 0 0 8px;
+      font: 500 22px/1.2 var(--serif);
+      letter-spacing: -.02em;
+    }
+    .entry p {
+      margin: 0 0 14px;
+      color: var(--soft);
+      font: 400 16px/1.6 var(--serif);
+    }
+    .evidence {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .evidence li {
+      position: relative;
+      padding: 4px 0 4px 16px;
+      color: var(--ink);
+      font: 12px/1.55 var(--mono);
+    }
+    .evidence li::before {
+      content: "";
+      position: absolute;
+      left: 0; top: .7em;
+      width: 6px; height: 1px;
+      background: var(--tea);
+    }
+    .when {
+      display: block;
+      margin-top: 12px;
+      color: var(--faint);
+      font: 10px/1 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .open-head {
+      margin: 56px 0 8px;
+      font: 400 clamp(36px, 5vw, 56px)/.95 var(--serif);
+      letter-spacing: -.04em;
+    }
+    .open-note {
+      margin: 0 0 24px;
+      color: var(--soft);
+      font: 400 16px/1.6 var(--serif);
+      max-width: 36rem;
+    }
+    .next {
+      display: block;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--tea-light);
+      color: var(--ink);
+      font: 12px/1.5 var(--mono);
+      overflow-x: auto;
+    }
+    .empty { color: var(--soft); font: 400 17px/1.6 var(--serif); }
+    @media (max-width: 640px) {
+      .entry { grid-template-columns: 48px 1fr; gap: 10px; }
+      .num { font-size: 22px; }
+    }
+  </style>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/hive">Hive</a>
+    <a href="/ledger" aria-current="page">Ledger</a>
+    <a href="/governor">Governor</a>
+    <a href="/train">Train</a>
+    <a href="/daemons">Daemons</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main class="ledger">
+  <div class="eyebrow" id="eyebrow">Work that settled</div>
+  <h1 id="title">Ledger</h1>
+  <p class="lede" id="lede">What the garden can prove.</p>
+  <div class="meta" id="meta"></div>
+  <section id="settled" aria-label="Settled work"></section>
+  <h2 class="open-head" id="open-title" hidden>Still on the tray</h2>
+  <p class="open-note" id="open-note" hidden>Not failures. Work that has not yet been poured.</p>
+  <section id="open" aria-label="Open work"></section>
+</main>
+<script>
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+  const when = (t) => {
+    if (!t) return "";
+    const d = new Date(t);
+    if (Number.isNaN(d.getTime())) return esc(t);
+    return d.toISOString().replace("T", " · ").replace(/\.\d+Z$/, " Z");
+  };
+  function card(e, kind) {
+    const ev = (e.evidence || []).map((x) => `<li>${esc(x)}</li>`).join("");
+    const next = e.next ? `<code class="next">${esc(e.next)}</code>` : "";
+    return `<article class="entry ${kind}">
+      <div class="num">${esc(e.id || "·")}</div>
+      <div>
+        <h2>${esc(e.title)}</h2>
+        <p>${esc(e.body)}</p>
+        ${ev ? `<ul class="evidence">${ev}</ul>` : ""}
+        ${next}
+        ${e.at ? `<span class="when">${when(e.at)}</span>` : ""}
+      </div>
+    </article>`;
+  }
+  function render(d) {
+    document.getElementById("eyebrow").textContent = d.eyebrow || "Work that settled";
+    document.getElementById("title").textContent = d.title || "Ledger";
+    document.getElementById("lede").textContent = d.lede || "";
+    const bits = [];
+    if (d.updated) bits.push(`<span>Updated <b>${when(d.updated)}</b></span>`);
+    if (d.host) bits.push(`<span>${esc(d.host)}</span>`);
+    bits.push(`<span><b>${(d.entries || []).length}</b> settled</span>`);
+    bits.push(`<span><b>${(d.open || []).length}</b> open</span>`);
+    document.getElementById("meta").innerHTML = bits.join("");
+    document.getElementById("settled").innerHTML = (d.entries || []).map((e) => card(e, "settled")).join("")
+      || `<p class="empty">The tray is empty. Pour the first settlement into ledger.json.</p>`;
+    const open = d.open || [];
+    document.getElementById("open-title").hidden = open.length === 0;
+    document.getElementById("open-note").hidden = open.length === 0;
+    document.getElementById("open").innerHTML = open.map((e) => card(e, "open")).join("");
+  }
+  const paths = ["/api/tea/ledger", "/tea/ledger.json", "/garden/ledger.json"];
+  (async () => {
+    for (const p of paths) {
+      try {
+        const r = await fetch(p, { cache: "no-store" });
+        if (!r.ok) continue;
+        render(await r.json());
+        return;
+      } catch (_) {}
+    }
+    document.getElementById("lede").textContent = "The ledger file could not be read.";
+  })();
+</script>
+</body>
+</html>

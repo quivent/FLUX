@@ -45,5 +45,30 @@ class ProtocolBranch(unittest.TestCase):
         self.assertLess(len(live), ps.MAX_PROTOCOL_BRANCHES)
 
 
+class EquineAnatomyPrompt(unittest.TestCase):
+    def test_structure_prompt_hardens_for_horses(self):
+        import moj_evaluator as moj
+
+        horse = moj.system_prompt_for("structure", prompt="One or a few horses")
+        dress = moj.system_prompt_for("structure", prompt="editorial silk gown")
+        self.assertIn("exactly four", horse)
+        self.assertNotIn("exactly four", dress)
+
+
+class CollectionJuryRouting(unittest.TestCase):
+    def test_silken_horses_job_stays_in_its_collection(self):
+        import jury_evaluator as je
+
+        fashion = "/home/ubuntu/models/flux-output"
+        job = {
+            "filename": "collections/silken-horses/protocol-silken-horses-stream-1-001.png",
+            "output": fashion + "/collections/silken-horses/protocol-silken-horses-stream-1-001.png",
+        }
+        got = je.collection_dir_for_job(job, fashion)
+        self.assertEqual(got, fashion + "/collections/silken-horses")
+        dress = {"filename": "protocol-fashion-001.png", "output": fashion + "/protocol-fashion-001.png"}
+        self.assertEqual(je.collection_dir_for_job(dress, fashion), fashion)
+
+
 if __name__ == "__main__":
     unittest.main()

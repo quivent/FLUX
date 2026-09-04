@@ -11,53 +11,66 @@
     :root{--muted:var(--soft);--green:var(--matcha);--hot:var(--vermilion)}
     *{box-sizing:border-box}
     a{color:inherit;text-decoration:none}
+    body{font-variant-numeric:tabular-nums}
     main{max-width:1600px;margin:0 auto;padding:28px 34px 72px}
-    .mast{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px}
-    .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-family:var(--mono)}
-    h1{font:500 clamp(36px,5vw,64px)/.9 var(--serif);margin:8px 0 0;letter-spacing:-.03em}
-    .status{text-align:right;font-size:11px;color:var(--muted);font-family:var(--mono)}
-    .status b{display:block;color:var(--green);font-weight:500;margin-bottom:4px}
+    .mast{display:grid;grid-template-columns:1fr auto;align-items:end;gap:20px;margin-bottom:26px}
+    .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-family:var(--mono);line-height:1}
+    h1{font:500 56px/.9 var(--serif);margin:8px 0 0;letter-spacing:-.03em}
+    .status{text-align:right;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.45;padding-bottom:4px}
+    .status b{display:block;color:var(--green);font-weight:500}
     .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);margin-right:7px}
-    .summary{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:22px}
-    .metric{background:var(--paper-soft);padding:14px 16px}
-    .metric strong{display:block;font:500 22px/1.15 var(--serif)}
+    .summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:22px}
+    .metric{background:var(--paper-soft);padding:14px 16px;min-height:76px;display:flex;flex-direction:column;justify-content:space-between}
+    .metric strong{display:block;font:500 22px/1.15 var(--serif);min-height:2.3em}
     .metric span{color:var(--muted);font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono)}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .gpu{background:linear-gradient(160deg,var(--paper-subtle),var(--paper));border:1px solid var(--line);padding:22px 22px 18px;min-height:0}
-    .gpu-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
-    .gpu-id{font:600 13px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-    .badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
+    .grid{display:flex;flex-direction:column;gap:16px}
+    .pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;grid-template-rows:repeat(10,auto)}
+    .gpu{display:grid;grid-template-rows:subgrid;grid-row:1/-1;background:linear-gradient(160deg,var(--paper-subtle),var(--paper));border:1px solid var(--line);padding:22px;min-width:0}
+    .gpu-head{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:12px;min-height:18px}
+    .gpu-id{font:600 11px/1.2 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-family:var(--mono);line-height:1}
     .badge.live{color:var(--green)}
-    .work{font:500 clamp(22px,2.2vw,30px)/1.15 var(--serif);margin:0 0 8px}
-    .meta{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:10px;color:var(--green);margin-bottom:10px;font-family:var(--mono)}
+    .work{font:500 26px/1.2 var(--serif);margin:0;min-height:2.4em;display:flex;align-items:flex-end}
+    .meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;font-size:10px;line-height:1.4;color:var(--green);font-family:var(--mono);min-height:1.4em}
     .meta .dim{color:var(--muted)}
-    .brief{margin:0 0 14px;font-size:13px;line-height:1.55;color:var(--soft);max-width:54ch;font-family:var(--serif)}
-    .gauges{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px}
-    .gauge-top{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-family:var(--mono)}
-    .gauge-top b{font:500 22px var(--serif);color:var(--ink);letter-spacing:0;text-transform:none}
-    .track{height:3px;background:var(--paper-subtle)}
+    .brief{margin:0;font-size:13px;line-height:1.5;color:var(--soft);font-family:var(--serif);min-height:4.5em}
+    .flux-seat{margin:0;padding:10px 12px;border:1px solid var(--line);background:var(--card-bg);font-family:var(--mono);font-size:11px;line-height:1.4;min-height:3.2em}
+    .flux-seat b{color:var(--green);font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:9px;display:block;margin-bottom:4px}
+    .gauges{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-self:end}
+    .gauge-top{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-family:var(--mono)}
+    .gauge-top b{font:500 22px/1 var(--serif);color:var(--ink);letter-spacing:0;text-transform:none}
+    .track{height:3px;background:rgba(0,0,0,.18)}
+    body.mode-nocturnal .track{background:rgba(255,255,255,.08)}
     .fill{height:100%;background:var(--matcha)}
     .fill.hot{background:linear-gradient(90deg,var(--gold),var(--hot))}
-    .facts{display:flex;gap:16px;font-size:10px;color:var(--muted);padding:10px 0 12px;font-family:var(--mono)}
+    .stack{display:flex;height:8px;background:rgba(0,0,0,.12);overflow:hidden;align-self:end}
+    .stack i{display:block;height:100%;flex:0 0 auto}
+    .facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:10px;color:var(--muted);font-family:var(--mono);padding:0;border:0;align-self:end}
     .facts b{color:var(--ink);font-weight:500}
-    .flux-seat{margin:0 0 14px;padding:10px 12px;border:1px solid var(--line);background:var(--card-bg);font-family:var(--mono);font-size:11px;line-height:1.45}
-    .flux-seat b{color:var(--green);font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:9px;display:block;margin-bottom:4px}
-    .occ{width:100%;border-collapse:collapse;margin-top:4px}
-    .occ th{text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:0 8px 6px 0;border-bottom:1px solid var(--line)}
-    .occ td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);font-size:12px;vertical-align:top}
-    .occ td.suite{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--gold);white-space:nowrap}
-    .occ td.model{color:var(--ink)}
-    .occ td.model small{display:block;color:var(--muted);font-family:var(--mono);font-size:10px;margin-top:2px}
+    .occ-wrap{min-height:9.5em}
+    .occ{width:100%;border-collapse:collapse;table-layout:fixed}
+    .occ th,.occ td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+    .occ th{text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;padding-top:0}
+    .occ col.s{width:108px}.occ col.v{width:88px}
+    .occ td.suite{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .occ td.model{color:var(--ink);font-size:12px}
+    .occ td.model small{display:block;color:var(--muted);font-family:var(--mono);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .occ td.vram{font-family:var(--mono);font-size:11px;white-space:nowrap;text-align:right;padding-right:0}
-    .stack{display:flex;height:8px;background:var(--paper-subtle);margin:8px 0 4px;overflow:hidden}
-    .stack i{display:block;height:100%}
-    .jobs{margin-top:14px;display:flex;flex-direction:column;gap:6px}
-    .job{display:grid;grid-template-columns:72px 56px 1fr;gap:10px;align-items:baseline;font-size:10px;color:var(--muted);font-family:var(--mono)}
+    .occ td.vram small{display:block;color:var(--muted);margin-top:2px}
+    .jobs{display:flex;flex-direction:column;gap:6px;min-height:3.2em;align-self:end}
+    .job{display:grid;grid-template-columns:84px 48px 1fr;gap:10px;align-items:baseline;font-size:10px;color:var(--muted);font-family:var(--mono)}
     .job b{color:var(--green);font-weight:500;text-transform:uppercase;letter-spacing:.08em}
-    .job span{color:var(--ink)}
+    .job span{color:var(--ink);text-align:right}
     .job em{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .quiet{color:var(--faint);font-size:10px;margin-top:12px;font-family:var(--mono)}
-    @media(max-width:1100px){.summary{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}main{padding-left:18px;padding-right:18px}}
+    .quiet{color:var(--faint);font-size:10px;font-family:var(--mono);margin:0}
+    @media(max-width:1100px){
+      .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .pair{grid-template-columns:1fr;grid-template-rows:none}
+      .gpu{display:flex;flex-direction:column;gap:12px;grid-row:auto}
+      .work,.brief,.occ-wrap,.jobs,.meta,.flux-seat{min-height:0}
+      main{padding-left:18px;padding-right:18px}
+      h1{font-size:42px}
+    }
   </style>
 </head>
 <body class="mode-nocturnal">
@@ -66,6 +79,7 @@
       <div>
         <div class="eyebrow">Observatory</div>
         <h1>The rig</h1>
+        <p class="deck" style="margin:10px 0 0;max-width:54ch;color:var(--muted);font-size:14px"><a href="/rig/compare.html">FP8 vs BF16 fashion</a> — same brief, side by side.</p>
       </div>
       <div class="status"><b id="health">probing…</b><span id="stamp"></span></div>
     </div>
@@ -158,16 +172,17 @@ function gpuCard(g){
     return `<tr>
       <td class="suite">${esc(o.suite)}</td>
       <td class="model">${esc(o.model)}${prec}${path}</td>
-      <td class="vram">${gib(o.memory_mib)}<small style="display:block;color:var(--muted)">${pct} of card</small></td>
+      <td class="vram">${gib(o.memory_mib)}<small>${pct} of card</small></td>
     </tr>`;
   }).join('');
-  const fluxBlock=flux?`<div class="flux-seat"><b>FLUX on this card</b>${esc(flux.model||'FLUX.1-dev')} · ${esc(flux.precision||'')} · ${gib(flux.memory_mib||0)} · ${esc(flux.socket||('flux-gpu'+g.index+'.sock'))}</div>`:
-    `<div class="flux-seat"><b>FLUX on this card</b>none — this seat is not a FLUX worker</div>`;
+  const fluxBlock=flux
+    ? `<div class="flux-seat"><b>FLUX on this card</b>${esc(flux.model||'FLUX.1-dev')} · ${esc(flux.precision||'')} · ${gib(flux.memory_mib||0)} · ${esc(flux.socket||('flux-gpu'+g.index+'.sock'))}</div>`
+    : `<div class="flux-seat"><b>FLUX on this card</b>none — this seat is not a FLUX worker</div>`;
   return `<article class="gpu">
     <div class="gpu-head"><div class="gpu-id">GPU ${g.index} · ${esc((g.name||'').replace('NVIDIA ',''))}</div><span class="badge ${flux||worker.loaded?'live':''}">${badge}</span></div>
     <h2 class="work">${esc(g.performing||'Unknown')}</h2>
-    <div class="meta">${meta.join('')}</div>
-    ${g.brief?`<p class="brief">${esc(g.brief)}</p>`:''}
+    <div class="meta">${meta.join('')||'&nbsp;'}</div>
+    <p class="brief">${g.brief?esc(g.brief):''}</p>
     ${fluxBlock}
     <div class="gauges">
       <div><div class="gauge-top"><span>Compute</span><b>${Math.round(g.compute_percent)}%</b></div><div class="track"><div class="fill ${g.compute_percent>90?'hot':''}" style="width:${g.compute_percent}%"></div></div></div>
@@ -175,34 +190,58 @@ function gpuCard(g){
     </div>
     <div class="stack">${stack}</div>
     <div class="facts"><span><b>${gib(g.memory_free_mib)}</b> free</span><span><b>${Math.round(g.temperature_c)}°C</b></span><span><b>${Math.round(g.power_w)} W</b></span></div>
-    ${rows?`<table class="occ"><thead><tr><th>Suite</th><th>Model</th><th>VRAM</th></tr></thead><tbody>${rows}</tbody></table>`:'<p class="quiet">No CUDA occupants reported.</p>'}
-    ${jobs?`<div class="jobs">${jobs}</div>`:''}
+    <div class="occ-wrap">${rows?`<table class="occ"><colgroup><col class="s"><col><col class="v"></colgroup><thead><tr><th>Suite</th><th>Model</th><th>VRAM</th></tr></thead><tbody>${rows}</tbody></table>`:'<p class="quiet">No CUDA occupants reported.</p>'}</div>
+    <div class="jobs">${jobs||''}</div>
   </article>`;
 }
-async function refresh(){
-  try{
-    const r=await fetch('/api/rig',{cache:'no-store'}), d=await r.json();
-    if(!d.ok) throw Error(d.error);
-    const gs=d.gpus||[], c=d.capacity||{};
-    document.getElementById('grid').innerHTML=gs.map(gpuCard).join('');
-    document.getElementById('gpuCount').textContent=gs.length;
-    document.getElementById('avgCompute').textContent=(gs.reduce((n,g)=>n+g.compute_percent,0)/Math.max(gs.length,1)).toFixed(0)+'%';
-    document.getElementById('freeVram').textContent=gib(c.vram_free_mib);
-    const flux=gs.map(g=>{
-      const f=fluxOf(g);
-      return f?('GPU '+g.index+' '+(f.precision||'')).trim():null;
-    }).filter(Boolean);
-    document.getElementById('fluxSeats').textContent=flux.length?flux.join(' · '):'none';
-    document.getElementById('freeRam').textContent=bytesGiB(c.ram_available_bytes);
-    document.getElementById('freeDisk').textContent=bytesGiB(c.disk_available_bytes);
-    document.getElementById('health').innerHTML='<span class="dot"></span>'+esc(d.host)+' online';
-    document.getElementById('stamp').textContent='Updated '+new Date(d.updated_at).toLocaleTimeString();
-  }catch(e){
-    document.getElementById('health').textContent='telemetry unavailable';
-    document.getElementById('stamp').textContent=e.message;
+function pairCards(gs){
+  const out=[];
+  for(let i=0;i<gs.length;i+=2){
+    out.push(`<div class="pair">${gpuCard(gs[i])}${gs[i+1]?gpuCard(gs[i+1]):'<article class="gpu"></article>'}</div>`);
   }
+  return out.join('');
 }
-refresh(); setInterval(refresh, 3000);
+function applyRig(d){
+  if(!d||d.ok===false) throw Error((d&&d.error)||'bad snapshot');
+  const gs=d.gpus||[], c=d.capacity||{};
+  document.getElementById('grid').innerHTML=pairCards(gs);
+  document.getElementById('gpuCount').textContent=gs.length;
+  document.getElementById('avgCompute').textContent=(gs.reduce((n,g)=>n+g.compute_percent,0)/Math.max(gs.length,1)).toFixed(0)+'%';
+  document.getElementById('freeVram').textContent=gib(c.vram_free_mib);
+  const flux=gs.map(g=>{
+    const f=fluxOf(g);
+    return f?('GPU '+g.index+' '+(f.precision||'')).trim():null;
+  }).filter(Boolean);
+  document.getElementById('fluxSeats').textContent=flux.length?flux.join(' · ').replace(/GPU /g,''):'none';
+  document.getElementById('freeRam').textContent=bytesGiB(c.ram_available_bytes);
+  document.getElementById('freeDisk').textContent=bytesGiB(c.disk_available_bytes);
+  document.getElementById('health').innerHTML='<span class="dot"></span>'+esc(d.host)+' live';
+  document.getElementById('stamp').textContent='Updated '+new Date(d.updated_at).toLocaleTimeString();
+}
+function connectRig(){
+  const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/rig/ws';
+  let retries=0;
+  const open=()=>{
+    const ws=new WebSocket(url);
+    ws.onopen=()=>{retries=0};
+    ws.onmessage=e=>{
+      try{ applyRig(JSON.parse(e.data)); }
+      catch(err){
+        document.getElementById('health').textContent='telemetry unavailable';
+        document.getElementById('stamp').textContent=err.message;
+      }
+    };
+    ws.onerror=()=>ws.close();
+    ws.onclose=()=>{
+      document.getElementById('health').textContent='reconnecting';
+      const delay=Math.min(1000*2**retries,8000)+Math.random()*200;
+      retries++;
+      setTimeout(open, delay);
+    };
+  };
+  open();
+}
+connectRig();
 </script>
 </body>
 </html>

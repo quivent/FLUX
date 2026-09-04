@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Hive · Tea</title>
+  <meta name="description" content="Tea hive desk — ranked charters, live Qwen–Governor discourse, and gated outcomes on GPU 1.">
+  <link rel="stylesheet" href="/tea/tea.css">
+  <script src="/tea/tea-shell.js"></script>
+  <style>
+    main.hive {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 24px clamp(16px, 3vw, 36px) 80px;
+    }
+    .mast { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 18px; }
+    .kicker { font: 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--tea); }
+    h1 { font: 500 clamp(36px, 5vw, 64px)/.9 var(--serif); letter-spacing: -.04em; margin: 8px 0 8px; }
+    .lede { font: 400 16px/1.55 var(--serif); color: var(--soft); max-width: 46rem; margin: 0; }
+    .lede a { color: var(--tea); }
+    .note { font: 11px/1.5 var(--mono); color: var(--faint); max-width: 28rem; text-align: right; }
+    .note a { color: var(--tea); }
+    .pulse {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0 0 18px;
+    }
+    .pulse a, .pulse button {
+      display: block; width: 100%; text-align: left;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card-bg);
+      padding: 12px 14px;
+      color: inherit; text-decoration: none; cursor: pointer;
+      font: inherit;
+    }
+    .pulse a:hover, .pulse button:hover { border-color: var(--line-hover); background: var(--card-bg-hover); }
+    .pulse b { display: block; font: 500 22px/1.1 var(--serif); color: var(--ink); }
+    .pulse span { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+    .board {
+      display: grid;
+      grid-template-columns: minmax(260px, .78fr) minmax(0, 1.2fr) minmax(280px, .92fr);
+      gap: 16px;
+      min-height: 72vh;
+      align-items: stretch;
+    }
+    .col {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card-bg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .col h2 {
+      margin: 0;
+      padding: 12px 14px;
+      font: 10px/1 var(--mono);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--tea);
+      border-bottom: 1px solid var(--line);
+    }
+    .col h2 a { color: inherit; text-decoration: none; }
+    .col h2 a:hover { color: var(--ink); }
+    .scroll { flex: 1; overflow-y: auto; padding: 10px 12px 18px; }
+    .charter {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 8px;
+      padding: 10px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 0;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+    }
+    .charter:hover { background: var(--paper-subtle); }
+    .charter.on { background: var(--tea-light); box-shadow: inset 0 0 0 1px rgba(121,88,62,.25); }
+    .charter .rank { font: 500 18px var(--serif); color: var(--faint); padding-top: 2px; }
+    .charter b { display: block; font: 500 14px/1.25 var(--serif); color: var(--ink); }
+    .charter small { font: 10px var(--mono); color: var(--faint); }
+    .charter p { margin: 6px 0 0; font: 400 13px/1.45 var(--serif); color: var(--soft); }
+    .charter .more { display: none; margin-top: 8px; font: 400 12.5px/1.5 var(--serif); color: var(--soft); }
+    .charter.on .more { display: block; }
+    .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .btn {
+      appearance: none; border: 1px solid var(--line); background: var(--card-bg);
+      color: var(--ink); border-radius: 999px; padding: 5px 10px;
+      font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+      cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    .btn:hover { border-color: var(--line-hover); background: var(--paper-subtle); }
+    .btn.primary { background: var(--tea); border-color: var(--tea); color: #f7f3ea; }
+    .who { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 12px 0 6px; }
+    .bubble {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin: 0 0 8px;
+      background: var(--paper-soft);
+      font: 400 13.5px/1.5 var(--serif);
+      color: var(--ink);
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+    .bubble.qwen { border-left: 3px solid var(--gold); }
+    .bubble.gov { border-left: 3px solid var(--tea); cursor: default; }
+    .bubble.merge { border-left: 3px solid var(--matcha); cursor: default; }
+    .bubble:hover { border-color: var(--line-hover); }
+    .bubble.on { box-shadow: inset 0 0 0 1px rgba(121,88,62,.35); background: var(--tea-light); }
+    .bubble.rejected { opacity: .72; }
+    .bubble em { font-style: normal; font: 10px var(--mono); color: var(--tea); letter-spacing: .08em; }
+    .extra { display: none; margin-top: 8px; color: var(--soft); font: 400 13px/1.5 var(--serif); }
+    .bubble.on .extra { display: block; }
+    .chip {
+      display: inline-block;
+      font: 10px var(--mono);
+      letter-spacing: .06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      margin: 0 4px 4px 0;
+      color: var(--soft);
+      background: transparent;
+      cursor: pointer;
+    }
+    .chip:hover { border-color: var(--line-hover); color: var(--ink); }
+    .chip.ok { color: var(--matcha); background: var(--matcha-light); }
+    .chip.no { color: var(--vermilion); background: var(--vermilion-light); }
+    .chip.on { box-shadow: inset 0 0 0 1px currentColor; }
+    .tick {
+      display: block; width: 100%; text-align: left;
+      border: 0; background: transparent; color: inherit;
+      padding: 8px 6px; border-radius: 8px; cursor: pointer;
+      font: 11px var(--mono); color: var(--soft);
+    }
+    .tick:hover, .tick.on { background: var(--tea-light); color: var(--ink); }
+    .shard {
+      font: 11px/1.45 var(--mono); color: var(--soft);
+      padding: 8px 6px; border-bottom: 1px solid var(--line);
+      display: grid; grid-template-columns: 72px 1fr 64px; gap: 8px;
+      width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0;
+      background: transparent; cursor: pointer; border-radius: 8px;
+    }
+    .shard:hover, .shard.on { background: var(--tea-light); }
+    .shard em { font-style: normal; color: var(--ink); }
+    .shard .extra { grid-column: 1 / -1; }
+    .status { font: 11px var(--mono); color: var(--faint); padding: 0 14px 10px; }
+    .status a { color: var(--tea); }
+    .status.ok { color: var(--matcha); }
+    .status.bad { color: var(--vermilion); }
+    .reason { font: 400 14px/1.5 var(--serif); color: var(--ink); margin: 0 0 10px; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: var(--paper); font: 11px var(--mono);
+      padding: 8px 14px; border-radius: 999px; opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+      z-index: 40;
+    }
+    .toast.show { opacity: 1; }
+    .log {
+      display: none;
+      margin-top: 10px;
+      max-height: 10rem;
+      overflow: auto;
+      font: 10px/1.45 var(--mono);
+      color: var(--faint);
+      white-space: pre-wrap;
+    }
+    .log.open { display: block; }
+    @media (max-width: 1100px) {
+      .board, .pulse { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea"><a href="/hive" aria-current="page">Hive</a></nav>
+</header>
+<main class="hive">
+  <div class="mast">
+    <div>
+      <div class="kicker">Colony desk · GPU 1 Governor · GPU 2 Qwen</div>
+      <h1>Hive</h1>
+      <p class="lede" id="lede">Ranked charters, the live discourse, and what the Governor actually gated. Exclusive question: move Gemma and Qwen out of weights and text context into spectral vectors, residuals, and VRAM shards.</p>
+    </div>
+    <p class="note">Not the jury mix at <a href="/desk/hive">/desk/hive</a>. This is the research comb. Protocol: <a href="/train">/train</a>. Cards: <a href="/rig">/rig</a>.</p>
+  </div>
+  <div class="pulse" id="pulse"></div>
+  <div class="board">
+    <section class="col">
+      <h2><a href="/charters">Charters</a></h2>
+      <div class="status" id="charterStatus">reading the comb…</div>
+      <div class="scroll" id="charters"></div>
+    </section>
+    <section class="col">
+      <h2><a href="/train">Discourse</a></h2>
+      <div class="status" id="discStatus">waiting on a tick…</div>
+      <div class="scroll" id="discourse"></div>
+    </section>
+    <section class="col">
+      <h2><a href="/train">Outcomes</a></h2>
+      <div class="status" id="outStatus">—</div>
+      <div class="scroll" id="outcomes"></div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" hidden></div>
+<script>
+const CHARTER_KIND = {
+  "spectral-externalization": "",
+  "pointer-token-reservation": "spectral",
+  "kvx-decode-injection": "vram-shard",
+  "residual-capture-gpu1": "residual",
+  "gpu1-vault-hbm": "vram-shard",
+  "shard-reasoning-loop": "vram-shard",
+  "spectral-cartridge-manufacture": "spectral",
+  "context-retirement-ledger": "residual",
+  "qwen-forage-shards": "spectral"
+};
+const KIND_TICK = { spectral: "spectral", residual: "residual", "vram-shard": "vram" };
+
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+let DATA = {};
+let UI = { tick: "", kind: "", charter: "", focus: "", shard: "", log: false };
+let toastTimer = 0;
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.hidden = false;
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1600);
+}
+function copy(text) {
+  const t = String(text || "");
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(() => toast("copied"), () => toast(t));
+}
+function hashWrite() {
+  const q = [];
+  if (UI.tick) q.push("tick=" + encodeURIComponent(UI.tick));
+  if (UI.kind) q.push("kind=" + encodeURIComponent(UI.kind));
+  if (UI.charter) q.push("charter=" + encodeURIComponent(UI.charter));
+  if (UI.focus) q.push("scout=" + encodeURIComponent(UI.focus));
+  const next = q.length ? "#" + q.join("&") : "";
+  if (location.hash !== next) history.replaceState(null, "", location.pathname + next);
+}
+function hashRead() {
+  const h = (location.hash || "").replace(/^#/, "");
+  if (!h) return;
+  h.split("&").forEach(part => {
+    const [k, v] = part.split("=");
+    if (k === "tick") UI.tick = decodeURIComponent(v || "");
+    if (k === "kind") UI.kind = decodeURIComponent(v || "");
+    if (k === "charter") UI.charter = decodeURIComponent(v || "");
+    if (k === "scout") UI.focus = decodeURIComponent(v || "");
+  });
+}
+function selectScout(id) {
+  UI.focus = id || "";
+  hashWrite();
+  document.querySelectorAll(".bubble.qwen").forEach(el => {
+    el.classList.toggle("on", el.dataset.id === UI.focus);
+  });
+  document.querySelectorAll(".chip[data-scout]").forEach(el => {
+    el.classList.toggle("on", el.dataset.scout === UI.focus);
+  });
+  if (!UI.focus) return;
+  const card = document.querySelector('.bubble.qwen[data-id="' + UI.focus.replace(/"/g, "") + '"]');
+  if (card) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function pulse(d) {
+  const st = d.state || {};
+  const hats = d.hats || {};
+  const g = hats.governor || {};
+  const q = hats.qwen || {};
+  const phase = st.phase || "—";
+  const kind = KIND_TICK.spectral && phase.indexOf("residual") >= 0 ? "residual"
+    : phase.indexOf("vram") >= 0 ? "vram-shard" : "spectral";
+  document.getElementById("pulse").innerHTML =
+    "<a href=\"/train\"><b>" + esc(d.alive ? "live" : "stopped") + "</b><span>drive · /train</span></a>" +
+    "<button type=\"button\" data-act=\"ticks\"><b>" + esc(st.tick ?? "—") + "</b><span>tick · outcomes</span></button>" +
+    "<button type=\"button\" data-act=\"kind\" data-kind=\"" + esc(kind) + "\"><b>" + esc(phase) + "</b><span>phase · discourse</span></button>" +
+    "<button type=\"button\" data-act=\"log\"><b>" + esc((st.ticks_ok ?? "—") + "/" + (st.ticks_fail ?? "—")) + "</b><span>ok / fail · log</span></button>" +
+    "<a href=\"/governor\"><b>" + esc((g.port ? ":" + g.port : ":8800") + " / :" + (q.port || "8002")) + "</b><span>gov · talk</span></a>";
+  document.getElementById("pulse").querySelectorAll("[data-act]").forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.act === "ticks") {
+        document.getElementById("outcomes").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (btn.dataset.act === "kind") {
+        UI.kind = btn.dataset.kind || "";
+        UI.tick = "";
+        hashWrite();
+        load();
+      }
+      if (btn.dataset.act === "log") {
+        UI.log = !UI.log;
+        const log = document.getElementById("eventLog");
+        if (log) log.classList.toggle("open", UI.log);
+        else {
+          document.getElementById("outcomes").scrollIntoView({ behavior: "smooth" });
+          load();
+        }
+      }
+    };
+  });
+}
+
+function renderCharters(list) {
+  const box = document.getElementById("charters");
+  const rows = list || [];
+  document.getElementById("charterStatus").innerHTML = rows.length + " active · <a href=\"/charters\">full queue</a>";
+  box.innerHTML = rows.map(c => {
+    const on = UI.charter === c.id ? " on" : "";
+    return "<button class=\"charter" + on + "\" data-id=\"" + esc(c.id) + "\" type=\"button\">" +
+      "<div class=\"rank\">" + String(c.rank || c.sequence || "").padStart(2, "0") + "</div>" +
+      "<div><b>" + esc(c.title) + "</b><small>" + esc(c.id) + " · " + esc(c.priority) + "</small>" +
+      "<p>" + esc(c.summary || "") + "</p>" +
+      "<div class=\"more\"><strong>Done when</strong> " + esc(c.done_when || "—") +
+      (c.verify ? "<br><strong>Verify</strong> " + esc(c.verify) : "") +
+      "<div class=\"acts\">" +
+        "<span class=\"btn primary\" data-go=\"discourse\">Show discourse</span>" +
+        "<a class=\"btn\" href=\"/train\">Train</a>" +
+        "<span class=\"btn\" data-go=\"copy\">Copy id</span>" +
+      "</div></div></div></button>";
+  }).join("") || "<p class=\"reason\">No active charters.</p>";
+  box.querySelectorAll(".charter").forEach(el => {
+    el.onclick = (e) => {
+      const go = e.target && e.target.getAttribute && e.target.getAttribute("data-go");
+      const id = el.dataset.id;
+      if (go === "copy") { e.stopPropagation(); copy(id); return; }
+      UI.charter = UI.charter === id && go !== "discourse" ? "" : id;
+      const mapped = CHARTER_KIND[id];
+      if (mapped !== undefined) {
+        UI.kind = mapped;
+        UI.tick = "";
+      }
+      hashWrite();
+      if (go === "discourse") {
+        document.getElementById("discourse").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      load();
+    };
+  });
+}
+
+function forageCard(row, gov) {
+  const id = String(row.id || "scout");
+  const retires = Array.isArray(row.retires) ? row.retires : (row.retires ? [row.retires] : []);
+  const accepted = (gov.accept || []).map(String).includes(id);
+  const rejected = (gov.reject || []).map(String).includes(id);
+  const cls = "bubble qwen" + (UI.focus === id ? " on" : "") + (rejected ? " rejected" : "");
+  const mark = accepted ? " · accepted" : rejected ? " · rejected" : "";
+  return "<button type=\"button\" class=\"" + cls + "\" data-id=\"" + esc(id) + "\">" +
+    "<em>" + esc(id) + mark + "</em> " + esc(row.candidate || "") +
+    (row.why_fluent ? "<div style=\"margin-top:6px;color:var(--soft)\">" + esc(row.why_fluent) + "</div>" : "") +
+    (retires.length ? "<div style=\"margin-top:6px\">" + retires.slice(0, 6).map(x =>
+      "<span class=\"chip\" data-copy=\"" + esc(x) + "\">" + esc(x) + "</span>").join("") + "</div>" : "") +
+    "<div class=\"extra\">" +
+      (row.why_not ? "<div><strong>Why not</strong> " + esc(row.why_not) + "</div>" : "") +
+      (row.pointer ? "<div><strong>Pointer</strong> " + esc(row.pointer) + "</div>" : "") +
+      (row.confidence != null ? "<div><strong>Confidence</strong> " + esc(row.confidence) + "</div>" : "") +
+      "<div class=\"acts\"><span class=\"btn\" data-copy=\"" + esc(id) + "\">Copy id</span></div>" +
+    "</div></button>";
+}
+
+function renderDiscourse(d) {
+  const disc = (d && d.discourse) || {};
+  const kind = disc.kind || d.kind || "spectral";
+  const charter = disc.charter || d.charter || "";
+  document.getElementById("discStatus").className = "status ok";
+  document.getElementById("discStatus").innerHTML =
+    "<a href=\"/train\">" + esc(kind) + "</a> · " + esc(charter) + " · Qwen forages, Governor gates";
+  const qwen = disc.qwen || [];
+  const merge = disc.merge || {};
+  const gov = disc.governor || {};
+  const tick = (disc.tick || {}).body || "";
+  const keep = Array.isArray(merge.keep) ? merge.keep : [];
+  const drop = Array.isArray(merge.drop) ? merge.drop : [];
+  const keepIds = keep.map(x => typeof x === "string" ? x : (x && x.id) || "");
+  const dropIds = drop.map(x => typeof x === "string" ? x : (x && x.id) || "");
+  let html = "";
+  html += "<div class=\"who\">Qwen-wide · GPU 2 forage · click a scout</div>";
+  html += qwen.length ? qwen.map(row => forageCard(row, gov)).join("") : "<div class=\"bubble qwen\">No forage rows yet.</div>";
+  html += "<div class=\"who\">Qwen-long · pack (same weights)</div>";
+  html += "<div class=\"bubble merge\">keep " + keepIds.map(id =>
+    "<span class=\"chip ok\" data-scout=\"" + esc(id) + "\">" + esc(id) + "</span>").join(" ") +
+    (dropIds.length ? " · drop " + dropIds.map(id =>
+      "<span class=\"chip no\" data-scout=\"" + esc(id) + "\">" + esc(id) + "</span>").join(" ") : "") +
+    "</div>";
+  html += "<div class=\"who\">Governor · GPU 1 verdict · <a href=\"/governor\">talk</a></div>";
+  html += "<div class=\"bubble gov\"><div class=\"reason\">" + esc(gov.reason || "Waiting on a gate.") + "</div>";
+  (gov.accept || []).forEach(id => { html += "<button type=\"button\" class=\"chip ok\" data-scout=\"" + esc(id) + "\">accept " + esc(id) + "</button>"; });
+  (gov.reject || []).forEach(id => { html += "<button type=\"button\" class=\"chip no\" data-scout=\"" + esc(id) + "\">reject " + esc(id) + "</button>"; });
+  (gov.rework || []).forEach(id => { html += "<button type=\"button\" class=\"chip\" data-scout=\"" + esc(id) + "\">rework " + esc(id) + "</button>"; });
+  html += "<div class=\"acts\"><a class=\"btn\" href=\"/governor\">Ask Governor</a><a class=\"btn\" href=\"/train\">Open train</a></div></div>";
+  if (tick) {
+    html += "<div class=\"who\">Tick artifact · click to copy</div><button type=\"button\" class=\"bubble\" data-copy-body=\"1\">" + esc(tick.slice(0, 1800)) + "</button>";
+  }
+  const box = document.getElementById("discourse");
+  box.innerHTML = html;
+  box.querySelectorAll(".bubble.qwen").forEach(el => {
+    el.onclick = (e) => {
+      if (e.target && e.target.dataset && e.target.dataset.copy) { e.stopPropagation(); copy(e.target.dataset.copy); return; }
+      selectScout(el.dataset.id === UI.focus ? "" : el.dataset.id);
+    };
+  });
+  box.querySelectorAll("[data-scout]").forEach(el => {
+    el.onclick = (e) => { e.stopPropagation(); selectScout(el.dataset.scout); };
+  });
+  box.querySelectorAll("[data-copy]").forEach(el => {
+    el.onclick = (e) => { e.stopPropagation(); copy(el.dataset.copy); };
+  });
+  const art = box.querySelector("[data-copy-body]");
+  if (art) art.onclick = () => copy(tick);
+  if (UI.focus) selectScout(UI.focus);
+}
+
+function renderOutcomes(d) {
+  const out = (d && d.outcomes) || {};
+  const v = out.verdict || {};
+  const last = out.last || {};
+  const file = last.artifact ? last.artifact.split("/").pop() : "";
+  document.getElementById("outStatus").innerHTML = file
+    ? "<a href=\"#tick=" + esc((file.replace(/^tick-/, "").replace(/\.md$/, ""))) + "\">" + esc(file) + "</a>"
+    : "no artifact yet";
+  let html = "";
+  html += "<div class=\"who\">Last gate</div>";
+  html += "<div class=\"reason\">" + esc(v.reason || "—") + "</div>";
+  const flu = v.fluency || {};
+  html += "<button type=\"button\" class=\"chip " + (flu.pointer_ok ? "ok" : "no") + "\" data-kind=\"spectral\">pointer</button>";
+  html += "<button type=\"button\" class=\"chip " + (flu.residual_match ? "ok" : "no") + "\" data-kind=\"residual\">residual</button>";
+  html += "<button type=\"button\" class=\"chip " + ((flu.no_prose_restatement || flu.no_prose) ? "ok" : "no") + "\" data-go=\"train\">no prose</button>";
+  const retire = v.retire || [];
+  if (retire.length) {
+    html += "<div class=\"who\">Named for retirement · click to copy</div>";
+    html += retire.slice(0, 16).map(x => "<button type=\"button\" class=\"chip\" data-copy=\"" + esc(x) + "\">" + esc(x) + "</button>").join("");
+  }
+  const shards = (out.shards && out.shards.shards) || [];
+  html += "<div class=\"who\">Shard ledger · click a row</div>";
+  html += shards.map(s => {
+    const id = String(s.id || s.pointer || "");
+    const on = UI.shard === id ? " on" : "";
+    return "<button type=\"button\" class=\"shard" + on + "\" data-shard=\"" + esc(id) + "\">" +
+      "<em>" + esc(s.pointer || s.id) + "</em><span>" + esc(s.name || s.id) + "</span><span>" + esc(s.fluency || "candidate") + "</span>" +
+      "<div class=\"extra\">kind " + esc(s.kind) + " · retires " + esc(s.retires || "—") +
+      "<div class=\"acts\"><a class=\"btn\" href=\"/train\">Train</a><span class=\"btn\" data-copy=\"" + esc(s.pointer || id) + "\">Copy pointer</span></div></div></button>";
+  }).join("") || "<div class=\"bubble\">no shards</div>";
+  const ticks = d.ticks || out.ticks || [];
+  html += "<div class=\"who\">Recent ticks · click to load discourse</div>";
+  html += ticks.map(t =>
+    "<button class=\"tick" + (UI.tick && (t.id === UI.tick || t.file === UI.tick) ? " on" : "") + "\" data-id=\"" + esc(t.id) + "\" type=\"button\">" + esc(t.id) + "</button>"
+  ).join("");
+  const rec = d.recent || [];
+  html += "<div class=\"who\">Drive log</div>";
+  html += "<button type=\"button\" class=\"btn\" data-act=\"log\">" + (UI.log ? "Hide" : "Show") + " events</button>";
+  html += "<div class=\"log" + (UI.log ? " open" : "") + "\" id=\"eventLog\">" + rec.slice().reverse().map(ev => {
+    const t = (ev.ts || "").replace("T", " ").replace("Z", "");
+    return esc(t) + "  " + esc(ev.event) + (ev.phase ? "  " + esc(ev.phase) : "") + (ev.tick != null ? " #" + ev.tick : "");
+  }).join("\n") + "</div>";
+  const box = document.getElementById("outcomes");
+  box.innerHTML = html;
+  box.querySelectorAll(".tick").forEach(btn => {
+    btn.onclick = () => {
+      UI.tick = btn.dataset.id;
+      UI.kind = "";
+      hashWrite();
+      load();
+      document.getElementById("discourse").scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+  });
+  box.querySelectorAll(".shard").forEach(el => {
+    el.onclick = (e) => {
+      if (e.target && e.target.dataset && e.target.dataset.copy) { e.stopPropagation(); copy(e.target.dataset.copy); return; }
+      UI.shard = UI.shard === el.dataset.shard ? "" : el.dataset.shard;
+      renderOutcomes(DATA);
+    };
+  });
+  box.querySelectorAll("[data-copy]").forEach(el => {
+    el.onclick = (e) => { e.stopPropagation(); copy(el.dataset.copy); };
+  });
+  box.querySelectorAll("[data-kind]").forEach(el => {
+    el.onclick = () => { UI.kind = el.dataset.kind; UI.tick = ""; hashWrite(); load(); };
+  });
+  box.querySelector("[data-go=\"train\"]") && (box.querySelector("[data-go=\"train\"]").onclick = () => { location.href = "/train"; });
+  box.querySelector("[data-act=\"log\"]") && (box.querySelector("[data-act=\"log\"]").onclick = () => {
+    UI.log = !UI.log;
+    document.getElementById("eventLog").classList.toggle("open", UI.log);
+    box.querySelector("[data-act=\"log\"]").textContent = UI.log ? "Hide events" : "Show events";
+  });
+}
+
+async function load() {
+  const q = [];
+  if (UI.tick) q.push("tick=" + encodeURIComponent(UI.tick));
+  if (UI.kind) q.push("kind=" + encodeURIComponent(UI.kind));
+  const url = "/api/hive" + (q.length ? "?" + q.join("&") : "");
+  const r = await fetch(url, { cache: "no-store" });
+  DATA = await r.json();
+  if (DATA.question) {
+    document.getElementById("lede").innerHTML = esc(DATA.question) +
+      " <a href=\"/train\">Train room</a> · <a href=\"/governor\">Governor</a> · <a href=\"/rig\">Rig</a>.";
+  }
+  pulse(DATA);
+  renderCharters(DATA.charters);
+  renderDiscourse(DATA);
+  renderOutcomes(DATA);
+}
+
+hashRead();
+load();
+setInterval(() => { if (!document.hidden) load(); }, 4000);
+window.addEventListener("hashchange", () => { hashRead(); load(); });
+</script>
+</body>
+</html>

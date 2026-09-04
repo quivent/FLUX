@@ -24,7 +24,7 @@ func TestBuiltinStudiosAreDisjoint(t *testing.T) {
 	}
 }
 
-func TestStudiosAPIListsFashionAndMicrogreens(t *testing.T) {
+func TestStudiosAPIListsFashionMicrogreensAndHorses(t *testing.T) {
 	s := Server{cfg: config.Config{Root: t.TempDir(), OutputDir: t.TempDir()}}
 	rec := httptest.NewRecorder()
 	s.studiosAPI(rec, httptest.NewRequest(http.MethodGet, "/api/studios", nil))
@@ -41,11 +41,14 @@ func TestStudiosAPIListsFashionAndMicrogreens(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if len(payload.Studios) != 2 {
+	if len(payload.Studios) != 3 {
 		t.Fatalf("studios %+v", payload.Studios)
 	}
-	got := payload.Studios[0].Slug + payload.Studios[1].Slug
-	if !strings.Contains(got, "fashion") || !strings.Contains(got, "microgreens") {
+	got := ""
+	for _, st := range payload.Studios {
+		got += st.Slug + " "
+	}
+	if !strings.Contains(got, "fashion") || !strings.Contains(got, "microgreens") || !strings.Contains(got, "silken-horses") {
 		t.Fatalf("missing studios %s", got)
 	}
 }
@@ -74,5 +77,11 @@ func TestRecentImagesKeepsMicrogreensOffFashion(t *testing.T) {
 	}
 	if recentAssetAllowed("microgreens", "protocol-fashion-stream-001.png") {
 		t.Fatal("microgreens wall listed fashion")
+	}
+	if !recentAssetAllowed("silken-horses", "collections/silken-horses/protocol-silken-horses-001.png") {
+		t.Fatal("silken-horses wall missing its own frame")
+	}
+	if recentAssetAllowed("fashion", "collections/silken-horses/protocol-silken-horses-001.png") {
+		t.Fatal("fashion wall listed a horse frame")
 	}
 }

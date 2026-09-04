@@ -1,0 +1,356 @@
+{
+  "updated": "2026-09-04T23:29:27Z",
+  "gpu": 1,
+  "vault_note": "GPU 1 holds the serving Governor at ~58 GiB (util 0.6). ~40 GiB remains for a vault. Do not OOM the engine. Shards below are gated candidates until fluency receipts exist.",
+  "pointer_range": [
+    128000,
+    128512
+  ],
+  "shards": [
+    {
+      "id": "SPEC-12",
+      "kind": "spectral",
+      "name": "Non-Narrative Discipline",
+      "pointer": 128011,
+      "weight": 0.6,
+      "fluency": "gated",
+      "retires": "anti-fluff paragraphs in system prompts",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPEC-18",
+      "kind": "spectral",
+      "name": "Attention Focus Sharpening",
+      "pointer": 128017,
+      "weight": 0.7,
+      "fluency": "gated",
+      "retires": "attention / stay-on-target reminders",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPEC-20",
+      "kind": "spectral",
+      "name": "RII Identity Anchor",
+      "pointer": 128019,
+      "weight": 0.8,
+      "fluency": "gated",
+      "retires": "identity restatements at the top of every turn",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPEC-25",
+      "kind": "spectral",
+      "name": "Socratic Expansion",
+      "pointer": 128024,
+      "weight": 0.5,
+      "fluency": "gated",
+      "retires": "ask-first ceremony pasted into context",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-APPRENTICE",
+      "kind": "residual",
+      "name": "Operating-culture residual",
+      "pointer": 128384,
+      "bands": 128,
+      "hidden": 5376,
+      "layers": "17 (full attention)",
+      "fluency": "gated",
+      "retires": "governor-core-v1 lesson text in the window",
+      "pointer_ok": false,
+      "residual_match": true,
+      "no_prose": false,
+      "live_capture": true,
+      "norm": 276.4139,
+      "source": "chatcmpl-9d68a3489cf99d47-85699184.safetensors"
+    },
+    {
+      "id": "KVX-REASON-V1",
+      "kind": "vram-shard",
+      "name": "Shard reasoning protocol",
+      "pointer": 128128,
+      "format": "KVX",
+      "fluency": "gated",
+      "retires": "the seven-step reasoning protocol as prose",
+      "pointer_ok": true,
+      "residual_match": false,
+      "no_prose": true
+    },
+    {
+      "id": "SPE-s10-t539",
+      "kind": "spectral",
+      "name": "residual-spectral-projection",
+      "pointer": 128240,
+      "fluency": "gated",
+      "retires": "text-context-weight-embedding",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPE-s12-t539",
+      "kind": "spectral",
+      "name": "spectral-cartridge-manufacture",
+      "pointer": 128000,
+      "fluency": "gated",
+      "retires": "text-context-weights",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPE-s8-t539",
+      "kind": "spectral",
+      "name": "spectral-cartridge-manufacture",
+      "pointer": 128042,
+      "fluency": "gated",
+      "retires": "sgd-gradient-descent",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r15-t540",
+      "kind": "residual",
+      "name": "residual-capture-gpu1",
+      "pointer": "0x7f000000",
+      "fluency": "gated",
+      "retires": "",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r2-t540",
+      "kind": "residual",
+      "name": "residual-capture-gpu1",
+      "pointer": 128104,
+      "fluency": "gated",
+      "retires": "text-context-weights, static-spectral-mapping",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r3-t540",
+      "kind": "residual",
+      "name": "spectral_delta_hash",
+      "pointer": 128004,
+      "fluency": "gated",
+      "retires": "full_float_dump",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r4-t540",
+      "kind": "residual",
+      "name": "spectral-residual-mapping",
+      "pointer": 128450,
+      "fluency": "gated",
+      "retires": "lesson-03, lesson-07, lesson-12",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r11-t558",
+      "kind": "residual",
+      "name": "raw_logprob_trajectory_layer12",
+      "pointer": "0x7f8a2c0000",
+      "fluency": "gated",
+      "retires": "sine_strip_4w",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r14-t558",
+      "kind": "residual",
+      "name": "spectral-band-9142",
+      "pointer": "0x7f3a2b4c0000",
+      "fluency": "gated",
+      "retires": "",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r7-t558",
+      "kind": "residual",
+      "name": "spectral_residual_gemma_qwen",
+      "pointer": "0x7f8a2c000000",
+      "fluency": "gated",
+      "retires": "weights_context, text_embedding",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "KVX-v1-t559",
+      "kind": "vram-shard",
+      "name": "16 MiB",
+      "pointer": "0x7f0000000000",
+      "fluency": "gated",
+      "retires": "64 MiB",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "KVX-v12-t559",
+      "kind": "vram-shard",
+      "name": "shard-8-128k",
+      "pointer": "0x1A000000",
+      "fluency": "gated",
+      "retires": "kvx-decode-injection",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "KVX-v14-t559",
+      "kind": "vram-shard",
+      "name": "shard-0x1f0042",
+      "pointer": "0x1f0042",
+      "fluency": "gated",
+      "retires": "128128",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "KVX-v15-t559",
+      "kind": "vram-shard",
+      "name": "kvx-decode-injection",
+      "pointer": "0x7f8a0000",
+      "fluency": "gated",
+      "retires": "pointer_ok_hardcoded_false",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "KVX-v16-t559",
+      "kind": "vram-shard",
+      "name": "v-spectral-9",
+      "pointer": "0x7f8a2c4000",
+      "fluency": "gated",
+      "retires": "v1, v2, v3, v4",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPE-s5-t560",
+      "kind": "spectral",
+      "name": "dual-lexical-spectral-alias",
+      "pointer": 128244,
+      "fluency": "gated",
+      "retires": "single-token-pointer, raw-text-context",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "SPE-s6-t560",
+      "kind": "spectral",
+      "name": "gemma-qwen-spectral-0x2a4f",
+      "pointer": 128342,
+      "fluency": "gated",
+      "retires": "prompt_text_context, raw_weight_tensor",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r11-t596",
+      "kind": "residual",
+      "name": "spectral_residual_gpu2_shard_0x7f8a",
+      "pointer": "0x7f8a1234",
+      "fluency": "gated",
+      "retires": "layer12_hook",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r7-t596",
+      "kind": "residual",
+      "name": "spectral-band-shift-8k-qwen",
+      "pointer": "0x7f3a2000",
+      "fluency": "gated",
+      "retires": "text-context-artifact-8k-qwen",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    },
+    {
+      "id": "RES-r8-t596",
+      "kind": "residual",
+      "name": "residual_capture_gpu1_v2.bin",
+      "pointer": 128245,
+      "fluency": "gated",
+      "retires": "legacy_text_context_weights_v1.bin",
+      "origin": "governor-accept",
+      "pointer_ok": false,
+      "residual_match": false,
+      "no_prose": false
+    }
+  ],
+  "last_verdict": {
+    "accept": [
+      "r10-t596",
+      "r11-t596",
+      "r7-t596",
+      "r8-t596"
+    ],
+    "rework": [
+      "r5-t596",
+      "r6-t596"
+    ],
+    "reject": [
+      "r12-t596",
+      "r9-t596"
+    ],
+    "reason": "r12 and r9 are scalar/tick noise, not spectral vectors. r5 lacks retired bytes. r6 uses ambiguous integer pointers without VRAM address context. Accepted entries provide valid VRAM pointers and retire specific weight/artifact bytes.",
+    "fluency": {
+      "pointer_ok": true,
+      "residual_match": true,
+      "no_prose_restatement": true
+    }
+  },
+  "heldout": {
+    "pointer_ok": true,
+    "no_prose": true,
+    "raw": "128128",
+    "pointer": 128128
+  }
+}

@@ -1,10 +1,18 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="stylesheet" href="/tea.css">
-<script src="/tea-shell.js"></script>
+<meta name="theme-color" content="#f7f5f0">
 <title>Microgreens beauty jury — Tea</title>
+<link rel="stylesheet" href="/tea.css">
 <style>
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper, #f7f5f0);
+    color: var(--ink, #27231f);
+  }
   main { max-width: 1180px; margin: 0 auto; padding: 32px clamp(16px, 3vw, 40px) 88px; }
   .eyebrow { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
   h1 { font: 400 clamp(40px, 6vw, 72px)/.92 var(--serif); letter-spacing: -0.05em; margin: 8px 0 10px; }
@@ -32,22 +40,34 @@
   .bar i { display: block; height: 100%; width: 0; background: var(--tea); }
   .frames { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
   .frames a { display: block; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper-subtle); position: relative; }
-  .frames img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frames img { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--paper-subtle); }
   .frames i { position: absolute; left: 8px; bottom: 8px; font: 11px/1 var(--mono); color: #f7f3ea; background: rgba(39,35,31,.72); padding: 3px 7px; border-radius: 999px; font-style: normal; }
   .note { font: 400 14px/1.55 var(--serif); color: var(--soft); margin: 0 0 14px; }
   .preview { font: 12px/1.5 var(--mono); color: var(--tea); background: var(--paper-soft); border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
   .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
   .seat { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper-soft); }
-  .seat h3 { margin: 0 0 6px; font: 500 16px/1.2 var(--serif); }
+  .seat h3 { margin: 0 0 6px; font: 500 16px/1.2 var(--serif); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
   .seat .muted { font: 10px var(--mono); color: var(--faint); }
   .seat .sr { display: flex; justify-content: space-between; font: 11px var(--mono); margin: 8px 0 4px; color: var(--soft); }
+  .roster { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+  .roster li { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper-soft); font: 13px/1.4 var(--sans); }
+  .roster b { font: 500 16px/1.2 var(--serif); }
+  .roster .who { color: var(--soft); font: 11px var(--mono); }
+  .law-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 12px; font: 11px/1 var(--mono); color: var(--soft); text-transform: uppercase; letter-spacing: .08em; }
+  .law-meta label { display: inline-flex; align-items: center; gap: 6px; }
+  .tiny { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; font: 11px/1.3 var(--mono); color: var(--soft); text-transform: uppercase; letter-spacing: .06em; }
+  .tiny select { max-width: 100%; }
+  a.quiet { color: var(--soft); }
+  .saved { color: var(--matcha); }
   @media (max-width: 900px) { .grid, .seats { grid-template-columns: 1fr; } }
 </style>
+</head>
+<body class="tea-app">
 <header class="tea-chrome">
   <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
   <nav class="tea-nav" aria-label="Tea">
     <a href="/gallery/">Gallery</a>
-    <a href="/jury">Jury</a>
+    <a href="/jury" aria-current="page">Jury</a>
     <a href="/judge">Judge</a>
     <a href="/studios">Studios</a>
     <a href="/collections">Collections</a>
@@ -57,43 +77,91 @@
 <main>
   <div class="eyebrow">Beauty jury · stills · not motion</div>
   <h1>Microgreens beauty jury</h1>
-  <p class="lede">Still photographs of Belarro harvest, scored by the same seats that judge fashion: aesthetic, structure, governor. This is not a motion atlas. Weights and gamma write the live algorithm. Spectacles crown the wall.</p>
+  <p class="lede">You configure this jury. Weights, gamma, uniqueness, novelty gates, steps, and size write when you move them. The hive may propose. It does not overwrite you unless you apply that proposal.</p>
   <div class="grid">
     <section class="panel">
+      <h2>The jurors</h2>
+      <ul class="roster" id="roster">
+        <li><b>Aesthetic</b><span class="who" id="who-pixtral">pixtral · :8004</span><span class="pill warn" id="see-pixtral">checking</span></li>
+        <li><b>Structure</b><span class="who" id="who-qwen">jury · :8001</span><span class="pill warn" id="see-qwen">checking</span></li>
+        <li><b>Decoder</b><span class="who" id="who-decoder">rides with structure</span><span class="pill on" id="see-decoder">weight only</span></li>
+        <li><b>Governor</b><span class="who" id="who-governor">governor · :8000</span><span class="pill warn" id="see-governor">checking</span></li>
+      </ul>
       <h2>The law</h2>
+      <div class="law-meta">
+        <label>Mode
+          <select id="algoMode" onchange="onLawField()">
+            <option value="parallel">parallel</option>
+            <option value="sequential">sequential</option>
+          </select>
+        </label>
+        <label>Min judges
+          <input id="algoMin" type="number" min="1" max="3" value="1" onchange="onLawField()">
+        </label>
+      </div>
       <div class="chips" id="law-toggles"></div>
-      <div id="seats" class="seats"></div>
+      <div id="seats" class="seats">
+        <div class="seat" data-seat="pixtral"><h3>Aesthetic</h3><div class="muted">color, mood, medium</div><div class="sr"><span>Weight</span><strong id="wl-pixtral">40%</strong></div><input type="range" min="0" max="100" value="40" oninput="onWeight('pixtral', this.value)"><div class="sr"><span>Gamma</span><strong id="gl-pixtral">2.0γ</strong></div><input type="range" min="10" max="30" value="20" oninput="onGamma('pixtral', this.value)"><div class="tiny"><label><input type="checkbox" id="e-pixtral" checked onchange="onSeatField()"> enabled</label><label><input type="checkbox" id="v-pixtral" onchange="onSeatField()"> vision</label><select id="m-pixtral" onchange="onSeatField()"></select></div></div>
+        <div class="seat" data-seat="qwen"><h3>Structure</h3><div class="muted">form, contour, identity</div><div class="sr"><span>Weight</span><strong id="wl-qwen">30%</strong></div><input type="range" min="0" max="100" value="30" oninput="onWeight('qwen', this.value)"><div class="sr"><span>Gamma</span><strong id="gl-qwen">1.2γ</strong></div><input type="range" min="10" max="30" value="12" oninput="onGamma('qwen', this.value)"><div class="tiny"><label><input type="checkbox" id="e-qwen" checked onchange="onSeatField()"> enabled</label><label><input type="checkbox" id="v-qwen" onchange="onSeatField()"> vision</label><select id="m-qwen" onchange="onSeatField()"></select></div></div>
+        <div class="seat" data-seat="decoder"><h3>Decoder</h3><div class="muted">consensus of the still</div><div class="sr"><span>Weight</span><strong id="wl-decoder">10%</strong></div><input type="range" min="0" max="100" value="10" oninput="onWeight('decoder', this.value)"><div class="sr"><span>Gamma</span><strong id="gl-decoder">1.5γ</strong></div><input type="range" min="10" max="30" value="15" oninput="onGamma('decoder', this.value)"><div class="tiny">weight only · rides with structure</div></div>
+        <div class="seat" data-seat="governor"><h3>Governor</h3><div class="muted">prompt fidelity</div><div class="sr"><span>Weight</span><strong id="wl-governor">20%</strong></div><input type="range" min="0" max="100" value="20" oninput="onWeight('governor', this.value)"><div class="sr"><span>Gamma</span><strong id="gl-governor">2.2γ</strong></div><input type="range" min="10" max="30" value="22" oninput="onGamma('governor', this.value)"><div class="tiny"><label><input type="checkbox" id="e-governor" checked onchange="onSeatField()"> enabled</label><label><input type="checkbox" id="v-governor" onchange="onSeatField()"> vision</label><select id="m-governor" onchange="onSeatField()"></select></div></div>
+      </div>
       <div class="preview" id="law-preview"></div>
       <div class="actions">
-        <button class="primary" onclick="persistLaw()">Apply jury</button>
-        <button onclick="hive(true)">Hive calibrate</button>
+        <button class="primary" onclick="persistLaw()">Save jury now</button>
+        <button onclick="bindLive()">Bind live seats</button>
+        <button onclick="hive(false)">Ask the hive</button>
+        <button onclick="hive(true)">Apply hive law only</button>
       </div>
       <div class="note" id="hive" style="margin-top:12px">Hive is idle.</div>
-      <h2 style="margin-top:28px">The work</h2>
+      <h2 style="margin-top:28px">The harvest</h2>
+      <p class="note" id="designed">You set steps, size, guidance, and life. Hive proposals stay proposals until you apply them.</p>
       <div class="chips" id="varieties"></div>
       <div class="chips" id="shots"></div>
-      <label class="row">Life <input id="life" type="range" min="0" max="100" value="80" oninput="sync()"> <span id="life-v">80</span></label>
-      <label class="row">Guidance <input id="guidance" type="range" min="15" max="60" value="40" oninput="sync()"> <span id="guidance-v">4.0</span></label>
+      <label class="row">Life <input id="life" type="range" min="0" max="100" value="80" oninput="onHarvest()"> <span id="life-v">80</span></label>
+      <label class="row">Guidance <input id="guidance" type="range" min="15" max="60" value="40" oninput="onHarvest()"> <span id="guidance-v">4.0</span></label>
       <label class="row">Steps
-        <select id="steps" onchange="sync()"><option value="18">18</option><option value="28" selected>28</option></select>
+        <input id="steps" type="number" min="8" max="64" value="18" onchange="onHarvest()">
+        <span id="steps-v">18</span>
+      </label>
+      <label class="row">Width
+        <input id="width" type="number" min="256" max="1280" step="64" value="256" onchange="onHarvest()">
+        <span id="width-v">256</span>
+      </label>
+      <label class="row">Height
+        <input id="height" type="number" min="256" max="1280" step="64" value="256" onchange="onHarvest()">
+        <span id="height-v">256</span>
+      </label>
+      <label class="row">Preset
+        <select id="size" onchange="onSizePreset()">
+          <option value="256x256" selected>256 × 256</option>
+          <option value="512x512">512 × 512</option>
+          <option value="768x768">768 × 768</option>
+          <option value="1024x1024">1024 × 1024</option>
+          <option value="1280x1280">1280 × 1280</option>
+          <option value="768x1024">768 × 1024</option>
+          <option value="1024x768">1024 × 768</option>
+          <option value="1280x768">1280 × 768</option>
+        </select>
         <span></span>
       </label>
       <label class="row">Depth
-        <input id="depth" type="number" min="1" max="3" value="2" onchange="sync()">
+        <input id="depth" type="number" min="1" max="3" value="2" onchange="onHarvest()">
         <span></span>
       </label>
       <label class="row">Seed
-        <select id="seed" onchange="sync()"><option value="random">random</option><option value="sequential">sequential</option></select>
+        <select id="seed" onchange="onHarvest()"><option value="random">random</option><option value="sequential">sequential</option></select>
         <span></span>
       </label>
       <label class="row">Count
-        <select id="n" onchange="sync()"><option value="256">256</option><option value="512">512</option></select>
+        <select id="n" onchange="onHarvest()"><option value="256">256</option><option value="512">512</option></select>
         <span></span>
       </label>
       <div class="preview" id="preview"></div>
       <div class="actions">
-        <button class="primary" onclick="save(true)">Apply & keep running</button>
-        <button class="primary" onclick="restart()">Reload new work</button>
+        <button class="primary" onclick="save(true)">Save harvest</button>
+        <button onclick="hiveHarvest()">Apply hive harvest proposal</button>
+        <button onclick="restart()">Reload new work</button>
         <button onclick="act('stop')">Stop</button>
         <a class="btn" href="/gallery/">Wall</a>
       </div>
@@ -102,16 +170,20 @@
       <h2>Verdicts</h2>
       <div class="status" id="status"></div>
       <p class="note" id="verdict">Checking whether frames are scored…</p>
+      <div class="meter" id="uniq">uniqueness —</div>
+      <div class="meter" id="nov">novelty —</div>
       <div class="meter" id="meter"></div>
       <div class="bar"><i id="fill"></i></div>
       <div class="actions">
         <button class="primary" onclick="judgeStart()">Start the beauty jury</button>
       </div>
-      <div class="frames" id="frames"></div>
+      <div class="frames" id="frames"><p class="note">Loading stills…</p></div>
     </section>
   </div>
 </main>
+<script src="/tea-shell.js"></script>
 <script>
+  const LANE = "microgreens";
   const VARS = [
     ["red-rambo","Red Rambo"],["pea","Pea shoots"],["sunflower","Sunflower"],
     ["broccoli","Broccoli"],["nasturtium","Nasturtium"],["amaranth","Amaranth"]
@@ -119,23 +191,92 @@
   const SHOTS = [
     ["macro","Macro"],["bunch","Harvest bunch"],["crudo","Crudo"],["steak","Steak"],["catalog","Catalog white"]
   ];
+  const SEATS = [
+    { key: "pixtral", label: "Aesthetic", hint: "color, mood, medium", served: "pixtral-critic", liveFrom: "pixtral", port: "8004" },
+    { key: "qwen", label: "Structure", hint: "form, contour, identity", served: "visual-witness", liveFrom: "witness", port: "8001" },
+    { key: "decoder", label: "Decoder", hint: "consensus of the still", absorbed: true },
+    { key: "governor", label: "Governor", hint: "prompt fidelity", served: "governor", liveFrom: "governor", port: "8000" }
+  ];
+  const LAW_FLAGS = [
+    ["adversarial_mode", "Adversarial"],
+    ["text_from_gates", "Text from gates"],
+    ["uniqueness_influence", "Uniqueness"],
+    ["gate_triage", "Gate triage"]
+  ];
+  let law = {
+    mode: "parallel",
+    order: ["pixtral","qwen","decoder","governor"],
+    weights: { pixtral: 0.4, qwen: 0.3, decoder: 0.1, governor: 0.2 },
+    strictness: { pixtral: 2.0, qwen: 1.2, decoder: 1.5, governor: 2.2 },
+    adversarial_mode: true,
+    text_from_gates: true,
+    uniqueness_influence: true,
+    gate_triage: false,
+    min_judges: 1,
+    endpoints: {}
+  };
+  let lawDirty = false;
+  let harvestDirty = false;
+  let hiveBusy = false;
+  let studyHydrated = false;
+  let lastStudyKey = "";
+  let lastLawKey = "";
+  let lastFrameKey = "";
+  let lastStatusKey = "";
+  let lawTimer = null;
+  let harvestTimer = null;
+  let lastHiveRender = null;
+
   const $ = (id) => document.getElementById(id);
+  function q(path) { return path + (path.includes("?") ? "&" : "?") + "lane=" + encodeURIComponent(LANE); }
+  function calibrated(raw, gamma, adv) {
+    let v = 100 * Math.pow(Math.max(0, Math.min(100, raw)) / 100, gamma);
+    if (adv && raw < 85) v *= 0.92;
+    return Math.max(0, Math.min(100, v));
+  }
   function chips(id, items, selected) {
     $(id).innerHTML = items.map(([k, label]) => {
       const on = selected.indexOf(k) >= 0;
-      return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" data-k="' + k + '"' + (on ? ' checked' : '') + ' onchange="sync()">' + label + '</label>';
+      return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" data-k="' + k + '"' + (on ? ' checked' : '') + ' onchange="onHarvest()">' + label + '</label>';
     }).join('');
   }
   function selected(id) {
     return Array.from($(id).querySelectorAll("input:checked")).map((el) => el.getAttribute("data-k"));
   }
+  function sizePair() {
+    return {
+      width: parseInt($("width") && $("width").value, 10) || 256,
+      height: parseInt($("height") && $("height").value, 10) || 256
+    };
+  }
+  function onSizePreset() {
+    const raw = ($("size") && $("size").value) || "256x256";
+    const parts = raw.split("x");
+    $("width").value = parts[0];
+    $("height").value = parts[1];
+    onHarvest();
+  }
+  function onHarvest() {
+    harvestDirty = true;
+    sync();
+    clearTimeout(harvestTimer);
+    harvestTimer = setTimeout(function () { save(true); }, 400);
+  }
+  function scheduleLaw() {
+    lawDirty = true;
+    clearTimeout(lawTimer);
+    lawTimer = setTimeout(persistLaw, 400);
+  }
   function body() {
+    const sz = sizePair();
     return {
       varieties: selected("varieties"),
       shots: selected("shots"),
       life: parseInt($("life").value, 10),
       guidance: parseInt($("guidance").value, 10) / 10,
       steps: parseInt($("steps").value, 10),
+      width: sz.width,
+      height: sz.height,
       depth: parseInt($("depth").value, 10),
       seed: $("seed").value,
       n: parseInt($("n").value, 10),
@@ -152,13 +293,244 @@
     const s = selected("shots")[0] || "macro";
     const vn = (VARS.find((x) => x[0] === v) || [])[1] || v;
     const sn = (SHOTS.find((x) => x[0] === s) || [])[1] || s;
-    $("preview").textContent = vn + " · " + sn + " · life " + $("life").value + " · γ " + (parseInt($("guidance").value,10)/10).toFixed(1) + " · " + $("seed").value + " seed";
+    const sz = sizePair();
+    if ($("steps-v")) $("steps-v").textContent = $("steps").value;
+    if ($("width-v")) $("width-v").textContent = String(sz.width);
+    if ($("height-v")) $("height-v").textContent = String(sz.height);
+    $("preview").textContent = vn + " · " + sn + " · " + $("steps").value + " steps · " + sz.width + "×" + sz.height + " · life " + $("life").value + " · γ " + (parseInt($("guidance").value,10)/10).toFixed(1) + " · " + $("seed").value + " seed";
+  }
+  function lawPreview() {
+    const adv = !!law.adversarial_mode;
+    const samples = [70, 80, 90, 95].map((raw) => {
+      const parts = SEATS.map((seat) => calibrated(raw, law.strictness[seat.key] || 1.5, adv) * (law.weights[seat.key] || 0));
+      const sumW = SEATS.reduce((a, s) => a + (law.weights[s.key] || 0), 0) || 1;
+      return raw + "→" + (parts.reduce((a, b) => a + b, 0) / sumW).toFixed(1);
+    });
+    const sumW = SEATS.reduce((a, s) => a + (law.weights[s.key] || 0), 0);
+    $("law-preview").textContent = "γ preview on a unanimous raw: " + samples.join(" · ") + "  Σw=" + sumW.toFixed(2) +
+      (Math.abs(sumW - 1) > 0.02 ? "  (weights should sum to 1)" : "") +
+      (law.text_from_gates ? "  · text-from-gates ON" : "");
+  }
+  function paintLawToggles() {
+    $("law-toggles").innerHTML = LAW_FLAGS.map(([k, label]) => {
+      const on = !!law[k];
+      return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" data-law="' + k + '"' + (on ? ' checked' : '') + ' onchange="onLawFlag(\'' + k + '\', this.checked)">' + label + '</label>';
+    }).join("");
+  }
+  function paintSeats() {
+    const box = $("seats");
+    if (!box) return;
+    SEATS.forEach((seat) => {
+      const card = box.querySelector('[data-seat="' + seat.key + '"]');
+      if (!card) return;
+      const w = Math.round((law.weights[seat.key] || 0) * 100);
+      const g = Number(law.strictness[seat.key] || 1.5);
+      const wl = $("wl-" + seat.key), gl = $("gl-" + seat.key);
+      if (wl) wl.textContent = w + "%";
+      if (gl) gl.textContent = g.toFixed(1) + "γ";
+      const ranges = card.querySelectorAll('input[type=range]');
+      if (ranges[0] && ranges[0].value !== String(w)) ranges[0].value = String(w);
+      if (ranges[1]) {
+        const gv = String(Math.round(g * 10));
+        if (ranges[1].value !== gv) ranges[1].value = gv;
+      }
+    });
+  }
+  function paintRoster(cfg, live) {
+    live = live || {};
+    const eps = (cfg && cfg.endpoints) || law.endpoints || {};
+    SEATS.forEach((seat) => {
+      const who = $("who-" + seat.key);
+      const see = $("see-" + seat.key);
+      if (seat.absorbed) {
+        if (who) who.textContent = "rides with structure";
+        if (see) { see.textContent = "weight only"; see.className = "pill on"; }
+        return;
+      }
+      const ep = eps[seat.served] || {};
+      const models = live[seat.liveFrom] || [];
+      const model = ep.model || models[0] || seat.served;
+      const sitting = models.indexOf(model) >= 0 || models.length > 0;
+      const vision = ep.vision === true;
+      if (who) who.textContent = model + " · :" + seat.port;
+      if (see) {
+        see.textContent = sitting ? (vision ? "live · sees" : "live · cannot see") : "not sitting";
+        see.className = "pill " + (sitting ? (vision ? "on" : "warn") : "off");
+      }
+      const sel = $("m-" + seat.key);
+      if (sel) {
+        const ids = models.slice();
+        if (model && ids.indexOf(model) < 0) ids.unshift(model);
+        const html = ids.map((id) => '<option value="' + id + '"' + (id === model ? " selected" : "") + ">" + (id || "(unset)") + "</option>").join("");
+        if (sel.innerHTML !== html) sel.innerHTML = html;
+      }
+      const en = $("e-" + seat.key); if (en) en.checked = ep.enabled !== false;
+      const vis = $("v-" + seat.key); if (vis) vis.checked = vision;
+    });
+  }
+  function applyLaw(cfg) {
+    if (!cfg) return;
+    law = {
+      mode: cfg.mode || "parallel",
+      order: cfg.order || law.order,
+      weights: Object.assign({}, law.weights, cfg.weights || {}),
+      strictness: Object.assign({}, law.strictness, cfg.strictness || {}),
+      adversarial_mode: !!cfg.adversarial_mode,
+      text_from_gates: !!cfg.text_from_gates,
+      uniqueness_influence: cfg.uniqueness_influence !== false,
+      gate_triage: !!cfg.gate_triage,
+      min_judges: cfg.min_judges || 1,
+      endpoints: cfg.endpoints || law.endpoints || {}
+    };
+    $("algoMode").value = law.mode;
+    $("algoMin").value = law.min_judges;
+    paintLawToggles();
+    paintSeats();
+    paintRoster(law, window.__liveModels);
+    lawPreview();
+  }
+  function onLawFlag(key, checked) {
+    law[key] = !!checked;
+    paintLawToggles();
+    lawPreview();
+    scheduleLaw();
+  }
+  function onLawField() {
+    law.mode = $("algoMode").value;
+    law.min_judges = Math.max(1, Math.min(3, parseInt($("algoMin").value, 10) || 1));
+    lawPreview();
+    scheduleLaw();
+  }
+  function onWeight(key, val) {
+    law.weights[key] = parseFloat(val) / 100;
+    const lab = $("wl-" + key); if (lab) lab.textContent = val + "%";
+    lawPreview();
+    scheduleLaw();
+  }
+  function onGamma(key, val) {
+    const g = (parseFloat(val) / 10).toFixed(1);
+    law.strictness[key] = parseFloat(g);
+    const lab = $("gl-" + key); if (lab) lab.textContent = g + "γ";
+    lawPreview();
+    scheduleLaw();
+  }
+  function readSeats() {
+    law.endpoints = law.endpoints || {};
+    SEATS.forEach((seat) => {
+      if (seat.absorbed) return;
+      const ep = Object.assign({}, law.endpoints[seat.served] || {});
+      const en = $("e-" + seat.key), vis = $("v-" + seat.key), model = $("m-" + seat.key);
+      if (en) ep.enabled = en.checked;
+      if (vis) ep.vision = vis.checked;
+      if (model && model.value) ep.model = model.value;
+      ep.base_url = "http://127.0.0.1:" + seat.port + "/v1";
+      law.endpoints[seat.served] = ep;
+    });
+  }
+  function onSeatField() {
+    readSeats();
+    scheduleLaw();
+  }
+  async function persistLaw() {
+    readSeats();
+    $("hive").dataset.locked = "1";
+    $("hive").textContent = "Writing the live algorithm…";
+    try {
+      const res = await fetch(q("/api/jury/config"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(law)
+      });
+      const data = await res.json();
+      if (data.config) applyLaw(data.config);
+      lawDirty = false;
+      $("hive").textContent = "Your jury law is live.";
+    } catch (err) {
+      $("hive").textContent = "Law failed: " + err;
+    }
+  }
+  async function bindLive() {
+    $("hive").dataset.locked = "1";
+    $("hive").textContent = "Binding live seats and enabling text-from-gates…";
+    try {
+      const res = await fetch(q("/api/protocol/calibrate"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bind_live: true, apply: true, lane: LANE })
+      });
+      const data = await res.json();
+      if (data.config) applyLaw(data.config);
+      lawDirty = false;
+      const rec = data.calibration || {};
+      $("hive").textContent = (data.applied ? "Seats bound. " : "") + (rec.diagnosis || rec.rationale || "Live models written to this lane.");
+    } catch (err) {
+      $("hive").textContent = "Bind failed: " + err;
+    }
+  }
+  async function hive(apply) {
+    if (hiveBusy) return;
+    hiveBusy = true;
+    $("hive").dataset.locked = "1";
+    $("hive").textContent = apply ? "Hive is calibrating and will apply…" : "Asking the hive…";
+    try {
+      const res = await fetch(q("/api/protocol/calibrate"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: !!apply, apply_render: false, lane: LANE, note: "Propose jury law. Do not overwrite operator harvest." })
+      });
+      const data = await res.json();
+      const rec = data.calibration || data.latest || {};
+      const bits = [(data.applied ? "APPLIED via " : "PROPOSAL from ") + (rec.source || "hive")];
+      if (rec.model) bits.push(rec.model);
+      if (rec.diagnosis) bits.push(rec.diagnosis);
+      if (rec.rationale) bits.push(rec.rationale);
+      if (rec.error) bits.push("note: " + rec.error);
+      if (data.hive) bits.push((data.hive.live ? "hive live" : "hive down") + " · " + (data.hive.model || ""));
+      $("hive").textContent = bits.join(" · ");
+      if (data.config && !lawDirty && apply) applyLaw(data.config);
+      if (data.render) {
+        lastHiveRender = data.render;
+        const r = data.render;
+        $("designed").textContent = "Hive proposal (not applied): " + (r.steps || "—") + " steps · " + (r.width || "—") + "×" + (r.height || "—") + " · life " + (r.life != null ? r.life : "—") + " · γ " + (r.guidance != null ? Number(r.guidance).toFixed(1) : "—") + ". " + (rec.rationale || rec.diagnosis || "");
+      }
+    } catch (err) {
+      $("hive").textContent = "Hive failed: " + err;
+    } finally {
+      hiveBusy = false;
+    }
+  }
+  async function hiveHarvest() {
+    if (hiveBusy) return;
+    hiveBusy = true;
+    $("hive").dataset.locked = "1";
+    $("hive").textContent = "Asking the hive for a harvest proposal and applying only if it returns one…";
+    try {
+      const res = await fetch(q("/api/protocol/calibrate"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: false, apply_render: true, lane: LANE, note: "Operator asked for a hive harvest. Do not change jury law." })
+      });
+      const data = await res.json();
+      if (!data.render) {
+        $("hive").textContent = "Hive returned no harvest proposal.";
+        return;
+      }
+      if (data.study) {
+        harvestDirty = false;
+        studyHydrated = false;
+        paintStudy({ study: data.study });
+      }
+      $("hive").textContent = "Hive harvest applied. Change any slider to take it back.";
+    } catch (err) {
+      $("hive").textContent = "Hive harvest failed: " + err;
+    } finally {
+      hiveBusy = false;
+    }
   }
   async function save(keep) {
+    harvestDirty = true;
     await fetch("/api/studios/microgreens", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({ action: "configure" }, body()))
     });
+    harvestDirty = false;
+    $("designed").textContent = "Your harvest is live: " + $("steps").value + " steps · " + $("width").value + "×" + $("height").value + ".";
     if (!keep) return load();
     load();
   }
@@ -184,46 +556,191 @@
     });
     load();
   }
-  function paint(st) {
+  function scoreFor(im, audit) {
+    if (im.score != null) return Number(im.score);
+    const name = (im.name || im.path || im.url || "").split("/").pop();
+    const frames = (audit && audit.frames) || [];
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i];
+      const fn = String(f.filename || f.job_id || "");
+      if (fn && name.indexOf(fn) >= 0 && f.raw_composite != null) return Number(f.raw_composite);
+    }
+    return null;
+  }
+  function studyKey(study) {
+    return JSON.stringify({
+      varieties: study.varieties || [],
+      shots: study.shots || [],
+      life: study.life, guidance: study.guidance, steps: study.steps,
+      width: study.width, height: study.height,
+      depth: study.depth, seed: study.seed, n: study.n
+    });
+  }
+  function paintStudy(st) {
+    if (harvestDirty) return;
     const study = st.study || {};
+    const key = studyKey(study);
+    if (studyHydrated && key === lastStudyKey) return;
+    lastStudyKey = key;
+    studyHydrated = true;
     chips("varieties", VARS, study.varieties || VARS.map((x) => x[0]));
     chips("shots", SHOTS, study.shots || SHOTS.map((x) => x[0]));
     $("life").value = study.life ?? 80;
     $("guidance").value = Math.round((study.guidance ?? 4) * 10);
-    $("steps").value = String(study.steps || 28);
+    $("steps").value = String(study.steps || 18);
+    const w = study.width || 256, h = study.height || 256;
+    if ($("width")) $("width").value = w;
+    if ($("height")) $("height").value = h;
+    const sizeEl = $("size");
+    if (sizeEl) {
+      const want = w + "x" + h;
+      if (Array.from(sizeEl.options).some((o) => o.value === want)) sizeEl.value = want;
+    }
     $("depth").value = study.depth || 2;
     $("seed").value = study.seed || "random";
     $("n").value = String(study.n || 256);
+    const by = study.designed_by || "unset";
+    const why = study.design_rationale || "";
+    $("designed").textContent = by === "operator"
+      ? ("Your harvest: " + (study.steps || 18) + " steps · " + (study.width || 256) + "×" + (study.height || 256) + ".")
+      : (by === "hive" ? ("Hive harvest is live. " + why) : "Set steps and size. They write when you move them.");
     sync();
+  }
+  function renderFrames(imgs, audit) {
+    const items = (imgs || []).map((im) => {
+      const score = scoreFor(im, audit);
+      return {
+        url: im.path || im.url || "",
+        score: score != null && !isNaN(score) ? Number(score).toFixed(1) : "",
+        uniq: im.uniqueness != null ? Number(im.uniqueness).toFixed(0) : "",
+        nov: im.novelty != null ? Number(im.novelty).toFixed(0) : ""
+      };
+    });
+    const key = JSON.stringify(items);
+    if (key === lastFrameKey) return;
+    const prev = lastFrameKey ? JSON.parse(lastFrameKey) : [];
+    lastFrameKey = key;
+    const sameUrls = prev.length === items.length && prev.every((p, i) => p.url === items[i].url);
+    if (sameUrls && $("frames").querySelectorAll("a").length === items.length) {
+      const nodes = $("frames").querySelectorAll("a");
+      items.forEach((it, i) => {
+        const a = nodes[i];
+        if (!a) return;
+        let badge = a.querySelector("i");
+        if (it.score) {
+          if (!badge) { badge = document.createElement("i"); a.appendChild(badge); }
+          if (badge.textContent !== it.score) badge.textContent = it.score;
+        } else if (badge) {
+          badge.remove();
+        }
+      });
+      return;
+    }
+    $("frames").innerHTML = items.map((it) => {
+      return '<a href="' + it.url + '" target="_blank"><img src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(it.url) + '" alt="" decoding="async">'
+        + (it.score ? "<i>" + it.score + "</i>" : "") + "</a>";
+    }).join("") || "<p class='note'>New stills are settling.</p>";
+  }
+  function paintLive(st) {
     const live = st.worker_up && st.streamer && !st.paused;
     const stream = st.stream || {};
     const audit = st.audit || {};
     const judged = st.jury_up;
-    $("status").innerHTML =
-      '<span class="pill ' + (live ? "on" : "off") + '">' + (live ? "generating" : "idle") + "</span>" +
-      '<span class="pill ' + (judged ? "on" : "warn") + '">' + (judged ? "jury on gpu0" : "not judged") + "</span>" +
-      "<span>" + (stream.done || 0) + "/" + (stream.n || 0) + "</span>" +
-      "<span>" + (stream.variety || "") + "</span>";
     const scored = audit.scored || 0;
     const unscored = audit.unscored || 0;
-    $("verdict").textContent = judged
-      ? (scored ? ("Jury has scored " + scored + " frames on this study.") : "Jury is on. Waiting for the first verdict.")
-      : "These frames are not being judged. The live jury is still tailed to fashion GPU 3. Press Start judging this study.";
-    $("meter").textContent = scored + " scored · " + unscored + " unscored · " + (audit.spectacles || 0) + " spectacles";
-    $("fill").style.width = (stream.n ? Math.min(100, Math.round(100 * (stream.done || 0) / stream.n)) : 0) + "%";
-    const imgs = st.frames || [];
-    $("frames").innerHTML = imgs.map((im) => {
-      const u = im.path || im.url || "";
-      const score = im.score != null ? Number(im.score).toFixed(1) : "";
-      return '<a href="' + u + '" target="_blank"><img src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(u) + '" alt="">'
-        + (score ? "<i>" + score + "</i>" : "") + "</a>";
-    }).join("") || "<p class='note'>New work is settling.</p>";
+    const statusKey = [live, judged, stream.done, stream.n, stream.variety, stream.steps, stream.width, stream.height, scored, unscored, audit.spectacles, audit.uniqueness_mean, audit.novelty_mean, audit.mode_collapse].join("|");
+    if (statusKey !== lastStatusKey) {
+      lastStatusKey = statusKey;
+      $("status").innerHTML =
+        '<span class="pill ' + (live ? "on" : "off") + '">' + (live ? "generating" : "idle") + "</span>" +
+        '<span class="pill ' + (judged ? "on" : "warn") + '">' + (judged ? "jury on gpu0" : "jury idle") + "</span>" +
+        "<span>" + (stream.done || 0) + "/" + (stream.n || 0) + "</span>" +
+        "<span>" + (stream.steps || "—") + " steps</span>" +
+        "<span>" + (stream.width || "—") + "×" + (stream.height || "—") + "</span>" +
+        "<span>" + (stream.variety || "") + "</span>";
+      $("verdict").textContent = judged
+        ? (scored ? ("Beauty jury has scored " + scored + " stills on this harvest.") : "Beauty jury is on. Waiting for the first verdict.")
+        : "These stills are not being judged. Start the beauty jury on GPU 0.";
+      $("meter").textContent = scored + " scored · " + unscored + " unscored · " + (audit.spectacles || 0) + " spectacles";
+      const uniq = audit.uniqueness_mean;
+      const collapse = audit.mode_collapse || 0;
+      const cats = audit.uniqueness_categories || {};
+      const cat = Object.keys(cats).sort((a, b) => (cats[b] || 0) - (cats[a] || 0))[0] || "—";
+      $("uniq").textContent = "uniqueness " + (uniq != null ? Number(uniq).toFixed(1) : "—") +
+        " · min-dist " + (audit.uniqueness_min_distance != null ? Number(audit.uniqueness_min_distance).toFixed(3) : "—") +
+        " · " + cat + " · collapse " + collapse + "/" + (audit.window || 0);
+      $("nov").textContent = "novelty " + (audit.novelty_mean != null ? Number(audit.novelty_mean).toFixed(1) : "—") +
+        " · gate aesthetic " + (audit.gate_aesthetic_mean != null ? Number(audit.gate_aesthetic_mean).toFixed(1) : "—") +
+        " · gates " + (audit.gate_pass || 0) + " pass / " + (audit.gate_fail || 0) + " fail";
+      $("fill").style.width = (stream.n ? Math.min(100, Math.round(100 * (stream.done || 0) / stream.n)) : 0) + "%";
+    }
+    renderFrames(st.frames || [], audit);
+  }
+  async function loadLaw() {
+    if (lawDirty) return;
+    try {
+      const r = await fetch(q("/api/jury/config"), { cache: "no-store" });
+      const j = await r.json();
+      if (!j.config) return;
+      const key = JSON.stringify({
+        mode: j.config.mode,
+        weights: j.config.weights,
+        strictness: j.config.strictness,
+        adversarial_mode: j.config.adversarial_mode,
+        text_from_gates: j.config.text_from_gates,
+        uniqueness_influence: j.config.uniqueness_influence,
+        gate_triage: j.config.gate_triage,
+        min_judges: j.config.min_judges
+      });
+      if (key !== lastLawKey) {
+        lastLawKey = key;
+        applyLaw(j.config);
+      } else {
+        paintRoster(j.config, window.__liveModels);
+      }
+    } catch (e) {}
+  }
+  async function loadRoster() {
+    try {
+      const r = await fetch(q("/api/protocol/calibrate"), { cache: "no-store" });
+      const j = await r.json();
+      window.__liveModels = j.live_models || {};
+      if (j.config) paintRoster(j.config, window.__liveModels);
+      const hive = j.hive || {};
+      const n = SEATS.filter((s) => !s.absorbed).length;
+      const sitting = ["pixtral", "witness", "governor"].filter((k) => (window.__liveModels[k] || []).length).length;
+      if ($("hive") && !$("hive").dataset.locked) {
+        const sees = (window.__liveModels.pixtral || []).length > 0;
+        $("hive").textContent = sitting
+          ? (n + " jurors on the bench · " + sitting + " engines live · aesthetic is Pixtral on :8004" + (sees ? " and can see." : "."))
+          : "Engines are down. Aesthetic, structure, and governor are not sitting.";
+      }
+    } catch (e) {
+      if ($("hive")) $("hive").textContent = "Could not read the bench: " + e;
+    }
   }
   async function load() {
-    const r = await fetch("/api/studios/microgreens", { cache: "no-store" });
-    const j = await r.json();
-    paint(j.studio || {});
+    try {
+      const r = await fetch("/api/studios/microgreens", { cache: "no-store" });
+      const j = await r.json();
+      const st = j.studio || {};
+      paintStudy(st);
+      paintLive(st);
+    } catch (e) {}
+    await loadLaw();
+    await loadRoster();
   }
-  load();
-  setInterval(load, 4000);
+  try {
+    paintLawToggles();
+    paintSeats();
+    paintRoster(law, {});
+    lawPreview();
+    load();
+    setInterval(load, 4000);
+  } catch (err) {
+    const v = $("verdict");
+    if (v) v.textContent = "Jury page failed to paint: " + err;
+  }
 </script>
+</body>
+</html>

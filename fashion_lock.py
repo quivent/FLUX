@@ -50,8 +50,8 @@ def cmdlines():
         if not raw:
             continue
         cmd = raw.replace(b"\0", b" ").decode("utf-8", "replace")
-        # GPU 3 fashion only. Ignore motion/Arcane/GPU 0 streamers entirely.
-        if "protocol_stream.py" in cmd and GPU3_SOCK in cmd:
+        # GPU 3 fashion lane only. Independent --branch collections are not fashion.
+        if "protocol_stream.py" in cmd and GPU3_SOCK in cmd and "--branch" not in cmd:
             out.append((int(pid), cmd))
     return out
 
@@ -83,7 +83,11 @@ def start_lane(lane):
             "--n",
             "256",
             "--steps",
-            "28",
+            "18",
+            "--width",
+            "256",
+            "--height",
+            "256",
             "--depth",
             "2",
             "--prompt",

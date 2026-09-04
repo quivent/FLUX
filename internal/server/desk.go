@@ -16,6 +16,13 @@ type deskPace struct {
 	StreamSteps int `json:"stream_steps"`
 }
 
+type deskBoard struct {
+	MovementMS  int                          `json:"movement_ms"`
+	StreamN     int                          `json:"stream_n"`
+	StreamSteps int                          `json:"stream_steps"`
+	Prompts     map[string]map[string]string `json:"prompts,omitempty"`
+}
+
 type deskHive struct {
 	Pixtral        float64 `json:"pixtral"`
 	Qwen           float64 `json:"qwen"`
@@ -37,10 +44,11 @@ type deskJury struct {
 }
 
 type deskState struct {
-	Lane string   `json:"lane"`
-	Hive deskHive `json:"hive"`
-	Jury deskJury `json:"jury"`
-	Pace deskPace `json:"pace"`
+	Lane    string                         `json:"lane"`
+	Hive    deskHive                       `json:"hive"`
+	Jury    deskJury                       `json:"jury"`
+	Pace    deskPace                       `json:"pace"`
+	Prompts map[string]map[string]string   `json:"prompts,omitempty"`
 }
 
 func (s Server) deskPage(w http.ResponseWriter, r *http.Request) {
@@ -89,35 +97,110 @@ func deskPacePath(root string) string {
 	return filepath.Join(root, ".fluxd", "tea_desk.json")
 }
 
-func loadDeskPace(root string) deskPace {
-	p := deskPace{MovementMS: 83, StreamN: 256, StreamSteps: 18}
-	raw, err := os.ReadFile(deskPacePath(root))
+func defaultRatingPrompts(root string) map[string]map[string]string {
+	raw, err := os.ReadFile(filepath.Join(root, "apps", "tea", "rating_prompts.json"))
 	if err != nil {
-		return p
+		return map[string]map[string]string{}
 	}
-	_ = json.Unmarshal(raw, &p)
-	if p.MovementMS < 24 {
-		p.MovementMS = 24
+	var prompts map[string]map[string]string
+	if json.Unmarshal(raw, &prompts) != nil || prompts == nil {
+		return map[string]map[string]string{}
 	}
-	if p.MovementMS > 400 {
-		p.MovementMS = 400
-	}
-	if p.StreamN != 512 {
-		p.StreamN = 256
-	}
-	if p.StreamSteps != 28 && p.StreamSteps != 18 {
-		p.StreamSteps = 18
-	}
-	return p
+	return prompts
 }
 
-func saveDeskPace(root string, p deskPace) error {
+func mergePromptMaps(base, overlay map[string]map[string]string) map[string]map[string]string {
+	out := map[string]map[string]string{}
+	for role, axes := range base {
+		cp := map[string]string{}
+		for k, v := range axes {
+			if strings.TrimSpace(v) != "" {
+				cp[k] = v
+			}
+		}
+		out[role] = cp
+	}
+	for role, axes := range overlay {
+		cp := out[role]
+		if cp == nil {
+			cp = map[string]string{}
+			out[role] = cp
+		}
+		for k, v := range axes {
+			if strings.TrimSpace(v) != "" {
+				cp[k] = strings.TrimSpace(v)
+			}
+		}
+	}
+	return out
+}
+
+func loadDeskBoard(root string) deskBoard {
+	b := deskBoard{MovementMS: 83, StreamN: 256, StreamSteps: 18, Prompts: defaultRatingPrompts(root)}
+	raw, err := os.ReadFile(deskPacePath(root))
+	if err != nil {
+		return b
+	}
+	var stored deskBoard
+	if json.Unmarshal(raw, &stored) != nil {
+		return b
+	}
+	if stored.MovementMS != 0 {
+		b.MovementMS = stored.MovementMS
+	}
+	if stored.StreamN != 0 {
+		b.StreamN = stored.StreamN
+	}
+	if stored.StreamSteps != 0 {
+		b.StreamSteps = stored.StreamSteps
+	}
+	if b.MovementMS < 24 {
+		b.MovementMS = 24
+	}
+	if b.MovementMS > 400 {
+		b.MovementMS = 400
+	}
+	if b.StreamN != 512 {
+		b.StreamN = 256
+	}
+	if b.StreamSteps != 28 && b.StreamSteps != 18 {
+		b.StreamSteps = 18
+	}
+	if stored.Prompts != nil {
+		b.Prompts = mergePromptMaps(b.Prompts, stored.Prompts)
+	}
+	return b
+}
+
+func loadDeskPace(root string) deskPace {
+	b := loadDeskBoard(root)
+	return deskPace{MovementMS: b.MovementMS, StreamN: b.StreamN, StreamSteps: b.StreamSteps}
+}
+
+func saveDeskBoard(root string, patch deskBoard) error {
+	cur := loadDeskBoard(root)
+	if patch.MovementMS != 0 {
+		cur.MovementMS = patch.MovementMS
+	}
+	if patch.StreamN != 0 {
+		cur.StreamN = patch.StreamN
+	}
+	if patch.StreamSteps != 0 {
+		cur.StreamSteps = patch.StreamSteps
+	}
+	if patch.Prompts != nil {
+		cur.Prompts = mergePromptMaps(cur.Prompts, patch.Prompts)
+	}
 	_ = os.MkdirAll(filepath.Join(root, ".fluxd"), 0o755)
-	raw, err := json.MarshalIndent(p, "", "  ")
+	raw, err := json.MarshalIndent(cur, "", "  ")
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(deskPacePath(root), raw, 0o644)
+}
+
+func saveDeskPace(root string, p deskPace) error {
+	return saveDeskBoard(root, deskBoard{MovementMS: p.MovementMS, StreamN: p.StreamN, StreamSteps: p.StreamSteps})
 }
 
 func boolVal(p *bool, fallback bool) bool {
@@ -128,6 +211,79 @@ func boolVal(p *bool, fallback bool) bool {
 }
 
 func boolPtr(v bool) *bool { return &v }
+
+var deskRatingScale = []map[string]any{
+	{"word": "failed", "hint": "failed render"},
+	{"word": "broken", "hint": "cannot be cropped out"},
+	{"word": "obvious", "hint": "a casual viewer notices immediately"},
+	{"word": "competent", "hint": "a careful viewer finds a real fault in ten seconds"},
+	{"word": "specialist", "hint": "one trivial fault a specialist would hunt for"},
+	{"word": "flawless", "hint": "no fault findable at 100% zoom"},
+}
+
+func wordForScore(n float64) string {
+	switch {
+	case n <= 19:
+		return "failed"
+	case n <= 44:
+		return "broken"
+	case n <= 69:
+		return "obvious"
+	case n <= 85:
+		return "competent"
+	case n <= 95:
+		return "specialist"
+	default:
+		return "flawless"
+	}
+}
+
+func latestDeskRatings(frames []map[string]any) map[string]any {
+	out := map[string]any{}
+	for i := len(frames) - 1; i >= 0; i-- {
+		scores, _ := frames[i]["scores"].([]map[string]any)
+		if scores == nil {
+			if raw, ok := frames[i]["scores"].([]any); ok {
+				for _, item := range raw {
+					if m, ok := item.(map[string]any); ok {
+						scores = append(scores, m)
+					}
+				}
+			}
+		}
+		if len(scores) == 0 {
+			continue
+		}
+		for _, card := range scores {
+			role, _ := card["role"].(string)
+			if role == "" {
+				continue
+			}
+			if ratings, ok := card["ratings"].(map[string]any); ok && len(ratings) > 0 {
+				out[role] = ratings
+				continue
+			}
+			words := map[string]any{}
+			if subs, ok := card["subscores"].(map[string]any); ok {
+				for k, v := range subs {
+					if n, ok := asFloat(v); ok {
+						words[k] = wordForScore(n)
+					}
+				}
+			}
+			if n, ok := asFloat(card["score"]); ok {
+				words["overall"] = wordForScore(n)
+			}
+			if len(words) > 0 {
+				out[role] = words
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return out
+}
 
 func hiveFromConfig(cfg jury.JuryConfig) deskHive {
 	w := cfg.Weights
@@ -180,11 +336,13 @@ func (s Server) teaDeskAPI(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		cfg = jury.DefaultConfig()
 	}
+	board := loadDeskBoard(s.cfg.Root)
 	state := deskState{
-		Lane: lane,
-		Hive: hiveFromConfig(cfg),
-		Jury: juryFromConfig(cfg),
-		Pace: loadDeskPace(s.cfg.Root),
+		Lane:    lane,
+		Hive:    hiveFromConfig(cfg),
+		Jury:    juryFromConfig(cfg),
+		Pace:    deskPace{MovementMS: board.MovementMS, StreamN: board.StreamN, StreamSteps: board.StreamSteps},
+		Prompts: board.Prompts,
 	}
 
 	if r.Method == http.MethodPost {
@@ -221,40 +379,39 @@ func (s Server) teaDeskAPI(w http.ResponseWriter, r *http.Request) {
 				patch.Strictness = j.Gamma
 			}
 		}
-		if incoming.Hive.Pixtral+incoming.Hive.Qwen+incoming.Hive.Decoder+incoming.Hive.Governor > 0 {
-			if patch.Endpoints == nil {
-				patch.Endpoints = map[string]jury.JuryEndpoint{}
-			}
-			px := patch.Endpoints[jury.ServedPixtral]
-			px.Enabled = boolPtr(incoming.Hive.EnablePixtral)
-			patch.Endpoints[jury.ServedPixtral] = px
-			ws := patch.Endpoints[jury.ServedWitness]
-			ws.Enabled = boolPtr(incoming.Hive.EnableWitness)
-			patch.Endpoints[jury.ServedWitness] = ws
-			gv := patch.Endpoints[jury.ServedGovernor]
-			gv.Enabled = boolPtr(incoming.Hive.EnableGovernor)
-			patch.Endpoints[jury.ServedGovernor] = gv
+		if patch.Endpoints == nil {
+			patch.Endpoints = map[string]jury.JuryEndpoint{}
 		}
+		px := patch.Endpoints[jury.ServedPixtral]
+		px.Enabled = boolPtr(incoming.Hive.EnablePixtral)
+		patch.Endpoints[jury.ServedPixtral] = px
+		ws := patch.Endpoints[jury.ServedWitness]
+		ws.Enabled = boolPtr(incoming.Hive.EnableWitness)
+		patch.Endpoints[jury.ServedWitness] = ws
+		gv := patch.Endpoints[jury.ServedGovernor]
+		gv.Enabled = boolPtr(incoming.Hive.EnableGovernor)
+		patch.Endpoints[jury.ServedGovernor] = gv
 		merged := jury.MergeConfig(cfg, patch)
 		if err := jury.SaveConfig(dir, merged); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		boardPatch := deskBoard{Prompts: incoming.Prompts}
 		if incoming.Pace.MovementMS != 0 || incoming.Pace.StreamN != 0 || incoming.Pace.StreamSteps != 0 {
-			p := loadDeskPace(s.cfg.Root)
-			if incoming.Pace.MovementMS != 0 {
-				p.MovementMS = incoming.Pace.MovementMS
-			}
-			if incoming.Pace.StreamN != 0 {
-				p.StreamN = incoming.Pace.StreamN
-			}
-			if incoming.Pace.StreamSteps != 0 {
-				p.StreamSteps = incoming.Pace.StreamSteps
-			}
-			_ = saveDeskPace(s.cfg.Root, p)
+			boardPatch.MovementMS = incoming.Pace.MovementMS
+			boardPatch.StreamN = incoming.Pace.StreamN
+			boardPatch.StreamSteps = incoming.Pace.StreamSteps
 		}
+		_ = saveDeskBoard(s.cfg.Root, boardPatch)
 		cfg, _ = jury.GetConfig(dir)
-		state = deskState{Lane: lane, Hive: hiveFromConfig(cfg), Jury: juryFromConfig(cfg), Pace: loadDeskPace(s.cfg.Root)}
+		board = loadDeskBoard(s.cfg.Root)
+		state = deskState{
+			Lane:    lane,
+			Hive:    hiveFromConfig(cfg),
+			Jury:    juryFromConfig(cfg),
+			Pace:    deskPace{MovementMS: board.MovementMS, StreamN: board.StreamN, StreamSteps: board.StreamSteps},
+			Prompts: board.Prompts,
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "saved": true, "desk": state, "hive": resolveHiveTarget()})
 		return
 	}
@@ -262,11 +419,23 @@ func (s Server) teaDeskAPI(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, http.MethodGet)
 		return
 	}
+	specs, _ := jury.GetSpectacles(dir, 8)
+	stream := readProtocolStreamStateFile(protocolBranchStatePath(s.cfg.Root, "silken-horses"))
+	if stream == nil {
+		stream = readProtocolStreamStateLane(s.cfg.Root, "fashion")
+	}
+	audit := digestAudit(dir, 24)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":    true,
-		"desk":  state,
-		"hive":  resolveHiveTarget(),
-		"audit": digestAudit(dir, 24),
+		"ok":           true,
+		"desk":         state,
+		"hive":         resolveHiveTarget(),
+		"audit":        audit,
+		"rating_scale": deskRatingScale,
+		"ratings":      latestDeskRatings(audit.Frames),
+		"spectacles":   specs,
+		"live_models":  collectLiveModels(),
+		"presets":      mustPresets(dir),
+		"stream":       stream,
 	})
 }
 

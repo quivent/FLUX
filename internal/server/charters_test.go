@@ -88,6 +88,61 @@ title="critical active"`)
 	}
 }
 
+func TestCharterQueueHonorsResearchSequence(t *testing.T) {
+	dir := t.TempDir()
+	swarm := filepath.Join(dir, ".swarm")
+	charters := filepath.Join(swarm, "charters")
+	if err := os.MkdirAll(charters, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(charters, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("c.toml", `[charter]
+id="parent"
+state="active"
+priority="critical"
+sequence=1
+opened_at="2026-09-04T22:00:00Z"
+[charter.goal]
+title="parent"`)
+	write("a.toml", `[charter]
+id="later-child"
+state="active"
+priority="critical"
+sequence=3
+parent="parent"
+opened_at="2026-09-04T22:30:00Z"
+[charter.goal]
+title="third"`)
+	write("b.toml", `[charter]
+id="first-child"
+state="active"
+priority="critical"
+sequence=2
+parent="parent"
+opened_at="2026-09-04T22:10:00Z"
+[charter.goal]
+title="second"`)
+	write("z.toml", `[charter]
+id="noise"
+state="active"
+priority="high"
+opened_at="2026-09-04T23:00:00Z"
+[charter.goal]
+title="unsequenced high"`)
+	t.Setenv("HIVE_SWARM", swarm)
+	q := loadCharterQueue(charters)
+	if len(q) != 4 {
+		t.Fatalf("n=%d", len(q))
+	}
+	if q[0].ID != "parent" || q[1].ID != "first-child" || q[2].ID != "later-child" || q[3].ID != "noise" {
+		t.Fatalf("order %s %s %s %s", q[0].ID, q[1].ID, q[2].ID, q[3].ID)
+	}
+}
+
 func TestChartersHostServesQueuePage(t *testing.T) {
 	s := Server{cfg: config.Config{Root: repoRoot(t)}}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

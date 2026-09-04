@@ -27,7 +27,7 @@ var reservedProtocolBranches = map[string]bool{
 	"index": true, "assets": true, "api": true, "batches": true, "trash": true,
 	"garden": true, "engine": true, "judge": true, "jury": true, "sentinel": true,
 	"rig": true, "domains": true, "stream": true, "gpu3": true, "fp8": true,
-	"desk": true, "scores": true, "control": true, "governor": true,
+	"desk": true, "scores": true, "control": true, "governor": true, "daemons": true,
 	"celadon": true, "still-life": true, "still_life": true,
 }
 
@@ -174,6 +174,8 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 		Prompt string `json:"prompt"`
 		N      int    `json:"n"`
 		Steps  int    `json:"steps"`
+		Width  int    `json:"width"`
+		Height int    `json:"height"`
 		Depth  int    `json:"depth"`
 		Socket string `json:"socket"`
 		Stop   bool   `json:"stop"`
@@ -217,18 +219,7 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusConflict, fmt.Sprintf("already running %d protocol branches; stop one first", protocolBranchCap))
 		return
 	}
-	if req.N != 512 {
-		req.N = 256
-	}
-	if req.Steps != 18 {
-		req.Steps = 28
-	}
-	if req.Depth <= 0 {
-		req.Depth = 1
-	}
-	if req.Depth > 2 {
-		req.Depth = 2
-	}
+	req.N, req.Steps, req.Depth, req.Width, req.Height = clampProtocolBranchHarvest(req.N, req.Steps, req.Depth, req.Width, req.Height)
 	collDir := filepath.Join(s.cfg.OutputDir, "collections", slug)
 	if err := os.MkdirAll(collDir, 0o755); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -249,17 +240,23 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 		"--steps", strconv.Itoa(req.Steps),
 		"--depth", strconv.Itoa(req.Depth),
 		"--prompt", prompt,
+		"--width", strconv.Itoa(req.Width),
+		"--height", strconv.Itoa(req.Height),
 		"--branch", slug,
 		"--state", statePath,
 		"--lane", slug,
 	}
-	if sock := strings.TrimSpace(req.Socket); sock != "" {
-		if filepath.IsAbs(sock) {
-			args = append(args, "--socket", sock)
+	sock := strings.TrimSpace(req.Socket)
+	if sock == "" {
+		sock = filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.sock")
+	} else if !filepath.IsAbs(sock) {
+		if strings.ContainsRune(sock, os.PathSeparator) {
+			sock = filepath.Join(s.cfg.Root, sock)
 		} else {
-			args = append(args, "--socket", filepath.Join(s.cfg.Root, sock))
+			sock = filepath.Join(s.cfg.Root, ".fluxd", sock)
 		}
 	}
+	args = append(args, "--socket", sock)
 	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -273,6 +270,7 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 		"OUT_DIR="+s.cfg.OutputDir,
 		"FLUX_OUTPUT_DIR="+s.cfg.OutputDir,
 		"FLUX_HTTP=http://127.0.0.1:7861",
+		"PYTHONUNBUFFERED=1",
 	)
 	if err := cmd.Start(); err != nil {
 		_ = logf.Close()
@@ -290,8 +288,38 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 		"wall":    "/collections/" + slug,
 		"n":       req.N,
 		"steps":   req.Steps,
+		"width":   req.Width,
+		"height":  req.Height,
 		"stream":  readProtocolStreamStateFile(statePath),
 	})
+}
+
+func clampProtocolBranchHarvest(n, steps, depth, width, height int) (int, int, int, int, int) {
+	if n != 512 {
+		n = 256
+	}
+	if steps != 18 {
+		steps = 28
+	}
+	if depth <= 0 {
+		depth = 1
+	}
+	if depth > 2 {
+		depth = 2
+	}
+	if width <= 0 {
+		width = 1024
+	}
+	if height <= 0 {
+		height = width
+	}
+	if width > 2048 {
+		width = 2048
+	}
+	if height > 2048 {
+		height = 2048
+	}
+	return n, steps, depth, width, height
 }
 
 func (s Server) stopProtocolBranch(w http.ResponseWriter, slug string) {

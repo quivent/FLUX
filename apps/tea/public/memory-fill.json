@@ -1,0 +1,20 @@
+{
+  "schema": "hive.governor-memory-fill/v1",
+  "ts": "2026-09-04T23:52:42Z",
+  "working": {
+    "frac": 0.0,
+    "pct": 0.0,
+    "tokens_used": 0,
+    "tokens_cap": 63848,
+    "label": "working KV"
+  },
+  "durable": {
+    "semantic_keys": 18,
+    "semantic_cap": 64,
+    "frac": 0.28125,
+    "pct": 28.12,
+    "shard_bytes": 156610082,
+    "label": "durable cache"
+  },
+  "ok": true
+}
