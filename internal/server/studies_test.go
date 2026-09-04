@@ -36,9 +36,21 @@ func TestTeaStudyCatalogIncludesDraftsAndRecoveredStallionWork(t *testing.T) {
 	if err := json.Unmarshal(curatedRaw, &curated); err != nil {
 		t.Fatal(err)
 	}
-	want := draftCount + len(curated)
+	beautyJobs := 0
+	queueRaw, err := os.ReadFile(filepath.Join(root, "chorus", "beauty-queue.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var queue struct {
+		Jobs []map[string]any `json:"jobs"`
+	}
+	if err := json.Unmarshal(queueRaw, &queue); err != nil {
+		t.Fatal(err)
+	}
+	beautyJobs = len(queue.Jobs)
+	want := draftCount + len(curated) + beautyJobs + 1
 	if len(studies) != want {
-		t.Fatalf("study count = %d, want %d (%d atlas drafts + %d curated records)", len(studies), want, draftCount, len(curated))
+		t.Fatalf("study count = %d, want %d (%d atlas drafts + %d curated + %d beauty-queue jobs + parent)", len(studies), want, draftCount, len(curated), beautyJobs)
 	}
 	byID := make(map[string]map[string]any, len(studies))
 	kinds := make(map[string]int)
@@ -71,6 +83,38 @@ func TestTeaStudyCatalogIncludesDraftsAndRecoveredStallionWork(t *testing.T) {
 		if byID[id] == nil {
 			t.Errorf("study %q is missing", id)
 		}
+	}
+	fashion := byID["fashion-beauty-on-beauty"]
+	if fashion == nil || !strings.Contains(stringValue(fashion["prompt"]), "Fashion beauty on beauty") {
+		t.Fatal("fashion study is missing its prepared prompt")
+	}
+	if fashion["variables"] == nil {
+		t.Error("fashion study is missing variables")
+	}
+	bell := byID["beauty-queue-bell-weather"]
+	if bell == nil {
+		t.Fatal("beauty-queue Bell Weather is missing")
+	}
+	if got := stringValue(bell["status"]); got != "prepared" {
+		t.Errorf("Bell Weather status = %q, want prepared", got)
+	}
+	if !strings.Contains(stringValue(bell["prompt"]), "temple bell") {
+		t.Errorf("Bell Weather prompt = %q", bell["prompt"])
+	}
+	queueParent := byID["images-of-beauty-48"]
+	if queueParent == nil {
+		t.Fatal("beauty-queue parent card is missing")
+	}
+	turntable := byID["spheremap_atlas_arcane_italian_princess_turntable_64_20260713"]
+	if turntable == nil {
+		t.Fatal("Arcane turntable draft is missing")
+	}
+	if got := stringValue(turntable["family"]); got != "arcane" {
+		t.Errorf("Arcane turntable family = %q, want arcane", got)
+	}
+	vars, _ := turntable["variables"].(map[string]any)
+	if vars == nil || vars["seed_lock"] == nil || vars["shell_scale"] == nil {
+		t.Errorf("Arcane turntable variables incomplete: %#v", vars)
 	}
 }
 

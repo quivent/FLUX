@@ -1264,6 +1264,7 @@ def _base_runtime() -> Dict[str, Any]:
         "probe_ttl": float(_num(_env("MOJ_PROBE_TTL_S")) or 20.0),
         "uniqueness_influence": not _truthy(_env("MOJ_DISABLE_UNIQUENESS")),
         "gate_triage": _truthy(_env("MOJ_GATE_TRIAGE")),
+        "text_from_gates": _truthy(_env("MOJ_TEXT_FROM_GATES")),
         "output_dir": output_dir(),
         "json_retry_without_response_format": True,
     }
@@ -1315,7 +1316,7 @@ def load_runtime_config(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
             if num is not None:
                 runtime[key] = type(runtime[key])(num)
 
-    for flag in ("uniqueness_influence", "gate_triage"):
+    for flag in ("uniqueness_influence", "gate_triage", "text_from_gates"):
         if flag in cfg:
             runtime[flag] = bool(cfg[flag])
 
@@ -1887,7 +1888,8 @@ def judge_image(
         }
 
     entry = endpoint_for(spec, runtime)
-    endpoint_sees_images = bool(entry.get("vision", True))
+    force_text = bool(runtime.get("text_from_gates"))
+    endpoint_sees_images = bool(entry.get("vision", True)) and not force_text
 
     if not judge_enabled(spec, runtime):
         return _degraded(spec, runtime, "endpoint %r is disabled" % spec.endpoint)
@@ -1898,40 +1900,35 @@ def judge_image(
         {"role": "system", "content": system_prompt_for(spec.role, arcane=arcane)}
     ]
 
-    if spec.phase == 1 or endpoint_sees_images:
-        if not image_path or not os.path.exists(image_path):
-            if spec.phase == 1:
-                return _degraded(
-                    spec, runtime, "render not found on disk: %r" % (image_path,)
-                )
+    sent_user = False
+    if endpoint_sees_images and image_path and os.path.exists(image_path):
+        data_uri, err = encode_image_data_uri(
+            image_path,
+            max_side=int(runtime.get("image_max_side", 1024)),
+            fmt=str(runtime.get("image_format", "png")),
+            max_bytes=int(runtime.get("image_max_bytes", 12 * 1024 * 1024)),
+        )
+        if err or not data_uri:
+            if spec.phase == 1 and not evidence:
+                return _degraded(spec, runtime, err or "image encoding failed")
             endpoint_sees_images = False
         else:
-            data_uri, err = encode_image_data_uri(
-                image_path,
-                max_side=int(runtime.get("image_max_side", 1024)),
-                fmt=str(runtime.get("image_format", "png")),
-                max_bytes=int(runtime.get("image_max_bytes", 12 * 1024 * 1024)),
-            )
-            if err or not data_uri:
-                if spec.phase == 1:
-                    return _degraded(spec, runtime, err or "image encoding failed")
-                endpoint_sees_images = False
-            else:
-                content = _user_content_vision(prompt, job, data_uri)
-                if spec.phase == 2 and evidence:
-                    content.insert(
-                        0, {"type": "text", "text": _user_text_synthesis(prompt, evidence)}
-                    )
-                messages.append({"role": "user", "content": content})
+            content = _user_content_vision(prompt, job, data_uri)
+            if evidence:
+                content.insert(
+                    0, {"type": "text", "text": _user_text_synthesis(prompt, evidence)}
+                )
+            messages.append({"role": "user", "content": content})
+            sent_user = True
 
-    if len(messages) == 1:
-        # Text-only path: the synthesist adjudicates over testimony.
+    if not sent_user:
+        # Text-only path: score uniqueness + sensory-gate testimony (and any
+        # surviving visual scorecards) when the seat cannot accept image_url.
         if not evidence:
             return _degraded(
                 spec,
                 runtime,
-                "no visual evidence to adjudicate; a text-only judge scoring "
-                "without testimony would be fabrication",
+                "seat cannot see images and no mechanical evidence was supplied",
             )
         messages.append({"role": "user", "content": _user_text_synthesis(prompt, evidence)})
 
@@ -2366,6 +2363,7 @@ def _run_phase1(
     job: Dict[str, Any],
     arcane: bool,
     deadline: float,
+    evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     results: Dict[str, Dict[str, Any]] = {}
     if not specs:
@@ -2380,7 +2378,13 @@ def _run_phase1(
                 continue
             try:
                 results[spec.role] = judge_image(
-                    image_path, prompt, spec.role, runtime, job=job, arcane=arcane
+                    image_path,
+                    prompt,
+                    spec.role,
+                    runtime,
+                    job=job,
+                    evidence=evidence,
+                    arcane=arcane,
                 )
             except Exception as exc:
                 results[spec.role] = _degraded(spec, runtime, _short_exc(exc))
@@ -2397,8 +2401,9 @@ def _run_phase1(
                     prompt,
                     spec.role,
                     runtime,
-                    job=job,
-                    arcane=arcane,
+                    job,
+                    evidence,
+                    arcane,
                 ),
             )
             for spec in specs
@@ -2561,8 +2566,30 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
             for s in phase1_specs
         }
     else:
+        mechanical = {
+            "prompt": prompt,
+            "job": {
+                k: job.get(k)
+                for k in ("id", "seed", "study_type", "steps", "guidance", "width", "height")
+                if job.get(k) is not None
+            },
+            "uniqueness": uniq,
+            "sensory_gates": gates,
+            "arcane_conformance": arcane,
+            "note": (
+                "Mechanical testimony from uniqueness tracking and sensory gates. "
+                "This seat may not receive pixels; score the render from this evidence."
+            ),
+        }
         results = _run_phase1(
-            phase1_specs, image_path, prompt, runtime, job, arcane_job, phase1_deadline
+            phase1_specs,
+            image_path,
+            prompt,
+            runtime,
+            job,
+            arcane_job,
+            phase1_deadline,
+            evidence=mechanical,
         )
 
     visual_survivors = [

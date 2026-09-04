@@ -270,6 +270,28 @@ authority = "Sovereign Council & Governor Protocol"
 default_profile = "rtx-pro-6000"
 cadence_seconds = 6.3
 
+# Beauty-protocol stream: FLUX emits N unique-seed stills; each still is judged
+# uniqueness → sensory gates → witness + pixtral → governor → composite/tier.
+# n and steps are closed sets so the oversight page cannot invent a third mode.
+[stream]
+n = [256, 512]
+n_default = 256
+steps = [18, 28]
+steps_default = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+queue_depth = 2
+eval_path = ["generate", "uniqueness", "sensory_gates", "witness", "pixtral", "governor", "composite"]
+# Fashion lock: GPU 0 and GPU 3 commission this brief only. Celadon/arcane
+# are refused at protocol_stream.py, /api/protocol, and fashion_lock.py.
+prompt = "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
+prompt_fashion = "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
+prompt_arcane = "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, holding a glowing impossible procedural 3D rose as the extra element, floating crimson velvet rose petals, enchanted glass garden, the rose painted with the same visible brushwork as the character not rendered smooth, cinematic hybrid animation still, painterly 2D brushwork over sculpted 3D form, hand-painted rim light, graphic shadows, unique art beauty not generic fashion, high-end animated series frame, matte painted skin with visible strokes, no plastic CGI"
+prompt_still_life = "STOPPED — celadon tea-bowl / mug stream is forbidden"
+steps_fashion = 28
+steps_arcane = 28
+steps_still_life = 18
+
 # Port allocation kept as data so provisioning can preflight for collisions
 # instead of discovering them at bind() time.
 [ports]

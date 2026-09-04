@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tea.css">
   
   <style>
     :root {
@@ -638,24 +639,31 @@
     }
   </style>
 </head>
-<body>
+<body class="tea-app">
 
   <!-- Ambient Botanical Particle Canvas -->
   <canvas id="ambientCanvas"></canvas>
 
-  <div class="shell">
-    
-    <!-- Top Sovereign Header -->
-    <header>
-      <a href="/" class="brand-group">
-        <div class="tea-seal">🍵</div>
-        <div class="brand-text">
-          <h1>Influx Vision</h1>
-          <span>The Living Parchment · Stillness & Motion</span>
-        </div>
-      </a>
-
-      <!-- Equilibrium Seal -->
+  <header class="tea-chrome">
+    <a class="tea-brand" href="/">
+      <span class="tea-seal">茶</span>
+      <span class="tea-word">Tea</span>
+    </a>
+    <nav class="tea-nav" aria-label="Tea">
+      <span class="tea-nav-label">Stillness</span>
+      <a href="/jury">Jury</a>
+      <a href="/gallery/">Gallery</a>
+      <a href="/garden">Garden</a>
+      <a href="/portraits">Portraits</a>
+      <a href="/exhibition">Exhibition</a>
+      <span class="tea-nav-sep"></span>
+      <span class="tea-nav-label">Motion</span>
+      <a href="/movement">Movement</a>
+      <a href="/atlas/">Worlds</a>
+      <a href="/studies">Studies</a>
+      <a href="/engine">Engine</a>
+    </nav>
+    <div class="tea-chrome-end">
       <div class="equilibrium-seal" title="Dynamic Equilibrium: Stillness vs Velocity">
         <span class="eq-title">Equilibrium</span>
         <div class="eq-bar">
@@ -664,17 +672,16 @@
         </div>
         <span class="eq-value" id="eqVal">54 · 46</span>
       </div>
-
-      <!-- Right Controls & Ritual Switch -->
-      <div class="header-actions">
-        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilightRitual()">
-          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
-        </button>
-        <div class="telemetry-tag" id="telemetryTag">
-          H200 · 185W · 42°C
-        </div>
+      <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilightRitual()">
+        <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+      </button>
+      <div class="telemetry-tag" id="telemetryTag">
+        H200 · 185W · 42°C
       </div>
-    </header>
+    </div>
+  </header>
+
+  <div class="shell">
 
     <!-- THE 4-SHARD JURY COUNCIL SENTINELS -->
     <div class="jury-sentinels" style="grid-template-columns: repeat(2, 1fr);">
@@ -1036,5 +1043,6 @@
     setInterval(pollTelemetry, 3500);
     pollTelemetry();
   </script>
+<script src="/tea-shell.js"></script>
 <script src="/assets/sensory.js"></script></body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f5f0">
-  <meta name="description" content="Tea studies: motion paths, latent atlases, continuity experiments, and works in progress.">
+  <meta name="description" content="Catalog of Tea studies: live, complete, stopped, and prepared prompts with the variables used.">
   <title>Studies — Tea & Motion</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -461,8 +461,79 @@
       -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      margin-bottom: 18px;
+      margin-bottom: 10px;
     }
+    .prompt.full {
+      display: block;
+      -webkit-line-clamp: unset;
+      font-family: var(--mono);
+      font-size: 11px;
+      white-space: pre-wrap;
+      color: var(--ink);
+      background: var(--paper-subtle);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      max-height: 9.5em;
+      overflow: auto;
+    }
+    .vars { display:flex; flex-wrap:wrap; gap:6px; margin: 8px 0 8px; }
+    .vars code {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: var(--paper-subtle);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: var(--tea);
+    }
+    .var-list {
+      flex: 1 1 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .var-list > span {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .copy-row { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 12px; }
+    .copy-prompt {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .catalog-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    #study-search {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card-bg);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 14px;
+      padding: 8px 14px;
+      min-width: min(280px, 100%);
+    }
+    #study-search:focus { outline: 2px solid var(--tea); border-color: var(--tea); }
     .specs {
       display: flex;
       flex-wrap: wrap;
@@ -709,8 +780,12 @@
         <!-- Universal Navigation Bar -->
         <nav class="universal-nav" aria-label="Universal Navigation">
           <span class="nav-label">🍵 TEA:</span>
+          <a href="/protocol">📜 Protocol</a>
+          <a href="/arcane">🎨 Arcane</a>
+          <a href="/judge">⚖️ Algorithm</a>
           <a href="/jury">👑 Jury</a>
           <a href="/gallery/">🖼️ Stream</a>
+          <a href="/collections">📚 Collections</a>
           <a href="/garden">🌿 Garden</a>
           <a href="/portraits">👤 Portraits</a>
           <a href="/exhibition">🏛️ Exhibition</a>
@@ -739,9 +814,10 @@
           <div class="eyebrow">The work beneath the work</div>
           <h1>Studies</h1>
         </div>
-        <p>Motion here begins as a field of possibilities: paths through latent space, tests of continuity, and small changes observed long enough to become a work.</p>
+        <p>Live, complete, stopped, and prepared studies. Each card carries the prompt and the variables used — copy them, do not mix walls.</p>
       </section>
 
+      <!-- Study library · Studies gallery · Full sphere -->
       <div class="view-tabs" role="tablist" aria-label="Studies views">
         <button class="active" id="library-tab" role="tab" aria-selected="true" aria-controls="library-view">Study Library</button>
         <button id="gallery-tab" role="tab" aria-selected="false" aria-controls="gallery-view">Results Gallery <span id="gallery-total"></span></button>
@@ -780,14 +856,21 @@
         <section aria-labelledby="catalog-title">
           <div class="catalog-head">
             <div>
-              <div class="eyebrow">Atlas drafts · motion experiments</div>
+              <div class="eyebrow">Prepared prompts · live runs · atlas drafts</div>
               <h2 id="catalog-title">Study Index</h2>
             </div>
-            <div class="count" id="count">Reading the archive...</div>
+            <div class="catalog-tools">
+              <input id="study-search" type="search" placeholder="Search prompts and variables" aria-label="Search studies">
+              <div class="count" id="count">Reading the archive...</div>
+            </div>
           </div>
 
           <div class="filters" id="filters">
             <button class="active" data-filter="all">All</button>
+            <button data-filter="running">Live</button>
+            <button data-filter="prepared">Prepared</button>
+            <button data-filter="beauty">Beauty</button>
+            <button data-filter="arcane">Arcane</button>
             <button data-filter="motion">Motion</button>
             <button data-filter="atlas">Atlas</button>
             <button data-filter="continuity">Continuity</button>
@@ -843,12 +926,21 @@
   <script>
     const cards = document.getElementById('cards');
     const count = document.getElementById('count');
+    const searchBox = document.getElementById('study-search');
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let studies = [], active = 'all', historyLoaded = false, galleryMode = 'all', films = [];
+    let studies = [], active = 'all', query = '', historyLoaded = false, galleryMode = 'all', films = [];
 
     function matches(s) {
+      if (query) {
+        const hay = [s.id, s.label, s.subject, s.prompt, s.note, s.kind, s.family, s.status, JSON.stringify(s.variables || {})].join(' ').toLowerCase();
+        if (!hay.includes(query)) return false;
+      }
       if (active === 'all') return true;
-      const hay = (s.kind + ' ' + s.sample_mode + ' ' + s.label + ' ' + s.subject).toLowerCase();
+      if (active === 'running') return String(s.status || '') === 'running';
+      if (active === 'prepared') return String(s.status || '') === 'prepared';
+      if (active === 'beauty') return String(s.family || s.kind || '').toLowerCase().includes('beauty') || String(s.id||'').includes('fashion') || String(s.id||'').includes('celadon');
+      if (active === 'arcane') return String(s.family || s.kind || s.label || '').toLowerCase().includes('arcane');
+      const hay = (s.kind + ' ' + s.sample_mode + ' ' + s.label + ' ' + s.subject + ' ' + (s.family||'')).toLowerCase();
       return hay.includes(active);
     }
 
@@ -876,12 +968,52 @@
       }).catch(() => {});
     }
 
+    function varChips(s) {
+      const v = s.variables || {};
+      const chips = [];
+      const lists = [];
+      const live = s.live || {};
+      if (live.submitted != null) chips.push('live ' + live.done + '/' + (live.n || live.submitted));
+      if (s.gpu != null) chips.push('gpu ' + s.gpu);
+      if (s.locked) chips.push('locked');
+      if (s.wall) chips.push('wall ' + s.wall);
+      for (const [k, val] of Object.entries(v)) {
+        if (Array.isArray(val)) {
+          const short = val.every(x => typeof x === 'string' || typeof x === 'number');
+          if (short && val.length && val.length <= 12 && val.some(x => String(x).length > 4)) {
+            lists.push({k, val});
+          } else if (short && val.length && val.every(x => typeof x === 'number' || String(x).length <= 8)) {
+            chips.push(k + ' ' + val.join(' · '));
+          } else {
+            chips.push(k + ' ×' + val.length);
+          }
+        } else if (val && typeof val === 'object') continue;
+        else chips.push(k + ' ' + val);
+      }
+      const chipHtml = chips.slice(0, 14).map(c => `<code>${esc(c)}</code>`).join('');
+      const listHtml = lists.map(({k, val}) => `<div class="var-list"><span>${esc(k)}</span>${val.map(x => `<code>${esc(x)}</code>`).join('')}</div>`).join('');
+      return chipHtml + listHtml;
+    }
+
+    function copyStudy(id, mode, btn) {
+      const s = studies.find(x => x.id === id);
+      if (!s) return;
+      const text = mode === 'vars'
+        ? JSON.stringify({prompt: s.prompt || '', variables: s.variables || {}}, null, 2)
+        : String(s.prompt || '');
+      navigator.clipboard.writeText(text).then(() => {
+        const label = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => { btn.textContent = label; }, 1400);
+      }).catch(() => {});
+    }
+
     function render() {
       const shown = studies.filter(matches);
       count.textContent = `${shown.length} ${shown.length === 1 ? 'study' : 'studies'} shown · ${studies.length} recorded`;
       cards.innerHTML = shown.map(s => `
         <article class="card">
-          <button class="copy-btn" onclick="copyItemLink(event, '${esc(s.url || window.location.href)}')" title="Copy Link">
+          <button class="copy-btn" onclick="copyItemLink(event, '${esc(s.url || '/studies')}')" title="Copy Link">
             <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
             <span>Copy</span>
           </button>
@@ -891,7 +1023,13 @@
           </div>
           <h3>${esc(s.label)}</h3>
           <p class="subject">${esc(s.subject || 'Latent sphere study')}</p>
-          <p class="prompt">${esc(s.note || s.prompt || 'Study record')}</p>
+          ${s.prompt ? `<p class="prompt full">${esc(s.prompt)}</p>
+            <div class="copy-row">
+              <button class="copy-prompt" onclick="copyStudy('${esc(s.id)}','prompt',this)">Copy prompt</button>
+              <button class="copy-prompt" onclick="copyStudy('${esc(s.id)}','vars',this)">Copy prompt + variables</button>
+            </div>` : `<p class="prompt">${esc(s.note || 'Study record')}</p>`}
+          <div class="vars">${varChips(s)}</div>
+          ${s.note && s.prompt ? `<p class="prompt">${esc(s.note)}</p>` : ''}
           <div class="specs">
             ${spec(s, 'grid', s.grid)}
             ${spec(s, 'rendered', s.render_count ? Number(s.render_count).toLocaleString() : '')}
@@ -899,8 +1037,10 @@
             ${spec(s, 'steps', s.steps)}
             ${spec(s, 'mode', s.mode)}
             ${spec(s, 'sample', s.sample_mode)}
+            ${spec(s, 'wall', s.wall)}
           </div>
           ${s.url ? `<a class="card-link" href="${esc(s.url)}">Open related work →</a>` : ''}
+          ${s.wall ? `<a class="card-link" href="${esc(s.wall)}">Open wall →</a>` : ''}
         </article>
       `).join('') || '<div class="empty">No studies match this view.</div>';
     }
@@ -912,6 +1052,12 @@
       document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('active', x === button));
       render();
     });
+    if (searchBox) {
+      searchBox.addEventListener('input', () => {
+        query = String(searchBox.value || '').trim().toLowerCase();
+        render();
+      });
+    }
 
     fetch('/api/studies', { cache: 'no-store' })
       .then(r => {

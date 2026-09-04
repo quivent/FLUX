@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+"""FLUX beauty-protocol streamer.
+
+Submits N unique-seed renders (256 or 512) at 18 or 28 steps, keeps a shallow
+queue against the resident worker, and writes a status file the /protocol page
+polls. Each settled job is judged by moj_evaluator via jury_evaluator --serve.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import socket
+import time
+import urllib.error
+import urllib.request
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+STATE_PATH = os.path.join(ROOT, ".fluxd", "protocol_stream.json")
+API = os.environ.get("FLUX_HTTP", "http://127.0.0.1:7861")
+FASHION_PROMPT = (
+    "The most extravagant fashion models in the most unique and exquisite dresses "
+    "ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
+)
+STILL_LIFE_PROMPT = (
+    "a celadon tea bowl with one gold kintsugi seam on handmade washi, "
+    "north window light, quiet still life, off-centre, reserved highlights, "
+    "one accent against a restrained ground"
+)
+# Jury :8001 SIGN then AMEND 2026-09-04. CLIP-L 68 tokens; extra element in-window.
+# Not princess, not rose, not celadon. Hive Qwen :8000 dumped CoT — ignored.
+ARCANE_PROMPT = (
+    "Fortiche style animation still, holding a rusted bio-luminescent mechanical "
+    "lung, gaunt Zaunite scavenger, severe unique beauty, angular scarred face, "
+    "oil paint impasto over 3D sculpt, graphic painted rim, gouache, chiaroscuro, "
+    "neon chemtech glow, industrial smog, not CGI"
+)
+ARCANE_EXTRA = "mechanical lung"
+ARCANE_BANNED = (
+    "princess",
+    "rose",
+    "celadon",
+    "tea bowl",
+    "kintsugi",
+    "disney",
+    "supermodel",
+)
+CLIP_TOKENIZER = os.path.expanduser("~/models/FLUX.1-dev/tokenizer")
+DEFAULT_PROMPT = FASHION_PROMPT
+EVAL_PATH = [
+    "generate",
+    "uniqueness",
+    "sensory_gates",
+    "witness",
+    "pixtral",
+    "governor",
+    "composite",
+]
+
+
+def load_state(path=None):
+    path = path or STATE_PATH
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_state(state, path=None):
+    path = path or STATE_PATH
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
+def sock_request(sock_path, payload, timeout=30):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(timeout)
+        client.connect(sock_path)
+        client.sendall((json.dumps(payload) + "\n").encode())
+        data = b""
+        while not data.endswith(b"\n"):
+            chunk = client.recv(65536)
+            if not chunk:
+                break
+            data += chunk
+    if not data:
+        raise RuntimeError("empty socket response from %s" % sock_path)
+    return json.loads(data.decode())
+
+
+def get_json(path, timeout=8):
+    req = urllib.request.Request(API + path, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        return json.loads(res.read().decode())
+
+
+def clip_holds_extra(prompt, needle=ARCANE_EXTRA):
+    needle = needle.lower()
+    try:
+        from transformers import CLIPTokenizer
+
+        tok = CLIPTokenizer.from_pretrained(CLIP_TOKENIZER)
+        trunc = tok(prompt, add_special_tokens=True, truncation=True, max_length=77)["input_ids"]
+        kept = tok.decode(trunc, skip_special_tokens=True).lower()
+        return needle in kept
+    except Exception:
+        return needle in (prompt or "")[:220].lower()
+
+
+def refuse_banned(prompt, arcane=False):
+    pl = (prompt or "").lower()
+    if "celadon tea bowl" in pl or "kintsugi seam" in pl:
+        raise SystemExit("still-life / celadon tea-bowl stream is stopped")
+    if not arcane:
+        return
+    for word in ARCANE_BANNED:
+        if word in pl:
+            raise SystemExit("arcane lane refuses %r (Fortiche World Forge, not vanity)" % word)
+    if ARCANE_EXTRA not in pl:
+        raise SystemExit("arcane lane requires extra element %r inside the prompt" % ARCANE_EXTRA)
+    if not clip_holds_extra(prompt):
+        raise SystemExit("arcane extra element is not inside the CLIP-L 77-token window")
+
+
+def post_json(path, body, timeout=30):
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(
+        API + path,
+        data=data,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        return json.loads(res.read().decode())
+
+
+def audit_stats(output_dir):
+    path = os.path.join(output_dir, "audit.jsonl")
+    evaluated = spectacles = unscored = 0
+    if not os.path.isfile(path):
+        return evaluated, spectacles, unscored
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            evaluated += 1
+            tier = rec.get("tier")
+            if tier == "spectacle" or rec.get("is_spectacle"):
+                spectacles += 1
+            if rec.get("masterpiece") or tier == "masterpiece":
+                spectacles += 1
+            if tier == "unscored" or rec.get("composite") is None:
+                unscored += 1
+    return evaluated, spectacles, unscored
+
+
+def active_jobs(jobs):
+    return [j for j in jobs if j.get("status") in ("queued", "running")]
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--n", type=int, choices=(256, 512), default=256)
+    p.add_argument("--steps", type=int, choices=(18, 28), default=28)
+    p.add_argument("--prompt", default=DEFAULT_PROMPT)
+    p.add_argument("--still-life", action="store_true", help="use the celadon kintsugi still-life prompt")
+    p.add_argument("--arcane", action="store_true", help="Arcane Fortiche animation still + jury-signed extra element")
+    p.add_argument("--depth", type=int, default=2)
+    p.add_argument("--width", type=int, default=1024)
+    p.add_argument("--height", type=int, default=1024)
+    p.add_argument("--guidance", type=float, default=3.5)
+    p.add_argument("--socket", default="", help="submit to this UDS worker instead of HTTP /api/render")
+    p.add_argument("--state", default="", help="status JSON path (default .fluxd/protocol_stream.json)")
+    p.add_argument("--lane", default="", help="label stored on the status file (gpu0-bf16 / gpu3-fp8)")
+    args = p.parse_args()
+    sock_path = args.socket or ""
+    pinned = "flux-gpu3.sock" in sock_path
+    if args.still_life:
+        raise SystemExit("still-life / celadon tea-bowl stream is stopped")
+    if pinned:
+        if args.arcane or (args.lane or "").lower() == "arcane":
+            raise SystemExit("fashion lock: --arcane is refused on GPU 0/3")
+        args.prompt = FASHION_PROMPT
+        args.lane = "fashion"
+        args.arcane = False
+    elif args.arcane or (args.lane or "").lower() == "arcane":
+        raise SystemExit("fashion lock: arcane lane is refused")
+    refuse_banned(args.prompt, arcane=False)
+    state_path = args.state or STATE_PATH
+
+    output_dir = os.environ.get("OUT_DIR") or os.environ.get("FLUX_OUTPUT_DIR") or os.path.expanduser("~/models/flux-output")
+    prev = load_state(state_path)
+    resume = (
+        isinstance(prev, dict)
+        and prev.get("n") == args.n
+        and prev.get("steps") == args.steps
+        and prev.get("prompt") == args.prompt
+        and int(prev.get("submitted") or 0) < args.n
+        and prev.get("status") in ("running", "error", "stopped")
+    )
+    if resume:
+        state = prev
+        state["status"] = "running"
+        state["error"] = ""
+        state["updated_at"] = time.time()
+        state.setdefault("job_ids", [])
+    else:
+        state = {
+            "id": time.strftime("stream-%Y%m%d-%H%M%S"),
+            "status": "running",
+            "n": args.n,
+            "steps": args.steps,
+            "width": args.width,
+            "height": args.height,
+            "guidance": args.guidance,
+            "prompt": args.prompt,
+            "eval_path": EVAL_PATH,
+            "submitted": 0,
+            "done": 0,
+            "running": 0,
+            "evaluated": 0,
+            "spectacles": 0,
+            "unscored": 0,
+            "job_ids": [],
+            "error": "",
+            "started_at": time.time(),
+            "updated_at": time.time(),
+        }
+    if args.lane:
+        state["lane"] = args.lane
+    if sock_path:
+        state["socket"] = sock_path
+    if args.arcane:
+        state["overseer"] = "jury:8001"
+        state["realm"] = "Zaun"
+        state["extra"] = "rusted bio-luminescent mechanical lung"
+        state["verdict"] = "SIGN"
+    save_state(state, state_path)
+
+    try:
+        while state["submitted"] < args.n or state["done"] < state["submitted"]:
+            if sock_path:
+                jobs = sock_request(sock_path, {"op": "jobs"}).get("jobs") or []
+            else:
+                jobs = (get_json("/api/jobs").get("jobs") or [])
+            ours = {jid for jid in state["job_ids"]}
+            mine = [j for j in jobs if j.get("id") in ours]
+            state["done"] = sum(1 for j in mine if j.get("status") in ("done", "error", "cancelled"))
+            state["running"] = len(active_jobs(mine))
+            ev, sp, un = audit_stats(output_dir)
+            state["evaluated"] = ev
+            state["spectacles"] = sp
+            state["unscored"] = un
+
+            if state["submitted"] < args.n and state["running"] < args.depth:
+                seed = str(int(time.time() * 1000) % 2147483647 + state["submitted"])
+                tag = (args.lane or "stream").replace("/", "-")
+                filename = "protocol-%s-%s-%03d.png" % (tag, state["id"], state["submitted"] + 1)
+                if args.arcane or tag == "arcane":
+                    filename = "arcane/" + filename
+                    os.makedirs(os.path.join(output_dir, "arcane"), exist_ok=True)
+                try:
+                    if sock_path:
+                        resp = sock_request(sock_path, {
+                            "op": "submit",
+                            "backend": "cuda",
+                            "prompt": args.prompt,
+                            "steps": args.steps,
+                            "guidance": args.guidance,
+                            "width": args.width,
+                            "height": args.height,
+                            "seed": seed,
+                            "filename": filename,
+                        })
+                    else:
+                        resp = post_json("/api/render", {
+                            "prompt": args.prompt,
+                            "count": 1,
+                            "steps": args.steps,
+                            "guidance": args.guidance,
+                            "width": args.width,
+                            "height": args.height,
+                            "seed": seed,
+                            "filename": filename,
+                        })
+                    job = resp.get("job") or (resp.get("jobs") or [{}])[0]
+                    jid = job.get("id")
+                    if jid:
+                        state["job_ids"].append(jid)
+                        state["submitted"] += 1
+                        state["error"] = ""
+                except urllib.error.HTTPError as exc:
+                    state["error"] = "render %s: %s" % (exc.code, exc.read()[:200].decode("utf-8", "replace"))
+                    time.sleep(2)
+                except Exception as exc:
+                    state["error"] = str(exc)
+                    time.sleep(2)
+
+            state["updated_at"] = time.time()
+            save_state(state, state_path)
+            if state["submitted"] >= args.n and state["done"] >= state["submitted"]:
+                break
+            time.sleep(1.2)
+
+        state["status"] = "done"
+        state["updated_at"] = time.time()
+        save_state(state, state_path)
+    except KeyboardInterrupt:
+        state["status"] = "stopped"
+        state["updated_at"] = time.time()
+        save_state(state, state_path)
+        raise
+    except Exception as exc:
+        state["status"] = "error"
+        state["error"] = str(exc)
+        state["updated_at"] = time.time()
+        save_state(state, state_path)
+        raise
+
+
+if __name__ == "__main__":
+    main()

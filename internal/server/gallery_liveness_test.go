@@ -110,18 +110,40 @@ func TestPublicNavigationNeverDisplacesAWork(t *testing.T) {
 		filepath.Join(root, "apps", "tea", "public", "stallion-lab.html"),
 		filepath.Join(root, "apps", "tea", "public", "exhibition.html"),
 		filepath.Join(root, "apps", "tea", "public", "stallion.html"),
+		filepath.Join(root, "apps", "tea", "public", "jury.html"),
 	}
 	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/studies"`, `href="/exhibition"`}
+	chrome := []string{`class="tea-chrome"`, `href="/tea.css"`, `class="tea-nav"`}
 	for _, page := range pages {
 		raw, err := os.ReadFile(page)
 		if err != nil {
 			t.Fatal(err)
 		}
+		source := string(raw)
 		for _, link := range links {
-			if !strings.Contains(string(raw), link) {
+			if !strings.Contains(source, link) {
 				t.Errorf("%s displaced persistent navigation link %s", filepath.Base(page), link)
 			}
 		}
+		for _, token := range chrome {
+			if !strings.Contains(source, token) {
+				t.Errorf("%s left the shared Tea parchment chrome (%s)", filepath.Base(page), token)
+			}
+		}
+	}
+	css, err := os.ReadFile(filepath.Join(root, "apps", "tea", "public", "tea.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(css), `--paper: #f7f5f0`) {
+		t.Error("tea.css lost the Living Parchment paper color")
+	}
+	gallery, err := os.ReadFile(filepath.Join(root, "apps", "tea", "public", "gallery.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(gallery), `#05060a`) {
+		t.Error("gallery returned to a separate dark surface")
 	}
 }
 

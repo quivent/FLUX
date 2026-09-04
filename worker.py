@@ -398,13 +398,14 @@ def _atlas_latent(mode, theta, azimuth, basis, radius, shape, dtype, job):
 
 
 class Worker:
-    def __init__(self, model_dir, out_dir, state_path, profile_path=None, backend="auto", preload=False, kind="flux"):
+    def __init__(self, model_dir, out_dir, state_path, profile_path=None, backend="auto", preload=False, kind="flux", fp8_transformer=None):
         self.model_dir = pathlib.Path(model_dir)
         self.out_dir = pathlib.Path(out_dir)
         self.state_path = pathlib.Path(state_path)
         self.profile_path = pathlib.Path(profile_path) if profile_path else self.state_path.with_name("profile.json")
         self.default_backend = normalize_backend(backend)
         self.kind = str(kind or "flux").lower()
+        self.fp8_transformer = pathlib.Path(fp8_transformer) if fp8_transformer else None
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self.profile_path.parent.mkdir(parents=True, exist_ok=True)
@@ -545,11 +546,23 @@ class Worker:
             except Exception:
                 pass
 
-        pipe = FluxPipeline.from_pretrained(
-            str(self.model_dir),
-            torch_dtype=torch.bfloat16,
-            local_files_only=True,
-        )
+        pipe_kwargs = {
+            "torch_dtype": torch.bfloat16,
+            "local_files_only": True,
+        }
+        if self.fp8_transformer:
+            from diffusers import FluxTransformer2DModel
+            # Kijai flux1-dev-fp8.safetensors is float8_e4m3fn on disk. Compute
+            # stays bfloat16 so T5/CLIP/VAE (bf16) and the transformer share a
+            # dtype; native float8 weights mixed into a bf16 pipeline raises
+            # "mat1 and mat2 must have the same dtype".
+            transformer = FluxTransformer2DModel.from_single_file(
+                str(self.fp8_transformer),
+                torch_dtype=torch.bfloat16,
+            )
+            pipe_kwargs["transformer"] = transformer
+            print(f"loading_fp8_transformer={self.fp8_transformer} compute=bfloat16", flush=True)
+        pipe = FluxPipeline.from_pretrained(str(self.model_dir), **pipe_kwargs)
 
         if is_cuda and needs_offload:
             print("Shared multi-tenant GPU: enabling model CPU offload", flush=True)
@@ -2012,7 +2025,7 @@ def has_module(name):
 
 
 def serve(args):
-    worker = Worker(args.model_dir, args.out_dir, args.state, profile_path=args.profile, backend=args.backend, preload=args.preload, kind=args.kind)
+    worker = Worker(args.model_dir, args.out_dir, args.state, profile_path=args.profile, backend=args.backend, preload=args.preload, kind=args.kind, fp8_transformer=args.fp8_transformer)
     sock_path = pathlib.Path(args.socket)
     sock_path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -2086,6 +2099,7 @@ def main():
     parser.add_argument("--backend", choices=["auto", "cuda", "mps", "mlx", "coreml", "ane", "cpu"], default=os.environ.get("FLUX_BACKEND", "auto"))
     parser.add_argument("--kind", choices=["flux", "img2img"], default="flux")
     parser.add_argument("--preload", action="store_true")
+    parser.add_argument("--fp8-transformer", default=os.environ.get("FLUX_FP8_TRANSFORMER"), help="Kijai/Comfy FP8 transformer safetensors; rest of the pipeline stays BF16")
     serve(parser.parse_args())
 
 

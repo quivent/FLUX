@@ -1,7 +1,110 @@
 [
   {
+    "id": "fashion-beauty-on-beauty",
+    "label": "Fashion beauty on beauty",
+    "family": "beauty",
+    "kind": "beauty stills",
+    "status": "running",
+    "featured": true,
+    "gpu": 3,
+    "wall": "/gallery/",
+    "url": "/protocol",
+    "locked": true,
+    "subject": "Extravagant fashion models, unique dresses, all shapes sizes and colors",
+    "prompt": "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty",
+    "note": "Pinned on GPU 3 FP8. Celadon bowls and Arcane cannot commission this worker. Own fashion jury.",
+    "steps": 28,
+    "guidance": 3.5,
+    "variables": {
+      "n": [256, 512],
+      "steps": [18, 28],
+      "guidance": 3.5,
+      "resolution": [1024, 1024],
+      "queue_depth": 2,
+      "worker": "GPU 3 · FLUX.1-dev FP8",
+      "wall": "/gallery/",
+      "lock": "fashion_lock.py"
+    }
+  },
+  {
+    "id": "arcane-atlas-mine",
+    "label": "Arcane Fortiche atlas mine",
+    "family": "arcane",
+    "kind": "atlas mining",
+    "status": "running",
+    "featured": true,
+    "gpu": 0,
+    "wall": "/collections/arcane",
+    "url": "/arcane",
+    "subject": "Fortiche animation-still variants: camera, light, figure, paint",
+    "prompt": "An {figure} with human ears in a cinematic still in the visual style of the Arcane animated series, angular scarred face, sculpted 3D with painterly 2D brushwork, mechanical lung implanted in the ribcage, brass bellows, {camera}, {light}",
+    "note": "v5. Adult human of Zaun, human ears, chest lung. Quarantined the plastic CGI / goblin / lantern run. Independent of fashion.",
+    "steps": 28,
+    "guidance": 4.2,
+    "extra": "rusted mechanical lung of brass bellows and bioluminescent viscera",
+    "variables": {
+      "n": 256,
+      "steps": 28,
+      "guidance": 4.2,
+      "prompt_version": "fortiche-v5",
+      "resolution": [1024, 1024],
+      "queue_depth": 2,
+      "worker": "GPU 0 · FLUX.1-dev BF16",
+      "wall": "/collections/arcane",
+      "extra": "rusted mechanical lung of brass bellows set into the chest",
+      "figures": [
+        "adult woman of Zaun",
+        "adult man of Zaun",
+        "adult Zaunite woman",
+        "adult Zaunite man"
+      ],
+      "cameras": [
+        "three-quarter to camera",
+        "strict left profile",
+        "low-angle from the sump grate",
+        "over-shoulder into chemtech fog",
+        "high three-quarter from a pipe",
+        "frontal graphic silhouette"
+      ],
+      "lights": [
+        "theatrical chiaroscuro",
+        "neon chemtech underlight",
+        "hextech rim on crushed shadow",
+        "smog-green bounce light",
+        "hard painted gouache rim light"
+      ],
+      "paint": [
+        "visible oil impasto",
+        "heavy gouache cheek planes",
+        "loaded paint ridges",
+        "dry-brush over 3D form"
+      ]
+    }
+  },
+  {
+    "id": "celadon-still-life",
+    "label": "Celadon kintsugi still life",
+    "family": "beauty",
+    "kind": "still life",
+    "status": "stopped",
+    "gpu": 3,
+    "subject": "Celadon tea bowl, one gold kintsugi seam, north window",
+    "prompt": "a celadon tea bowl with one gold kintsugi seam on handmade washi, north window light, quiet still life, off-centre, reserved highlights, one accent against a restrained ground",
+    "note": "Stopped. Do not recommission. This ate the fashion GPU.",
+    "steps": 18,
+    "guidance": 3.5,
+    "variables": {
+      "n": [256, 512],
+      "steps": 18,
+      "guidance": 3.5,
+      "resolution": [1024, 1024],
+      "status": "refused by protocol_stream.py and /api/protocol"
+    }
+  },
+  {
     "id": "stallion-p3-latent-sphere",
     "label": "The Stallion — Full Latent Sphere",
+    "family": "motion",
     "subject": "A white stallion galloping through a meadow of Sakura trees",
     "prompt": "A wild stallion, white, galloping through a meadow of Sakura trees",
     "kind": "atlas sphere",
@@ -19,11 +122,23 @@
     "seed": 7,
     "note": "The completed source atlas for the current Stallion exhibition. Tea presently shows a 7,584-cell authored exhibition snapshot while the full corpus remains on the original motion server.",
     "url": "/exhibition/stallion",
-    "featured": true
+    "featured": true,
+    "variables": {
+      "n_rows": 1024,
+      "n_cols": 64,
+      "n_latent": 65536,
+      "size": 384,
+      "steps": 40,
+      "batch_size": 24,
+      "mode": "omega",
+      "sample_mode": "spherical_outward",
+      "seed": 7
+    }
   },
   {
     "id": "stallion-continuity-graph-01",
     "label": "Stallion Continuity Graph I",
+    "family": "motion",
     "subject": "Local perceptual transitions across the Stallion sphere",
     "prompt": "Mine plausible motion paths without assuming atlas index order is temporal.",
     "kind": "continuity",
@@ -31,11 +146,19 @@
     "source": "Atelier experiment specification",
     "render_count": 7584,
     "n_latent": 65536,
-    "note": "Tests twelve neighboring offsets, directional flow, and perceptual continuity; designed for six CPU shards and twelve 96-frame candidate paths."
+    "url": "/studies/stallion",
+    "note": "Tests twelve neighboring offsets, directional flow, and perceptual continuity; designed for six CPU shards and twelve 96-frame candidate paths.",
+    "variables": {
+      "offsets": 12,
+      "path_frames": 96,
+      "paths": 12,
+      "shards": 6
+    }
   },
   {
     "id": "stallion-continuity-graph-02",
     "label": "Stallion Continuity Graph II",
+    "family": "motion",
     "subject": "Strict contour, color, histogram, and flow continuity",
     "prompt": "Reject static pairs and visual jumps, then retain the three strongest local transitions.",
     "kind": "continuity",
@@ -43,17 +166,28 @@
     "source": "Atelier experiment specification",
     "render_count": 7584,
     "n_latent": 65536,
-    "note": "A stricter second graph with twenty-four candidate offsets, top-k three, and sixteen intended 96-frame paths."
+    "url": "/studies/stallion",
+    "note": "A stricter second graph with twenty-four candidate offsets, top-k three, and sixteen intended 96-frame paths.",
+    "variables": {
+      "offsets": 24,
+      "top_k": 3,
+      "paths": 16,
+      "path_frames": 96
+    }
   },
   {
     "id": "horse-gallop-motion-paths",
     "label": "HorseGallop Motion Paths",
+    "family": "motion",
     "subject": "Three treatments derived from the same equine image field",
     "prompt": "Chronophotographic ghost, latent morph, and staccato kinetic treatments.",
     "kind": "motion",
     "status": "planned",
     "source": "Atelier HorseGallop execution plan",
     "note": "Chronophotographic compositing and staccato sequencing are CPU/RAM work; latent morphing remains GPU-intensive.",
-    "url": "/movement"
+    "url": "/movement",
+    "variables": {
+      "treatments": ["chronophotographic ghost", "latent morph", "staccato kinetic"]
+    }
   }
 ]

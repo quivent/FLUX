@@ -29,6 +29,10 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/", true},
 		{http.MethodGet, "/app", true},
 		{http.MethodGet, "/gallery/", true},
+		{http.MethodGet, "/gallery/arcane", true},
+		{http.MethodGet, "/collections", true},
+		{http.MethodGet, "/collections/fashion", true},
+		{http.MethodGet, "/collections/arcane", true},
 		{http.MethodGet, "/portraits", true},
 		{http.MethodGet, "/sentinel", true},
 		{http.MethodGet, "/api/sentinel/events", true},
@@ -44,6 +48,10 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/motion-atlas/", true},
 		{http.MethodGet, "/motion-atlas/app.js", true},
 		{http.MethodGet, "/outputs/atlas/x.png", true},
+		{http.MethodGet, "/protocol", true},
+		{http.MethodGet, "/judge", true},
+		{http.MethodGet, "/algorithm", true},
+		{http.MethodGet, "/api/protocol", true},
 		{http.MethodGet, "/api/health", true},
 		{http.MethodGet, "/api/recent-images", true},
 		{http.MethodGet, "/api/assets/ws", true},
@@ -57,6 +65,7 @@ func TestReadOnlyGate(t *testing.T) {
 
 		// Renders, warmups and cancels all cost GPU time or money.
 		{http.MethodPost, "/api/render", false},
+		{http.MethodPost, "/api/generate", false},
 		{http.MethodPost, "/api/atlas/submit", false},
 		{http.MethodPost, "/api/studies", false},
 		{http.MethodPost, "/api/studies/stallion-motion", false},
@@ -101,14 +110,26 @@ func TestRecentImageRoomsAreDisjoint(t *testing.T) {
 		{"portraits", "collections/bell-weather", true},
 		{"portraits", "atlas/bell.sphere", false},
 		{"portraits", "old-master.png", false},
+		{"arcane", "arcane/still-001.png", true},
+		{"arcane", "protocol-arcane-atlas-001.png", false},
+		{"arcane", "old-master.png", false},
+		{"arcane", "collections/bell-weather", false},
+		{"arcane", "protocol-fashion-stream-001.png", false},
+		{"arcane", "arcane/_rejected-atlas/protocol-arcane-atlas-001.png", false},
+		{"images", "arcane/still-001.png", false},
+		{"images", "protocol-arcane-atlas-001.png", false},
+		{"images", "protocol-fashion-stream-001.png", true},
+		{"images", "princess-rose.png", false},
+		{"fashion", "protocol-fashion-stream-001.png", true},
+		{"fashion", "protocol-arcane-atlas-001.png", false},
 		{"movement", "atlas/bell.sphere", true},
 		{"movement", "collections/bell-weather", false},
-		{"images", "finished-work.png", true},
+		{"images", "finished-work.png", false},
 		{"images", "studies/stallion-motion", false},
 		{"images", "projects/round-42/candidate.png", false},
 	}
 	for _, tc := range cases {
-		if got := recentScopeIncludes(tc.scope, tc.rel); got != tc.want {
+		if got := recentAssetAllowed(tc.scope, tc.rel); got != tc.want {
 			t.Errorf("scope=%q rel=%q: got %t want %t", tc.scope, tc.rel, got, tc.want)
 		}
 	}

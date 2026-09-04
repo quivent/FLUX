@@ -1,0 +1,432 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Judging algorithm — Tea</title>
+<style>
+  :root {
+    --bg: #07080c;
+    --panel: rgba(255,255,255,.03);
+    --hair: rgba(255,255,255,.09);
+    --ink: #f3f1ea;
+    --dim: #9aa3b5;
+    --gold: #ffc83b;
+    --cyan: #3ad4e8;
+    --rose: #ff5fa2;
+    --ok: #3ddc97;
+    --warn: #ffc46e;
+    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 500px at 8% -10%, rgba(255,200,59,.08), transparent 55%),
+      radial-gradient(800px 420px at 100% 0, rgba(58,212,232,.08), transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--display);
+  }
+  a { color: inherit; text-decoration: none; }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 16px 22px; border-bottom: 1px solid var(--hair);
+    position: sticky; top: 0; background: rgba(7,8,12,.86); backdrop-filter: blur(12px); z-index: 5;
+  }
+  .word { font-size: 12px; letter-spacing: .4em; text-transform: uppercase; }
+  .word b { color: var(--gold); }
+  nav { display: flex; gap: 10px; flex-wrap: wrap; font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+  nav a[aria-current=page] { color: var(--gold); }
+  main { max-width: 1280px; margin: 0 auto; padding: 28px 22px 80px; }
+  .kicker { font: 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--gold); }
+  h1 { font-weight: 400; font-size: clamp(36px, 6vw, 64px); letter-spacing: -.04em; margin: 8px 0 10px; }
+  .lede { color: var(--dim); max-width: 46rem; line-height: 1.55; }
+  .lanes { display: flex; gap: 8px; margin: 22px 0 18px; }
+  .lanes button {
+    appearance: none; border: 1px solid var(--hair); background: var(--panel); color: var(--dim);
+    border-radius: 999px; padding: 8px 16px; font: 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+  }
+  .lanes button.on { color: #111; background: var(--gold); border-color: var(--gold); font-weight: 700; }
+  .status {
+    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 22px;
+  }
+  .stat { border: 1px solid var(--hair); border-radius: 12px; padding: 14px 16px; background: var(--panel); }
+  .stat b { display: block; font-size: 22px; letter-spacing: -.02em; }
+  .stat span { display: block; margin-top: 6px; font: 10px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .stat.warn b { color: var(--warn); }
+  .stat.ok b { color: var(--ok); }
+  .formula {
+    font: 12px/1.55 var(--mono); color: var(--dim); border: 1px dashed var(--hair); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 18px;
+  }
+  .toolbar, .actions { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 16px; }
+  label { font: 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+  select, input[type=number] {
+    background: #0c0e14; color: var(--ink); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 8px; font: 12px var(--mono);
+  }
+  .seats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+  .seat { border: 1px solid var(--hair); border-radius: 14px; padding: 14px; background: var(--panel); }
+  .seat h3 { margin: 0 0 8px; font-size: 16px; font-weight: 500; }
+  .seat .muted { font: 10px var(--mono); color: var(--dim); letter-spacing: .08em; }
+  .row { display: flex; justify-content: space-between; font: 11px var(--mono); margin: 8px 0 4px; color: var(--dim); }
+  .row strong { color: var(--ink); }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  .preview { font: 12px/1.5 var(--mono); color: var(--cyan); margin: 14px 0; }
+  button.act {
+    appearance: none; border: 1px solid var(--hair); background: var(--panel); color: var(--ink);
+    border-radius: 999px; padding: 9px 14px; font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+  }
+  button.act.primary { background: var(--gold); color: #111; border-color: var(--gold); font-weight: 700; }
+  button.act:disabled { opacity: .45; cursor: wait; }
+  .hive {
+    white-space: pre-wrap; font: 12px/1.5 var(--mono); color: var(--dim);
+    border: 1px solid var(--hair); border-radius: 12px; padding: 14px; min-height: 5em; background: rgba(0,0,0,.25);
+  }
+  .frames { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; margin-top: 16px; }
+  .frames div { border: 1px solid var(--hair); border-radius: 8px; padding: 8px; font: 10px/1.35 var(--mono); color: var(--dim); }
+  .meta { color: var(--dim); font: 11px var(--mono); }
+  @media (max-width: 980px) {
+    .status, .seats, .frames { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+<header>
+  <a class="word" href="/">TEA <b>JUDGE</b></a>
+  <nav>
+    <a href="/judge" aria-current="page">Algorithm</a>
+    <a href="/jury">Jury chamber</a>
+    <a href="/protocol">Protocol</a>
+    <a href="/gallery/">Fashion stream</a>
+    <a href="/collections">Collections</a>
+    <a href="/collections/arcane">Arcane</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main>
+  <div class="kicker">Live controller · weights · gamma · hive</div>
+  <h1>Judging algorithm</h1>
+  <p class="lede">This page writes the algorithm the evaluators actually use. Fashion and Arcane have separate juries, separate sqlite, separate walls. Move a slider, it persists.</p>
+
+  <div class="lanes">
+    <button class="on" id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3</button>
+    <button id="lane-arcane" onclick="setLane('arcane')">Arcane · GPU 0</button>
+  </div>
+  <div class="meta" id="laneMeta">loading…</div>
+
+  <div class="status">
+    <div class="stat" id="stat-scored"><b>—</b><span>scored in last 24</span></div>
+    <div class="stat" id="stat-unscored"><b>—</b><span>unscored</span></div>
+    <div class="stat" id="stat-spec"><b>—</b><span>spectacles</span></div>
+    <div class="stat" id="stat-hive"><b>—</b><span>hive</span></div>
+  </div>
+
+  <div class="formula">
+    calibrated = 100 · (raw/100)^γ · (0.92 if adversarial ∧ raw&lt;85)<br>
+    composite = Σ calibratedᵢ wᵢ / Σ wᵢ  + uniqueness nudge · spectacle ≥ p90 · masterpiece ≥ p98
+  </div>
+
+  <div class="toolbar">
+    <label>Mode
+      <select id="algoMode" onchange="onField()">
+        <option value="parallel">parallel</option>
+        <option value="sequential">sequential</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="algoAdv" onchange="onField()"> adversarial</label>
+    <label><input type="checkbox" id="algoGates" onchange="onField()"> text from gates</label>
+    <label><input type="checkbox" id="algoUniq" onchange="onField()" checked> uniqueness</label>
+    <label><input type="checkbox" id="algoTriage" onchange="onField()"> gate triage</label>
+    <label>min judges
+      <input type="number" id="algoMin" min="1" max="3" value="1" onchange="onField()">
+    </label>
+    <label>Preset
+      <select id="algoPreset" onchange="loadPreset(this.value)">
+        <option value="">load preset…</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="seats" id="seats"></div>
+  <div class="preview" id="preview"></div>
+
+  <div class="actions">
+    <button class="act primary" id="btnApply" onclick="persist()">Apply now</button>
+    <button class="act" id="btnBind" onclick="bindLive()">Bind live models</button>
+    <button class="act" id="btnHive" onclick="hive(false)">Ask the hive</button>
+    <button class="act primary" id="btnHiveApply" onclick="hive(true)">Hive calibrate & apply</button>
+    <button class="act" id="btnUse" onclick="applyLast()">Apply last proposal</button>
+  </div>
+  <div class="hive" id="hive">Hive is idle. Ask it to propose a calibration from recent verdicts on this lane.</div>
+  <div class="frames" id="frames"></div>
+</main>
+<script>
+  const SEATS = [
+    { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
+    { key: 'qwen', label: 'Structure', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
+    { key: 'decoder', label: 'Decoder', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
+    { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
+  ];
+  let lane = (location.hash.replace('#','') === 'arcane') ? 'arcane' : 'fashion';
+  let current = {
+    mode: 'parallel',
+    order: ['pixtral','qwen','decoder','governor'],
+    weights: { pixtral: 0.4, qwen: 0.3, decoder: 0.1, governor: 0.2 },
+    strictness: { pixtral: 2.0, qwen: 1.2, decoder: 1.5, governor: 2.2 },
+    adversarial_mode: true,
+    text_from_gates: true,
+    uniqueness_influence: true,
+    gate_triage: false,
+    min_judges: 1,
+    endpoints: {}
+  };
+  let presets = [];
+  let live = { governor: [], witness: [], hive: [] };
+  let lastProposal = null;
+  let persistTimer = null;
+  let busy = false;
+
+  const $ = (id) => document.getElementById(id);
+  function calibrated(raw, gamma, adv) {
+    let v = 100 * Math.pow(Math.max(0, Math.min(100, raw)) / 100, gamma);
+    if (adv && raw < 85) v *= 0.92;
+    return Math.max(0, Math.min(100, v));
+  }
+  function q(path) { return path + (path.includes('?') ? '&' : '?') + 'lane=' + encodeURIComponent(lane); }
+
+  function setLane(next) {
+    lane = next;
+    location.hash = next;
+    $('lane-fashion').classList.toggle('on', lane === 'fashion');
+    $('lane-arcane').classList.toggle('on', lane === 'arcane');
+    hydrate();
+  }
+
+  function readUI() {
+    current.mode = $('algoMode').value;
+    current.adversarial_mode = $('algoAdv').checked;
+    current.text_from_gates = $('algoGates').checked;
+    current.uniqueness_influence = $('algoUniq').checked;
+    current.gate_triage = $('algoTriage').checked;
+    current.min_judges = Math.max(1, Math.min(3, parseInt($('algoMin').value, 10) || 1));
+    current.endpoints = current.endpoints || {};
+    SEATS.forEach((seat) => {
+      const w = $('w-' + seat.key), g = $('g-' + seat.key);
+      if (w) current.weights[seat.key] = (parseFloat(w.value) || 0) / 100;
+      if (g) current.strictness[seat.key] = (parseFloat(g.value) || 10) / 10;
+      if (seat.absorbed) return;
+      const model = $('m-' + seat.key), vis = $('v-' + seat.key), en = $('e-' + seat.key);
+      const ep = Object.assign({}, current.endpoints[seat.served] || {});
+      if (model && model.value) ep.model = model.value;
+      if (vis) ep.vision = vis.checked;
+      if (en) ep.enabled = en.checked;
+      ep.base_url = 'http://127.0.0.1:' + seat.port + '/v1';
+      current.endpoints[seat.served] = ep;
+    });
+  }
+
+  function preview() {
+    const adv = !!current.adversarial_mode;
+    const samples = [70, 80, 90, 95].map((raw) => {
+      const parts = SEATS.map((seat) => calibrated(raw, current.strictness[seat.key] || 1.5, adv) * (current.weights[seat.key] || 0));
+      const sumW = SEATS.reduce((a, s) => a + (current.weights[s.key] || 0), 0) || 1;
+      return raw + '→' + (parts.reduce((a, b) => a + b, 0) / sumW).toFixed(1);
+    });
+    const sumW = SEATS.reduce((a, s) => a + (current.weights[s.key] || 0), 0);
+    $('preview').textContent = 'γ preview on a unanimous raw: ' + samples.join(' · ') + '  Σw=' + sumW.toFixed(2) +
+      (current.text_from_gates ? '  · text-from-gates ON' : '');
+  }
+
+  function modelOptions(seat) {
+    const ids = live[seat.modelsFrom] || [];
+    const ep = (current.endpoints || {})[seat.served] || {};
+    const selected = ep.model || '';
+    const all = ids.slice();
+    if (selected && all.indexOf(selected) < 0) all.unshift(selected);
+    if (!all.length) all.push(selected || '');
+    return all.map((id) => '<option value="' + id + '"' + (id === selected ? ' selected' : '') + '>' + (id || '(unset)') + '</option>').join('');
+  }
+
+  function renderSeats() {
+    $('seats').innerHTML = SEATS.map((seat) => {
+      const w = Math.round((current.weights[seat.key] || 0) * 100);
+      const g = current.strictness[seat.key] || 1.5;
+      const ep = (current.endpoints || {})[seat.served] || {};
+      let extra = '';
+      if (!seat.absorbed) {
+        extra =
+          '<label class="row"><span>enabled</span><input type="checkbox" id="e-' + seat.key + '"' + (ep.enabled !== false ? ' checked' : '') + ' onchange="onField()"></label>' +
+          '<label class="row"><span>vision</span><input type="checkbox" id="v-' + seat.key + '"' + (ep.vision === true ? ' checked' : '') + ' onchange="onField()"></label>' +
+          '<select id="m-' + seat.key + '" onchange="onField()">' + modelOptions(seat) + '</select>';
+      } else {
+        extra = '<div class="muted">weight rides with structure</div>';
+      }
+      return '<div class="seat"><h3>' + seat.label + '</h3><div class="muted">:' + seat.port + ' · ' + seat.served + '</div>' +
+        '<div class="row"><span>weight</span><strong id="wl-' + seat.key + '">' + w + '%</strong></div>' +
+        '<input type="range" id="w-' + seat.key + '" min="0" max="100" value="' + w + '" oninput="onWeight(\'' + seat.key + '\', this.value)">' +
+        '<div class="row"><span>gamma</span><strong id="gl-' + seat.key + '">' + Number(g).toFixed(1) + 'γ</strong></div>' +
+        '<input type="range" id="g-' + seat.key + '" min="10" max="30" value="' + Math.round(g * 10) + '" oninput="onGamma(\'' + seat.key + '\', this.value)">' +
+        extra + '</div>';
+    }).join('');
+  }
+
+  function applyCfg(cfg) {
+    if (!cfg) return;
+    current = {
+      mode: cfg.mode || 'parallel',
+      order: cfg.order || current.order,
+      weights: Object.assign({}, current.weights, cfg.weights || {}),
+      strictness: Object.assign({}, current.strictness, cfg.strictness || {}),
+      adversarial_mode: !!cfg.adversarial_mode,
+      text_from_gates: !!cfg.text_from_gates,
+      uniqueness_influence: cfg.uniqueness_influence !== false,
+      gate_triage: !!cfg.gate_triage,
+      min_judges: cfg.min_judges || 1,
+      endpoints: cfg.endpoints || current.endpoints || {}
+    };
+    $('algoMode').value = current.mode;
+    $('algoAdv').checked = current.adversarial_mode;
+    $('algoGates').checked = current.text_from_gates;
+    $('algoUniq').checked = current.uniqueness_influence;
+    $('algoTriage').checked = current.gate_triage;
+    $('algoMin').value = current.min_judges;
+    renderSeats();
+    preview();
+  }
+
+  function onWeight(key, val) {
+    current.weights[key] = parseFloat(val) / 100;
+    const lab = $('wl-' + key); if (lab) lab.textContent = val + '%';
+    preview(); schedule();
+  }
+  function onGamma(key, val) {
+    const g = (parseFloat(val) / 10).toFixed(1);
+    current.strictness[key] = parseFloat(g);
+    const lab = $('gl-' + key); if (lab) lab.textContent = g + 'γ';
+    preview(); schedule();
+  }
+  function onField() { readUI(); preview(); schedule(); }
+  function schedule() { clearTimeout(persistTimer); persistTimer = setTimeout(persist, 400); }
+
+  function paintAudit(audit, hive) {
+    const scored = (audit && audit.scored) || 0;
+    const unscored = (audit && audit.unscored) || 0;
+    $('stat-scored').className = 'stat' + (scored ? ' ok' : '');
+    $('stat-scored').querySelector('b').textContent = scored;
+    $('stat-unscored').className = 'stat' + (unscored ? ' warn' : ' ok');
+    $('stat-unscored').querySelector('b').textContent = unscored;
+    $('stat-spec').querySelector('b').textContent = (audit && audit.spectacles) || 0;
+    $('stat-hive').querySelector('b').textContent = hive && hive.live ? (hive.model || 'live') : 'down';
+    $('stat-hive').className = 'stat' + (hive && hive.live ? ' ok' : ' warn');
+    const frames = (audit && audit.frames) || [];
+    $('frames').innerHTML = frames.slice(-12).reverse().map((f) => {
+      const tier = f.tier || (f.unscored ? 'unscored' : '—');
+      const score = f.raw_composite != null ? Number(f.raw_composite).toFixed(1) : '—';
+      return '<div><b>' + score + '</b><br>' + tier + '<br>' + (f.reason || f.unscored_reason || f.filename || '').toString().slice(0, 48) + '</div>';
+    }).join('');
+  }
+
+  function showCal(rec, applied) {
+    if (!rec) return;
+    lastProposal = rec.proposal || lastProposal;
+    const bits = [(applied ? 'APPLIED via ' : 'PROPOSAL from ') + (rec.source || 'hive')];
+    if (rec.model) bits.push(rec.model);
+    if (rec.diagnosis) bits.push(rec.diagnosis);
+    if (rec.rationale) bits.push(rec.rationale);
+    if (rec.error) bits.push('note: ' + rec.error);
+    $('hive').textContent = bits.join('\n');
+  }
+
+  async function persist() {
+    readUI();
+    $('laneMeta').textContent = lane + ' · saving…';
+    try {
+      const res = await fetch(q('/api/jury/config'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(current)
+      });
+      const data = await res.json();
+      if (data.config) applyCfg(data.config);
+      $('laneMeta').textContent = lane + ' · live · saved ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      $('laneMeta').textContent = lane + ' · save failed';
+    }
+  }
+
+  function loadPreset(name) {
+    const p = presets.find((x) => x.name === name);
+    if (!p) return;
+    applyCfg(JSON.parse(JSON.stringify(p)));
+    persist();
+  }
+
+  async function hive(apply) {
+    if (busy) return;
+    busy = true;
+    $('hive').textContent = apply ? 'Hive is calibrating and will apply…' : 'Asking the hive…';
+    ['btnHive','btnHiveApply','btnBind','btnApply'].forEach((id) => { const b = $(id); if (b) b.disabled = true; });
+    try {
+      const res = await fetch(q('/api/protocol/calibrate'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apply: !!apply, lane, note: 'Calibrate the ' + lane + ' jury from recent audit.jsonl' })
+      });
+      const data = await res.json();
+      if (data.live_models) live = data.live_models;
+      showCal(data.calibration, data.applied);
+      if (data.config) applyCfg(data.config);
+      if (data.audit) paintAudit(data.audit, data.hive);
+    } catch (err) {
+      $('hive').textContent = 'Hive failed: ' + err;
+    } finally {
+      busy = false;
+      ['btnHive','btnHiveApply','btnBind','btnApply'].forEach((id) => { const b = $(id); if (b) b.disabled = false; });
+    }
+  }
+
+  async function applyLast() {
+    if (!lastProposal) { $('hive').textContent = 'No hive proposal yet.'; return; }
+    const res = await fetch(q('/api/protocol/calibrate'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apply: true, lane, proposal: lastProposal })
+    });
+    const data = await res.json();
+    showCal(data.calibration, data.applied);
+    if (data.config) applyCfg(data.config);
+  }
+
+  async function bindLive() {
+    $('hive').textContent = 'Binding live model ids and enabling text-from-gates…';
+    const res = await fetch(q('/api/protocol/calibrate'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bind_live: true, apply: true, lane })
+    });
+    const data = await res.json();
+    if (data.live_models) live = data.live_models;
+    showCal(data.calibration, data.applied);
+    if (data.config) applyCfg(data.config);
+  }
+
+  async function hydrate() {
+    $('lane-fashion').classList.toggle('on', lane === 'fashion');
+    $('lane-arcane').classList.toggle('on', lane === 'arcane');
+    $('laneMeta').textContent = lane + ' · loading…';
+    try {
+      const res = await fetch(q('/api/protocol/calibrate'), { cache: 'no-store' });
+      const data = await res.json();
+      if (data.live_models) live = data.live_models;
+      presets = data.presets || [];
+      $('algoPreset').innerHTML = '<option value="">load preset…</option>' + presets.map((p) => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+      if (data.config) applyCfg(data.config);
+      paintAudit(data.audit, data.hive);
+      if (data.latest) showCal(data.latest, data.latest.applied);
+      $('laneMeta').textContent = lane + ' · ' + (lane === 'arcane' ? 'GPU 0 Fortiche jury' : 'GPU 3 fashion jury') + ' · independent sqlite';
+    } catch (err) {
+      $('laneMeta').textContent = 'controller unavailable';
+    }
+  }
+
+  window.addEventListener('hashchange', () => {
+    const next = location.hash.replace('#','') === 'arcane' ? 'arcane' : 'fashion';
+    if (next !== lane) setLane(next);
+  });
+  hydrate();
+</script>

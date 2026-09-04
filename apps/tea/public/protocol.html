@@ -266,6 +266,158 @@
       overflow-x: auto;
       margin: 20px 0;
     }
+
+    .oversee {
+      border: 1px solid var(--border);
+      background: var(--paper-soft);
+      border-radius: 10px;
+      padding: 22px 24px 18px;
+      margin: 0 0 36px;
+    }
+    .oversee-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+      margin-bottom: 16px;
+    }
+    .oversee-head h2 {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      font-size: 18px;
+    }
+    .oversee-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-faint);
+    }
+    .tenant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .tenant {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: var(--paper);
+      min-height: 92px;
+    }
+    .tenant .id { font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; }
+    .tenant .role { font-size: 12px; color: var(--ink-soft); margin: 4px 0 8px; }
+    .tenant .ep { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); word-break: break-all; }
+    .pill { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+    .pill.live { background: rgba(90,119,106,0.16); color: var(--celadon); }
+    .pill.down { background: rgba(166,62,57,0.14); color: var(--vermilion); }
+    .pill.unk { background: rgba(121,88,62,0.12); color: var(--hojicha); }
+    .laws { display: grid; gap: 8px; margin-top: 8px; }
+    .law { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
+    .law b { font-family: 'Cinzel', serif; }
+    .law .n { font-family: 'Cinzel', serif; font-weight: 700; color: var(--vermilion); }
+    .law p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+    .jury-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .jury-chip { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--paper); }
+    .path { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
+    .path span { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--border); padding: 5px 8px; border-radius: 999px; }
+    .stream-bar { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 8px 0 12px; }
+    .stream-bar i { display: block; height: 100%; background: var(--vermilion); width: 0; }
+    .stream-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .stream-actions button { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--paper); cursor: pointer; color: var(--ink); }
+    .stream-actions button.primary { background: var(--vermilion); color: #fff; border-color: var(--vermilion); }
+    .stream-actions button:disabled { opacity: 0.45; cursor: wait; }
+    .stream-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin: 14px 0 18px; }
+    .stream-frames a { display: block; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--border); background: #111; }
+    .stream-frames img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .algo {
+      border: 1px solid var(--border-dark);
+      background: var(--paper);
+      border-radius: 10px;
+      padding: 18px 20px 16px;
+      margin: 8px 0 22px;
+    }
+    .algo-diag {
+      font-size: 13px;
+      color: var(--vermilion);
+      margin: 0 0 12px;
+    }
+    .algo-formula {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-soft);
+      background: var(--paper-soft);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 14px;
+    }
+    .algo-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .algo-toolbar label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      background: var(--paper-soft);
+    }
+    .algo-toolbar select, .algo-toolbar input[type="number"] {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+    }
+    .algo-seats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .seat {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--paper-soft);
+    }
+    .seat h4 {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      margin: 0 0 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .seat .muted { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); font-weight: 400; }
+    .seat input[type="range"] { width: 100%; }
+    .seat .row { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; margin: 6px 0 2px; }
+    .seat select { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 8px; background: var(--paper); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; padding: 4px; }
+    .algo-preview { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); margin: 4px 0 12px; }
+    .algo-hive {
+      white-space: pre-wrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: var(--paper-soft);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      min-height: 3.2em;
+      color: var(--ink-soft);
+      margin-top: 12px;
+    }
+    .weight-sum.warn { color: var(--vermilion); }
   </style>
 </head>
 <body>
@@ -279,6 +431,10 @@
     <nav class="nav-tiers">
       <div class="nav-tier-group">
         <span class="nav-label">🍵 TEA:</span>
+        <a href="/protocol/arcane" class="nav-link" id="navArcane">🎨 Arcane</a>
+        <a href="/collections/arcane">🖼 Arcane collection</a>
+        <a href="/protocol/fashion" class="nav-link" id="navFashion">👗 Fashion</a>
+        <a href="/judge" class="nav-link">⚖️ Algorithm</a>
         <a href="/jury" class="nav-link">👑 Jury</a>
         <a href="/gallery" class="nav-link">🖼️ Stream</a>
         <a href="/garden" class="nav-link">🌿 Garden</a>
@@ -292,7 +448,6 @@
         <a href="/atlas/" class="nav-link">🌐 Worlds</a>
         <a href="/studies" class="nav-link">🐎 Studies</a>
         <a href="/arcane" class="nav-link">🎨 Arcane</a>
-        <a href="/protocol" class="nav-link active">📜 Protocol</a>
         <a href="/engine" class="nav-link">⚙️ Engine</a>
       </div>
     </nav>
@@ -310,12 +465,80 @@
       <h1 class="doc-title">The Influx Vision Protocol</h1>
       <div class="doc-subtitle">The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance</div>
       <div class="doc-meta-bar">
-        <span class="meta-tag">EPOCH: 2026.08</span>
-        <span class="meta-tag">REVISION: SOVEREIGN-V1</span>
-        <span class="meta-tag">SILICON: 288GB B300 SXM6 + H200 SXM5</span>
-        <span class="meta-tag">STATUS: MISSION LOCK ACTIVE</span>
+        <span class="meta-tag">SOURCE: jury_continuum.toml</span>
+        <span class="meta-tag">LAWS: chorus/LAWS.md</span>
+        <span class="meta-tag" id="protocolPageTag">PAGE: /protocol</span>
+        <span class="meta-tag" id="protocolLiveTag">LIVE OVERSIGHT</span>
       </div>
     </header>
+
+    <section class="oversee" id="oversee">
+      <div class="oversee-head">
+        <h2 id="overseeTitle">Beauty protocol · live posture</h2>
+        <div class="oversee-meta" id="overseeMeta">loading continuum…</div>
+      </div>
+      <div class="tenant-grid" id="tenantGrid"></div>
+      <div class="jury-row" id="juryRow"></div>
+
+      <section class="algo" id="algoPanel">
+        <div class="oversee-head">
+          <h2>Judging algorithm <a href="/judge" style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;">Open the control page →</a></h2>
+          <div class="oversee-meta" id="algoMeta">loading controller…</div>
+        </div>
+        <p class="algo-diag" id="algoDiag"></p>
+        <div class="algo-formula" id="algoFormula">
+          calibrated = 100 · (raw/100)^γ · (0.92 if adversarial ∧ raw&lt;85)<br>
+          composite = Σ calibratedᵢ wᵢ / Σ wᵢ  + uniqueness nudge · spectacle ≥ p90 · masterpiece ≥ p98
+        </div>
+        <div class="algo-toolbar">
+          <label>Mode
+            <select id="algoMode" onchange="onAlgoField()">
+              <option value="parallel">parallel</option>
+              <option value="sequential">sequential</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="algoAdv" onchange="onAlgoField()"> adversarial</label>
+          <label><input type="checkbox" id="algoGates" onchange="onAlgoField()"> text from gates (hive can sit without vision)</label>
+          <label>min judges
+            <input type="number" id="algoMin" min="1" max="3" value="1" style="width:3.2em" onchange="onAlgoField()">
+          </label>
+          <label>Preset
+            <select id="algoPreset" onchange="loadAlgoPreset(this.value)">
+              <option value="">load preset…</option>
+            </select>
+          </label>
+        </div>
+        <div class="algo-seats" id="algoSeats"></div>
+        <div class="algo-preview" id="algoPreview"></div>
+        <div class="stream-actions">
+          <button class="primary" id="btnApply" onclick="persistAlgo()">Apply now</button>
+          <button id="btnBind" onclick="bindLiveAndApply()">Bind live models & apply</button>
+          <button id="btnHive" onclick="hivePropose(false)">Ask the hive</button>
+          <button class="primary" id="btnHiveApply" onclick="hivePropose(true)">Hive calibrate & apply</button>
+          <button id="btnHiveUse" onclick="applyHiveProposal()">Apply last proposal</button>
+        </div>
+        <div class="algo-hive" id="algoHive">Hive is idle. Ask it to propose a calibration from the recent verdicts.</div>
+      </section>
+
+      <h3>Evaluation path</h3>
+      <div class="path" id="evalPath"></div>
+      <div class="oversee-head">
+        <h2>FLUX stream</h2>
+        <div class="oversee-meta" id="streamMeta">no stream</div>
+      </div>
+      <p class="oversee-meta" id="streamPrompt" style="margin:8px 0 14px;max-width:920px"></p>
+      <div class="stream-bar"><i id="streamFill"></i></div>
+      <div class="jury-row" id="streamStats"></div>
+      <div id="streamFrames" class="stream-frames"></div>
+      <div class="stream-actions">
+        <button class="primary" onclick="startStream(256,28)">Start 256 × 28</button>
+        <button onclick="startStream(256,18)">256 × 18</button>
+        <button onclick="startStream(512,28)">512 × 28</button>
+        <button onclick="startStream(512,18)">512 × 18</button>
+      </div>
+      <h3>Chorus design laws</h3>
+      <div class="laws" id="lawList"></div>
+    </section>
 
     <!-- Section 1 -->
     <section>
@@ -483,6 +706,377 @@ sequenceDiagram
 
   <script src="/assets/sensory.js"></script>
   <script>
+    function protocolLane() {
+      const path = location.pathname.replace(/\/+$/, '');
+      if (path.endsWith('/fashion') || path.endsWith('/celadon') || path.endsWith('/still-life')) return 'fashion';
+      if (path.endsWith('/arcane')) return 'arcane';
+      const q = new URLSearchParams(location.search).get('lane');
+      return q === 'fashion' ? 'fashion' : 'arcane';
+    }
+    function pill(live) {
+      if (live === true) return '<span class="pill live">live</span>';
+      if (live === false) return '<span class="pill down">down</span>';
+      return '<span class="pill unk">in-process</span>';
+    }
+    const SEATS = [
+      { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
+      { key: 'qwen', label: 'Structure', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
+      { key: 'decoder', label: 'Decoder (absorbed)', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
+      { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
+    ];
+    let currentConfig = {
+      mode: 'parallel',
+      order: ['pixtral', 'qwen', 'decoder', 'governor'],
+      weights: { pixtral: 0.35, qwen: 0.35, decoder: 0.15, governor: 0.15 },
+      strictness: { pixtral: 2.0, qwen: 1.2, decoder: 1.5, governor: 2.2 },
+      adversarial_mode: true,
+      text_from_gates: false,
+      min_judges: 1,
+      endpoints: {}
+    };
+    let presetsList = [];
+    let liveModels = { governor: [], witness: [], hive: [] };
+    let lastProposal = null;
+    let algoHydrated = false;
+    let persistTimer = null;
+    let hiveBusy = false;
+
+    function calibrated(raw, gamma, adv) {
+      let v = 100 * Math.pow(Math.max(0, Math.min(100, raw)) / 100, gamma);
+      if (adv && raw < 85) v *= 0.92;
+      return Math.max(0, Math.min(100, v));
+    }
+    function readAlgoFromUI() {
+      currentConfig.mode = document.getElementById('algoMode').value;
+      currentConfig.adversarial_mode = document.getElementById('algoAdv').checked;
+      currentConfig.text_from_gates = document.getElementById('algoGates').checked;
+      currentConfig.min_judges = Math.max(1, Math.min(3, parseInt(document.getElementById('algoMin').value, 10) || 1));
+      currentConfig.endpoints = currentConfig.endpoints || {};
+      SEATS.forEach(seat => {
+        const w = document.getElementById('w-' + seat.key);
+        const g = document.getElementById('g-' + seat.key);
+        if (w) currentConfig.weights[seat.key] = (parseFloat(w.value) || 0) / 100;
+        if (g) currentConfig.strictness[seat.key] = (parseFloat(g.value) || 10) / 10;
+        if (seat.absorbed) return;
+        const model = document.getElementById('m-' + seat.key);
+        const vis = document.getElementById('v-' + seat.key);
+        const en = document.getElementById('e-' + seat.key);
+        const ep = Object.assign({}, currentConfig.endpoints[seat.served] || {});
+        if (model && model.value) ep.model = model.value;
+        if (vis) ep.vision = vis.checked;
+        if (en) ep.enabled = en.checked;
+        if (seat.port) ep.base_url = 'http://127.0.0.1:' + seat.port + '/v1';
+        currentConfig.endpoints[seat.served] = ep;
+      });
+    }
+    function renderPreview() {
+      const adv = !!currentConfig.adversarial_mode;
+      const samples = [70, 80, 90, 95].map(raw => {
+        const parts = SEATS.map(seat => {
+          const w = currentConfig.weights[seat.key] || 0;
+          const g = currentConfig.strictness[seat.key] || 1.5;
+          return calibrated(raw, g, adv) * w;
+        });
+        const sumW = SEATS.reduce((a, s) => a + (currentConfig.weights[s.key] || 0), 0) || 1;
+        return raw + '→' + (parts.reduce((a, b) => a + b, 0) / sumW).toFixed(1);
+      });
+      const sumW = SEATS.reduce((a, s) => a + (currentConfig.weights[s.key] || 0), 0);
+      const el = document.getElementById('algoPreview');
+      el.innerHTML = 'γ preview on a unanimous raw score: ' + samples.join(' · ') +
+        ' <span class="' + (Math.abs(sumW - 1) > 0.03 ? 'weight-sum warn' : '') + '">Σw=' + sumW.toFixed(2) + '</span>' +
+        (currentConfig.text_from_gates ? ' · text-from-gates ON' : '');
+    }
+    function modelOptions(seat) {
+      const ids = liveModels[seat.modelsFrom] || [];
+      const ep = (currentConfig.endpoints || {})[seat.served] || {};
+      const selected = ep.model || '';
+      const all = ids.slice();
+      if (selected && all.indexOf(selected) < 0) all.unshift(selected);
+      if (!all.length) all.push(selected || '');
+      return all.map(id => '<option value="' + id + '"' + (id === selected ? ' selected' : '') + '>' + (id || '(unset)') + '</option>').join('');
+    }
+    function renderSeats() {
+      document.getElementById('algoSeats').innerHTML = SEATS.map(seat => {
+        const w = Math.round((currentConfig.weights[seat.key] || 0) * 100);
+        const g = currentConfig.strictness[seat.key] || 1.5;
+        const ep = (currentConfig.endpoints || {})[seat.served] || {};
+        const vis = ep.vision === true;
+        const en = ep.enabled !== false;
+        let extra = '';
+        if (!seat.absorbed) {
+          extra =
+            '<label class="row"><span>enabled</span><input type="checkbox" id="e-' + seat.key + '"' + (en ? ' checked' : '') + ' onchange="onAlgoField()"></label>' +
+            '<label class="row"><span>vision</span><input type="checkbox" id="v-' + seat.key + '"' + (vis ? ' checked' : '') + ' onchange="onAlgoField()"></label>' +
+            '<select id="m-' + seat.key + '" onchange="onAlgoField()">' + modelOptions(seat) + '</select>';
+        } else {
+          extra = '<div class="muted">weight rides with structure / :' + seat.port + '</div>';
+        }
+        return '<div class="seat">' +
+          '<h4>' + seat.label + ' <span class="muted">:' + seat.port + '</span></h4>' +
+          '<div class="row"><span>weight</span><strong id="wl-' + seat.key + '">' + w + '%</strong></div>' +
+          '<input type="range" id="w-' + seat.key + '" min="0" max="100" value="' + w + '" oninput="onWeight(\'' + seat.key + '\', this.value)">' +
+          '<div class="row"><span>gamma</span><strong id="gl-' + seat.key + '">' + Number(g).toFixed(1) + 'γ</strong></div>' +
+          '<input type="range" id="g-' + seat.key + '" min="10" max="30" value="' + Math.round(g * 10) + '" oninput="onGamma(\'' + seat.key + '\', this.value)">' +
+          extra +
+          '</div>';
+      }).join('');
+    }
+    function applyConfigToUI(cfg) {
+      if (!cfg) return;
+      currentConfig = {
+        mode: cfg.mode || 'parallel',
+        order: cfg.order || currentConfig.order,
+        weights: Object.assign({}, currentConfig.weights, cfg.weights || {}),
+        strictness: Object.assign({}, currentConfig.strictness, cfg.strictness || {}),
+        adversarial_mode: !!cfg.adversarial_mode,
+        text_from_gates: !!cfg.text_from_gates,
+        min_judges: cfg.min_judges || 1,
+        endpoints: cfg.endpoints || currentConfig.endpoints || {}
+      };
+      document.getElementById('algoMode').value = currentConfig.mode;
+      document.getElementById('algoAdv').checked = currentConfig.adversarial_mode;
+      document.getElementById('algoGates').checked = currentConfig.text_from_gates;
+      document.getElementById('algoMin').value = currentConfig.min_judges;
+      renderSeats();
+      renderPreview();
+      algoHydrated = true;
+    }
+    function onWeight(key, val) {
+      currentConfig.weights[key] = parseFloat(val) / 100;
+      const lab = document.getElementById('wl-' + key);
+      if (lab) lab.textContent = val + '%';
+      renderPreview();
+      schedulePersist();
+    }
+    function onGamma(key, val) {
+      const g = (parseFloat(val) / 10).toFixed(1);
+      currentConfig.strictness[key] = parseFloat(g);
+      const lab = document.getElementById('gl-' + key);
+      if (lab) lab.textContent = g + 'γ';
+      renderPreview();
+      schedulePersist();
+    }
+    function onAlgoField() {
+      readAlgoFromUI();
+      renderPreview();
+      schedulePersist();
+    }
+    function schedulePersist() {
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(persistAlgo, 450);
+    }
+    function setHiveText(text) {
+      document.getElementById('algoHive').textContent = text;
+    }
+    function showCalibration(rec, applied) {
+      if (!rec) return;
+      lastProposal = rec.proposal || lastProposal;
+      const src = rec.source || 'hive';
+      const head = (applied ? 'APPLIED via ' : 'PROPOSAL from ') + src;
+      const bits = [head];
+      if (rec.model) bits.push(rec.model);
+      if (rec.diagnosis) bits.push(rec.diagnosis);
+      if (rec.rationale) bits.push(rec.rationale);
+      if (rec.error) bits.push('note: ' + rec.error);
+      setHiveText(bits.join('\n'));
+    }
+    async function persistAlgo() {
+      readAlgoFromUI();
+      document.getElementById('algoMeta').textContent = 'saving…';
+      try {
+        const res = await fetch('/api/jury/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentConfig)
+        });
+        const data = await res.json();
+        if (data.config) applyConfigToUI(data.config);
+        document.getElementById('algoMeta').textContent = 'live · saved ' + new Date().toLocaleTimeString();
+      } catch (err) {
+        document.getElementById('algoMeta').textContent = 'save failed';
+      }
+    }
+    function loadAlgoPreset(name) {
+      const p = presetsList.find(x => x.name === name);
+      if (!p) return;
+      applyConfigToUI(JSON.parse(JSON.stringify(p)));
+      persistAlgo();
+    }
+    async function hivePropose(apply) {
+      if (hiveBusy) return;
+      hiveBusy = true;
+      setHiveText(apply ? 'Hive is calibrating and will apply…' : 'Asking the hive for a calibration…');
+      ['btnHive', 'btnHiveApply', 'btnBind'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = true; });
+      try {
+        const res = await fetch('/api/protocol/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apply: !!apply, note: 'Calibrate the live fashion stream jury from recent audit.jsonl' })
+        });
+        const data = await res.json();
+        if (data.live_models) liveModels = data.live_models;
+        showCalibration(data.calibration, data.applied);
+        if (data.config) applyConfigToUI(data.config);
+        else if (data.calibration && data.calibration.proposal) lastProposal = data.calibration.proposal;
+      } catch (err) {
+        setHiveText('Hive request failed: ' + err);
+      } finally {
+        hiveBusy = false;
+        ['btnHive', 'btnHiveApply', 'btnBind'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = false; });
+      }
+    }
+    async function applyHiveProposal() {
+      if (!lastProposal) {
+        setHiveText('No hive proposal yet. Ask the hive first.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/protocol/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apply: true, proposal: lastProposal })
+        });
+        const data = await res.json();
+        showCalibration(data.calibration, data.applied);
+        if (data.config) applyConfigToUI(data.config);
+      } catch (err) {
+        setHiveText('Apply failed: ' + err);
+      }
+    }
+    async function bindLiveAndApply() {
+      setHiveText('Binding live model ids and enabling text-from-gates…');
+      try {
+        const res = await fetch('/api/protocol/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bind_live: true, apply: true })
+        });
+        const data = await res.json();
+        if (data.live_models) liveModels = data.live_models;
+        showCalibration(data.calibration, data.applied);
+        if (data.config) applyConfigToUI(data.config);
+        else if (data.calibration && data.calibration.proposal) {
+          lastProposal = data.calibration.proposal;
+          applyConfigToUI(lastProposal);
+          await persistAlgo();
+        }
+      } catch (err) {
+        setHiveText('Bind failed: ' + err);
+      }
+    }
+
+    async function refreshProtocol() {
+      const lane = protocolLane();
+      const arcane = document.getElementById('navArcane');
+      const fashion = document.getElementById('navFashion');
+      if (arcane) arcane.classList.toggle('active', lane === 'arcane');
+      if (fashion) fashion.classList.toggle('active', lane === 'fashion');
+      const pageTag = document.getElementById('protocolPageTag');
+      if (pageTag) pageTag.textContent = 'PAGE: /protocol/' + lane;
+      const title = document.getElementById('overseeTitle');
+      if (title) title.textContent = lane === 'fashion'
+        ? 'Fashion beauty jury · GPU 3 FP8 · 28 steps'
+        : 'Fortiche Arcane still · GPU 0 BF16 · 28 steps · paint + impossible rose';
+      try {
+        const res = await fetch('/api/protocol?lane=' + encodeURIComponent(lane), { cache: 'no-store' });
+        const d = await res.json();
+        document.getElementById('overseeMeta').textContent =
+          (d.schema || 'continuum') + ' · spectacles ' + ((d.spectacles && d.spectacles.count) || 0) +
+          ' · flux ' + ((d.flux && d.flux.loaded) ? 'loaded' : 'cold');
+        document.getElementById('tenantGrid').innerHTML = (d.tenants || []).map(t =>
+          '<div class="tenant">' +
+            '<div class="id">' + t.id + ' ' + pill(t.live) + '</div>' +
+            '<div class="role">' + (t.role || '') + '</div>' +
+            '<div class="ep">' + (t.endpoint || '') + (t.note ? ' · ' + t.note : '') + '</div>' +
+          '</div>'
+        ).join('');
+        const j = d.jury || {};
+        const w = j.weights || {};
+        const s = j.strictness || {};
+        document.getElementById('juryRow').innerHTML =
+          '<div class="jury-chip">mode ' + (j.mode || '—') + '</div>' +
+          '<div class="jury-chip">adversarial ' + (j.adversarial_mode ? 'on' : 'off') + '</div>' +
+          '<div class="jury-chip">text-from-gates ' + (j.text_from_gates ? 'on' : 'off') + '</div>' +
+          Object.keys(w).map(k => '<div class="jury-chip">' + k + ' ' + Math.round((w[k] || 0) * 100) + '% · ' + (s[k] ?? '—') + 'γ</div>').join('');
+        if (d.live_models) liveModels = d.live_models;
+        if (d.presets) {
+          presetsList = d.presets;
+          const sel = document.getElementById('algoPreset');
+          if (sel && sel.options.length <= 1) {
+            sel.innerHTML = '<option value="">load preset…</option>' +
+              presetsList.map(p => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+          }
+        }
+        const audit = d.audit || {};
+        const hive = d.hive || {};
+        const diag = [];
+        if (audit.window) diag.push(audit.unscored + '/' + audit.window + ' recent frames unscored');
+        if (hive.model) diag.push('hive ' + hive.model + (hive.live ? ' live' : ' down') + ' @ ' + (hive.url || ''));
+        document.getElementById('algoDiag').textContent = diag.join(' · ');
+        if (!algoHydrated && d.jury) applyConfigToUI(d.jury);
+        if (d.calibration && d.calibration.proposal && !lastProposal) {
+          lastProposal = d.calibration.proposal;
+          showCalibration(d.calibration, d.calibration.applied);
+        }
+        const bound = ((j.endpoints || {})['pixtral-critic'] || {}).model || '';
+        document.getElementById('algoMeta').textContent =
+          (bound ? 'aesthetic=' + bound : 'seats unbound') +
+          ' · min ' + (j.min_judges || 1);
+        document.getElementById('lawList').innerHTML = (d.laws || []).map(law =>
+          '<article class="law"><div class="n">' + law.n + '</div><div><b>' + law.title + '</b><p>' + (law.body || '') + '</p></div></article>'
+        ).join('');
+        const path = (d.stream_options && d.stream_options.eval_path) || (d.stream && d.stream.eval_path) || [];
+        document.getElementById('evalPath').innerHTML = path.map(s => '<span>' + s + '</span>').join('');
+        const st = d.stream || {};
+        const n = st.n || 0;
+        const submitted = st.submitted || 0;
+        const done = st.done || 0;
+        const pct = n ? Math.min(100, Math.round(100 * done / n)) : 0;
+        document.getElementById('streamFill').style.width = pct + '%';
+        document.getElementById('streamMeta').textContent = st.status
+          ? (st.status + ' · ' + (st.steps || '?') + ' steps · ' + done + '/' + n)
+          : 'idle — choose 256/512 × 18/28';
+        const promptEl = document.getElementById('streamPrompt');
+        if (promptEl) promptEl.textContent = st.prompt || '';
+        const sid = st.id || '';
+        try {
+          const scope = lane === 'arcane' ? 'arcane' : 'images';
+          const imgs = await fetch('/api/recent-images?scope=' + scope + '&limit=48', { cache: 'no-store' }).then(r => r.json());
+          const needle = lane === 'arcane' ? '/outputs/arcane/' : ('protocol-' + lane + '-');
+          const mine = (imgs.images || []).filter(im => {
+            const hay = (im.path || '') + ' ' + (im.name || '');
+            return hay.indexOf(needle) !== -1;
+          }).slice(0, 24);
+          const box = document.getElementById('streamFrames');
+          if (box) box.innerHTML = mine.map(im => {
+            const u = im.path || im.url || '';
+            return '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt=""></a>';
+          }).join('');
+        } catch (e) {}
+        document.getElementById('streamStats').innerHTML =
+          '<div class="jury-chip">submitted ' + submitted + '</div>' +
+          '<div class="jury-chip">rendered ' + done + '</div>' +
+          '<div class="jury-chip">running ' + (st.running || 0) + '</div>' +
+          '<div class="jury-chip">evaluated ' + (st.evaluated || 0) + '</div>' +
+          '<div class="jury-chip">spectacles ' + (st.spectacles || 0) + '</div>' +
+          '<div class="jury-chip">unscored ' + (st.unscored || 0) + '</div>';
+      } catch (err) {
+        document.getElementById('overseeMeta').textContent = 'protocol feed unreachable';
+      }
+    }
+    async function startStream(n, steps) {
+      const lane = protocolLane();
+      document.getElementById('streamMeta').textContent = 'starting ' + n + ' × ' + steps + '…';
+      await fetch('/api/protocol?lane=' + encodeURIComponent(lane), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ n: n, steps: steps, lane: 'fashion' })
+      });
+      refreshProtocol();
+    }
+    refreshProtocol();
+    setInterval(refreshProtocol, 4000);
+
     // Theme Switch
     const themeBtn = document.getElementById('themeSwitch');
     const switchText = document.getElementById('switchText');

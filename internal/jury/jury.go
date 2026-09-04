@@ -13,15 +13,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// JuryEndpoint is one vLLM seat the evaluator actually calls.
+// Keys in JuryConfig.Endpoints are served names: visual-witness, pixtral-critic, governor.
+type JuryEndpoint struct {
+	BaseURL string `json:"base_url,omitempty"`
+	Model   string `json:"model,omitempty"`
+	Enabled *bool  `json:"enabled,omitempty"`
+	Vision  *bool  `json:"vision,omitempty"`
+}
+
 type JuryConfig struct {
-	ID              string             `json:"id"`
-	Mode            string             `json:"mode"` // "parallel" or "sequential"
-	Order           []string           `json:"order"`
-	Weights         map[string]float64 `json:"weights"`
-	Strictness      map[string]float64 `json:"strictness"`
-	AdversarialMode bool               `json:"adversarial_mode"`
-	UpdatedAt       int64              `json:"updated_at"`
-	R2Synced        bool               `json:"r2_synced"`
+	ID              string                  `json:"id"`
+	Mode            string                  `json:"mode"` // "parallel" or "sequential"
+	Order           []string                `json:"order"`
+	Weights         map[string]float64      `json:"weights"`
+	Strictness      map[string]float64      `json:"strictness"`
+	AdversarialMode bool                    `json:"adversarial_mode"`
+	UpdatedAt       int64                   `json:"updated_at"`
+	R2Synced        bool                    `json:"r2_synced"`
+	Endpoints       map[string]JuryEndpoint `json:"endpoints,omitempty"`
+	MinJudges       int                     `json:"min_judges,omitempty"`
+	TextFromGates   bool                    `json:"text_from_gates"`
+	UniquenessInfl  *bool                   `json:"uniqueness_influence,omitempty"`
+	GateTriage      *bool                   `json:"gate_triage,omitempty"`
 }
 
 type JuryPreset struct {
@@ -37,7 +51,7 @@ type JuryPreset struct {
 
 var (
 	dbMu sync.Mutex
-	db   *sql.DB
+	dbs  = map[string]*sql.DB{}
 )
 
 func DefaultConfig() JuryConfig {
@@ -60,6 +74,8 @@ func DefaultConfig() JuryConfig {
 		AdversarialMode: true,
 		UpdatedAt:       time.Now().Unix(),
 		R2Synced:        false,
+		MinJudges:       1,
+		TextFromGates:   false,
 	}
 }
 
@@ -122,24 +138,24 @@ func InitDB(outputDir string) (*sql.DB, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 
-	if db != nil {
-		return db, nil
-	}
-
 	resolvedDir, err := filepath.EvalSymlinks(outputDir)
 	if err == nil {
 		outputDir = resolvedDir
 	}
 	dbPath := filepath.Join(outputDir, "jury.sqlite3")
+	if existing := dbs[dbPath]; existing != nil {
+		return existing, nil
+	}
 	_ = os.MkdirAll(outputDir, 0755)
 
-	db, err = sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite %s: %w", dbPath, err)
 	}
 	db.SetMaxOpenConns(1)
 	_, _ = db.Exec("PRAGMA journal_mode=WAL;")
 	_, _ = db.Exec("PRAGMA busy_timeout=5000;")
+	dbs[dbPath] = db
 
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS jury_config (
@@ -150,7 +166,8 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			strictness_json TEXT,
 			adversarial_mode INTEGER DEFAULT 0,
 			updated_at INTEGER NOT NULL,
-			r2_synced INTEGER DEFAULT 0
+			r2_synced INTEGER DEFAULT 0,
+			algorithm_json TEXT
 		);`,
 		`CREATE TABLE IF NOT EXISTS jury_presets (
 			name TEXT PRIMARY KEY,
@@ -194,6 +211,7 @@ func InitDB(outputDir string) (*sql.DB, error) {
 	// Migrations for existing tables
 	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN strictness_json TEXT;")
 	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN adversarial_mode INTEGER DEFAULT 0;")
+	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN algorithm_json TEXT;")
 	_, _ = db.Exec("ALTER TABLE jury_presets ADD COLUMN strictness_json TEXT;")
 	_, _ = db.Exec("ALTER TABLE jury_presets ADD COLUMN adversarial_mode INTEGER DEFAULT 0;")
 
@@ -237,10 +255,10 @@ func GetConfig(outputDir string) (JuryConfig, error) {
 
 	var cfg JuryConfig
 	var ordStr, weiStr string
-	var strcStr sql.NullString
+	var strcStr, algoStr sql.NullString
 	var advInt, synced int
-	err = d.QueryRow("SELECT id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced FROM jury_config WHERE id = 'active'").
-		Scan(&cfg.ID, &cfg.Mode, &ordStr, &weiStr, &strcStr, &advInt, &cfg.UpdatedAt, &synced)
+	err = d.QueryRow("SELECT id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced, algorithm_json FROM jury_config WHERE id = 'active'").
+		Scan(&cfg.ID, &cfg.Mode, &ordStr, &weiStr, &strcStr, &advInt, &cfg.UpdatedAt, &synced, &algoStr)
 	if err != nil {
 		return DefaultConfig(), nil
 	}
@@ -254,6 +272,12 @@ func GetConfig(outputDir string) (JuryConfig, error) {
 	}
 	cfg.AdversarialMode = (advInt == 1)
 	cfg.R2Synced = (synced == 1)
+	if algoStr.Valid && algoStr.String != "" {
+		applyAlgorithmJSON(&cfg, algoStr.String)
+	}
+	if cfg.MinJudges <= 0 {
+		cfg.MinJudges = 1
+	}
 	return cfg, nil
 }
 
@@ -262,6 +286,10 @@ func SaveConfig(outputDir string, cfg JuryConfig) error {
 	if err != nil {
 		return err
 	}
+
+	existing, _ := GetConfig(outputDir)
+	cfg = MergeConfig(existing, cfg)
+	NormalizeConfig(&cfg)
 
 	cfg.ID = "active"
 	cfg.UpdatedAt = time.Now().Unix()
@@ -274,14 +302,15 @@ func SaveConfig(outputDir string, cfg JuryConfig) error {
 	ordStr, _ := json.Marshal(cfg.Order)
 	weiStr, _ := json.Marshal(cfg.Weights)
 	strcStr, _ := json.Marshal(cfg.Strictness)
+	algoStr, _ := json.Marshal(algorithmBlobFrom(cfg))
 	adv := 0
 	if cfg.AdversarialMode {
 		adv = 1
 	}
 
 	_, err = d.Exec(`
-		INSERT INTO jury_config (id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO jury_config (id, mode, order_json, weights_json, strictness_json, adversarial_mode, updated_at, r2_synced, algorithm_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			mode = excluded.mode,
 			order_json = excluded.order_json,
@@ -289,8 +318,9 @@ func SaveConfig(outputDir string, cfg JuryConfig) error {
 			strictness_json = excluded.strictness_json,
 			adversarial_mode = excluded.adversarial_mode,
 			updated_at = excluded.updated_at,
-			r2_synced = excluded.r2_synced
-	`, cfg.ID, cfg.Mode, string(ordStr), string(weiStr), string(strcStr), adv, cfg.UpdatedAt, 0)
+			r2_synced = excluded.r2_synced,
+			algorithm_json = excluded.algorithm_json
+	`, cfg.ID, cfg.Mode, string(ordStr), string(weiStr), string(strcStr), adv, cfg.UpdatedAt, 0, string(algoStr))
 	if err != nil {
 		return err
 	}

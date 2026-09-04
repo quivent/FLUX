@@ -143,8 +143,14 @@
     <a class="word" href="/">TEA <b>GALLERY</b></a>
     <nav class="room-nav" aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.08);">
       <span style="font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
+      <a href="/protocol">📜 Protocol</a>
+      <a href="/judge">⚖️ Algorithm</a>
       <a href="/jury" style="color:#ffc83b; font-weight:700;">👑 Jury</a>
       <a href="/gallery/" style="color:#fff;">🖼️ Stream</a>
+      <a href="/collections">📚 Collections</a>
+      <a href="/collections/fashion">👗 Fashion</a>
+      <a href="/collections/arcane">🎨 Arcane</a>
+      <a href="/studies">🐎 Studies</a>
       <a href="/garden">🌿 Garden</a>
       <a href="/portraits">👤 Portraits</a>
       <a href="/exhibition">🏛️ Exhibition</a>
@@ -193,7 +199,14 @@
 <script>
   // Paged, not capped. The wall held 1,184 frames while showing 96, so the
   // body of work was unreachable from the page that exists to show it.
-  const PAGE = 24, FIRST_REVEAL = 12, REVEAL_MS = 0, PORTRAITS = location.pathname.startsWith('/portraits');
+  const PAGE = 24, FIRST_REVEAL = 12, REVEAL_MS = 0;
+  const ROOM_PATH = location.pathname.replace(/\/+$/, '') || '/';
+  const PORTRAITS = ROOM_PATH === '/portraits';
+  const ARCANE = ROOM_PATH === '/gallery/arcane' || ROOM_PATH === '/collections/arcane';
+  const FASHION_COLLECTION = ROOM_PATH === '/collections/fashion';
+  const FASHION = !PORTRAITS && !ARCANE;
+  const ROOM_SCOPE = PORTRAITS ? 'portraits' : ARCANE ? 'arcane' : 'fashion';
+  const VANITY = /princess|rose|celadon|kintsugi|tea[\s_-]*bowl|italian supermodel|italian-supermodel/i;
   // historyOffset tracks how many items have been loaded from the paginated
   // history API. It must NOT be incremented by live-stream events — those
   // arrive outside the pagination window and would push the cursor forward,
@@ -219,19 +232,38 @@
     $('live-pill').innerHTML = '<i class="orb"></i> CURATED VAULT';
     $('collection-name').textContent = 'Curated Portraits';
     $('empty').innerHTML = '<b>No portrait collections staged yet.</b>Dedicated character studies and curated portrait collections will appear here when archived.';
-  } else {
-    document.title = 'Live Gallery — Influx Vision Real-Time Stream';
-    $('hero-eyebrow').textContent = '⚡ REAL-TIME GENERATIVE STREAM · FLOW-MATCHING BF16';
-    $('hero-title').textContent = 'Live Visual Gallery';
-    $('hero-desc').textContent = 'Real-time streaming feed of all settled GPU generation frames from the perpetual sieve. Each artwork finishes in ~6.3 seconds and automatically prepends to slot #1 in real time.';
+  } else if (ARCANE) {
+    document.title = 'Arcane — Collection';
+    $('hero-eyebrow').textContent = '🎨 COLLECTION · ARCANE · FORTICHE';
+    $('hero-title').textContent = 'Arcane';
+    $('hero-desc').textContent = 'Fortiche hybrid animation stills. Zaun. Rusted bio-luminescent mechanical lung. Not princess, not rose, not the fashion wall.';
     $('live-pill').className = 'live-pill';
-    $('live-pill').innerHTML = '<i class="orb"></i> LIVE FEED';
-    $('collection-name').textContent = 'Images of Beauty · Live Stream';
+    $('live-pill').innerHTML = '<i class="orb"></i> ARCANE COLLECTION';
+    $('collection-name').textContent = 'Collection · Arcane';
+    $('empty').innerHTML = '<b>No Fortiche frames yet.</b>GPU 0 writes only here. Princess-and-rose studies do not belong.';
+  } else if (FASHION_COLLECTION) {
+    document.title = 'Fashion — Collection';
+    $('hero-eyebrow').textContent = '👗 COLLECTION · FASHION BEAUTY ON BEAUTY';
+    $('hero-title').textContent = 'Fashion';
+    $('hero-desc').textContent = 'The fashion stream, collected. Extravagant models, unique dresses, all shapes and sizes and colors. Nothing else.';
+    $('live-pill').className = 'live-pill';
+    $('live-pill').innerHTML = '<i class="orb"></i> FASHION COLLECTION';
+    $('collection-name').textContent = 'Collection · Fashion';
+    $('empty').innerHTML = '<b>No fashion frames yet.</b>The live stream writes only here.';
+  } else {
+    document.title = 'Fashion Stream — Tea Gallery';
+    $('hero-eyebrow').textContent = '⚡ FASHION STREAM · GPU 3 · LOCKED';
+    $('hero-title').textContent = 'Fashion Stream';
+    $('hero-desc').textContent = 'Live fashion beauty on beauty. This wall is the fashion stream only — no Arcane, no princess, no rose, no celadon.';
+    $('live-pill').className = 'live-pill';
+    $('live-pill').innerHTML = '<i class="orb"></i> FASHION ONLY';
+    $('collection-name').textContent = 'Fashion beauty on beauty';
   }
 
   document.querySelectorAll('.room-nav a').forEach((a) => {
-    const isSelf = PORTRAITS ? a.pathname === '/portraits' : a.pathname.startsWith('/gallery');
-    if (isSelf) a.remove();
+    const dest = a.pathname.replace(/\/+$/, '') || a.pathname;
+    const isSelf = dest === ROOM_PATH || (FASHION && !FASHION_COLLECTION && (dest === '/gallery' || dest === '/gallery/'));
+    if (isSelf) a.style.color = '#fff';
   });
 
   // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
@@ -279,6 +311,9 @@
     const raw = String(name || url.split('/').pop() || '').replace(/\.png$/i, '');
     const titled = raw.match(/^(.*?)--g\d{4}-\d{2}-s\d+$/);
     if (titled) return titled[1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    if (/fashion/i.test(raw)) return 'Fashion · ' + raw.replace(/^protocol-fashion-stream-/, '');
+    if (/arcane/i.test(raw)) return 'Arcane · ' + raw.replace(/^protocol-arcane-(atlas-)?/, '');
+    if (/protocol-stream-/i.test(raw) || /protocol-gpu/i.test(raw)) return raw;
     let hash = 2166136261;
     for (const ch of raw) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
     return LEGACY_TITLES[(hash >>> 0) % LEGACY_TITLES.length];
@@ -289,8 +324,24 @@
     return String(url).split('?')[0].split('#')[0].split('/').pop();
   }
 
+  function haystack(url, name, extra) {
+    return [url, name, extra].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function belongsOnWall(url, name, extra) {
+    const pathHay = haystack(url, name);
+    if (PORTRAITS) return String(url || '').startsWith('/outputs/collections/');
+    if (ARCANE) {
+      if (VANITY.test(pathHay)) return false;
+      return /arcane/.test(pathHay) && !/fashion/.test(pathHay);
+    }
+    if (VANITY.test(pathHay) || /arcane/.test(pathHay)) return false;
+    return /fashion/.test(pathHay);
+  }
+
   function addCell(url, name, fresh, append) {
     if (!url) return false;
+    if (!belongsOnWall(url, name)) return false;
     const fileKey = normalizeKey(url);
     if (!fileKey || seen.has(fileKey)) return false;
     seen.add(fileKey);
@@ -361,7 +412,7 @@
       // window; addCell silently skips any key already in `seen`, so duplicates
       // are harmless, but we only advance the cursor by items the server actually
       // returned (not by how many were visually new).
-      const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=' + PAGE + '&offset=' + historyOffset);
+      const j = await fetchJSON('/api/recent-images?scope=' + ROOM_SCOPE + '&limit=' + PAGE + '&offset=' + historyOffset);
       total = j.total || 0;
       $('s-collection').textContent = total;
       const returned = (j.images || []).length;
@@ -434,7 +485,10 @@
           const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
           // Replay arrives newest-first and each cell is prepended; walk it oldest-first so the newest ends on top. (fable 2026-08-21)
           for (const j of doneJobs.slice().reverse()) {
-            const url = j.output_url || ('/outputs/' + (j.output || '').split('/').pop());
+            const url = j.output_url || (j.output && String(j.output).includes('/arcane/')
+              ? '/outputs/arcane/' + String(j.output).split('/').pop()
+              : '/outputs/' + (j.output || '').split('/').pop());
+            if (!belongsOnWall(url, j.filename || j.output || j.prompt || j.id, j.prompt)) continue;
             const key = normalizeKey(url);
             if (key && !seen.has(key)) {
               if (addCell(url, j.prompt || j.id, true, false)) {
@@ -456,7 +510,7 @@
     function startLivePoll() {
       setInterval(async () => {
         try {
-          const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=12&offset=0');
+          const j = await fetchJSON('/api/recent-images?scope=' + ROOM_SCOPE + '&limit=12&offset=0');
           const imgs = j.images || [];
           // Walk oldest-first so the newest lands on top after prepending.
           for (let i = imgs.length - 1; i >= 0; i--) {
@@ -498,7 +552,8 @@
     let ev;
     try { ev = JSON.parse(raw); } catch { return; }
     if (ev.event && ev.event !== 'ASSET_READY') return;
-    if (ev.replay || Number(ev.ts || 0) < streamStartedAt - 1) return;
+    if (ev.replay) return;
+    if (ev.ts && Number(ev.ts) < streamStartedAt - 1) return;
     if (!baselineReady) { pendingAssets.push(ev); return; }
     onAssetEvent(ev);
   }
@@ -507,16 +562,17 @@
     const asset = ev.asset || ev;
     const url = asset.access_url || asset.url;
     if (!url) return;
-    const isPortrait = String(url).startsWith('/outputs/collections/');
-    if (PORTRAITS !== isPortrait || String(url).startsWith('/outputs/atlas/')) return;
-    if (!addCell(url, asset.name, true, false)) return; // Prepend to top
+    if (!belongsOnWall(url, asset.name, asset.prompt)) return;
+    if (String(url).startsWith('/outputs/atlas/')) return;
+    if (!addCell(url, asset.name, true, false)) return; // if (!addCell(url, asset.name, true)) return
     total += 1;
+    // replay never increments the collection; the wall grows from its top-left corner.
     // Do NOT increment historyOffset here. This asset arrived via the live
     // stream, not via the paginated history API. Advancing historyOffset would
     // shift the next history page request forward by 1, skipping a real item.
     liveLeadCount += 1;
     $('s-collection').textContent = total;
-    // Re-evaluate the "load more" sentinel now that total grew.
+    // Re-evaluate the infinite-scroll sentinel now that total grew.
     $('more').hidden = (historyOffset + liveLeadCount) >= total;
     updateShown();
   }

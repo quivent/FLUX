@@ -139,6 +139,7 @@ type renderRequest struct {
 	Seed           string  `json:"seed"`
 	Filename       string  `json:"filename"`
 	Iterations     int     `json:"iterations"`
+	Count          int     `json:"count"`
 	Draft          bool    `json:"draft"`
 	DryRun         bool    `json:"dry_run"`
 }
@@ -266,6 +267,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/flux/atlas-watch", s.atlasWatch)
 	mux.HandleFunc("/api/health", s.health)
+	mux.HandleFunc("/api/rig", s.rigStatusAPI)
 	mux.HandleFunc("/api/governor/chat", s.governorChat)
 	mux.HandleFunc("/api/visionary/chat", s.visionaryChat)
 	mux.HandleFunc("/api/telemetry", s.telemetry)
@@ -286,6 +288,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/job/update", s.updateJob)
 	mux.HandleFunc("/api/jobs/prune", s.pruneJobs)
 	mux.HandleFunc("/api/render", s.render)
+	mux.HandleFunc("/api/generate", s.render)
 	mux.HandleFunc("/api/img2img", s.img2img)
 	mux.HandleFunc("/api/img2img/jobs", s.img2imgJobs)
 	mux.HandleFunc("/api/img2img/events", s.img2imgEvents)
@@ -313,6 +316,12 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jury/sync-r2", s.jurySyncR2API)
 	mux.HandleFunc("/api/jury/spectacles", s.jurySpectaclesAPI)
 	mux.HandleFunc("/api/jury/feedback", s.juryFeedbackAPI)
+	mux.HandleFunc("/api/protocol", s.protocolAPI)
+	mux.HandleFunc("/api/protocol/calibrate", s.protocolCalibrateAPI)
+	mux.HandleFunc("/api/arcane/protocol", s.arcaneProtocolAPI)
+	mux.HandleFunc("/api/arcane/jury/config", s.arcaneJuryConfigAPI)
+	mux.HandleFunc("/arcane-studio", s.arcaneStudioPage)
+	mux.HandleFunc("/arcane-studio/", s.arcaneStudioPage)
 	mux.HandleFunc("/api/sentinel", s.sentinelSnapshot)
 	mux.HandleFunc("/api/sentinel/events", s.sentinelEvents)
 	mux.HandleFunc("/api/atlas/events/", s.atlasEvents)
@@ -320,6 +329,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/atlas/", s.atlas)
 	mux.HandleFunc("/gallery", s.gallery)
 	mux.HandleFunc("/gallery/", s.gallery)
+	mux.HandleFunc("/collections", s.teaCollectionsPage)
+	mux.HandleFunc("/collections/", s.teaCollectionsPage)
 	mux.HandleFunc("/portraits", s.portraits)
 	mux.HandleFunc("/portraits/", s.portraits)
 	mux.HandleFunc("/movement", s.movement)
@@ -336,10 +347,18 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/engine/", s.enginePage)
 	mux.HandleFunc("/engine-room", s.enginePage)
 	mux.HandleFunc("/engine-room/", s.enginePage)
+	mux.HandleFunc("/rig", s.rigPage)
+	mux.HandleFunc("/rig/", s.rigPage)
+	mux.HandleFunc("/domains", s.domainsPage)
+	mux.HandleFunc("/domains/", s.domainsPage)
 	mux.HandleFunc("/jury", s.juryPage)
 	mux.HandleFunc("/jury/", s.juryPage)
 	mux.HandleFunc("/moj", s.juryPage)
 	mux.HandleFunc("/moj/", s.juryPage)
+	mux.HandleFunc("/judge", s.judgePage)
+	mux.HandleFunc("/judge/", s.judgePage)
+	mux.HandleFunc("/algorithm", s.judgePage)
+	mux.HandleFunc("/algorithm/", s.judgePage)
 	mux.HandleFunc("/portal", s.portalPage)
 	mux.HandleFunc("/portal/", s.portalPage)
 	mux.HandleFunc("/garden", s.gardenPage)
@@ -405,21 +424,33 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
+	"/collections",
 	"/portraits",
 	"/movement",
 	"/studies",
 	"/arcane",
+	"/arcane-studio",
 	"/protocol",
+	"/judge",
+	"/algorithm",
 	"/spec",
 	"/sentinel",
 	"/exhibition",
 	"/atelier",
+	"/rig",
+	"/domains",
 	// Motion Atlas may be browsed from the public listener, but all of its
 	// generation controls remain blocked because this gate also requires GET
 	// or HEAD and does not expose the render/model mutation routes.
 	"/motion-atlas",
 	"/outputs/",
 	"/api/health",
+	"/api/rig",
+	"/api/protocol",
+	"/api/arcane/protocol",
+	"/api/arcane/jury/config",
+	"/api/jury/config",
+	"/api/jury/spectacles",
 	"/api/recent-images",
 	"/api/studies",
 	"/api/sentinel",
@@ -570,6 +601,10 @@ func (s Server) portalPage(w http.ResponseWriter, r *http.Request) {
 func (s Server) arcanePage(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/arcane")
 	rel = strings.TrimPrefix(rel, "/")
+	if rel == "studio" || rel == "studio.html" {
+		http.Redirect(w, r, "/jury", http.StatusFound)
+		return
+	}
 	if rel == "" || rel == "index.html" {
 		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "arcane.html"))
 		return
@@ -583,6 +618,11 @@ func (s Server) arcanePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	if strings.HasSuffix(path, "/celadon") || strings.HasSuffix(path, "/still-life") {
+		writeError(w, http.StatusGone, "celadon / tea-bowl / mug stream is stopped")
+		return
+	}
 	rel := strings.TrimPrefix(r.URL.Path, "/spec")
 	rel = strings.TrimPrefix(rel, "/protocol")
 	rel = strings.TrimPrefix(rel, "/")
@@ -631,28 +671,30 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) juryConfigAPI(w http.ResponseWriter, r *http.Request) {
+	dir := s.juryDirForLane(requestJuryLane(r, ""))
 	if r.Method == http.MethodPost {
 		var cfg jury.JuryConfig
 		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := jury.SaveConfig(s.cfg.OutputDir, cfg); err != nil {
+		if err := jury.SaveConfig(dir, cfg); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		saved, _ := jury.GetConfig(dir)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "config": cfg})
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "lane": requestJuryLane(r, ""), "config": saved})
 		return
 	}
-	cfg, err := jury.GetConfig(s.cfg.OutputDir)
+	cfg, err := jury.GetConfig(dir)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	presets, _ := jury.ListPresets(s.cfg.OutputDir)
+	presets, _ := jury.ListPresets(dir)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "config": cfg, "presets": presets})
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "lane": requestJuryLane(r, ""), "config": cfg, "presets": presets})
 }
 
 func (s Server) juryPresetsAPI(w http.ResponseWriter, r *http.Request) {
@@ -703,6 +745,310 @@ func (s Server) jurySpectaclesAPI(w http.ResponseWriter, r *http.Request) {
 		"ok":         true,
 		"count":      len(items),
 		"spectacles": items,
+	})
+}
+
+func tcpAlive(addr string, timeout time.Duration) bool {
+	conn, err := net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+func parseChorusLaws(root string) []map[string]any {
+	raw, err := os.ReadFile(filepath.Join(root, "chorus", "LAWS.md"))
+	if err != nil {
+		return nil
+	}
+	var laws []map[string]any
+	var n int
+	var title, body strings.Builder
+	flush := func() {
+		if n == 0 {
+			return
+		}
+		laws = append(laws, map[string]any{
+			"n":     n,
+			"title": strings.TrimSpace(title.String()),
+			"body":  strings.TrimSpace(body.String()),
+		})
+		title.Reset()
+		body.Reset()
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "## ") && n > 0 && !strings.Contains(line, "laws") {
+			flush()
+			n = 0
+			continue
+		}
+		var num int
+		rest := ""
+		if _, err := fmt.Sscanf(strings.TrimSpace(line), "%d.", &num); err == nil && num > 0 {
+			idx := strings.Index(line, ".")
+			rest = strings.TrimSpace(line[idx+1:])
+			if strings.HasPrefix(rest, "**") {
+				flush()
+				n = num
+				rest = strings.TrimPrefix(rest, "**")
+				end := strings.Index(rest, "**")
+				if end >= 0 {
+					title.WriteString(strings.TrimSuffix(rest[:end], "."))
+					body.WriteString(strings.TrimSpace(rest[end+2:]))
+				} else {
+					title.WriteString(rest)
+				}
+				continue
+			}
+		}
+		if n > 0 {
+			if body.Len() > 0 {
+				body.WriteByte(' ')
+			}
+			body.WriteString(strings.TrimSpace(line))
+		}
+	}
+	flush()
+	return laws
+}
+
+func protocolStreamStatePath(root string) string {
+	return filepath.Join(root, ".fluxd", "protocol_stream.json")
+}
+
+func protocolStreamStatePathFor(root, lane string) string {
+	switch strings.ToLower(strings.TrimSpace(lane)) {
+	case "fashion", "celadon", "still-life", "still_life", "gpu3", "fp8":
+		return filepath.Join(root, ".fluxd", "protocol_stream_gpu3.json")
+	default:
+		return protocolStreamStatePath(root)
+	}
+}
+
+func protocolLane(r *http.Request) string {
+	lane := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("lane")))
+	if lane != "" {
+		return lane
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	switch {
+	case strings.HasSuffix(path, "/fashion"), strings.HasSuffix(path, "/celadon"), strings.HasSuffix(path, "/still-life"):
+		return "fashion"
+	case strings.HasSuffix(path, "/arcane"):
+		return "arcane"
+	default:
+		return "arcane"
+	}
+}
+
+func readProtocolStreamStateFile(path string) map[string]any {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var payload map[string]any
+	if json.Unmarshal(raw, &payload) != nil {
+		return nil
+	}
+	return payload
+}
+
+func readProtocolStreamState(root string) map[string]any {
+	return readProtocolStreamStateFile(protocolStreamStatePath(root))
+}
+
+func readProtocolStreamStateLane(root, lane string) map[string]any {
+	return readProtocolStreamStateFile(protocolStreamStatePathFor(root, lane))
+}
+
+func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusConflict, "generation halted by operator")
+	return
+	var req struct {
+		N      int    `json:"n"`
+		Steps  int    `json:"steps"`
+		Prompt string `json:"prompt"`
+		Lane   string `json:"lane"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.N != 512 {
+		req.N = 256
+	}
+	if req.Steps != 18 {
+		req.Steps = 28
+	}
+	lane := strings.ToLower(strings.TrimSpace(req.Lane))
+	promptL := strings.ToLower(req.Prompt)
+	if lane == "celadon" || lane == "still-life" || lane == "still_life" ||
+		strings.Contains(promptL, "celadon tea bowl") || strings.Contains(promptL, "kintsugi seam") {
+		writeError(w, http.StatusConflict, "still-life / celadon tea-bowl stream is stopped")
+		return
+	}
+	if lane == "arcane" {
+		if strings.Contains(promptL, "princess") || strings.Contains(promptL, "rose") ||
+			strings.Contains(promptL, "disney") || strings.Contains(promptL, "supermodel") {
+			writeError(w, http.StatusConflict, "arcane lane refuses princess/rose vanity; jury-signed Fortiche brief only")
+			return
+		}
+	}
+	if current := readProtocolStreamStateLane(s.cfg.Root, lane); current != nil {
+		if status, _ := current["status"].(string); status == "running" {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": false, "lane": lane, "stream": current})
+			return
+		}
+	}
+	script := filepath.Join(s.cfg.Root, "protocol_stream.py")
+	args := []string{script, "--n", strconv.Itoa(req.N), "--steps", strconv.Itoa(req.Steps)}
+	logPath := filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.log")
+	if lane == "arcane" {
+		args = append(args, "--arcane",
+			"--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu0.sock"),
+			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.json"),
+			"--lane", "arcane")
+	} else if lane == "fashion" || lane == "celadon" || lane == "still-life" || lane == "gpu3" || lane == "fp8" {
+		if req.Steps != 18 && req.Steps != 28 {
+			req.Steps = 18
+			args[4] = strconv.Itoa(req.Steps)
+		}
+		if strings.TrimSpace(req.Prompt) == "" {
+			args = append(args, "--prompt", "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty")
+		} else {
+			args = append(args, "--prompt", req.Prompt)
+		}
+		args = append(args, "--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.sock"),
+			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.json"),
+			"--lane", "fashion")
+		logPath = filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.log")
+	} else if strings.TrimSpace(req.Prompt) != "" {
+		args = append(args, "--prompt", req.Prompt)
+	}
+	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	cmd := exec.Command(s.cfg.Python, args...)
+	cmd.Dir = s.cfg.Root
+	cmd.Stdout = logf
+	cmd.Stderr = logf
+	cmd.Env = append(os.Environ(),
+		"OUT_DIR="+s.cfg.OutputDir,
+		"FLUX_OUTPUT_DIR="+s.cfg.OutputDir,
+		"FLUX_HTTP=http://127.0.0.1:7861",
+		"MOJ_JOBS_LEDGER="+filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu0.jobs.jsonl"),
+	)
+	if err := cmd.Start(); err != nil {
+		_ = logf.Close()
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = cmd.Process.Release()
+	_ = logf.Close()
+	time.Sleep(200 * time.Millisecond)
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"ok":      true,
+		"started": true,
+		"lane":    lane,
+		"n":       req.N,
+		"steps":   req.Steps,
+		"stream":  readProtocolStreamStateLane(s.cfg.Root, lane),
+	})
+}
+
+func (s Server) protocolAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		s.startProtocolStream(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	lane := protocolLane(r)
+	cfg, _ := jury.GetConfig(s.cfg.OutputDir)
+	spectacles, _ := jury.GetSpectacles(s.cfg.OutputDir, 12)
+	loaded := false
+	device := ""
+	if ping, err := s.workerPing(); err == nil {
+		loaded = ping.Loaded
+		device = ping.Device
+	}
+	fashion := lane == "fashion" || lane == "celadon" || lane == "still-life" || lane == "gpu3" || lane == "fp8"
+	page := "/protocol/arcane"
+	fluxRole := "BF16 generator"
+	fluxEP := "uds:.fluxd/flux-gpu0.sock"
+	pixtralEP := "127.0.0.1:8002"
+	if fashion {
+		page = "/protocol/fashion"
+		fluxRole = "FP8 generator"
+		fluxEP = "uds:.fluxd/flux-gpu3.sock"
+		pixtralEP = "127.0.0.1:8004"
+		if _, err := os.Stat(filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.sock")); err == nil {
+			loaded = true
+			device = "cuda:3"
+		}
+	}
+	live := collectLiveModels()
+	hive := resolveHiveTarget()
+	noteFor := func(want string, have []string) string {
+		if len(have) == 0 {
+			return want + " — down"
+		}
+		joined := strings.Join(have, ", ")
+		if len(have) == 1 && have[0] == want {
+			return want
+		}
+		return "configured " + want + " · live " + joined
+	}
+	tenants := []map[string]any{
+		{"id": "flux", "role": fluxRole, "endpoint": fluxEP, "required": true, "live": loaded, "note": "black-forest-labs/FLUX.1-dev", "models": []string{"FLUX.1-dev"}},
+		{"id": "governor", "role": "law & intent", "endpoint": "127.0.0.1:8000", "required": true, "live": tcpAlive("127.0.0.1:8000", 250*time.Millisecond), "note": noteFor("governor", live.Governor), "models": live.Governor},
+		{"id": "witness", "role": "structure", "endpoint": "127.0.0.1:8001", "required": true, "live": tcpAlive("127.0.0.1:8001", 250*time.Millisecond), "note": noteFor("visual-witness", live.Witness), "models": live.Witness},
+		{"id": "pixtral", "role": "beauty critic / hive", "endpoint": pixtralEP, "required": true, "live": tcpAlive(pixtralEP, 250*time.Millisecond), "note": noteFor("pixtral-critic", live.Hive), "models": live.Hive},
+		{"id": "drafter", "role": "Gemma 12B decoder + Google MTP", "endpoint": "127.0.0.1:8003", "required": fashion, "live": tcpAlive("127.0.0.1:8003", 250*time.Millisecond), "note": "RedHatAI/gemma-4-12B-it-NVFP4"},
+		{"id": "gates", "role": "DINOv2-Giant + SigLIP", "endpoint": "in-process", "required": true, "live": nil, "note": "sensory gates inside moj_evaluator"},
+	}
+	_ = jury.ExportConfigJSON(s.cfg.OutputDir)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":     true,
+		"lane":   lane,
+		"name":   "Influx Vision Beauty Protocol",
+		"schema": "jury_continuum.toml v3.0.0",
+		"sources": map[string]string{
+			"continuum": filepath.Join(s.cfg.Root, "jury_continuum.toml"),
+			"laws":      filepath.Join(s.cfg.Root, "chorus", "LAWS.md"),
+			"chorus":    filepath.Join(s.cfg.Root, "chorus", "PROTOCOL.md"),
+			"page":      page,
+		},
+		"stream_options": map[string]any{
+			"n":         []int{256, 512},
+			"steps":     []int{18, 28},
+			"eval_path": []string{"generate", "uniqueness", "sensory_gates", "witness", "pixtral", "governor", "composite"},
+		},
+		"formula": map[string]any{
+			"calibrated": "100 * (raw/100)^gamma ; if adversarial and raw<85: *0.92",
+			"composite":  "sum(calibrated_i * weight_i) / sum(weight_i) + uniqueness_nudge",
+			"tiers":      map[string]float64{"spectacle_percentile": 90, "masterpiece_percentile": 98},
+		},
+		"mandatory":   []string{"flux", "witness", "governor", "pixtral", "gates"},
+		"tenants":     tenants,
+		"jury":        cfg,
+		"presets":     mustPresets(s.cfg.OutputDir),
+		"hive":        hive,
+		"live_models": live,
+		"audit":       digestAudit(s.cfg.OutputDir, 24),
+		"calibration": jury.LatestCalibration(s.cfg.OutputDir),
+		"laws":        parseChorusLaws(s.cfg.Root),
+		"flux":        map[string]any{"loaded": loaded, "device": device, "model_dir": s.cfg.ModelDir},
+		"spectacles": map[string]any{
+			"count": len(spectacles),
+			"items": spectacles,
+		},
+		"stream": readProtocolStreamStateLane(s.cfg.Root, lane),
 	})
 }
 
@@ -1762,12 +2108,75 @@ func (s Server) runJobsHub(ctx context.Context) {
 	}
 
 	publish(fetch())
-	jobsFile := filepath.Join(s.cfg.Root, ".fluxd", "jobs.jsonl")
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for ctx.Err() == nil {
-		if !waitForPathChange(ctx, jobsFile) {
+		select {
+		case <-ctx.Done():
 			return
+		case <-ticker.C:
+			data := fetch()
+			publish(data)
+			s.publishCompletedJobAssets(data.Jobs)
 		}
-		publish(fetch())
+	}
+}
+
+var publishedGalleryAssets = struct {
+	sync.Mutex
+	seen map[string]struct{}
+}{seen: make(map[string]struct{})}
+
+func (s Server) publishCompletedJobAssets(jobs []map[string]any) {
+	for _, job := range jobs {
+		if stringValue(job["status"]) != "done" {
+			continue
+		}
+		out := stringValue(job["output"])
+		if out == "" {
+			out = stringValue(job["filename"])
+		}
+		if out == "" {
+			continue
+		}
+		name := filepath.Base(out)
+		if !isImageName(name) {
+			continue
+		}
+		access := "/outputs/" + name
+		key := stringValue(job["id"]) + ":" + access
+		publishedGalleryAssets.Lock()
+		if _, ok := publishedGalleryAssets.seen[key]; ok {
+			publishedGalleryAssets.Unlock()
+			continue
+		}
+		publishedGalleryAssets.seen[key] = struct{}{}
+		if len(publishedGalleryAssets.seen) > 4096 {
+			publishedGalleryAssets.seen = map[string]struct{}{key: {}}
+		}
+		publishedGalleryAssets.Unlock()
+		event := map[string]any{
+			"event":  "ASSET_READY",
+			"ts":     time.Now().Unix(),
+			"job_id": stringValue(job["id"]),
+			"asset": map[string]any{
+				"name":       name,
+				"access_url": access,
+				"url":        access,
+			},
+		}
+		motionAssetHub.Lock()
+		motionAssetHub.recent = append(motionAssetHub.recent, event)
+		if len(motionAssetHub.recent) > 64 {
+			motionAssetHub.recent = motionAssetHub.recent[len(motionAssetHub.recent)-64:]
+		}
+		for client := range motionAssetHub.clients {
+			select {
+			case client <- event:
+			default:
+			}
+		}
+		motionAssetHub.Unlock()
 	}
 }
 
@@ -2105,6 +2514,9 @@ func (s Server) render(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	iterations := req.Iterations
+	if iterations <= 0 {
+		iterations = req.Count
+	}
 	if iterations <= 0 {
 		iterations = 1
 	}
@@ -4084,6 +4496,9 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 				if file != outputDir && !recentScopeIncludes(scope, filepath.ToSlash(rel)) {
 					return filepath.SkipDir
 				}
+				if file != outputDir && galleryRootOnly(scope) {
+					return filepath.SkipDir
+				}
 				// "_" marks a working directory, not a collection: contact
 				// sheets and other instruments live there. Listing them puts a
 				// grid of thumbnails on the wall as though it were a work.
@@ -4100,6 +4515,9 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil
 			}
+			if !recentAssetAllowed(scope, filepath.ToSlash(rel)) {
+				return nil
+			}
 			items = append(items, recentImage{
 				Name:     entry.Name(),
 				Path:     "/outputs/" + filepath.ToSlash(rel),
@@ -4111,7 +4529,7 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	stateRoot, err := filepath.Abs(filepath.Join(s.cfg.Root, ".fluxd"))
-	if err == nil && scope != "movement" && scope != "portraits" {
+	if err == nil && scope != "movement" && scope != "portraits" && scope != "arcane" && scope != "images" && scope != "fashion" {
 		for _, root := range []string{"uploads", "references", "blends"} {
 			dir := filepath.Join(stateRoot, root)
 			_ = filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
@@ -4190,24 +4608,62 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 }
 
 func recentScopeIncludes(scope, rel string) bool {
+	return recentAssetAllowed(scope, rel)
+}
+
+func galleryRootOnly(scope string) bool {
+	return scope == "images" || scope == "fashion"
+}
+
+func recentAssetAllowed(scope, rel string) bool {
 	rel = strings.Trim(filepath.ToSlash(rel), "/")
 	if rel == "" || rel == "." {
 		return true
 	}
 	top := strings.SplitN(rel, "/", 2)[0]
+	base := strings.ToLower(filepath.Base(rel))
+	path := strings.ToLower(rel)
 	switch scope {
 	case "movement":
 		return top == "atlas"
 	case "portraits":
 		return top == "collections"
-	case "images":
-		// The primary gallery is finished still work only. Motion studies and
-		// production bookkeeping have their own rooms and must never displace
-		// the public image wall merely because they are newer.
-		return top != "atlas" && top != "collections" && top != "studies" && top != "projects"
+	case "arcane":
+		if strings.Contains(base, "fashion") || galleryVanityName(base) {
+			return false
+		}
+		if strings.Contains(path, "/_") || strings.HasPrefix(base, "_") {
+			return false
+		}
+		// Only the arcane/ directory. Root-level protocol-arcane-*.png is the
+		// worker dumping basenames next to fashion and must not reappear here.
+		return top == "arcane"
+	case "images", "fashion":
+		// Live fashion wall: only the fashion stream. Arcane, princess/rose,
+		// celadon, and anything in a subdirectory stay off this page.
+		if strings.Contains(path, "/") {
+			return false
+		}
+		return strings.Contains(base, "fashion") && !strings.Contains(base, "arcane") && !galleryVanityName(base)
 	default:
-		return top != "atlas" && top != "collections"
+		return top != "atlas" && top != "collections" && top != "arcane" && !strings.Contains(base, "arcane") && !galleryVanityName(base)
 	}
+}
+
+func galleryVanityName(s string) bool {
+	s = strings.ToLower(s)
+	for _, tok := range []string{
+		"princess", "celadon", "kintsugi", "tea-bowl", "tea_bowl", "teabowl",
+		"italian-supermodel", "italian_supermodel",
+	} {
+		if strings.Contains(s, tok) {
+			return true
+		}
+	}
+	if strings.Contains(s, "rose") && !strings.Contains(s, "prose") {
+		return true
+	}
+	return false
 }
 
 func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
@@ -4251,6 +4707,26 @@ func (s Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s Server) teaCollectionsPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	if r.URL.Path == "/collections/" {
+		http.Redirect(w, r, "/collections", http.StatusPermanentRedirect)
+		return
+	}
+	switch path {
+	case "/collections":
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "collections.html"))
+	case "/collections/fashion", "/collections/arcane":
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+	default:
+		http.NotFound(w, r)
+	}
+}
+
 func (s Server) gallery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w, http.MethodGet)
@@ -4258,6 +4734,10 @@ func (s Server) gallery(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/gallery" || r.URL.Path == "/gallery/" {
 		s.galleryFlux(w, r)
+		return
+	}
+	if r.URL.Path == "/gallery/arcane" || r.URL.Path == "/gallery/arcane/" {
+		http.Redirect(w, r, "/collections/arcane", http.StatusFound)
 		return
 	}
 	rel, ok := s.cleanOutputRel(strings.TrimPrefix(r.URL.Path, "/gallery/"))
