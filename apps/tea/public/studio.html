@@ -1,0 +1,102 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+<title>Studio — Tea</title>
+<style>
+  main { max-width: 920px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 80px; }
+  .eyebrow { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(36px, 6vw, 64px)/.95 var(--serif); letter-spacing: -0.04em; margin: 8px 0 10px; }
+  .lede { color: var(--soft); font: 400 16px/1.6 var(--serif); max-width: 40rem; }
+  .panel { margin-top: 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg); padding: 22px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 18px; font: 12px/1.5 var(--mono); color: var(--faint); margin: 12px 0; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+  .pill.on { background: var(--matcha-light); color: var(--matcha); }
+  .pill.off { background: var(--vermilion-light); color: var(--vermilion); }
+  .kick { margin: 8px 0 16px; font: 400 15px/1.5 var(--serif); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, .btn { font: 12px/1 var(--sans); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; text-decoration: none; }
+  button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .bar { height: 6px; background: var(--paper-subtle); border-radius: 99px; overflow: hidden; margin: 14px 0; }
+  .bar i { display: block; height: 100%; background: var(--tea); width: 0; }
+  .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 18px; }
+  .frames img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+  textarea { width: 100%; min-height: 72px; margin: 10px 0; border-radius: 8px; border: 1px solid var(--line); padding: 10px; font: 14px/1.45 var(--serif); background: var(--paper); color: var(--ink); }
+</style>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/collections">Collections</a>
+    <a href="/studios">Studios</a>
+    <a href="/judge">Judge</a>
+    <a href="/jury">Jury</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main>
+  <div class="eyebrow" id="kicker">Studio</div>
+  <h1 id="title">Studio</h1>
+  <p class="lede" id="lede"></p>
+  <div class="panel">
+    <div class="row" id="status"></div>
+    <div class="kick" id="kick"></div>
+    <div class="bar"><i id="fill"></i></div>
+    <textarea id="prompt"></textarea>
+    <div class="actions">
+      <button class="primary" onclick="act('start')">Start 256 × 28</button>
+      <button onclick="act('stop')">Stop</button>
+      <a class="btn" id="wall" href="/collections">Wall</a>
+      <a class="btn" href="/studios">All studios</a>
+    </div>
+    <div class="frames" id="frames"></div>
+  </div>
+</main>
+<script>
+  const slug = location.pathname.replace(/\/+$/, '').split('/').pop();
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  async function act(action) {
+    const prompt = document.getElementById('prompt').value;
+    await fetch('/api/studios/' + slug, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, n: 256, steps: 28, prompt: prompt })
+    });
+    load();
+  }
+  async function load() {
+    const r = await fetch('/api/studios/' + slug, { cache: 'no-store' });
+    const j = await r.json();
+    const st = j.studio || {};
+    document.title = (st.title || slug) + ' studio — Tea';
+    document.getElementById('kicker').textContent = st.kicker || 'Studio';
+    document.getElementById('title').textContent = st.title || slug;
+    document.getElementById('lede').textContent = st.prompt || '';
+    if (!document.getElementById('prompt').value) document.getElementById('prompt').value = st.prompt || '';
+    document.getElementById('wall').href = st.wall || '/collections/' + slug;
+    const live = st.worker_up && st.streamer && !st.paused;
+    const stream = st.stream || {};
+    const done = stream.done || 0, n = stream.n || 0;
+    document.getElementById('status').innerHTML =
+      '<span class="pill ' + (live ? 'on' : 'off') + '">' + (live ? 'live' : 'idle') + '</span>'
+      + '<span>GPU ' + esc(st.gpu) + '</span>'
+      + '<span>worker ' + (st.worker_up ? 'up' : 'down') + '</span>'
+      + '<span>streamer ' + (st.streamer ? 'on' : 'off') + '</span>'
+      + '<span>' + done + '/' + n + '</span>';
+    document.getElementById('kick').textContent = 'Kickstart: ' + (st.kickstart || []).join(' · ');
+    document.getElementById('fill').style.width = (n ? Math.min(100, Math.round(100 * done / n)) : 0) + '%';
+    try {
+      const imgs = await fetch('/api/recent-images?scope=' + encodeURIComponent(st.scope || slug) + '&limit=8', { cache: 'no-store' }).then((x) => x.json());
+      document.getElementById('frames').innerHTML = (imgs.images || []).map((im) => {
+        const u = im.path || im.url || '';
+        return '<a href="' + u + '" target="_blank" rel="noreferrer"><img src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(u) + '" alt=""></a>';
+      }).join('');
+    } catch (_) {}
+  }
+  load();
+  setInterval(load, 3000);
+</script>

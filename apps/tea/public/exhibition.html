@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f7f5f0">
 <title>Exhibition — Tea Gallery</title>
-<link rel="stylesheet" href="/tea.css">
+<link rel="stylesheet" href="/tea/tea.css">
 <style>
   :root{--paper:#f7f5f0;--ink:#26221d;--soft:#777067;--line:rgba(53,44,36,.15);--red:#a63e39;--pink:#e7b5b6;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
   *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% 2%,rgba(231,181,182,.2),transparent 30rem),linear-gradient(180deg,#fff,var(--paper));font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-decoration:none}
@@ -24,18 +24,13 @@
 <header class="tea-chrome">
   <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
   <nav class="tea-nav" aria-label="Tea">
-    <span class="tea-nav-label">Stillness</span>
-    <a href="/jury">Jury</a>
     <a href="/gallery/">Gallery</a>
-    <a href="/garden">Garden</a>
-    <a href="/portraits">Portraits</a>
-    <a href="/exhibition">Exhibition</a>
-    <span class="tea-nav-sep"></span>
-    <span class="tea-nav-label">Motion</span>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
-    <a href="/atlas/">Worlds</a>
     <a href="/studies">Studies</a>
-    <a href="/engine">Engine</a>
   </nav>
 </header>
 <main>
@@ -68,5 +63,5 @@ async function bootstrap(){try{const r=await fetch('/api/recent-images?scope=mov
 function connect(){socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/assets/ws');socket.onmessage=message=>{try{const event=JSON.parse(message.data),asset=event.asset||event;accept(asset.access_url||asset.url,asset.name)}catch(_){}};socket.onclose=()=>setTimeout(connect,1800);socket.onerror=()=>socket.close()}
 bootstrap();
 </script>
-<script src="/tea-shell.js"></script><script src="/assets/sensory.js"></script></body>
+<script src="/tea/tea-shell.js"></script><script src="/assets/sensory.js"></script></body>
 </html>

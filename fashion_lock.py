@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the fashion brief on GPU 0 and GPU 3. Kill anything else that tries."""
+"""Keep the fashion brief on GPU 3 only. GPU 0 is the motion lane — do not touch it."""
 from __future__ import annotations
 
 import os
@@ -15,15 +15,17 @@ FASHION = (
     "The most extravagant fashion models in the most unique and exquisite dresses "
     "ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
 )
+GPU3_SOCK = os.path.join(ROOT, ".fluxd", "flux-gpu3.sock")
 LANES = (
     {
         "name": "gpu3",
-        "socket": os.path.join(ROOT, ".fluxd", "flux-gpu3.sock"),
+        "socket": GPU3_SOCK,
         "state": os.path.join(ROOT, ".fluxd", "protocol_stream_gpu3.json"),
         "log": os.path.join(ROOT, ".fluxd", "protocol_stream_gpu3.log"),
         "pidfile": os.path.join(ROOT, ".fluxd", "protocol_stream_gpu3.pid"),
     },
 )
+PAUSE = os.path.join(ROOT, ".fluxd", "studio_fashion.pause")
 BANNED = (
     "--still-life",
     "--arcane",
@@ -48,7 +50,8 @@ def cmdlines():
         if not raw:
             continue
         cmd = raw.replace(b"\0", b" ").decode("utf-8", "replace")
-        if "protocol_stream.py" in cmd:
+        # GPU 3 fashion only. Ignore motion/Arcane/GPU 0 streamers entirely.
+        if "protocol_stream.py" in cmd and GPU3_SOCK in cmd:
             out.append((int(pid), cmd))
     return out
 
@@ -105,6 +108,10 @@ def start_lane(lane):
 
 def tick():
     mine = {lane["socket"]: [] for lane in LANES}
+    if os.path.exists(PAUSE):
+        for pid, cmd in cmdlines():
+            kill_pid(pid, "studio fashion paused")
+        return
     for pid, cmd in cmdlines():
         banned = [b for b in BANNED if b in cmd]
         if banned:
@@ -129,7 +136,7 @@ def tick():
 
 
 def main():
-    print("fashion-lock watching GPU 0/3", flush=True)
+    print("fashion-lock watching GPU 3 only", flush=True)
     while True:
         try:
             tick()

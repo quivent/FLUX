@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+<title>Studios — Tea</title>
+<style>
+  main { max-width: 1100px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 80px; }
+  .eyebrow { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(40px, 6vw, 72px)/.95 var(--serif); letter-spacing: -0.05em; margin: 10px 0 12px; }
+  .lede { color: var(--soft); max-width: 40rem; font: 400 17px/1.65 var(--serif); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 36px; }
+  .card { border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg); padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+  .kicker { font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--tea); }
+  h2 { margin: 0; font: 400 32px/1.1 var(--serif); }
+  .brief { margin: 0; color: var(--soft); font: 400 15px/1.5 var(--serif); }
+  .meta { font: 11px/1.5 var(--mono); color: var(--faint); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .pill.on { background: var(--matcha-light); color: var(--matcha); }
+  .pill.off { background: var(--vermilion-light); color: var(--vermilion); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+  button, .btn { font: 12px/1 var(--sans); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; text-decoration: none; }
+  button.primary, a.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/collections">Collections</a>
+    <a href="/studios">Studios</a>
+    <a href="/judge">Judge</a>
+    <a href="/jury">Jury</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main>
+  <div class="eyebrow">Control · one GPU per studio</div>
+  <h1>Studios</h1>
+  <p class="lede">Fashion and Microgreens are separate machines. Each has its own GPU, prompt, wall, and start/stop. They do not share a screen.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  async function act(slug, action) {
+    await fetch('/api/studios/' + slug, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, n: 256, steps: 28 })
+    });
+    load();
+  }
+  function card(st) {
+    const live = st.worker_up && st.streamer && !st.paused;
+    const kick = (st.kickstart || []).join(' · ');
+    const done = (st.stream && st.stream.done) || 0;
+    const n = (st.stream && st.stream.n) || 0;
+    return '<article class="card">'
+      + '<div class="kicker">' + esc(st.kicker) + '</div>'
+      + '<h2>' + esc(st.title) + '</h2>'
+      + '<p class="brief">' + esc(st.prompt) + '</p>'
+      + '<div class="meta">'
+      + '<span class="pill ' + (live ? 'on' : 'off') + '">' + (live ? 'live' : 'idle') + '</span> '
+      + 'worker ' + (st.worker_up ? 'up' : 'down') + ' · streamer ' + (st.streamer ? 'on' : 'off')
+      + (n ? ' · ' + done + '/' + n : '')
+      + '<br>' + esc(kick)
+      + '</div>'
+      + '<div class="actions">'
+      + '<button class="primary" onclick="act(\'' + st.slug + '\',\'start\')">Start 256 × 28</button>'
+      + '<button onclick="act(\'' + st.slug + '\',\'stop\')">Stop</button>'
+      + '<a class="btn" href="/studio/' + st.slug + '">Panel</a>'
+      + '<a class="btn" href="' + esc(st.wall) + '">Wall</a>'
+      + '</div></article>';
+  }
+  async function load() {
+    const r = await fetch('/api/studios', { cache: 'no-store' });
+    const j = await r.json();
+    document.getElementById('grid').innerHTML = (j.studios || []).map(card).join('') || '<p>No studios.</p>';
+  }
+  load();
+  setInterval(load, 4000);
+</script>

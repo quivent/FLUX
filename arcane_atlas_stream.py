@@ -16,11 +16,14 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(ROOT, ".fluxd", "arcane_stream.json")
 SOCK = os.path.join(ROOT, ".fluxd", "flux-gpu0.sock")
 
-# CLIP-L 77: Arcane series + adult human ears + chest lung. No artist-signature "by Fortiche"
-# (that watermarked the frame). No scavenger (goblins). No holding a lamp.
-PROMPT_VERSION = "fortiche-v5"
-EXTRA = "mechanical lung implanted in the ribcage, brass bellows"
-TAIL = "visible paint strokes on the face, high-end animated series frame, unique severe beauty"
+# Governor 2026-09-04: front-load hybrid-animation paint, isolate the lung as
+# a biological integration, lower guidance, never say Fortiche / beauty / holding / not-X.
+PROMPT_VERSION = "governor-v6"
+EXTRA = "rusted bioluminescent mechanical lung"
+TAIL = (
+    "High-end animated series frame, visible paint strokes, "
+    "gritty industrial atmosphere, dark sump-city background"
+)
 
 CAMERAS = (
     "three-quarter portrait",
@@ -31,29 +34,30 @@ CAMERAS = (
 )
 LIGHTS = (
     "hand-painted rim light",
-    "chemtech jewel-tone lighting",
+    "graphic shadows",
     "theatrical chiaroscuro",
-    "graphic painted shadows",
+    "oil-paint texture over clean 3D forms",
 )
 FIGURES = (
-    "adult woman from Zaun",
-    "adult man from Zaun",
-    "adult Zaunite woman",
-    "adult Zaunite man",
+    "woman",
+    "man",
 )
 
 
 def prompt_for(i: int) -> str:
+    figure = FIGURES[i % len(FIGURES)]
     core = (
-        "An %s with human ears in a cinematic still in the visual style of the Arcane animated series, "
-        "angular scarred face, sculpted 3D with painterly 2D brushwork, %s, %s, %s"
-    ) % (
-        FIGURES[i % len(FIGURES)],
-        EXTRA,
+        "Cinematic hybrid animation still, sculpted 3D character form with painterly 2D brushwork, "
+        "oil-paint texture over clean 3D forms, graphic shadows, hand-painted rim light. "
+        "A gaunt Zaunite %s with human ears, severe angular features, scarred skin. "
+        "Integrated into the open ribcage is a rusted bioluminescent mechanical lung with brass bellows."
+    ) % figure
+    return "%s %s, %s, %s." % (
+        core,
+        TAIL,
         CAMERAS[i % len(CAMERAS)],
         LIGHTS[i % len(LIGHTS)],
     )
-    return core + ", " + TAIL
 
 
 def load_state():
@@ -113,8 +117,8 @@ def audit_stats(output_dir):
 
 def main():
     n = 256
-    steps = 28
-    guidance = 4.2
+    steps = 30
+    guidance = 3.5
     depth = 2
     output_dir = os.environ.get("OUT_DIR") or os.path.expanduser("~/models/flux-output")
     arcane_dir = os.path.join(output_dir, "arcane")
@@ -210,11 +214,10 @@ def main():
                 if jid:
                     state["job_ids"].append(jid)
                     state["submitted"] += 1
-                    state["variant"] = "%s | %s | %s | %s" % (
+                    state["variant"] = "%s | %s | %s" % (
                         FIGURES[i % len(FIGURES)],
                         CAMERAS[i % len(CAMERAS)],
                         LIGHTS[i % len(LIGHTS)],
-                        PAINT[i % len(PAINT)],
                     )
                     state["prompt"] = prompt
                     print("submit %s %s" % (jid, state["variant"]), flush=True)

@@ -1,83 +1,50 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
 <title>Collections — Tea</title>
 <style>
-  :root {
-    --base: #05060a;
-    --panel: rgba(255, 255, 255, 0.024);
-    --hair: rgba(255, 255, 255, 0.07);
-    --ink: #edf0f7;
-    --dim: #8b93a7;
-    --cyan: #3ad4e8;
-    --violet: #9d7bff;
-    --magenta: #ff5fa2;
-    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { min-height: 100%; }
-  body {
-    margin: 0;
-    background:
-      radial-gradient(1100px 620px at 12% -12%, rgba(157, 123, 255, 0.11), transparent 62%),
-      radial-gradient(900px 520px at 108% 8%, rgba(58, 212, 232, 0.09), transparent 58%),
-      var(--base);
-    color: var(--ink);
-    font-family: var(--display);
-    -webkit-font-smoothing: antialiased;
-  }
   a { color: inherit; text-decoration: none; }
-  header {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    padding: 18px 24px; border-bottom: 1px solid var(--hair);
-  }
-  .word { font-size: 13px; letter-spacing: 0.44em; text-transform: uppercase; }
-  .word b { font-weight: 600; background: linear-gradient(96deg, var(--cyan), var(--violet) 52%, var(--magenta));
-            -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .room-nav { display: flex; align-items: center; gap: 12px; font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; flex-wrap: wrap; }
-  .room-nav a { color: var(--dim); }
-  .room-nav a[aria-current=page] { color: #fff; }
-  main { max-width: 1180px; margin: 0 auto; padding: 42px 24px 80px; }
-  .eyebrow { font: 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--cyan); }
-  h1 { font-weight: 400; font-size: clamp(42px, 7vw, 84px); letter-spacing: -0.04em; margin: 10px 0 12px; }
-  .lede { color: var(--dim); max-width: 46rem; font-size: 16px; line-height: 1.6; }
+  main { max-width: 1180px; margin: 0 auto; padding: 42px clamp(16px, 3vw, 40px) 80px; }
+  .eyebrow { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(42px, 7vw, 84px)/.9 var(--serif); letter-spacing: -0.05em; margin: 10px 0 12px; }
+  .lede { color: var(--soft); max-width: 46rem; font: 400 17px/1.65 var(--serif); }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 40px; }
   .card {
     display: grid; grid-template-rows: 280px auto;
-    border: 1px solid var(--hair); border-radius: 16px; overflow: hidden;
-    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    background: var(--card-bg);
     transition: border-color .2s ease, transform .2s ease;
   }
-  .card:hover { border-color: rgba(157, 123, 255, 0.45); transform: translateY(-3px); }
-  .card img, .card .ph { width: 100%; height: 100%; object-fit: cover; display: block; background: #0b0d14; }
-  .ph { display: grid; place-items: center; color: var(--dim); font: 11px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+  .card:hover { border-color: var(--line-hover); transform: translateY(-3px); }
+  .card img, .card .ph { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--paper-subtle); }
+  .ph { display: grid; place-items: center; color: var(--faint); font: 11px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; }
   .copy { padding: 22px 22px 24px; }
-  .copy .kicker { font: 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--magenta); }
-  .copy h2 { margin: 10px 0 8px; font-size: 32px; font-weight: 500; letter-spacing: -0.03em; }
-  .copy p { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.55; }
-  .meta { margin-top: 14px; font: 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .copy .kicker { font: 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--tea); }
+  .copy h2 { margin: 10px 0 8px; font: 400 32px/1.1 var(--serif); letter-spacing: -0.03em; }
+  .copy p { margin: 0; color: var(--soft); font: 400 15px/1.55 var(--serif); }
+  .meta { margin-top: 14px; font: 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
   @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } .card { grid-template-rows: 220px auto; } }
 </style>
-<header>
-  <a class="word" href="/">TEA <b>COLLECTIONS</b></a>
-  <nav class="room-nav" aria-label="Universal Rooms">
-    <a href="/protocol">Protocol</a>
-    <a href="/judge">Algorithm</a>
-    <a href="/gallery/">Stream</a>
-    <a href="/collections" aria-current="page">Collections</a>
-    <a href="/collections/fashion">Fashion</a>
-    <a href="/collections/arcane">Arcane</a>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
-    <a href="/exhibition">Exhibition</a>
-    <a href="/movement">Video</a>
   </nav>
 </header>
+
 <main>
   <div class="eyebrow">Named rooms · not a mixed wall</div>
   <h1>Collections</h1>
-  <p class="lede">Fashion and Arcane are separate studies. Each collection is its own prompt, GPU, jury, and wall. Princess and rose do not belong on either of these rooms.</p>
-  <div class="grid">
+  <p class="lede">Fashion, Arcane, and live protocol branches are separate studies. Each collection is its own prompt, jury, and wall. Up to three independent beauty-protocol branches can run at once; their frames stream only into their own room.</p>
+  <div class="grid" id="collectionGrid">
     <a class="card" href="/collections/fashion">
       <div class="ph" id="fashion-thumb">Fashion stream</div>
       <div class="copy">
@@ -96,10 +63,20 @@
         <div class="meta" id="arcane-meta">Loading…</div>
       </div>
     </a>
+    <a class="card" href="/collections/microgreens">
+      <div class="ph" id="microgreens-thumb">Microgreens</div>
+      <div class="copy">
+        <div class="kicker">GPU 0 · botanical</div>
+        <h2>Microgreens</h2>
+        <p>Belarro harvest: Red Rambo, pea, sunflower, broccoli, nasturtium, amaranth. Macro and plated stills. Never mixed with fashion.</p>
+        <div class="meta" id="microgreens-meta">Loading…</div>
+      </div>
+    </a>
   </div>
 </main>
 <script>
   const thumb = (url) => '/api/asset/thumbnail?w=720&src=' + encodeURIComponent(url);
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function fill(scope, imgId, metaId, label) {
     try {
       const r = await fetch('/api/recent-images?scope=' + scope + '&limit=1', { cache: 'no-store' });
@@ -119,4 +96,28 @@
   }
   fill('fashion', 'fashion-thumb', 'fashion-meta', 'Fashion');
   fill('arcane', 'arcane-thumb', 'arcane-meta', 'Arcane');
+  fill('microgreens', 'microgreens-thumb', 'microgreens-meta', 'Microgreens');
+  (async function branches() {
+    try {
+      const r = await fetch('/api/protocol/branches', { cache: 'no-store' });
+      const j = await r.json();
+      const grid = document.getElementById('collectionGrid');
+      for (const b of (j.branches || [])) {
+        const slug = b.slug;
+        if (!slug || slug === 'fashion' || slug === 'arcane' || slug === 'microgreens') continue;
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = '/collections/' + encodeURIComponent(slug);
+        const thumbId = 'branch-thumb-' + slug;
+        const metaId = 'branch-meta-' + slug;
+        card.innerHTML = '<div class="ph" id="' + thumbId + '">Protocol branch</div>'
+          + '<div class="copy"><div class="kicker">' + esc(b.status || 'idle') + ' · branch</div>'
+          + '<h2>' + esc(slug) + '</h2>'
+          + '<p>' + esc(b.prompt || 'Independent beauty-protocol branch. Assets stream only here.') + '</p>'
+          + '<div class="meta" id="' + metaId + '">Loading…</div></div>';
+        grid.appendChild(card);
+        fill(slug, thumbId, metaId, slug);
+      }
+    } catch (_) {}
+  })();
 </script>

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import socket
 import time
 import urllib.error
@@ -47,6 +48,11 @@ ARCANE_BANNED = (
 )
 CLIP_TOKENIZER = os.path.expanduser("~/models/FLUX.1-dev/tokenizer")
 DEFAULT_PROMPT = FASHION_PROMPT
+
+try:
+    import belarro_direction
+except ImportError:
+    belarro_direction = None
 EVAL_PATH = [
     "generate",
     "uniqueness",
@@ -56,6 +62,88 @@ EVAL_PATH = [
     "governor",
     "composite",
 ]
+MAX_PROTOCOL_BRANCHES = 3
+RESERVED_BRANCHES = frozenset(
+    {
+        "fashion",
+        "arcane",
+        "portraits",
+        "atlas",
+        "gallery",
+        "protocol",
+        "images",
+        "movement",
+        "exhibition",
+        "studies",
+        "stallion",
+        "tea",
+        "index",
+        "assets",
+        "api",
+        "batches",
+        "trash",
+        "garden",
+        "engine",
+        "judge",
+        "jury",
+        "sentinel",
+        "rig",
+        "domains",
+        "stream",
+        "gpu3",
+        "fp8",
+        "celadon",
+        "still-life",
+        "still_life",
+    }
+)
+
+
+def normalize_branch(name):
+    slug = re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
+    slug = re.sub(r"-{2,}", "-", slug)
+    if not slug or len(slug) > 32:
+        raise ValueError("branch name must be 1-32 letters, numbers, or hyphens")
+    if slug in RESERVED_BRANCHES:
+        raise ValueError("branch %r is reserved; pick a new collection name" % slug)
+    return slug
+
+
+def branch_relpath(branch, stream_id, index):
+    return "collections/%s/protocol-%s-%s-%03d.png" % (branch, branch, stream_id, index)
+
+
+def branch_state_path(root, branch):
+    return os.path.join(root, ".fluxd", "protocol_stream_branch_%s.json" % branch)
+
+
+def running_branch_slugs(root, ignore_state=""):
+    fluxd = os.path.join(root, ".fluxd")
+    slugs = set()
+    ignore = os.path.abspath(ignore_state) if ignore_state else ""
+    try:
+        names = os.listdir(fluxd)
+    except OSError:
+        return slugs
+    for name in names:
+        if not name.startswith("protocol_stream_branch_") or not name.endswith(".json"):
+            continue
+        path = os.path.join(fluxd, name)
+        if ignore and os.path.abspath(path) == ignore:
+            continue
+        try:
+            with open(path) as handle:
+                payload = json.load(handle)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("status") != "running":
+            continue
+        slug = (payload.get("branch") or "").strip()
+        if slug:
+            slugs.add(slug)
+    return slugs
 
 
 def load_state(path=None):
@@ -182,12 +270,21 @@ def main():
     p.add_argument("--socket", default="", help="submit to this UDS worker instead of HTTP /api/render")
     p.add_argument("--state", default="", help="status JSON path (default .fluxd/protocol_stream.json)")
     p.add_argument("--lane", default="", help="label stored on the status file (gpu0-bf16 / gpu3-fp8)")
+    p.add_argument("--branch", default="", help="independent protocol branch; writes under collections/<name>/")
     args = p.parse_args()
     sock_path = args.socket or ""
     pinned = "flux-gpu3.sock" in sock_path
     if args.still_life:
         raise SystemExit("still-life / celadon tea-bowl stream is stopped")
-    if pinned:
+    branch = ""
+    if args.branch:
+        try:
+            branch = normalize_branch(args.branch)
+        except ValueError as exc:
+            raise SystemExit(str(exc))
+        args.lane = branch
+        args.arcane = False
+    elif pinned:
         if args.arcane or (args.lane or "").lower() == "arcane":
             raise SystemExit("fashion lock: --arcane is refused on GPU 0/3")
         args.prompt = FASHION_PROMPT
@@ -196,7 +293,13 @@ def main():
     elif args.arcane or (args.lane or "").lower() == "arcane":
         raise SystemExit("fashion lock: arcane lane is refused")
     refuse_banned(args.prompt, arcane=False)
-    state_path = args.state or STATE_PATH
+    state_path = args.state or (branch_state_path(ROOT, branch) if branch else STATE_PATH)
+    if branch:
+        live = running_branch_slugs(ROOT, ignore_state=state_path)
+        live.discard(branch)
+        if len(live) >= MAX_PROTOCOL_BRANCHES:
+            raise SystemExit("already running %d protocol branches (%s); stop one first" % (
+                len(live), ", ".join(sorted(live))))
 
     output_dir = os.environ.get("OUT_DIR") or os.environ.get("FLUX_OUTPUT_DIR") or os.path.expanduser("~/models/flux-output")
     prev = load_state(state_path)
@@ -240,6 +343,10 @@ def main():
         state["lane"] = args.lane
     if sock_path:
         state["socket"] = sock_path
+    if branch:
+        state["branch"] = branch
+        state["collection"] = "collections/" + branch
+        state["wall"] = "/collections/" + branch
     if args.arcane:
         state["overseer"] = "jury:8001"
         state["realm"] = "Zaun"
@@ -257,26 +364,55 @@ def main():
             mine = [j for j in jobs if j.get("id") in ours]
             state["done"] = sum(1 for j in mine if j.get("status") in ("done", "error", "cancelled"))
             state["running"] = len(active_jobs(mine))
-            ev, sp, un = audit_stats(output_dir)
+            audit_dir = os.path.join(output_dir, "collections", branch) if branch else output_dir
+            ev, sp, un = audit_stats(audit_dir)
             state["evaluated"] = ev
             state["spectacles"] = sp
             state["unscored"] = un
 
             if state["submitted"] < args.n and state["running"] < args.depth:
-                seed = str(int(time.time() * 1000) % 2147483647 + state["submitted"])
                 tag = (args.lane or "stream").replace("/", "-")
-                filename = "protocol-%s-%s-%03d.png" % (tag, state["id"], state["submitted"] + 1)
-                if args.arcane or tag == "arcane":
-                    filename = "arcane/" + filename
-                    os.makedirs(os.path.join(output_dir, "arcane"), exist_ok=True)
+                prompt = args.prompt
+                guidance = args.guidance
+                steps = args.steps
+                seed = str(int(time.time() * 1000) % 2147483647 + state["submitted"])
+                if branch == "microgreens" and belarro_direction is not None:
+                    study = belarro_direction.load_config()
+                    prompt = belarro_direction.prompt_for(state["submitted"], study)
+                    guidance = float(study.get("guidance") or args.guidance)
+                    steps = int(study.get("steps") or args.steps)
+                    if str(study.get("seed") or "random") == "random":
+                        seed = str(int.from_bytes(os.urandom(4), "big") % 2147483647)
+                    state["prompt"] = prompt
+                    state["direction"] = "belarro"
+                    state["guidance"] = guidance
+                    state["steps"] = steps
+                    vars_ = study.get("_varieties") or belarro_direction.VARIETIES
+                    state["variety"] = vars_[state["submitted"] % len(vars_)][1]
+                    depth = int(study.get("depth") or args.depth)
+                    if depth >= 1:
+                        args.depth = min(3, depth)
+                if branch:
+                    filename = branch_relpath(branch, state["id"], state["submitted"] + 1)
+                    os.makedirs(os.path.join(output_dir, "collections", branch), exist_ok=True)
+                    marker = os.path.join(output_dir, "collections", branch, ".protocol-branch.json")
+                    if not os.path.isfile(marker):
+                        with open(marker, "w") as handle:
+                            json.dump({"branch": branch, "wall": "/collections/" + branch}, handle)
+                            handle.write("\n")
+                else:
+                    filename = "protocol-%s-%s-%03d.png" % (tag, state["id"], state["submitted"] + 1)
+                    if args.arcane or tag == "arcane":
+                        filename = "arcane/" + filename
+                        os.makedirs(os.path.join(output_dir, "arcane"), exist_ok=True)
                 try:
                     if sock_path:
                         resp = sock_request(sock_path, {
                             "op": "submit",
                             "backend": "cuda",
-                            "prompt": args.prompt,
-                            "steps": args.steps,
-                            "guidance": args.guidance,
+                            "prompt": prompt,
+                            "steps": steps,
+                            "guidance": guidance,
                             "width": args.width,
                             "height": args.height,
                             "seed": seed,
@@ -284,10 +420,10 @@ def main():
                         })
                     else:
                         resp = post_json("/api/render", {
-                            "prompt": args.prompt,
+                            "prompt": prompt,
                             "count": 1,
-                            "steps": args.steps,
-                            "guidance": args.guidance,
+                            "steps": steps,
+                            "guidance": guidance,
                             "width": args.width,
                             "height": args.height,
                             "seed": seed,

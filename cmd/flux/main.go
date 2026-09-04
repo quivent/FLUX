@@ -459,6 +459,8 @@ func teaCheck(cfg config.Config) error {
 	root := filepath.Join(cfg.Root, "apps", "tea", "public")
 	required := []string{
 		"index.html", "gallery.html", "movement.html", "studies.html", "stallion-lab.html", "exhibition.html", "stallion.html", "sentinel.html",
+		"desk.html", "desk-hive.html", "desk-jury.html", "desk-pace.html", "scores.html", "desk.js",
+		"studios.html", "studio.html", "study-microgreens.html",
 		"tea.css", "tea-shell.js",
 		"../studies.json",
 		"../protocols/stallion-motion-v2.json",

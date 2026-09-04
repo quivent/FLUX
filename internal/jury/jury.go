@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -207,6 +208,17 @@ func InitDB(outputDir string) (*sql.DB, error) {
 			return nil, fmt.Errorf("init sqlite schema: %w", err)
 		}
 	}
+
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS visual_fingerprints (
+			job_id TEXT PRIMARY KEY,
+			filepath TEXT,
+			vector_blob BLOB,
+			uniqueness_score REAL,
+			category TEXT,
+			created_at INTEGER
+		);`)
+	_, _ = db.Exec("ALTER TABLE jury_verdicts ADD COLUMN raw_score REAL;")
+	_, _ = db.Exec("ALTER TABLE jury_verdicts ADD COLUMN percentile_rank REAL;")
 
 	// Migrations for existing tables
 	_, _ = db.Exec("ALTER TABLE jury_config ADD COLUMN strictness_json TEXT;")
@@ -431,6 +443,17 @@ type SpectacleItem struct {
 	ImageURL       string  `json:"image_url"`
 }
 
+func outputPublicURL(outputDir, file string) string {
+	if file == "" {
+		return ""
+	}
+	rel, err := filepath.Rel(outputDir, file)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "/outputs/" + filepath.Base(file)
+	}
+	return "/outputs/" + filepath.ToSlash(rel)
+}
+
 func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	d, err := InitDB(outputDir)
 	if err != nil {
@@ -441,10 +464,17 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	}
 
 	rows, err := d.Query(`
-		SELECT job_id, seed, prompt, composite_score, masterpiece, created_at
-		FROM jury_verdicts
-		WHERE composite_score >= 90.0 OR masterpiece > 0
-		ORDER BY created_at DESC
+		SELECT v.job_id, v.seed, v.prompt,
+			COALESCE(v.composite_score, 0),
+			COALESCE(v.raw_score, v.composite_score, 0),
+			COALESCE(v.percentile_rank, v.composite_score, 0),
+			COALESCE(v.masterpiece, 0), v.created_at,
+			COALESCE(f.filepath, '')
+		FROM jury_verdicts v
+		LEFT JOIN visual_fingerprints f ON f.job_id = v.job_id
+		WHERE v.composite_score IS NOT NULL
+			AND (v.composite_score >= 90.0 OR v.masterpiece > 0)
+		ORDER BY v.composite_score DESC, COALESCE(v.raw_score, 0) DESC, v.created_at DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -456,26 +486,30 @@ func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {
 	var items []SpectacleItem
 	for rows.Next() {
 		var it SpectacleItem
-		if err := rows.Scan(&it.JobID, &it.Seed, &it.Prompt, &it.CompositeScore, &it.Masterpiece, &it.CreatedAt); err != nil {
+		var fp string
+		if err := rows.Scan(&it.JobID, &it.Seed, &it.Prompt, &it.CompositeScore, &it.RawScore, &it.PercentileRank, &it.Masterpiece, &it.CreatedAt, &fp); err != nil {
 			continue
 		}
-		it.RawScore = it.CompositeScore
-		it.PercentileRank = it.CompositeScore
-		pattern1 := filepath.Join(outputDir, fmt.Sprintf("*%s*.png", it.JobID))
-		pattern2 := filepath.Join(outputDir, fmt.Sprintf("*seed-%s*.png", it.Seed))
-		matches, _ := filepath.Glob(pattern1)
-		if len(matches) == 0 {
-			matches, _ = filepath.Glob(pattern2)
+		if fp != "" {
+			if _, err := os.Stat(fp); err == nil {
+				it.ImageURL = outputPublicURL(outputDir, fp)
+			}
 		}
-		if len(matches) > 0 {
-			it.ImageURL = "/outputs/" + filepath.Base(matches[0])
+		if it.ImageURL == "" {
+			pattern1 := filepath.Join(outputDir, fmt.Sprintf("*%s*.png", it.JobID))
+			pattern2 := filepath.Join(outputDir, fmt.Sprintf("*seed-%s*.png", it.Seed))
+			matches, _ := filepath.Glob(pattern1)
+			if len(matches) == 0 {
+				matches, _ = filepath.Glob(pattern2)
+			}
+			if len(matches) > 0 {
+				it.ImageURL = outputPublicURL(outputDir, matches[0])
+			}
 		}
-		if it.ImageURL != "" && seenImg[it.ImageURL] {
+		if it.ImageURL == "" || seenImg[it.ImageURL] {
 			continue
 		}
-		if it.ImageURL != "" {
-			seenImg[it.ImageURL] = true
-		}
+		seenImg[it.ImageURL] = true
 		items = append(items, it)
 	}
 	return items, nil

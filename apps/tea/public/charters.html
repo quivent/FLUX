@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Charters · Hive queue</title>
+  <meta name="description" content="The hive charter queue — what the colony is contracted to build.">
+  <link rel="stylesheet" href="/tea.css">
+  <link rel="stylesheet" href="/tea/tea.css">
+  <script src="/tea-shell.js"></script>
+  <script src="/tea/tea-shell.js"></script>
+  <style>
+    main.queue {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px clamp(16px, 3vw, 40px) 96px;
+    }
+    .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--tea); margin-bottom: 8px; }
+    h1.queue-title {
+      font: 400 clamp(32px, 5vw, 52px)/1.05 var(--serif);
+      letter-spacing: -0.03em; margin: 0 0 10px; color: var(--ink);
+    }
+    .lede { font: 400 16px/1.55 var(--serif); color: var(--soft); max-width: 62ch; margin: 0 0 22px; }
+    .lede a { color: var(--tea); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px; margin: 0 0 22px;
+    }
+    .stat {
+      padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--line); background: var(--card-bg);
+    }
+    .stat b { display: block; font: 500 22px/1.1 var(--serif); color: var(--ink); }
+    .stat span { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+    .filters button {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--card-bg); color: var(--soft); cursor: pointer;
+    }
+    .filters button.on { color: var(--ink); background: var(--tea-light); border-color: rgba(121,88,62,.35); }
+    .card {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 14px; align-items: start;
+      padding: 16px 18px; margin: 0 0 10px;
+      border-radius: 14px; border: 1px solid var(--line);
+      background: var(--card-bg); cursor: pointer;
+    }
+    .card:hover { border-color: var(--line-hover); background: var(--card-bg-hover); }
+    .card.open { border-color: rgba(121,88,62,.4); }
+    .rank { font: 500 22px/1 var(--serif); color: var(--faint); padding-top: 4px; }
+    .card h2 { font: 500 18px/1.25 var(--serif); margin: 0 0 6px; color: var(--ink); }
+    .card p { margin: 0; font: 400 13.5px/1.5 var(--serif); color: var(--soft); }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .pill {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+      padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--soft); white-space: nowrap;
+    }
+    .pill.critical { color: var(--vermilion); background: var(--vermilion-light); border-color: rgba(166,62,57,.3); }
+    .pill.high { color: var(--tea); background: var(--tea-light); }
+    .pill.active { color: var(--matcha); background: var(--matcha-light); border-color: rgba(90,115,90,.3); }
+    .pill.proposed { color: var(--gold); background: var(--gold-light); }
+    .pill.paused { color: var(--tea); background: var(--tea-light); }
+    .meta { margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: .04em; }
+    .detail {
+      display: none; grid-column: 1 / -1;
+      margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line);
+      font: 400 13px/1.55 var(--serif); color: var(--soft);
+    }
+    .card.open .detail { display: block; }
+    .detail dt { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--tea); margin: 10px 0 4px; }
+    .detail dd { margin: 0; }
+    .detail code { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+    .empty { padding: 40px; text-align: center; color: var(--soft); border: 1px dashed var(--line); border-radius: var(--radius); }
+    .foot { margin-top: 28px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--faint); }
+    .foot a { color: var(--tea); }
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { grid-template-columns: 40px 1fr; }
+      .pills { grid-column: 2; justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="https://tea.geijutsu.work/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/collections">Collections</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/exhibition">Exhibition</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+    <a href="/" aria-current="page">Charters</a>
+  </nav>
+  <div class="tea-chrome-end">
+    <a class="tea-word" href="https://tea.geijutsu.work/" style="letter-spacing:.18em;font-size:11px;text-decoration:none;color:var(--tea)">Garden</a>
+  </div>
+</header>
+
+<main class="queue">
+  <div class="hero-eyebrow">Hive · live substrate</div>
+  <h1 class="queue-title">The charter queue</h1>
+  <p class="lede">
+    Charters are the only thing that decides what the colony builds.
+    Ranked from the live <code>.swarm/charters</code> comb — linked to
+    <a href="https://tea.geijutsu.work/">Tea</a> for now.
+  </p>
+  <div class="stats" id="stats"></div>
+  <div class="filters" id="filters"></div>
+  <div id="list"><div class="empty">reading the comb…</div></div>
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+const STATES = ["all","active","proposed","paused","implemented","satisfied","superseded"];
+let DATA = { queue: [], counts: {} };
+let FILTER = "active";
+
+function pill(text, cls) {
+  return `<span class="pill ${cls || ""}">${esc(text)}</span>`;
+}
+function esc(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function render() {
+  const q = DATA.queue || [];
+  const counts = DATA.counts || {};
+  const active = q.filter(c => c.state === "active").length;
+  document.getElementById("stats").innerHTML = [
+    ["In queue", q.length],
+    ["Active", active],
+    ["Proposed", counts.proposed || 0],
+    ["Open scopes", DATA.scopes_open || 0],
+    ["Quarantine", DATA.scopes_quarantine || 0],
+  ].map(([k,v]) => `<div class="stat"><b>${esc(v)}</b><span>${k}</span></div>`).join("");
+
+  document.getElementById("filters").innerHTML = STATES.map(s => {
+    const n = s === "all" ? q.length : (counts[s] || 0);
+    const on = FILTER === s ? "on" : "";
+    return `<button type="button" class="${on}" data-f="${s}">${s} ${n}</button>`;
+  }).join("");
+
+  const shown = FILTER === "all" ? q : q.filter(c => c.state === FILTER);
+  if (!shown.length) {
+    document.getElementById("list").innerHTML = `<div class="empty">No charters in this state.</div>`;
+  } else {
+    document.getElementById("list").innerHTML = shown.map(c => `
+      <article class="card" data-id="${esc(c.id)}">
+        <div class="rank">${String(c.rank).padStart(2,"0")}</div>
+        <div>
+          <h2>${esc(c.title)}</h2>
+          <p>${esc(c.summary || "No summary filed.")}</p>
+          <div class="meta">${esc(c.slug)} · ${esc(c.opened_by || "unattributed")}${c.opened_at ? " · " + esc(c.opened_at) : ""}${c.open_scopes ? " · " + c.open_scopes + " open scopes" : ""}</div>
+        </div>
+        <div class="pills">
+          ${pill(c.priority, c.priority)}
+          ${pill(c.state, c.state)}
+        </div>
+        <div class="detail">
+          <dt>Done when</dt><dd>${esc(c.done_when || "—")}</dd>
+          <dt>Verify</dt><dd><code>${esc(c.verify || "—")}</code></dd>
+          <dt>Source</dt><dd><code>.swarm/charters/${esc(c.path)}</code></dd>
+        </div>
+      </article>`).join("");
+  }
+  document.getElementById("foot").innerHTML =
+    `source ${esc(DATA.source || "")} · ${esc(DATA.generated_at || "")} · ` +
+    `<a href="https://tea.geijutsu.work/">Tea garden</a> · ` +
+    `<a href="https://atelier.apiary.vision/hive">Atelier hive</a>`;
+}
+
+document.getElementById("filters").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]");
+  if (!b) return;
+  FILTER = b.getAttribute("data-f");
+  render();
+});
+document.getElementById("list").addEventListener("click", e => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  card.classList.toggle("open");
+});
+
+async function load() {
+  const r = await fetch("/api/charters");
+  DATA = await r.json();
+  if (FILTER === "active" && !(DATA.counts || {}).active) FILTER = "all";
+  render();
+}
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

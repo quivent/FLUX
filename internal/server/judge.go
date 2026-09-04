@@ -28,15 +28,23 @@ func requestJuryLane(r *http.Request, bodyLane string) string {
 	if lane == "" {
 		lane = strings.ToLower(strings.TrimSpace(bodyLane))
 	}
-	if lane == "arcane" {
+	switch lane {
+	case "arcane":
 		return "arcane"
+	case "microgreens":
+		return "microgreens"
+	default:
+		return "fashion"
 	}
-	return "fashion"
 }
 
 func (s Server) juryDirForLane(lane string) string {
-	if strings.EqualFold(strings.TrimSpace(lane), "arcane") {
+	switch strings.ToLower(strings.TrimSpace(lane)) {
+	case "arcane":
 		return s.arcaneOutputDir()
+	case "microgreens":
+		return filepath.Join(s.cfg.OutputDir, "collections", "microgreens")
+	default:
+		return s.cfg.OutputDir
 	}
-	return s.cfg.OutputDir
 }

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"local/flux/internal/daemon"
 )
 
 type rigGPU struct {
@@ -26,7 +28,14 @@ type rigGPU struct {
 	Temperature float64          `json:"temperature_c"`
 	Power       float64          `json:"power_w"`
 	PowerLimit  float64          `json:"power_limit_w"`
+	Performing  string           `json:"performing"`
+	Detail      string           `json:"detail"`
+	Brief       string           `json:"brief"`
+	Wall        string           `json:"wall"`
+	Assignment  map[string]any   `json:"assignment"`
 	Worker      map[string]any   `json:"worker"`
+	Flux        map[string]any   `json:"flux"`
+	Occupants   []map[string]any `json:"occupants"`
 	Processes   []rigProcess     `json:"processes"`
 	Tasks       []map[string]any `json:"tasks"`
 }
@@ -38,6 +47,9 @@ type rigProcess struct {
 	Suite     string  `json:"suite"`
 	Task      string  `json:"task"`
 	Command   string  `json:"command"`
+	Model     string  `json:"model"`
+	Precision string  `json:"precision"`
+	Path      string  `json:"path"`
 }
 
 func (s Server) rigPage(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +94,371 @@ func (s Server) rigStatusAPI(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	s.attachLiveWork(gpus)
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "host": hostname(), "updated_at": time.Now().UTC(), "gpus": gpus, "capacity": rigCapacity(gpus), "inventory": map[string]any{"knotext": knotextPresent()}})
+}
+
+func (s Server) attachLiveWork(gpus []rigGPU) {
+	dir := filepath.Join(s.cfg.Root, ".fluxd")
+	streams := loadRigStreams(dir)
+	byIndex := map[int]*rigGPU{}
+	for i := range gpus {
+		byIndex[gpus[i].Index] = &gpus[i]
+	}
+	for gpu, asg := range streams {
+		g := byIndex[gpu]
+		if g == nil {
+			continue
+		}
+		if g.Assignment == nil || assignmentRank(asg) >= assignmentRank(g.Assignment) {
+			g.Assignment = asg
+		}
+	}
+	for i := range gpus {
+		g := &gpus[i]
+		decorateRigGPU(g)
+		name := fmt.Sprintf("flux-gpu%d", g.Index)
+		client := daemon.NewNamed(s.cfg, name)
+		resp, err := client.Request(map[string]any{"op": "jobs"})
+		if err == nil {
+			active := 0
+			if g.Worker == nil {
+				g.Worker = map[string]any{}
+			}
+			g.Worker["name"] = name
+			g.Worker["up"] = true
+			g.Worker["loaded"] = resp.Loaded
+			if resp.Backend != "" {
+				g.Worker["backend"] = resp.Backend
+			}
+			seen := map[string]bool{}
+			for _, t := range g.Tasks {
+				seen[fmt.Sprint(t["id"])] = true
+			}
+			for _, job := range resp.Jobs {
+				state := fmt.Sprint(job["status"])
+				if state != "running" && state != "queued" {
+					continue
+				}
+				active++
+				id := fmt.Sprint(job["id"])
+				if seen[id] {
+					continue
+				}
+				g.Tasks = append(g.Tasks, compactRigTask(job))
+				seen[id] = true
+			}
+			g.Worker["active"] = active
+			g.Worker["jobs"] = len(resp.Jobs)
+		}
+		if g.Flux != nil {
+			if g.Worker == nil {
+				g.Worker = map[string]any{}
+			}
+			g.Worker["loaded"] = true
+			g.Worker["model"] = g.Flux["model"]
+			g.Worker["precision"] = g.Flux["precision"]
+			g.Worker["vram_mib"] = g.Flux["memory_mib"]
+		}
+		g.Performing, g.Detail, g.Brief, g.Wall = describeGPU(*g)
+	}
+}
+
+func decorateRigGPU(g *rigGPU) {
+	occupants := make([]map[string]any, 0, len(g.Processes))
+	for i := range g.Processes {
+		p := &g.Processes[i]
+		p.Model, p.Precision, p.Path = parseRigModel(p.Command, p.Suite, p.Task)
+		occupants = append(occupants, map[string]any{
+			"pid": p.PID, "suite": p.Suite, "task": p.Task, "model": p.Model,
+			"precision": p.Precision, "path": p.Path, "memory_mib": p.MemoryMiB,
+		})
+		if p.Suite != "FLUX renderer" {
+			continue
+		}
+		g.Flux = map[string]any{
+			"present": true, "model": p.Model, "precision": p.Precision,
+			"path": p.Path, "memory_mib": p.MemoryMiB, "pid": p.PID,
+			"socket": fmt.Sprintf("flux-gpu%d.sock", g.Index),
+		}
+	}
+	g.Occupants = occupants
+}
+
+func parseRigModel(command, suite, task string) (model, precision, path string) {
+	lower := strings.ToLower(command)
+	if strings.Contains(lower, "worker.py") {
+		dir := argAfter(command, "--model-dir", "")
+		fp8 := argAfter(command, "--fp8-transformer", "")
+		if dir != "" {
+			path = dir
+			model = filepath.Base(strings.TrimSuffix(dir, "/"))
+		} else {
+			model = "FLUX.1-dev"
+		}
+		if fp8 != "" {
+			precision = "FP8"
+			path = fp8
+			if model == "FLUX.1-dev" {
+				model = "FLUX.1-dev"
+			}
+		} else {
+			precision = "BF16"
+		}
+		return model, precision, path
+	}
+	if strings.Contains(lower, "vllm") {
+		path = argAfter(command, "--model", "")
+		served := argAfter(command, "--served-model-name", "")
+		if path != "" {
+			model = filepath.Base(strings.TrimSuffix(path, "/"))
+		}
+		if served != "" {
+			if model != "" && served != model {
+				model = served + " · " + model
+			} else if model == "" {
+				model = served
+			}
+		}
+		switch {
+		case strings.Contains(lower, "awq"):
+			precision = "AWQ"
+		case strings.Contains(lower, "fp8"):
+			precision = "FP8"
+		case strings.Contains(lower, "nvfp4"), strings.Contains(lower, "fp4"):
+			precision = "FP4"
+		}
+		if model == "" {
+			model = task
+		}
+		return model, precision, path
+	}
+	if strings.Contains(lower, "moj_evaluator.py") {
+		return "MoJ visual jury", "", ""
+	}
+	if model == "" {
+		model = strings.TrimSpace(task)
+	}
+	if model == "" {
+		model = strings.TrimSpace(suite)
+	}
+	return model, precision, path
+}
+
+func assignmentRank(m map[string]any) int {
+	if m == nil {
+		return -1
+	}
+	switch fmt.Sprint(m["status"]) {
+	case "running":
+		return 3
+	case "error":
+		return 2
+	case "stopped", "done":
+		return 0
+	default:
+		return 1
+	}
+}
+
+func loadRigStreams(dir string) map[int]map[string]any {
+	out := map[int]map[string]any{}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		if !strings.Contains(name, "stream") && name != "arcane_stream.json" {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		var body map[string]any
+		if json.Unmarshal(raw, &body) != nil || body == nil {
+			continue
+		}
+		gpu := gpuFromSocket(fmt.Sprint(body["socket"]))
+		if strings.Contains(name, "gpu3") {
+			gpu = 3
+		}
+		if gpu < 0 {
+			continue
+		}
+		lane := strings.ToLower(fmt.Sprint(body["lane"]))
+		if lane == "" || lane == "<nil>" {
+			if strings.Contains(name, "motion") {
+				lane = "motion"
+			} else if strings.Contains(name, "arcane") {
+				lane = "arcane"
+			} else {
+				lane = "fashion"
+			}
+		}
+		wall := strings.TrimSpace(fmt.Sprint(body["wall"]))
+		if wall == "" || wall == "<nil>" {
+			if lane == "fashion" {
+				wall = "/gallery"
+			} else if lane == "motion" {
+				wall = "not on /gallery"
+			}
+		}
+		asg := map[string]any{
+			"file":      name,
+			"lane":      lane,
+			"label":     laneLabel(lane),
+			"status":    body["status"],
+			"prompt":    body["prompt"],
+			"submitted": body["submitted"],
+			"done":      body["done"],
+			"running":   body["running"],
+			"n":         body["n"],
+			"wall":      wall,
+			"id":        body["id"],
+			"gallery":   body["gallery"],
+		}
+		if prev, ok := out[gpu]; ok && assignmentRank(prev) > assignmentRank(asg) {
+			continue
+		}
+		out[gpu] = asg
+	}
+	return out
+}
+
+func gpuFromSocket(socket string) int {
+	base := filepath.Base(socket)
+	if strings.HasPrefix(base, "flux-gpu") && strings.HasSuffix(base, ".sock") {
+		n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(base, "flux-gpu"), ".sock"))
+		if err == nil {
+			return n
+		}
+	}
+	return -1
+}
+
+func laneLabel(lane string) string {
+	switch strings.ToLower(lane) {
+	case "fashion":
+		return "Fashion · beauty-on-beauty stills"
+	case "motion":
+		return "Motion atlas path · off gallery"
+	case "arcane":
+		return "Arcane Fortiche mine"
+	default:
+		if lane == "" || lane == "<nil>" {
+			return "Unassigned FLUX worker"
+		}
+		return strings.ToUpper(lane[:1]) + lane[1:] + " generation"
+	}
+}
+
+func describeGPU(g rigGPU) (performing, detail, brief, wall string) {
+	asg := g.Assignment
+	if asg != nil {
+		performing = fmt.Sprint(asg["label"])
+		brief = strings.TrimSpace(fmt.Sprint(asg["prompt"]))
+		wall = strings.TrimSpace(fmt.Sprint(asg["wall"]))
+		if wall == "<nil>" {
+			wall = ""
+		}
+		if fmt.Sprint(asg["gallery"]) == "false" && wall == "" {
+			wall = "not on /gallery"
+		}
+		status := fmt.Sprint(asg["status"])
+		done, n := asg["done"], asg["n"]
+		run := asg["running"]
+		parts := []string{status}
+		if run != nil && fmt.Sprint(run) != "<nil>" && fmt.Sprint(run) != "" {
+			parts = append(parts, fmt.Sprintf("%v in flight", run))
+		}
+		if done != nil && fmt.Sprint(done) != "<nil>" {
+			if n != nil && fmt.Sprint(n) != "<nil>" && fmt.Sprint(n) != "" {
+				parts = append(parts, fmt.Sprintf("%v / %v this stream", done, n))
+			} else {
+				parts = append(parts, fmt.Sprintf("%v done", done))
+			}
+		}
+		detail = strings.Join(parts, " · ")
+	}
+	if performing == "" || performing == "<nil>" {
+		performing = performingFromProcesses(g)
+	}
+	if brief == "" || brief == "<nil>" {
+		for _, t := range g.Tasks {
+			if p := strings.TrimSpace(fmt.Sprint(t["prompt"])); p != "" && p != "<nil>" {
+				brief = p
+				break
+			}
+		}
+	}
+	if performing == "" {
+		up, _ := false, false
+		if g.Worker != nil {
+			up, _ = g.Worker["up"].(bool)
+		}
+		if up {
+			performing = "FLUX worker idle"
+			detail = "model resident, no in-flight job"
+		} else if len(g.Processes) == 0 {
+			performing = "Empty seat"
+		} else {
+			performing = g.Processes[0].Suite
+			detail = g.Processes[0].Task
+		}
+	}
+	if len(brief) > 220 {
+		brief = strings.TrimSpace(brief[:217]) + "…"
+	}
+	return performing, detail, brief, wall
+}
+
+func performingFromProcesses(g rigGPU) string {
+	names := []string{}
+	seen := map[string]bool{}
+	for _, p := range g.Processes {
+		label := p.Task
+		if p.Suite == "Inference" && p.Task != "" {
+			label = inferenceLabel(p.Task)
+		} else if p.Suite != "" && p.Suite != "CUDA process" {
+			label = p.Suite
+			if p.Task != "" && p.Task != "image generation worker" {
+				label = p.Suite + " · " + p.Task
+			}
+		}
+		if label == "" || seen[label] {
+			continue
+		}
+		seen[label] = true
+		names = append(names, label)
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return strings.Join(names, " + ")
+}
+
+func inferenceLabel(task string) string {
+	switch strings.ToLower(strings.TrimSpace(task)) {
+	case "governor", "governor-gemma":
+		return "Governor Gemma inference"
+	case "governor-qwen", "qwen38", "qwen":
+		return "Governor Qwen inference"
+	case "hive-research":
+		return "Hive research inference"
+	case "pixtral":
+		return "Pixtral visual critic"
+	case "drafter", "dflash", "mtp":
+		return "Speculative drafter"
+	case "jury":
+		return "Jury inference"
+	default:
+		return "vLLM · " + task
+	}
 }
 
 func rigCapacity(gpus []rigGPU) map[string]any {
@@ -170,32 +546,89 @@ func attachRigProcesses(gpus []rigGPU) {
 		}
 		pid := atoi(row[1])
 		command := procCommand(pid)
-		suite, task := classifyRigProcess(command, strings.TrimSpace(row[2]))
 		g := byUUID[strings.TrimSpace(row[0])]
+		suite, task := classifyRigProcess(command, strings.TrimSpace(row[2]), pid, g.Index)
 		g.Processes = append(g.Processes, rigProcess{PID: pid, MemoryMiB: atof(row[3]), Name: filepath.Base(strings.TrimSpace(row[2])), Suite: suite, Task: task, Command: command})
 	}
 }
 
-func classifyRigProcess(command, name string) (string, string) {
+func classifyRigProcess(command, name string, pid, gpu int) (string, string) {
 	lower := strings.ToLower(command)
 	switch {
+	case strings.Contains(lower, "gpu0_motion_stream.py"):
+		return "Motion experiment", "atlas path, off gallery"
+	case strings.Contains(lower, "arcane_atlas_stream.py"):
+		return "Arcane mine", "Fortiche stills"
 	case strings.Contains(lower, "protocol_r2_stream.py"):
-		return "Beauty Protocol R2", "continuous protocol stream"
+		return "Beauty Protocol R2", "publish settled fashion frames"
 	case strings.Contains(lower, "protocol_stream.py"):
-		return "Beauty Protocol", argAfter(command, "--lane", "continuous generation")
+		lane := argAfter(command, "--lane", "")
+		if strings.Contains(lower, "fashion") || lane == "fashion" {
+			return "Fashion streamer", "beauty-on-beauty stills"
+		}
+		if lane != "" {
+			return "Protocol streamer", lane
+		}
+		return "Protocol streamer", "continuous generation"
 	case strings.Contains(lower, "moj_evaluator.py"):
-		return "Ministry of Judgment", "visual jury evaluator"
-	case strings.Contains(lower, "vllm serve"):
+		out := strings.ToLower(procEnv(pid, "OUT_DIR") + " " + procEnv(pid, "FLUX_OUTPUT_DIR"))
+		switch {
+		case strings.Contains(out, "microgreens"):
+			return "Microgreens jury", "visual evaluator"
+		case strings.Contains(out, "arcane"):
+			return "Arcane jury", "visual evaluator"
+		case gpu == 3:
+			return "Fashion jury", "visual evaluator"
+		default:
+			return "MoJ jury", "visual evaluator"
+		}
+	case strings.Contains(lower, "vllm"):
 		return "Inference", argAfter(command, "--served-model-name", "vLLM model server")
 	case strings.Contains(lower, "worker.py"):
-		return "FLUX Renderer", "image generation worker"
+		if strings.Contains(lower, "flux-gpu0") {
+			return "FLUX renderer", "GPU 0 BF16 worker"
+		}
+		if strings.Contains(lower, "flux-gpu3") {
+			return "FLUX renderer", "GPU 3 FP8 worker"
+		}
+		return "FLUX renderer", "image generation worker"
 	default:
 		return "CUDA process", name
 	}
 }
 
 func compactRigTask(job map[string]any) map[string]any {
-	return map[string]any{"id": job["id"], "status": job["status"], "phase": job["phase"], "step": job["step"], "total_steps": job["total_steps"], "prompt": job["prompt"], "filename": job["filename"], "model": job["model_family"]}
+	kind := job["kind"]
+	if kind == nil || fmt.Sprint(kind) == "" {
+		kind = "still"
+	}
+	return map[string]any{
+		"id":          job["id"],
+		"status":      job["status"],
+		"phase":       job["phase"],
+		"kind":        kind,
+		"step":        job["step"],
+		"total_steps": job["total_steps"],
+		"prompt":      job["prompt"],
+		"filename":    job["filename"],
+		"model":       job["model_family"],
+		"atlas_done":  job["atlas_done"],
+		"atlas_total": job["atlas_total"],
+	}
+}
+
+func procEnv(pid int, key string) string {
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+	if err != nil {
+		return ""
+	}
+	prefix := key + "="
+	for _, part := range strings.Split(string(raw), "\x00") {
+		if strings.HasPrefix(part, prefix) {
+			return strings.TrimPrefix(part, prefix)
+		}
+	}
+	return ""
 }
 
 func procCommand(pid int) string {

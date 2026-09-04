@@ -256,6 +256,14 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.home)
+	mux.HandleFunc("/charters", s.chartersPage)
+	mux.HandleFunc("/charters/", s.chartersPage)
+	mux.HandleFunc("/api/charters", s.chartersAPI)
+	mux.HandleFunc("/reports", s.reportsPage)
+	mux.HandleFunc("/reports/", s.reportsPage)
+	mux.HandleFunc("/output-reports", s.reportsPage)
+	mux.HandleFunc("/output-reports/", s.reportsPage)
+	mux.HandleFunc("/api/reports", s.reportsAPI)
 	mux.HandleFunc("/app", s.app)
 	mux.HandleFunc("/app/", s.app)
 	mux.HandleFunc("/atelier", s.legacyAtelier)
@@ -317,6 +325,13 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jury/spectacles", s.jurySpectaclesAPI)
 	mux.HandleFunc("/api/jury/feedback", s.juryFeedbackAPI)
 	mux.HandleFunc("/api/protocol", s.protocolAPI)
+	mux.HandleFunc("/api/protocol/branches", s.protocolBranchesAPI)
+	mux.HandleFunc("/api/studios", s.studiosAPI)
+	mux.HandleFunc("/api/studios/", s.studiosAPI)
+	mux.HandleFunc("/studios", s.studiosPage)
+	mux.HandleFunc("/studios/", s.studiosPage)
+	mux.HandleFunc("/studio", s.studiosPage)
+	mux.HandleFunc("/studio/", s.studiosPage)
 	mux.HandleFunc("/api/protocol/calibrate", s.protocolCalibrateAPI)
 	mux.HandleFunc("/api/arcane/protocol", s.arcaneProtocolAPI)
 	mux.HandleFunc("/api/arcane/jury/config", s.arcaneJuryConfigAPI)
@@ -351,6 +366,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/rig/", s.rigPage)
 	mux.HandleFunc("/domains", s.domainsPage)
 	mux.HandleFunc("/domains/", s.domainsPage)
+	mux.HandleFunc("/train", s.trainPage)
+	mux.HandleFunc("/train/", s.trainPage)
 	mux.HandleFunc("/jury", s.juryPage)
 	mux.HandleFunc("/jury/", s.juryPage)
 	mux.HandleFunc("/moj", s.juryPage)
@@ -359,12 +376,23 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/judge/", s.judgePage)
 	mux.HandleFunc("/algorithm", s.judgePage)
 	mux.HandleFunc("/algorithm/", s.judgePage)
+	mux.HandleFunc("/desk", s.deskPage)
+	mux.HandleFunc("/desk/", s.deskPage)
+	mux.HandleFunc("/control", s.deskPage)
+	mux.HandleFunc("/control/", s.deskPage)
+	mux.HandleFunc("/scores", s.scoresPage)
+	mux.HandleFunc("/scores/", s.scoresPage)
+	mux.HandleFunc("/api/tea/desk", s.teaDeskAPI)
+	mux.HandleFunc("/api/tea/scores", s.teaScoresAPI)
+	mux.HandleFunc("/api/tea/movement", s.teaMovementAPI)
 	mux.HandleFunc("/portal", s.portalPage)
 	mux.HandleFunc("/portal/", s.portalPage)
 	mux.HandleFunc("/garden", s.gardenPage)
 	mux.HandleFunc("/garden/", s.gardenPage)
 	mux.HandleFunc("/tea", s.gardenPage)
 	mux.HandleFunc("/tea/", s.gardenPage)
+	mux.HandleFunc("/tea.css", s.teaChromeAsset)
+	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
 	mux.HandleFunc("/studies", s.teaStudiesPage)
 	mux.HandleFunc("/studies/", s.teaStudiesPage)
 	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
@@ -425,6 +453,10 @@ var readOnlyPaths = []string{
 	"/app",
 	"/gallery",
 	"/collections",
+	"/reports",
+	"/output-reports",
+	"/charters",
+	"/api/charters",
 	"/portraits",
 	"/movement",
 	"/studies",
@@ -433,12 +465,21 @@ var readOnlyPaths = []string{
 	"/protocol",
 	"/judge",
 	"/algorithm",
+	"/desk",
+	"/control",
+	"/scores",
+	"/api/tea/scores",
+	"/api/tea/desk",
+	"/api/tea/movement",
+	"/tea.css",
+	"/tea-shell.js",
 	"/spec",
 	"/sentinel",
 	"/exhibition",
 	"/atelier",
 	"/rig",
 	"/domains",
+	"/train",
 	// Motion Atlas may be browsed from the public listener, but all of its
 	// generation controls remain blocked because this gate also requires GET
 	// or HEAD and does not expose the render/model mutation routes.
@@ -447,12 +488,17 @@ var readOnlyPaths = []string{
 	"/api/health",
 	"/api/rig",
 	"/api/protocol",
+	"/api/protocol/branches",
+	"/api/studios",
+	"/studios",
+	"/studio",
 	"/api/arcane/protocol",
 	"/api/arcane/jury/config",
 	"/api/jury/config",
 	"/api/jury/spectacles",
 	"/api/recent-images",
 	"/api/studies",
+	"/api/reports",
 	"/api/sentinel",
 	// Without this the gallery falls back to full-size PNGs -- megabytes per
 	// tile, across two proxy hops.
@@ -543,8 +589,13 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if host := strings.ToLower(strings.TrimSpace(strings.Split(r.Host, ":")[0])); host == "flux.influx.vision" {
+	host := requestHost(r)
+	if host == "flux.influx.vision" {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
+		return
+	}
+	if host == "charters.apiary.vision" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "charters.html"))
 		return
 	}
 	portalFile := filepath.Join(s.cfg.Root, "web", "portal", "index.html")
@@ -553,6 +604,15 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name != "tea.css" && name != "tea-shell.js" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", name))
 }
 
 func (s Server) gardenPage(w http.ResponseWriter, r *http.Request) {
@@ -636,6 +696,20 @@ func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
+}
+
+func (s Server) trainPage(w http.ResponseWriter, r *http.Request) {
+	rel := strings.Trim(strings.TrimPrefix(r.URL.Path, "/train"), "/")
+	if rel == "" || rel == "index.html" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "train.html"))
+		return
+	}
+	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
+	if info, err := os.Stat(file); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, file)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "train.html"))
 }
 
 func (s Server) enginePage(w http.ResponseWriter, r *http.Request) {
@@ -889,11 +963,8 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if lane == "arcane" {
-		if strings.Contains(promptL, "princess") || strings.Contains(promptL, "rose") ||
-			strings.Contains(promptL, "disney") || strings.Contains(promptL, "supermodel") {
-			writeError(w, http.StatusConflict, "arcane lane refuses princess/rose vanity; jury-signed Fortiche brief only")
-			return
-		}
+		writeError(w, http.StatusConflict, "arcane generation is unplugged; GPU 0 is a motion experiment")
+		return
 	}
 	if current := readProtocolStreamStateLane(s.cfg.Root, lane); current != nil {
 		if status, _ := current["status"].(string); status == "running" {
@@ -1048,7 +1119,9 @@ func (s Server) protocolAPI(w http.ResponseWriter, r *http.Request) {
 			"count": len(spectacles),
 			"items": spectacles,
 		},
-		"stream": readProtocolStreamStateLane(s.cfg.Root, lane),
+		"stream":     readProtocolStreamStateLane(s.cfg.Root, lane),
+		"branches":   s.listProtocolBranches(),
+		"branch_cap": protocolBranchCap,
 	})
 }
 
@@ -2127,23 +2200,47 @@ var publishedGalleryAssets = struct {
 	seen map[string]struct{}
 }{seen: make(map[string]struct{})}
 
+func (s Server) galleryAssetRel(job map[string]any) string {
+	out := stringValue(job["output"])
+	if rel := s.outputRel(out); rel != "" {
+		return rel
+	}
+	for _, candidate := range []string{out, stringValue(job["filename"])} {
+		candidate = filepath.ToSlash(strings.TrimSpace(candidate))
+		for _, marker := range []string{"/collections/", "/arcane/"} {
+			if i := strings.Index(candidate, marker); i >= 0 {
+				candidate = strings.TrimPrefix(candidate[i:], "/")
+				break
+			}
+		}
+		if rel, ok := s.cleanOutputRel(candidate); ok {
+			return rel
+		}
+	}
+	name := filepath.Base(out)
+	if name == "" {
+		name = filepath.Base(stringValue(job["filename"]))
+	}
+	if isImageName(name) {
+		return name
+	}
+	return ""
+}
+
 func (s Server) publishCompletedJobAssets(jobs []map[string]any) {
 	for _, job := range jobs {
 		if stringValue(job["status"]) != "done" {
 			continue
 		}
-		out := stringValue(job["output"])
-		if out == "" {
-			out = stringValue(job["filename"])
-		}
-		if out == "" {
+		rel := s.galleryAssetRel(job)
+		if rel == "" {
 			continue
 		}
-		name := filepath.Base(out)
+		name := path.Base(rel)
 		if !isImageName(name) {
 			continue
 		}
-		access := "/outputs/" + name
+		access := "/outputs/" + rel
 		key := stringValue(job["id"]) + ":" + access
 		publishedGalleryAssets.Lock()
 		if _, ok := publishedGalleryAssets.seen[key]; ok {
@@ -4620,14 +4717,21 @@ func recentAssetAllowed(scope, rel string) bool {
 	if rel == "" || rel == "." {
 		return true
 	}
-	top := strings.SplitN(rel, "/", 2)[0]
+	parts := strings.Split(rel, "/")
+	top := parts[0]
 	base := strings.ToLower(filepath.Base(rel))
 	path := strings.ToLower(rel)
 	switch scope {
 	case "movement":
 		return top == "atlas"
 	case "portraits":
-		return top == "collections"
+		if top != "collections" {
+			return false
+		}
+		if strings.Contains(base, "protocol-") || strings.HasPrefix(base, ".") {
+			return false
+		}
+		return true
 	case "arcane":
 		if strings.Contains(base, "fashion") || galleryVanityName(base) {
 			return false
@@ -4646,6 +4750,15 @@ func recentAssetAllowed(scope, rel string) bool {
 		}
 		return strings.Contains(base, "fashion") && !strings.Contains(base, "arcane") && !galleryVanityName(base)
 	default:
+		if scope != "" {
+			if top != "collections" {
+				return false
+			}
+			if len(parts) == 1 {
+				return true
+			}
+			return parts[1] == scope && !galleryVanityName(base) && !strings.HasPrefix(base, ".")
+		}
 		return top != "atlas" && top != "collections" && top != "arcane" && !strings.Contains(base, "arcane") && !galleryVanityName(base)
 	}
 }
@@ -4723,6 +4836,10 @@ func (s Server) teaCollectionsPage(w http.ResponseWriter, r *http.Request) {
 	case "/collections/fashion", "/collections/arcane":
 		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 	default:
+		if _, ok := publicCollectionSlug(path); ok {
+			http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+			return
+		}
 		http.NotFound(w, r)
 	}
 }

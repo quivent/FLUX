@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
-"""Keep the Arcane atlas miner on GPU 0. Fashion stays on GPU 3."""
+"""Arcane stays unplugged. Does not occupy GPU 0 — that card is fashion."""
 from __future__ import annotations
 
+import json
 import os
 import signal
-import subprocess
 import sys
 import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-PYTHON = os.path.join(ROOT, ".venv", "bin", "python")
-STREAMER = os.path.join(ROOT, "arcane_atlas_stream.py")
-SOCK = os.path.join(ROOT, ".fluxd", "flux-gpu0.sock")
-LOG = os.path.join(ROOT, ".fluxd", "arcane_stream.log")
-PIDFILE = os.path.join(ROOT, ".fluxd", "arcane_stream.pid")
-FASHION = "The most extravagant fashion models"
+STATE = os.path.join(ROOT, ".fluxd", "arcane_stream.json")
 
 
 def cmdlines():
@@ -29,15 +24,12 @@ def cmdlines():
         if not raw:
             continue
         cmd = raw.replace(b"\0", b" ").decode("utf-8", "replace")
-        if "arcane_atlas_stream.py" in cmd or (
-            "protocol_stream.py" in cmd and "flux-gpu0.sock" in cmd
-        ):
-            out.append((int(pid), cmd))
+        if "arcane_atlas_stream.py" in cmd:
+            out.append(int(pid))
     return out
 
 
-def kill_pid(pid, why):
-    print("arcane-lock kill %s (%s)" % (pid, why), flush=True)
+def kill_pid(pid):
     try:
         os.kill(pid, signal.SIGTERM)
     except OSError:
@@ -49,43 +41,32 @@ def kill_pid(pid, why):
         pass
 
 
-def start():
-    env = os.environ.copy()
-    env["OUT_DIR"] = env.get("OUT_DIR") or os.path.expanduser("~/models/flux-output")
-    env["FLUX_OUTPUT_DIR"] = env["OUT_DIR"]
-    logf = open(LOG, "a")
-    proc = subprocess.Popen(
-        [PYTHON, "-u", STREAMER],
-        cwd=ROOT,
-        env=env,
-        stdout=logf,
-        stderr=logf,
-        start_new_session=True,
-    )
-    with open(PIDFILE, "w") as f:
-        f.write(str(proc.pid) + "\n")
-    print("arcane-lock start pid %s" % proc.pid, flush=True)
-
-
-def tick():
-    miners = []
-    for pid, cmd in cmdlines():
-        if "protocol_stream.py" in cmd and "flux-gpu0.sock" in cmd:
-            kill_pid(pid, "fashion/protocol streamer stealing GPU 0")
-            continue
-        if "arcane_atlas_stream.py" in cmd:
-            miners.append(pid)
-    for extra in sorted(miners)[1:]:
-        kill_pid(extra, "duplicate miner")
-    if os.path.exists(SOCK) and not miners:
-        start()
+def stamp_stopped():
+    try:
+        with open(STATE) as f:
+            state = json.load(f)
+    except Exception:
+        state = {}
+    state["status"] = "stopped"
+    state["running"] = 0
+    state["error"] = "unplugged — GPU 0 is fashion"
+    state["updated_at"] = time.time()
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, STATE)
 
 
 def main():
-    print("arcane-lock watching GPU 0", flush=True)
+    print("arcane-lock: GPU 0 is fashion; Arcane will not restart", flush=True)
     while True:
         try:
-            tick()
+            for pid in cmdlines():
+                print("arcane-lock kill miner %s" % pid, flush=True)
+                kill_pid(pid)
+            stamp_stopped()
         except Exception as exc:
             print("arcane-lock tick error: %r" % (exc,), flush=True)
         time.sleep(5)

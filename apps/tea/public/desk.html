@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>Desk — Tea</title>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<main class="desk">
+  <div class="kicker">Operator · live</div>
+  <h1>Desk</h1>
+  <p class="lede">Meters that write through. Hive mix, jury law, and movement pace — each room saves as you touch it.</p>
+  <div class="desk-lanes">
+    <button class="on" data-lane="microgreens">Microgreens · GPU 0</button>
+    <button data-lane="fashion">Fashion · GPU 3</button>
+    <button data-lane="arcane">Arcane · GPU 0</button>
+  </div>
+  <div class="desk-status" id="desk-status">loading…</div>
+  <div class="desk-grid">
+    <a class="desk-card" href="/desk/hive">
+      <h2>Hive mix</h2>
+      <p>How much the hive leans on beauty, structure, decoder, and governor.</p>
+      <span class="foot" id="sum-hive">—</span>
+    </a>
+    <a class="desk-card" href="/desk/jury">
+      <h2>Jury law</h2>
+      <p>How FLUX beauty is judged: gamma, adversarial, gates, uniqueness.</p>
+      <span class="foot" id="sum-jury">—</span>
+    </a>
+    <a class="desk-card" href="/desk/pace">
+      <h2>Pace</h2>
+      <p>How fast the motion wall breathes, and the intended stream grain.</p>
+      <span class="foot" id="sum-pace">—</span>
+    </a>
+    <a class="desk-card" href="/scores">
+      <h2>Scores</h2>
+      <p>Recent composites, spectacles, and per-seat marks.</p>
+      <span class="foot" id="sum-scores">—</span>
+    </a>
+  </div>
+</main>
+<script src="/tea/desk.js"></script>
+<script>
+  const D = TeaDesk;
+  async function paint() {
+    try {
+      const d = await D.load();
+      const h = d.desk.hive, j = d.desk.jury, p = d.desk.pace, a = d.audit || {};
+      D.$("sum-hive").textContent =
+        Math.round((h.pixtral||0)*100) + "% beauty · " + Math.round((h.qwen||0)*100) + "% structure · " + Math.round((h.governor||0)*100) + "% governor";
+      D.$("sum-jury").textContent = (j.mode||"parallel") + (j.adversarial ? " · adversarial" : "") + " · γ " + Number((j.gamma||{}).pixtral||1.5).toFixed(1);
+      D.$("sum-pace").textContent = p.movement_ms + " ms / frame · stream " + p.stream_n + " × " + p.stream_steps;
+      D.$("sum-scores").textContent = (a.scored||0) + " scored · " + (a.spectacles||0) + " spectacles · mean " + (a.mean_raw?Number(a.mean_raw).toFixed(1):"—");
+      D.status((d.hive && d.hive.live ? "hive live · " : "hive down · ") + D.getLane(), d.hive && d.hive.live ? "ok" : "");
+    } catch (e) { D.status(String(e), "bad"); }
+  }
+  D.bindLanes(paint);
+  paint();
+</script>
+</body>
+</html>

@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f5f0">
-  <title>Engine Room · The Aethelgard Monolith</title>
-  <meta name="description" content="An Observatory of Fluid Permanence — Interactive Guilloché Astrolabes, Generative Kintsugi Tensor Sparks, and Ferrofluidic Shodo Ink Turbulence.">
+  <title>Engine Room · Tea</title>
+  <meta name="theme-color" content="#12100e">
+  <meta name="description" content="Hardware telemetry for the Tea rig — four RTX PRO 6000 cards, live VRAM, power, and thermals.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
     :root {
@@ -41,7 +42,7 @@
       --guilloche-3: rgba(90, 123, 111, 0.5);
       
       --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
-      --display: 'Cinzel', serif;
+      --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif JP", Georgia, serif;
       --sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
       
@@ -607,8 +608,22 @@
       .shell { padding: 20px 16px 80px; }
     }
   </style>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
 </head>
-<body>
+<body class="mode-nocturnal">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
 
   <!-- Ambient Fluid Ink Turbulence Canvas -->
   <canvas id="fluidInkCanvas"></canvas>
@@ -616,48 +631,16 @@
   <div class="shell">
     
     <!-- Top Sovereign Header -->
-    <header>
-      <div class="brand-cluster">
-        <a href="/" style="display:flex; align-items:center; gap:10px;">
-          <div class="tea-seal">間</div>
-          <span class="brand-title">Aethelgard</span>
-        </a>
-
-        <!-- Universal Navigation Bar -->
-        <nav class="universal-nav" aria-label="Universal Navigation">
-          <span class="nav-label">🍵 TEA:</span>
-          <a href="/jury">👑 Jury</a>
-          <a href="/gallery/">🖼️ Stream</a>
-          <a href="/garden">🌿 Garden</a>
-          <a href="/portraits">👤 Portraits</a>
-          <a href="/exhibition">🏛️ Exhibition</a>
-          
-          <span class="nav-sep"></span>
-          
-          <span class="nav-label">⚡ MOTION:</span>
-          <a href="/movement">🎬 Video</a>
-          <a href="/atlas/">🌐 Worlds</a>
-          <a href="/studies">🐎 Studies</a>
-          <a href="/engine" aria-current="page">⚙️ Engine</a>
-        </nav>
-      </div>
-
-      <!-- Right Controls -->
-      <div class="header-right">
-        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
-          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
-        </button>
-      </div>
-    </header>
+    
 
     <main>
       <!-- Grand Intro -->
       <section class="intro">
         <div>
-          <div class="eyebrow">A Reliquary for Logic · Hardware Telemetry</div>
-          <h1>The Aethelgard<br>Monolith</h1>
+          <div class="eyebrow">Hardware telemetry · this rig</div>
+          <h1>Engine<br>Room</h1>
         </div>
-        <p>An observatory of fluid permanence. Interactive Guilloché astronomical astrolabes, 3D layered silicon strata, and ferrofluidic ink turbulence driven by real-time hardware telemetry.</p>
+        <p>Four RTX PRO 6000 cards. Power, heat, VRAM, and the daemons sitting on them — read from the metal, not from a legend.</p>
       </section>
 
       <!-- TOP MATRIX: THE ASTROLABE & THE FIBONACCI PENDULUM -->
@@ -777,8 +760,8 @@
     </main>
 
     <footer>
-      <span>The Aethelgard Monolith · An Observatory of Fluid Permanence</span>
-      <span>H200 SXM5 / Blackwell SXM6 Architecture · Precision at Rest</span>
+      <span>Engine Room · Tea</span>
+      <span>4× RTX PRO 6000 Blackwell · this rig</span>
     </footer>
   </div>
 

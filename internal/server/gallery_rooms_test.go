@@ -15,12 +15,14 @@ import (
 func TestFashionGalleryRejectsArcanePrincessRose(t *testing.T) {
 	output := t.TempDir()
 	files := map[string]string{
-		"protocol-fashion-stream-001.png":      "fashion",
-		"protocol-arcane-atlas-001.png":        "arcane-root",
-		"arcane/protocol-arcane-atlas-002.png": "arcane-dir",
-		"princess-rose.png":                    "vanity",
-		"celadon-bowl.png":                     "bowl",
-		"finished-work.png":                    "other",
+		"protocol-fashion-stream-001.png":        "fashion",
+		"protocol-arcane-atlas-001.png":          "arcane-root",
+		"arcane/protocol-arcane-atlas-002.png":   "arcane-dir",
+		"collections/silk/protocol-silk-001.png": "branch-silk",
+		"collections/noir/protocol-noir-001.png": "branch-noir",
+		"princess-rose.png":                      "vanity",
+		"celadon-bowl.png":                       "bowl",
+		"finished-work.png":                      "other",
 	}
 	for rel, body := range files {
 		path := filepath.Join(output, rel)
@@ -59,10 +61,18 @@ func TestFashionGalleryRejectsArcanePrincessRose(t *testing.T) {
 	if !strings.Contains(fashion, "protocol-fashion-stream-001.png") {
 		t.Fatalf("fashion wall missing the stream: %s", fashion)
 	}
-	for _, banned := range []string{"protocol-arcane-atlas-001.png", "protocol-arcane-atlas-002.png", "princess-rose.png", "celadon-bowl.png", "finished-work.png"} {
+	for _, banned := range []string{"protocol-arcane-atlas-001.png", "protocol-arcane-atlas-002.png", "protocol-silk-001.png", "protocol-noir-001.png", "princess-rose.png", "celadon-bowl.png", "finished-work.png"} {
 		if strings.Contains(fashion, banned) {
 			t.Errorf("fashion wall leaked %s: %s", banned, fashion)
 		}
+	}
+
+	silk := strings.Join(get("silk"), " ")
+	if !strings.Contains(silk, "protocol-silk-001.png") {
+		t.Fatalf("silk branch wall missing its frames: %s", silk)
+	}
+	if strings.Contains(silk, "protocol-noir-001.png") || strings.Contains(silk, "fashion") || strings.Contains(silk, "arcane") {
+		t.Errorf("silk branch leaked another room: %s", silk)
 	}
 
 	images := strings.Join(get("images"), " ")
@@ -93,6 +103,7 @@ func TestCollectionsPagesArePublicRooms(t *testing.T) {
 		{"/collections", http.StatusOK, "Named rooms"},
 		{"/collections/fashion", http.StatusOK, "id=\"grid\""},
 		{"/collections/arcane", http.StatusOK, "id=\"grid\""},
+		{"/collections/silk", http.StatusOK, "id=\"grid\""},
 		{"/gallery/arcane", http.StatusFound, "/collections/arcane"},
 	}
 	for _, tc := range cases {

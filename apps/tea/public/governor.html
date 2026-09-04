@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>Governor — Tea</title>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
+</head>
+<body class="tea-app gov-page">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/governor" aria-current="page">Governor</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
+<div class="gov-chat">
+  <div class="gov-mast">
+    <div>
+      <div class="kicker">Consultation · GPU 1</div>
+      <h1>Governor</h1>
+      <p class="lede">Gemma 4 31B on the Blackwell card. Same line as governor.apiary.vision — 128k context, streamed, history in this tab only.</p>
+    </div>
+    <div class="gov-pills">
+      <span class="gov-pill" id="ctx">128k context</span>
+      <span class="gov-pill live" id="dot">checking</span>
+    </div>
+  </div>
+  <main class="gov-thread" id="scroller">
+    <div id="thread">
+      <div class="gov-row">
+        <div class="gov-avatar gov">GOV</div>
+        <div class="gov-bubble">Direct line to Gemma on GPU 1. Ask for direction, law, or a reading of the work. Enter sends; Shift+Enter makes a new line.</div>
+      </div>
+    </div>
+  </main>
+  <footer class="gov-compose">
+    <form id="form">
+      <textarea id="input" rows="3" placeholder="Talk to the Governor."></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="gov-stats">
+      <span id="health">checking engine…</span>
+      <span id="speed">Ready</span>
+    </div>
+  </footer>
+</div>
+<script>
+  const thread = document.getElementById("thread");
+  const scroller = document.getElementById("scroller");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+  const health = document.getElementById("health");
+  const speed = document.getElementById("speed");
+  const dot = document.getElementById("dot");
+  const ctx = document.getElementById("ctx");
+  const messages = [];
+
+  async function ping() {
+    try {
+      const r = await fetch("/api/governor/models", { cache: "no-store" });
+      const d = await r.json();
+      const m = (d.data || []).find(x => x.id === "governor") || (d.data || [])[0];
+      const len = m && m.max_model_len ? m.max_model_len : 0;
+      if (m) {
+        ctx.textContent = (len / 1024).toFixed(0) + "k context";
+        health.textContent = m.id + " · " + (m.root || "gemma") + " · " + len.toLocaleString() + " tokens";
+        dot.textContent = "live";
+        dot.classList.add("ok");
+        dot.classList.remove("down");
+      } else {
+        throw new Error("no governor model");
+      }
+    } catch (e) {
+      health.textContent = "engine not reachable: " + e.message;
+      dot.textContent = "down";
+      dot.classList.add("down");
+      dot.classList.remove("ok");
+    }
+  }
+  ping();
+
+  function addBubble(role, text) {
+    const row = document.createElement("div");
+    row.className = "gov-row" + (role === "user" ? " user" : "");
+    row.innerHTML = role === "user"
+      ? '<div class="gov-bubble"></div><div class="gov-avatar you">YOU</div>'
+      : '<div class="gov-avatar gov">GOV</div><div class="gov-bubble"></div>';
+    const bubble = row.querySelector(".gov-bubble");
+    bubble.textContent = text;
+    thread.appendChild(row);
+    scroller.scrollTop = scroller.scrollHeight;
+    return bubble;
+  }
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById("form").requestSubmit();
+    }
+  });
+
+  document.getElementById("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || send.disabled) return;
+    input.value = "";
+    addBubble("user", text);
+    messages.push({ role: "user", content: text });
+    const bubble = addBubble("assistant", "");
+    send.disabled = true;
+    speed.textContent = "streaming…";
+    const t0 = performance.now();
+    let out = "";
+    let tokens = 0;
+    try {
+      const res = await fetch("/api/governor/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "governor",
+          messages,
+          temperature: 0.35,
+          max_tokens: 4096,
+          stream: true
+        })
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error("HTTP " + res.status + " " + err.slice(0, 400));
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split("\n");
+        buf = parts.pop();
+        for (const line of parts) {
+          const s = line.trim();
+          if (!s.startsWith("data:")) continue;
+          const payload = s.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          let json;
+          try { json = JSON.parse(payload); } catch { continue; }
+          const delta = json.choices && json.choices[0] && json.choices[0].delta
+            ? (json.choices[0].delta.content || "")
+            : "";
+          if (delta) {
+            out += delta;
+            tokens += 1;
+            bubble.textContent = out;
+            scroller.scrollTop = scroller.scrollHeight;
+          }
+        }
+      }
+      messages.push({ role: "assistant", content: out });
+      const sec = (performance.now() - t0) / 1000;
+      const tps = sec > 0 ? (tokens / sec).toFixed(1) : "n/a";
+      speed.textContent = tps + " tok/s · " + tokens + " tokens · " + sec.toFixed(2) + "s";
+    } catch (err) {
+      bubble.textContent = "Error: " + err.message;
+      speed.textContent = "failed";
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>

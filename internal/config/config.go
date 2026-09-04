@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -112,14 +113,23 @@ func resolveOutputDir(home string) string {
 	if _, err := os.Stat("/runs"); err == nil {
 		return "/runs/flux-output"
 	}
-	// Prioritize whichever directory actually contains rendered frames
+	// Prefer the directory that actually holds rendered frames. On a
+	// case-sensitive disk both ~/models/flux-output and ~/Models/flux-output
+	// can exist; listing the empty capital-M tree makes the gallery go blank.
+	best := ""
+	bestN := -1
 	for _, candidate := range []string{
-		filepath.Join(home, "Models", "flux-output"),
 		filepath.Join(home, "models", "flux-output"),
+		filepath.Join(home, "Models", "flux-output"),
 	} {
-		if entries, err := os.ReadDir(candidate); err == nil && len(entries) > 0 {
-			return candidate
+		n := countRenderFiles(candidate)
+		if n > bestN {
+			bestN = n
+			best = candidate
 		}
+	}
+	if bestN > 0 {
+		return best
 	}
 	for _, candidate := range []string{
 		filepath.Join(home, "Models", "flux-output"),
@@ -130,6 +140,24 @@ func resolveOutputDir(home string) string {
 		}
 	}
 	return filepath.Join(home, "Models", "flux-output")
+}
+
+func countRenderFiles(dir string) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return -1
+	}
+	n := 0
+	for _, entry := range entries {
+		name := strings.ToLower(entry.Name())
+		if strings.HasSuffix(name, ".png") || strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".jpeg") || strings.HasSuffix(name, ".webp") {
+			n++
+		}
+		if n > 32 {
+			break
+		}
+	}
+	return n
 }
 
 func firstEnv(keys ...string) string {

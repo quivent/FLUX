@@ -5,6 +5,8 @@ __pycache__/
 *.egg-info/
 outputs/
 /flux
+/flux.new
+/flux.prev
 /history.jsonl
 .fluxd/
 serve.log

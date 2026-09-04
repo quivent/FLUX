@@ -477,7 +477,7 @@
     .shell > section, .shell > .split { margin-top: 42px; }
   }
 </style>
-<link rel="stylesheet" href="/tea.css">
+<link rel="stylesheet" href="/tea/tea.css">
 </head>
 <body class="tea-app" data-conn="standby" data-realm="zaun">
 
@@ -487,18 +487,13 @@
     <span class="tea-word">Tea</span>
   </a>
   <nav class="tea-nav" aria-label="Tea">
-    <span class="tea-nav-label">Stillness</span>
-    <a href="/jury">Jury</a>
     <a href="/gallery/">Gallery</a>
-    <a href="/garden">Garden</a>
-    <a href="/portraits">Portraits</a>
-    <a href="/exhibition">Exhibition</a>
-    <span class="tea-nav-sep"></span>
-    <span class="tea-nav-label">Motion</span>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
-    <a href="/atlas/">Worlds</a>
     <a href="/studies">Studies</a>
-    <a href="/engine">Engine</a>
   </nav>
   <div class="tea-chrome-end">
     <button class="ritual" id="ritual" type="button" aria-live="polite">
@@ -665,7 +660,7 @@
      served by the static tea lane. The Go mux has no /assets/ route, so the
      retry below reaches it through /arcane/, and everything this page does with
      sound is guarded so its absence changes nothing. -->
-<script src="/tea-shell.js"></script>
+<script src="/tea/tea-shell.js"></script>
 <script src="/assets/sensory.js" onerror="var s=document.createElement('script');s.src='/arcane/assets/sensory.js';s.onerror=function(){};document.head.appendChild(s);"></script>
 <script>
 (function () {

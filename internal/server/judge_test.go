@@ -28,6 +28,10 @@ func TestJudgePageIsTheAlgorithmController(t *testing.T) {
 		"text from gates",
 		"Fashion · GPU 3",
 		"Arcane · GPU 0",
+		"Microgreens · GPU 0",
+		`class="tea-chrome"`,
+		`href="/tea.css"`,
+		"--paper",
 	} {
 		if !strings.Contains(src, tok) {
 			t.Errorf("judge page missing %q", tok)
@@ -74,6 +78,17 @@ func TestJuryConfigLaneKeepsFashionAndArcaneIndependent(t *testing.T) {
 	}
 	if filepath.Base(output) == "arcane" {
 		t.Fatal("fashion dir must not be the arcane subdir")
+	}
+}
+
+func TestJuryDirForMicrogreensIsItsCollection(t *testing.T) {
+	output := t.TempDir()
+	s := Server{cfg: config.Config{OutputDir: output}}
+	if got := s.juryDirForLane("microgreens"); got != filepath.Join(output, "collections", "microgreens") {
+		t.Fatalf("microgreens jury dir %s", got)
+	}
+	if s.juryDirForLane("fashion") != output {
+		t.Fatal("fashion jury should stay at the output root")
 	}
 }
 

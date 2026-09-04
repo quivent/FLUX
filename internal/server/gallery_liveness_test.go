@@ -59,16 +59,37 @@ func TestGalleryCountsOnlyNewPushedAssets(t *testing.T) {
 	}
 }
 
-func TestGalleryLoadsContinuouslyOnScroll(t *testing.T) {
+func TestGalleryPortraitsIsTopRated(t *testing.T) {
 	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := string(page)
-	for _, token := range []string{`class="scroll-sentinel"`, `new IntersectionObserver`, `rootMargin: '800px 0px'`, `requestAnimationFrame(fillViewport)`} {
+	for _, token := range []string{
+		`/api/jury/spectacles`,
+		`loadTopRated`,
+		`Top Rated`,
+		`composite_score`,
+	} {
 		if !strings.Contains(source, token) {
-			t.Errorf("gallery infinite-scroll contract missing %q", token)
+			t.Errorf("portraits top-rated wall missing %q", token)
 		}
+	}
+}
+
+func TestGalleryShowsFourRows(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(repoRoot(t), "apps", "tea", "public", "gallery.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(page)
+	for _, token := range []string{`MAX_ROWS = 4`, `function wallCap()`, `function trimWall()`} {
+		if !strings.Contains(source, token) {
+			t.Errorf("gallery four-row wall missing %q", token)
+		}
+	}
+	if strings.Contains(source, `requestAnimationFrame(fillViewport)`) {
+		t.Error("gallery still infinite-scrolls the full archive")
 	}
 	if strings.Contains(strings.ToLower(source), `load more`) {
 		t.Error("manual load-more control returned to the public gallery")
@@ -85,17 +106,13 @@ func TestMotionWorkAlwaysMovesAndKeepsArrivalGrid(t *testing.T) {
 		`autoplay muted loop playsinline`,
 		`bell-learns-the-wind.mp4`,
 		`setInterval(`,
-		`id="sequence-grid"`,
-		`Chronological · no selection or rearrangement`,
-		`sort((a,b)=>a.index-b.index)`,
+		`/api/tea/movement`,
+		`id="start"`,
+		`type="range"`,
+		`id="arrivals"`,
 	} {
 		if !strings.Contains(source, token) {
-			t.Errorf("motion work contract missing %q", token)
-		}
-	}
-	for _, token := range []string{`type="range"`, `onclick=`} {
-		if strings.Contains(source, token) {
-			t.Errorf("motion work returned an interactive slider/control: %q", token)
+			t.Errorf("motion experiment console missing %q", token)
 		}
 	}
 }
@@ -111,8 +128,9 @@ func TestPublicNavigationNeverDisplacesAWork(t *testing.T) {
 		filepath.Join(root, "apps", "tea", "public", "exhibition.html"),
 		filepath.Join(root, "apps", "tea", "public", "stallion.html"),
 		filepath.Join(root, "apps", "tea", "public", "jury.html"),
+		filepath.Join(root, "apps", "tea", "public", "judge.html"),
 	}
-	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/studies"`, `href="/exhibition"`}
+	links := []string{`href="/"`, `href="/gallery/"`, `href="/movement"`, `href="/studies"`, `href="/exhibition"`, `href="/judge"`}
 	chrome := []string{`class="tea-chrome"`, `href="/tea.css"`, `class="tea-nav"`}
 	for _, page := range pages {
 		raw, err := os.ReadFile(page)

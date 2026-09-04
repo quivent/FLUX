@@ -1,0 +1,229 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
+<title>Microgreens beauty jury — Tea</title>
+<style>
+  main { max-width: 1180px; margin: 0 auto; padding: 32px clamp(16px, 3vw, 40px) 88px; }
+  .eyebrow { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(40px, 6vw, 72px)/.92 var(--serif); letter-spacing: -0.05em; margin: 8px 0 10px; }
+  .lede { color: var(--soft); font: 400 17px/1.6 var(--serif); max-width: 42rem; }
+  .grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 22px; margin-top: 28px; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg); padding: 22px 22px 18px; }
+  h2 { font: 400 22px/1.2 var(--serif); margin: 0 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font: 12px/1 var(--sans); cursor: pointer; background: var(--paper); }
+  .chip input { accent-color: var(--tea); }
+  .chip.on { border-color: var(--tea); background: var(--tea-light); }
+  label.row { display: grid; grid-template-columns: 140px 1fr 48px; gap: 10px; align-items: center; font: 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--soft); margin: 10px 0; }
+  input[type=range] { width: 100%; accent-color: var(--tea); }
+  select, input[type=number] { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 12px var(--mono); background: #fff; color: var(--ink); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  button, .btn { font: 12px/1 var(--sans); padding: 9px 13px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; text-decoration: none; }
+  button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .status { display: flex; flex-wrap: wrap; gap: 8px 14px; font: 11px/1.5 var(--mono); color: var(--faint); margin-bottom: 12px; }
+  .pill { padding: 2px 8px; border-radius: 999px; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+  .pill.on { background: var(--matcha-light); color: var(--matcha); }
+  .pill.off { background: var(--vermilion-light); color: var(--vermilion); }
+  .pill.warn { background: var(--gold-light); color: var(--gold); }
+  .meter { font: 400 15px/1.5 var(--serif); color: var(--soft); margin: 0 0 12px; }
+  .bar { height: 6px; background: var(--paper-subtle); border-radius: 99px; overflow: hidden; margin: 8px 0 16px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--tea); }
+  .frames { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  .frames a { display: block; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper-subtle); position: relative; }
+  .frames img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frames i { position: absolute; left: 8px; bottom: 8px; font: 11px/1 var(--mono); color: #f7f3ea; background: rgba(39,35,31,.72); padding: 3px 7px; border-radius: 999px; font-style: normal; }
+  .note { font: 400 14px/1.55 var(--serif); color: var(--soft); margin: 0 0 14px; }
+  .preview { font: 12px/1.5 var(--mono); color: var(--tea); background: var(--paper-soft); border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
+  .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+  .seat { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper-soft); }
+  .seat h3 { margin: 0 0 6px; font: 500 16px/1.2 var(--serif); }
+  .seat .muted { font: 10px var(--mono); color: var(--faint); }
+  .seat .sr { display: flex; justify-content: space-between; font: 11px var(--mono); margin: 8px 0 4px; color: var(--soft); }
+  @media (max-width: 900px) { .grid, .seats { grid-template-columns: 1fr; } }
+</style>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/studios">Studios</a>
+    <a href="/collections">Collections</a>
+    <a href="/scores">Scores</a>
+  </nav>
+</header>
+<main>
+  <div class="eyebrow">Beauty jury · stills · not motion</div>
+  <h1>Microgreens beauty jury</h1>
+  <p class="lede">Still photographs of Belarro harvest, scored by the same seats that judge fashion: aesthetic, structure, governor. This is not a motion atlas. Weights and gamma write the live algorithm. Spectacles crown the wall.</p>
+  <div class="grid">
+    <section class="panel">
+      <h2>The law</h2>
+      <div class="chips" id="law-toggles"></div>
+      <div id="seats" class="seats"></div>
+      <div class="preview" id="law-preview"></div>
+      <div class="actions">
+        <button class="primary" onclick="persistLaw()">Apply jury</button>
+        <button onclick="hive(true)">Hive calibrate</button>
+      </div>
+      <div class="note" id="hive" style="margin-top:12px">Hive is idle.</div>
+      <h2 style="margin-top:28px">The work</h2>
+      <div class="chips" id="varieties"></div>
+      <div class="chips" id="shots"></div>
+      <label class="row">Life <input id="life" type="range" min="0" max="100" value="80" oninput="sync()"> <span id="life-v">80</span></label>
+      <label class="row">Guidance <input id="guidance" type="range" min="15" max="60" value="40" oninput="sync()"> <span id="guidance-v">4.0</span></label>
+      <label class="row">Steps
+        <select id="steps" onchange="sync()"><option value="18">18</option><option value="28" selected>28</option></select>
+        <span></span>
+      </label>
+      <label class="row">Depth
+        <input id="depth" type="number" min="1" max="3" value="2" onchange="sync()">
+        <span></span>
+      </label>
+      <label class="row">Seed
+        <select id="seed" onchange="sync()"><option value="random">random</option><option value="sequential">sequential</option></select>
+        <span></span>
+      </label>
+      <label class="row">Count
+        <select id="n" onchange="sync()"><option value="256">256</option><option value="512">512</option></select>
+        <span></span>
+      </label>
+      <div class="preview" id="preview"></div>
+      <div class="actions">
+        <button class="primary" onclick="save(true)">Apply & keep running</button>
+        <button class="primary" onclick="restart()">Reload new work</button>
+        <button onclick="act('stop')">Stop</button>
+        <a class="btn" href="/gallery/">Wall</a>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Verdicts</h2>
+      <div class="status" id="status"></div>
+      <p class="note" id="verdict">Checking whether frames are scored…</p>
+      <div class="meter" id="meter"></div>
+      <div class="bar"><i id="fill"></i></div>
+      <div class="actions">
+        <button class="primary" onclick="judgeStart()">Start the beauty jury</button>
+      </div>
+      <div class="frames" id="frames"></div>
+    </section>
+  </div>
+</main>
+<script>
+  const VARS = [
+    ["red-rambo","Red Rambo"],["pea","Pea shoots"],["sunflower","Sunflower"],
+    ["broccoli","Broccoli"],["nasturtium","Nasturtium"],["amaranth","Amaranth"]
+  ];
+  const SHOTS = [
+    ["macro","Macro"],["bunch","Harvest bunch"],["crudo","Crudo"],["steak","Steak"],["catalog","Catalog white"]
+  ];
+  const $ = (id) => document.getElementById(id);
+  function chips(id, items, selected) {
+    $(id).innerHTML = items.map(([k, label]) => {
+      const on = selected.indexOf(k) >= 0;
+      return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" data-k="' + k + '"' + (on ? ' checked' : '') + ' onchange="sync()">' + label + '</label>';
+    }).join('');
+  }
+  function selected(id) {
+    return Array.from($(id).querySelectorAll("input:checked")).map((el) => el.getAttribute("data-k"));
+  }
+  function body() {
+    return {
+      varieties: selected("varieties"),
+      shots: selected("shots"),
+      life: parseInt($("life").value, 10),
+      guidance: parseInt($("guidance").value, 10) / 10,
+      steps: parseInt($("steps").value, 10),
+      depth: parseInt($("depth").value, 10),
+      seed: $("seed").value,
+      n: parseInt($("n").value, 10),
+      judge: true
+    };
+  }
+  function sync() {
+    $("life-v").textContent = $("life").value;
+    $("guidance-v").textContent = (parseInt($("guidance").value, 10) / 10).toFixed(1);
+    document.querySelectorAll("#varieties .chip, #shots .chip").forEach((el) => {
+      el.classList.toggle("on", el.querySelector("input").checked);
+    });
+    const v = selected("varieties")[0] || "red-rambo";
+    const s = selected("shots")[0] || "macro";
+    const vn = (VARS.find((x) => x[0] === v) || [])[1] || v;
+    const sn = (SHOTS.find((x) => x[0] === s) || [])[1] || s;
+    $("preview").textContent = vn + " · " + sn + " · life " + $("life").value + " · γ " + (parseInt($("guidance").value,10)/10).toFixed(1) + " · " + $("seed").value + " seed";
+  }
+  async function save(keep) {
+    await fetch("/api/studios/microgreens", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ action: "configure" }, body()))
+    });
+    if (!keep) return load();
+    load();
+  }
+  async function act(action) {
+    await fetch("/api/studios/microgreens", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ action: action }, body()))
+    });
+    load();
+  }
+  async function restart() {
+    await act("stop");
+    await fetch("/api/studios/microgreens", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ action: "reload" }, body()))
+    });
+    load();
+  }
+  async function judgeStart() {
+    await fetch("/api/studios/microgreens", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "judge-start" })
+    });
+    load();
+  }
+  function paint(st) {
+    const study = st.study || {};
+    chips("varieties", VARS, study.varieties || VARS.map((x) => x[0]));
+    chips("shots", SHOTS, study.shots || SHOTS.map((x) => x[0]));
+    $("life").value = study.life ?? 80;
+    $("guidance").value = Math.round((study.guidance ?? 4) * 10);
+    $("steps").value = String(study.steps || 28);
+    $("depth").value = study.depth || 2;
+    $("seed").value = study.seed || "random";
+    $("n").value = String(study.n || 256);
+    sync();
+    const live = st.worker_up && st.streamer && !st.paused;
+    const stream = st.stream || {};
+    const audit = st.audit || {};
+    const judged = st.jury_up;
+    $("status").innerHTML =
+      '<span class="pill ' + (live ? "on" : "off") + '">' + (live ? "generating" : "idle") + "</span>" +
+      '<span class="pill ' + (judged ? "on" : "warn") + '">' + (judged ? "jury on gpu0" : "not judged") + "</span>" +
+      "<span>" + (stream.done || 0) + "/" + (stream.n || 0) + "</span>" +
+      "<span>" + (stream.variety || "") + "</span>";
+    const scored = audit.scored || 0;
+    const unscored = audit.unscored || 0;
+    $("verdict").textContent = judged
+      ? (scored ? ("Jury has scored " + scored + " frames on this study.") : "Jury is on. Waiting for the first verdict.")
+      : "These frames are not being judged. The live jury is still tailed to fashion GPU 3. Press Start judging this study.";
+    $("meter").textContent = scored + " scored · " + unscored + " unscored · " + (audit.spectacles || 0) + " spectacles";
+    $("fill").style.width = (stream.n ? Math.min(100, Math.round(100 * (stream.done || 0) / stream.n)) : 0) + "%";
+    const imgs = st.frames || [];
+    $("frames").innerHTML = imgs.map((im) => {
+      const u = im.path || im.url || "";
+      const score = im.score != null ? Number(im.score).toFixed(1) : "";
+      return '<a href="' + u + '" target="_blank"><img src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(u) + '" alt="">'
+        + (score ? "<i>" + score + "</i>" : "") + "</a>";
+    }).join("") || "<p class='note'>New work is settling.</p>";
+  }
+  async function load() {
+    const r = await fetch("/api/studios/microgreens", { cache: "no-store" });
+    const j = await r.json();
+    paint(j.studio || {});
+  }
+  load();
+  setInterval(load, 4000);
+</script>

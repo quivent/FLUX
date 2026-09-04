@@ -1859,7 +1859,9 @@ class Worker:
         if not filename:
             seed_part = "random" if job["seed"] in (None, "") else str(job["seed"])
             filename = f"flux-{job['backend']}-{job['id']}-seed-{seed_part}.png"
-        return self.out_dir / filename
+        path = self.out_dir / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
 
     def list_jobs(self):
         with self.jobs_lock:

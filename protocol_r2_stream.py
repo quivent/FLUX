@@ -37,10 +37,20 @@ def mark(name: str):
 
 
 def protocol_pngs(out: Path):
-    yield from out.glob("protocol-*.png")
-    arcane = out / "arcane"
-    if arcane.is_dir():
-        yield from arcane.glob("protocol-*.png")
+    # Fashion wall at the output root, plus independent protocol branches
+    # under collections/<slug>/. Arcane stays unplugged.
+    for path in out.glob("protocol-*.png"):
+        name = path.name.lower()
+        if "arcane" in name:
+            continue
+        yield path
+    collections = out / "collections"
+    if collections.is_dir():
+        for path in collections.glob("*/protocol-*.png"):
+            name = path.name.lower()
+            if "arcane" in name:
+                continue
+            yield path
 
 
 def push(path: Path) -> bool:

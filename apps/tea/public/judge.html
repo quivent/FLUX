@@ -1,114 +1,136 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f7f5f0">
 <title>Judging algorithm — Tea</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 <style>
   :root {
-    --bg: #07080c;
-    --panel: rgba(255,255,255,.03);
-    --hair: rgba(255,255,255,.09);
-    --ink: #f3f1ea;
-    --dim: #9aa3b5;
-    --gold: #ffc83b;
-    --cyan: #3ad4e8;
-    --rose: #ff5fa2;
-    --ok: #3ddc97;
-    --warn: #ffc46e;
-    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    --paper: #f7f5f0;
+    --paper-soft: #fcfbf8;
+    --paper-subtle: #efece4;
+    --card-bg: rgba(255,255,255,.82);
+    --ink: #27231f;
+    --soft: #736b63;
+    --faint: #a69e94;
+    --line: rgba(54,47,40,.12);
+    --line-hover: rgba(121,88,62,.35);
+    --tea: #79583e;
+    --tea-light: rgba(121,88,62,.08);
+    --matcha: #5a735a;
+    --gold: #b38938;
+    --serif: "Iowan Old Style", Palatino, Georgia, serif;
+    --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --radius: 12px;
   }
   * { box-sizing: border-box; }
-  html, body { min-height: 100%; }
+  html, body { margin: 0; min-height: 100%; }
   body {
-    margin: 0;
-    background:
-      radial-gradient(900px 500px at 8% -10%, rgba(255,200,59,.08), transparent 55%),
-      radial-gradient(800px 420px at 100% 0, rgba(58,212,232,.08), transparent 50%),
-      var(--bg);
+    background: radial-gradient(circle at 85% 0, rgba(231,181,182,.14), transparent 38rem),
+                linear-gradient(180deg, var(--paper-soft), var(--paper));
     color: var(--ink);
-    font-family: var(--display);
+    font-family: var(--sans);
+    line-height: 1.55;
   }
   a { color: inherit; text-decoration: none; }
-  header {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 16px 22px; border-bottom: 1px solid var(--hair);
-    position: sticky; top: 0; background: rgba(7,8,12,.86); backdrop-filter: blur(12px); z-index: 5;
+  header.tea-chrome {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 16px; flex-wrap: nowrap;
+    height: 56px; padding: 0 24px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(252,251,248,.94);
   }
-  .word { font-size: 12px; letter-spacing: .4em; text-transform: uppercase; }
-  .word b { color: var(--gold); }
-  nav { display: flex; gap: 10px; flex-wrap: wrap; font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
-  nav a[aria-current=page] { color: var(--gold); }
-  main { max-width: 1280px; margin: 0 auto; padding: 28px 22px 80px; }
-  .kicker { font: 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--gold); }
-  h1 { font-weight: 400; font-size: clamp(36px, 6vw, 64px); letter-spacing: -.04em; margin: 8px 0 10px; }
-  .lede { color: var(--dim); max-width: 46rem; line-height: 1.55; }
+  .tea-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+  .tea-seal {
+    display: grid; place-items: center; width: 32px; height: 32px;
+    border: 1px solid var(--line-hover); border-radius: 50%;
+    color: var(--tea); font-family: var(--serif); font-size: 15px; background: var(--paper-soft);
+  }
+  .tea-word { font-family: var(--serif); font-size: 13px; letter-spacing: .28em; text-transform: uppercase; }
+  nav.tea-nav { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; }
+  nav.tea-nav a {
+    padding: 6px 11px; border-radius: 999px; color: var(--soft);
+    font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap;
+  }
+  nav.tea-nav a:hover { color: var(--ink); background: var(--paper-subtle); }
+  nav.tea-nav a[aria-current="page"] { color: var(--ink); background: var(--tea-light); }
+  main { max-width: 1280px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 80px; }
+  .kicker { font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(40px, 7vw, 84px)/.9 var(--serif); letter-spacing: -.05em; margin: 12px 0 10px; color: var(--ink); }
+  .lede { color: var(--soft); max-width: 46rem; line-height: 1.6; font: 400 17px/1.6 var(--serif); }
   .lanes { display: flex; gap: 8px; margin: 22px 0 18px; }
   .lanes button {
-    appearance: none; border: 1px solid var(--hair); background: var(--panel); color: var(--dim);
+    appearance: none; border: 1px solid var(--line); background: var(--card-bg); color: var(--soft);
     border-radius: 999px; padding: 8px 16px; font: 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
   }
-  .lanes button.on { color: #111; background: var(--gold); border-color: var(--gold); font-weight: 700; }
-  .status {
-    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 22px;
-  }
-  .stat { border: 1px solid var(--hair); border-radius: 12px; padding: 14px 16px; background: var(--panel); }
-  .stat b { display: block; font-size: 22px; letter-spacing: -.02em; }
-  .stat span { display: block; margin-top: 6px; font: 10px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
-  .stat.warn b { color: var(--warn); }
-  .stat.ok b { color: var(--ok); }
+  .lanes button.on { color: #fff; background: var(--tea); border-color: var(--tea); font-weight: 700; }
+  .status { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 22px; }
+  .stat { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; background: var(--card-bg); }
+  .stat b { display: block; font: 400 26px/1 var(--serif); letter-spacing: -.02em; }
+  .stat span { display: block; margin-top: 6px; font: 10px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  .stat.warn b { color: var(--gold); }
+  .stat.ok b { color: var(--matcha); }
   .formula {
-    font: 12px/1.55 var(--mono); color: var(--dim); border: 1px dashed var(--hair); border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 18px;
+    font: 12px/1.55 var(--mono); color: var(--soft); border: 1px dashed var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 18px; background: var(--paper-soft);
   }
   .toolbar, .actions { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 16px; }
-  label { font: 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+  label { font: 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--soft); display: flex; align-items: center; gap: 8px; }
   select, input[type=number] {
-    background: #0c0e14; color: var(--ink); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 8px; font: 12px var(--mono);
+    background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 12px var(--mono);
   }
   .seats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
-  .seat { border: 1px solid var(--hair); border-radius: 14px; padding: 14px; background: var(--panel); }
-  .seat h3 { margin: 0 0 8px; font-size: 16px; font-weight: 500; }
-  .seat .muted { font: 10px var(--mono); color: var(--dim); letter-spacing: .08em; }
-  .row { display: flex; justify-content: space-between; font: 11px var(--mono); margin: 8px 0 4px; color: var(--dim); }
+  .seat { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: var(--card-bg); }
+  .seat h3 { margin: 0 0 8px; font: 500 18px/1.2 var(--serif); }
+  .seat .muted { font: 10px var(--mono); color: var(--faint); letter-spacing: .08em; }
+  .row { display: flex; justify-content: space-between; font: 11px var(--mono); margin: 8px 0 4px; color: var(--soft); }
   .row strong { color: var(--ink); }
-  input[type=range] { width: 100%; accent-color: var(--gold); }
-  .preview { font: 12px/1.5 var(--mono); color: var(--cyan); margin: 14px 0; }
+  input[type=range] { width: 100%; accent-color: var(--tea); }
+  .preview { font: 12px/1.5 var(--mono); color: var(--tea); margin: 14px 0; }
   button.act {
-    appearance: none; border: 1px solid var(--hair); background: var(--panel); color: var(--ink);
+    appearance: none; border: 1px solid var(--line); background: var(--card-bg); color: var(--ink);
     border-radius: 999px; padding: 9px 14px; font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
   }
-  button.act.primary { background: var(--gold); color: #111; border-color: var(--gold); font-weight: 700; }
+  button.act.primary { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 700; }
   button.act:disabled { opacity: .45; cursor: wait; }
   .hive {
-    white-space: pre-wrap; font: 12px/1.5 var(--mono); color: var(--dim);
-    border: 1px solid var(--hair); border-radius: 12px; padding: 14px; min-height: 5em; background: rgba(0,0,0,.25);
+    white-space: pre-wrap; font: 12px/1.55 var(--mono); color: var(--soft);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-height: 5em; background: var(--paper-soft);
   }
   .frames { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; margin-top: 16px; }
-  .frames div { border: 1px solid var(--hair); border-radius: 8px; padding: 8px; font: 10px/1.35 var(--mono); color: var(--dim); }
-  .meta { color: var(--dim); font: 11px var(--mono); }
+  .frames div { border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 10px/1.35 var(--mono); color: var(--soft); background: var(--card-bg); }
+  .meta { color: var(--faint); font: 11px var(--mono); }
   @media (max-width: 980px) {
     .status, .seats, .frames { grid-template-columns: 1fr 1fr; }
   }
 </style>
-<header>
-  <a class="word" href="/">TEA <b>JUDGE</b></a>
-  <nav>
-    <a href="/judge" aria-current="page">Algorithm</a>
-    <a href="/jury">Jury chamber</a>
-    <a href="/protocol">Protocol</a>
-    <a href="/gallery/">Fashion stream</a>
-    <a href="/collections">Collections</a>
-    <a href="/collections/arcane">Arcane</a>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/studios">Studios</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
   </nav>
 </header>
 <main>
   <div class="kicker">Live controller · weights · gamma · hive</div>
   <h1>Judging algorithm</h1>
-  <p class="lede">This page writes the algorithm the evaluators actually use. Fashion and Arcane have separate juries, separate sqlite, separate walls. Move a slider, it persists.</p>
+  <p class="lede">This page writes the algorithm the evaluators actually use. Each studio has its own jury, sqlite, and wall. Microgreens is the live public work. Move a slider, it persists.</p>
 
   <div class="lanes">
-    <button class="on" id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3</button>
+    <button class="on" id="lane-microgreens" onclick="setLane('microgreens')">Microgreens · GPU 0</button>
+    <button id="lane-fashion" onclick="setLane('fashion')">Fashion · GPU 3</button>
     <button id="lane-arcane" onclick="setLane('arcane')">Arcane · GPU 0</button>
   </div>
   <div class="meta" id="laneMeta">loading…</div>
@@ -166,7 +188,11 @@
     { key: 'decoder', label: 'Decoder', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
     { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
   ];
-  let lane = (location.hash.replace('#','') === 'arcane') ? 'arcane' : 'fashion';
+  let lane = (function () {
+    const h = location.hash.replace('#','');
+    if (h === 'fashion' || h === 'arcane' || h === 'microgreens') return h;
+    return 'microgreens';
+  })();
   let current = {
     mode: 'parallel',
     order: ['pixtral','qwen','decoder','governor'],
@@ -193,11 +219,16 @@
   }
   function q(path) { return path + (path.includes('?') ? '&' : '?') + 'lane=' + encodeURIComponent(lane); }
 
+  function markLanes() {
+    ['fashion','arcane','microgreens'].forEach((id) => {
+      const el = $('lane-' + id);
+      if (el) el.classList.toggle('on', lane === id);
+    });
+  }
   function setLane(next) {
     lane = next;
     location.hash = next;
-    $('lane-fashion').classList.toggle('on', lane === 'fashion');
-    $('lane-arcane').classList.toggle('on', lane === 'arcane');
+    markLanes();
     hydrate();
   }
 
@@ -406,8 +437,7 @@
   }
 
   async function hydrate() {
-    $('lane-fashion').classList.toggle('on', lane === 'fashion');
-    $('lane-arcane').classList.toggle('on', lane === 'arcane');
+    markLanes();
     $('laneMeta').textContent = lane + ' · loading…';
     try {
       const res = await fetch(q('/api/protocol/calibrate'), { cache: 'no-store' });
@@ -418,15 +448,21 @@
       if (data.config) applyCfg(data.config);
       paintAudit(data.audit, data.hive);
       if (data.latest) showCal(data.latest, data.latest.applied);
-      $('laneMeta').textContent = lane + ' · ' + (lane === 'arcane' ? 'GPU 0 Fortiche jury' : 'GPU 3 fashion jury') + ' · independent sqlite';
+      const label = lane === 'microgreens' ? 'GPU 0 microgreens jury' : (lane === 'arcane' ? 'GPU 0 Fortiche jury' : 'GPU 3 fashion jury');
+      $('laneMeta').textContent = lane + ' · ' + label + ' · independent sqlite';
     } catch (err) {
       $('laneMeta').textContent = 'controller unavailable';
     }
   }
 
   window.addEventListener('hashchange', () => {
-    const next = location.hash.replace('#','') === 'arcane' ? 'arcane' : 'fashion';
+    const h = location.hash.replace('#','');
+    const next = (h === 'fashion' || h === 'arcane' || h === 'microgreens') ? h : 'microgreens';
     if (next !== lane) setLane(next);
   });
+  renderSeats();
+  preview();
   hydrate();
 </script>
+</body>
+</html>

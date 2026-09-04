@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The Influx Vision Protocol · Architecture & Specification</title>
+  <title>Beauty Protocol · Tea</title>
   <meta name="description" content="The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- MathJax for LaTeX mathematical rendering -->
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -165,7 +165,7 @@
       margin-bottom: 8px;
     }
     .doc-title {
-      font-family: 'Cinzel', serif;
+      font-family: var(--serif);
       font-size: 36px;
       font-weight: 800;
       letter-spacing: 0.03em;
@@ -195,7 +195,7 @@
 
     /* Typography & Sections */
     h2 {
-      font-family: 'Cinzel', serif;
+      font-family: var(--serif);
       font-size: 22px;
       font-weight: 700;
       margin: 40px 0 16px;
@@ -206,7 +206,7 @@
       gap: 10px;
     }
     h3 {
-      font-family: 'Cinzel', serif;
+      font-family: var(--serif);
       font-size: 16px;
       font-weight: 600;
       margin: 24px 0 12px;
@@ -251,7 +251,7 @@
     }
     .spec-table th {
       background: var(--paper-soft);
-      font-family: 'Cinzel', serif;
+      font-family: var(--serif);
       font-weight: 600;
     }
 
@@ -305,7 +305,7 @@
       background: var(--paper);
       min-height: 92px;
     }
-    .tenant .id { font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; }
+    .tenant .id { font-family: var(--serif); font-size: 14px; font-weight: 700; }
     .tenant .role { font-size: 12px; color: var(--ink-soft); margin: 4px 0 8px; }
     .tenant .ep { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); word-break: break-all; }
     .pill { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
@@ -314,9 +314,19 @@
     .pill.unk { background: rgba(121,88,62,0.12); color: var(--hojicha); }
     .laws { display: grid; gap: 8px; margin-top: 8px; }
     .law { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
-    .law b { font-family: 'Cinzel', serif; }
-    .law .n { font-family: 'Cinzel', serif; font-weight: 700; color: var(--vermilion); }
+    .law b { font-family: var(--serif); }
+    .law .n { font-family: var(--serif); font-weight: 700; color: var(--vermilion); }
     .law p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+    .branch-form { display: grid; gap: 8px; margin: 10px 0 14px; }
+    .branch-form input, .branch-form textarea {
+      width: 100%; border: 1px solid var(--border); background: var(--paper);
+      color: var(--ink); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 Inter, sans-serif;
+    }
+    .branch-form textarea { min-height: 72px; resize: vertical; }
+    .branch-list { display: grid; gap: 8px; margin-top: 8px; }
+    .branch-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
+    .branch-card b { font-family: var(--serif); }
+    .branch-card p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
     .jury-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
     .jury-chip { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--paper); }
     .path { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
@@ -393,7 +403,7 @@
       background: var(--paper-soft);
     }
     .seat h4 {
-      font-family: 'Cinzel', serif;
+      font-family: var(--serif);
       font-size: 13px;
       margin: 0 0 8px;
       display: flex;
@@ -419,51 +429,33 @@
     }
     .weight-sum.warn { color: var(--vermilion); }
   </style>
+<link rel="stylesheet" href="/tea/tea.css">
+<script src="/tea/tea-shell.js"></script>
 </head>
 <body>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <a href="/gallery/">Gallery</a>
+    <a href="/jury">Jury</a>
+    <a href="/judge">Judge</a>
+    <a href="/desk">Desk</a>
+    <a href="/scores">Scores</a>
+    <a href="/movement">Movement</a>
+    <a href="/studies">Studies</a>
+  </nav>
+</header>
 
   <!-- Universal Two-Tier Navigation -->
-  <header class="top-nav">
-    <a href="/" class="brand">
-      <div class="brand-seal">壱</div>
-      <span>INFLUX VISION</span>
-    </a>
-    <nav class="nav-tiers">
-      <div class="nav-tier-group">
-        <span class="nav-label">🍵 TEA:</span>
-        <a href="/protocol/arcane" class="nav-link" id="navArcane">🎨 Arcane</a>
-        <a href="/collections/arcane">🖼 Arcane collection</a>
-        <a href="/protocol/fashion" class="nav-link" id="navFashion">👗 Fashion</a>
-        <a href="/judge" class="nav-link">⚖️ Algorithm</a>
-        <a href="/jury" class="nav-link">👑 Jury</a>
-        <a href="/gallery" class="nav-link">🖼️ Stream</a>
-        <a href="/garden" class="nav-link">🌿 Garden</a>
-        <a href="/portraits" class="nav-link">👤 Portraits</a>
-        <a href="/exhibition" class="nav-link">🏛️ Exhibition</a>
-      </div>
-      <span class="nav-divider">|</span>
-      <div class="nav-tier-group">
-        <span class="nav-label">⚡ MOTION:</span>
-        <a href="/movement" class="nav-link">🎬 Video</a>
-        <a href="/atlas/" class="nav-link">🌐 Worlds</a>
-        <a href="/studies" class="nav-link">🐎 Studies</a>
-        <a href="/arcane" class="nav-link">🎨 Arcane</a>
-        <a href="/engine" class="nav-link">⚙️ Engine</a>
-      </div>
-    </nav>
-    <button class="ritual-switch" id="themeSwitch">
-      <span>🍵</span>
-      <span id="switchText">Living Parchment</span>
-    </button>
-  </header>
+  
 
   <main class="container">
     
     <!-- Monograph Header -->
     <header class="doc-header">
       <div class="doc-pre">COUNCIL OF GEMMAS · RATIFIED SPECIFICATION</div>
-      <h1 class="doc-title">The Influx Vision Protocol</h1>
-      <div class="doc-subtitle">The Sovereign Architecture of Stillness in Motion, Latent Cartography & Aesthetic Governance</div>
+      <h1 class="doc-title">Beauty Protocol</h1>
+      <div class="doc-subtitle">Stillness in motion, latent cartography, and the four-shard jury — the contract this house is judged against</div>
       <div class="doc-meta-bar">
         <span class="meta-tag">SOURCE: jury_continuum.toml</span>
         <span class="meta-tag">LAWS: chorus/LAWS.md</span>
@@ -536,6 +528,21 @@
         <button onclick="startStream(512,28)">512 × 28</button>
         <button onclick="startStream(512,18)">512 × 18</button>
       </div>
+      <div class="oversee-head" style="margin-top:28px">
+        <h2>Protocol branches</h2>
+        <div class="oversee-meta" id="branchMeta">up to 3 independent collections</div>
+      </div>
+      <p class="oversee-meta">Each branch is its own prompt and wall under <code>/collections/&lt;name&gt;</code>. Assets stream only there. Fashion and Arcane stay untouched.</p>
+      <div class="branch-form">
+        <input id="branchName" placeholder="branch name — e.g. silk" maxlength="32" />
+        <textarea id="branchPrompt" placeholder="independent beauty prompt for this collection"></textarea>
+        <div class="stream-actions">
+          <button class="primary" onclick="startBranch(256,28)">Start branch 256 × 28</button>
+          <button onclick="startBranch(256,18)">256 × 18</button>
+          <button onclick="startBranch(512,28)">512 × 28</button>
+        </div>
+      </div>
+      <div class="branch-list" id="branchList"></div>
       <h3>Chorus design laws</h3>
       <div class="laws" id="lawList"></div>
     </section>
@@ -544,10 +551,10 @@
     <section>
       <h2>1. Executive Summary & Epistemology</h2>
       <p>
-        The <strong>Influx Vision Protocol</strong> is an autonomous, self-curating generative atelier that unifies <strong>uncompromising artistic stillness</strong> with <strong>continuous kinetic motion</strong>. 
+        The <strong>Tea protocol</strong> is an autonomous, self-curating generative atelier that unifies <strong>uncompromising artistic stillness</strong> with <strong>continuous kinetic motion</strong>. 
       </p>
       <p>
-        Traditional video diffusion models compromise material truth through temporal downsampling, latent interpolation blur, and character drift. The Influx Vision Protocol resolves this through <strong>Latent Manifold Cartography (\(\mathbf{S}^3 \subset \mathbb{R}^4\))</strong> on Flow-Matching Diffusion Transformers (FLUX.1-dev), accelerated by <strong>Cross-Frame Latent Residual Caching (<code>atlas-xframe-cache</code>)</strong> and governed by an autonomous <strong>4-Shard AI Beauty Jury</strong>.
+        Traditional video diffusion models compromise material truth through temporal downsampling, latent interpolation blur, and character drift. This protocol resolves that through <strong>Latent Manifold Cartography (\(\mathbf{S}^3 \subset \mathbb{R}^4\))</strong> on Flow-Matching Diffusion Transformers (FLUX.1-dev), accelerated by <strong>Cross-Frame Latent Residual Caching (<code>atlas-xframe-cache</code>)</strong> and governed by an autonomous <strong>4-Shard AI Beauty Jury</strong>.
       </p>
 
       <div class="diagram-card">
@@ -573,7 +580,7 @@ graph TD
     end
 
     subgraph SiliconTier["⚙️ SILICON & SENSORY CONTROL"]
-        F --> L[Aethelgard Monolith Engine Room]
+        F --> L[Engine Room]
         K --> L
         L --> M[Living Parchment & Acoustic Whisper]
     end
@@ -691,7 +698,7 @@ sequenceDiagram
     <section>
       <h2>5. The Sensory & Horological UI Doctrine</h2>
       <p>
-        Luxury is defined by restraint. The Influx Vision interface is governed by five sensory axioms:
+        Luxury is defined by restraint. The Tea interface is governed by five sensory axioms:
       </p>
       <ul>
         <li><strong>💡 Interactive Paper Sheen</strong>: Dynamic pointer-coupled diffuse light on washi card borders.</li>
@@ -1060,6 +1067,7 @@ sequenceDiagram
           '<div class="jury-chip">evaluated ' + (st.evaluated || 0) + '</div>' +
           '<div class="jury-chip">spectacles ' + (st.spectacles || 0) + '</div>' +
           '<div class="jury-chip">unscored ' + (st.unscored || 0) + '</div>';
+        renderBranches(d);
       } catch (err) {
         document.getElementById('overseeMeta').textContent = 'protocol feed unreachable';
       }
@@ -1071,6 +1079,63 @@ sequenceDiagram
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ n: n, steps: steps, lane: 'fashion' })
+      });
+      refreshProtocol();
+    }
+    function renderBranches(payload) {
+      const cap = (payload && payload.branch_cap) || 3;
+      const branches = (payload && payload.branches) || [];
+      const running = branches.filter((b) => b.status === 'running').length;
+      const meta = document.getElementById('branchMeta');
+      if (meta) meta.textContent = running + '/' + cap + ' running · collections walls';
+      const box = document.getElementById('branchList');
+      if (!box) return;
+      if (!branches.length) {
+        box.innerHTML = '<div class="oversee-meta">No branches yet. Name one and start it; frames land at /collections/&lt;name&gt;.</div>';
+        return;
+      }
+      box.innerHTML = branches.map((b) => {
+        const slug = b.slug || '';
+        const wall = b.wall || ('/collections/' + slug);
+        const st = b.status || 'idle';
+        const done = (b.done || (b.stream && b.stream.done) || 0);
+        const n = (b.n || (b.stream && b.stream.n) || 0);
+        const safe = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        return '<div class="branch-card"><div><b>' + safe(slug) + '</b> ' + (st === 'running' ? pill(true) : '<span class="pill unk">' + safe(st) + '</span>') +
+          '<p>' + safe(b.prompt || '') + '</p>' +
+          '<p><a href="' + safe(wall) + '">' + safe(wall) + '</a> · ' + safe(st) + ' · ' + done + '/' + n + '</p></div>' +
+          (st === 'running'
+            ? '<button onclick="stopBranch(\'' + safe(slug) + '\')">Stop</button>'
+            : '<a class="nav-link" href="' + safe(wall) + '">Open</a>') +
+          '</div>';
+      }).join('');
+    }
+    async function startBranch(n, steps) {
+      const name = (document.getElementById('branchName').value || '').trim();
+      const prompt = (document.getElementById('branchPrompt').value || '').trim();
+      const meta = document.getElementById('branchMeta');
+      if (!name || !prompt) {
+        if (meta) meta.textContent = 'name and prompt are required';
+        return;
+      }
+      if (meta) meta.textContent = 'starting ' + name + '…';
+      const res = await fetch('/api/protocol/branches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, prompt: prompt, n: n, steps: steps, depth: 1 })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (meta) meta.textContent = data.error || ('failed ' + res.status);
+        return;
+      }
+      refreshProtocol();
+    }
+    async function stopBranch(slug) {
+      await fetch('/api/protocol/branches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: slug, stop: true })
       });
       refreshProtocol();
     }
