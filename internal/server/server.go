@@ -382,6 +382,9 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/control/", s.deskPage)
 	mux.HandleFunc("/scores", s.scoresPage)
 	mux.HandleFunc("/scores/", s.scoresPage)
+	mux.HandleFunc("/governor", s.governorPage)
+	mux.HandleFunc("/governor/", s.governorPage)
+	mux.HandleFunc("/api/governor/models", s.governorModels)
 	mux.HandleFunc("/api/tea/desk", s.teaDeskAPI)
 	mux.HandleFunc("/api/tea/scores", s.teaScoresAPI)
 	mux.HandleFunc("/api/tea/movement", s.teaMovementAPI)
@@ -468,6 +471,8 @@ var readOnlyPaths = []string{
 	"/desk",
 	"/control",
 	"/scores",
+	"/governor",
+	"/api/governor",
 	"/api/tea/scores",
 	"/api/tea/desk",
 	"/api/tea/movement",

@@ -58,6 +58,8 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/desk", true},
 		{http.MethodGet, "/desk/hive", true},
 		{http.MethodGet, "/scores", true},
+		{http.MethodGet, "/governor", true},
+		{http.MethodGet, "/api/governor/models", true},
 		{http.MethodGet, "/api/tea/scores", true},
 		{http.MethodGet, "/api/tea/desk", true},
 		{http.MethodGet, "/tea.css", true},

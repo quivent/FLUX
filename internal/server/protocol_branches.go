@@ -27,7 +27,7 @@ var reservedProtocolBranches = map[string]bool{
 	"index": true, "assets": true, "api": true, "batches": true, "trash": true,
 	"garden": true, "engine": true, "judge": true, "jury": true, "sentinel": true,
 	"rig": true, "domains": true, "stream": true, "gpu3": true, "fp8": true,
-	"desk": true, "scores": true, "control": true,
+	"desk": true, "scores": true, "control": true, "governor": true,
 	"celadon": true, "still-life": true, "still_life": true,
 }
 

@@ -460,6 +460,7 @@ func teaCheck(cfg config.Config) error {
 	required := []string{
 		"index.html", "gallery.html", "movement.html", "studies.html", "stallion-lab.html", "exhibition.html", "stallion.html", "sentinel.html",
 		"desk.html", "desk-hive.html", "desk-jury.html", "desk-pace.html", "scores.html", "desk.js",
+		"governor.html",
 		"studios.html", "studio.html", "study-microgreens.html",
 		"tea.css", "tea-shell.js",
 		"../studies.json",
