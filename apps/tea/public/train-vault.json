@@ -22,11 +22,11 @@
     "used_mib": 64539.0,
     "free_mib": 32712.0,
     "total_mib": 97887.0,
-    "util": 0.0
+    "util": 100.0
   },
   "delta_used_mib": 1415.0,
   "note": "Bounded vault beside serving Governor. Not a second 31B. Not SGD.",
-  "updated": "2026-09-04T23:52:35Z",
+  "updated": "2026-09-04T23:53:05Z",
   "socket": "/home/ubuntu/CLIs/flux/.fluxd/gpu1_vault.sock",
   "alive": true
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -346,11 +347,19 @@ func (s Server) teaDeskAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		var incoming deskState
-		if err := json.NewDecoder(r.Body).Decode(&incoming); err != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		var incoming deskState
+		if err := json.Unmarshal(body, &incoming); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var keys map[string]json.RawMessage
+		_ = json.Unmarshal(body, &keys)
+		_, hasHive := keys["hive"]
 		if incoming.Lane != "" {
 			lane = requestJuryLane(r, incoming.Lane)
 			dir = s.juryDirForLane(lane)
@@ -379,18 +388,20 @@ func (s Server) teaDeskAPI(w http.ResponseWriter, r *http.Request) {
 				patch.Strictness = j.Gamma
 			}
 		}
-		if patch.Endpoints == nil {
-			patch.Endpoints = map[string]jury.JuryEndpoint{}
+		if hasHive {
+			if patch.Endpoints == nil {
+				patch.Endpoints = map[string]jury.JuryEndpoint{}
+			}
+			px := patch.Endpoints[jury.ServedPixtral]
+			px.Enabled = boolPtr(incoming.Hive.EnablePixtral)
+			patch.Endpoints[jury.ServedPixtral] = px
+			ws := patch.Endpoints[jury.ServedWitness]
+			ws.Enabled = boolPtr(incoming.Hive.EnableWitness)
+			patch.Endpoints[jury.ServedWitness] = ws
+			gv := patch.Endpoints[jury.ServedGovernor]
+			gv.Enabled = boolPtr(incoming.Hive.EnableGovernor)
+			patch.Endpoints[jury.ServedGovernor] = gv
 		}
-		px := patch.Endpoints[jury.ServedPixtral]
-		px.Enabled = boolPtr(incoming.Hive.EnablePixtral)
-		patch.Endpoints[jury.ServedPixtral] = px
-		ws := patch.Endpoints[jury.ServedWitness]
-		ws.Enabled = boolPtr(incoming.Hive.EnableWitness)
-		patch.Endpoints[jury.ServedWitness] = ws
-		gv := patch.Endpoints[jury.ServedGovernor]
-		gv.Enabled = boolPtr(incoming.Hive.EnableGovernor)
-		patch.Endpoints[jury.ServedGovernor] = gv
 		merged := jury.MergeConfig(cfg, patch)
 		if err := jury.SaveConfig(dir, merged); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
