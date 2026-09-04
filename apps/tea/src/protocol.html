@@ -214,7 +214,7 @@
             <select id="branchSize"><option value="256" selected>256×256</option><option value="512">512×512</option><option value="1024">1024×1024</option></select>
           </label>
           <label class="oversee-meta">frames
-            <select id="branchN"><option value="256" selected>256</option><option value="512">512</option></select>
+            <select id="branchN"><option value="0" selected>endless</option><option value="256">256</option><option value="512">512</option></select>
           </label>
           <button class="primary" onclick="startBranch(18)">Start FP8 · 18 steps</button>
           <button onclick="startBranch(28)">28 steps</button>
@@ -795,7 +795,7 @@
       const name = (document.getElementById('branchName').value || '').trim();
       const prompt = (document.getElementById('branchPrompt').value || '').trim();
       const size = parseInt((document.getElementById('branchSize') || {}).value || '256', 10) || 256;
-      const n = parseInt((document.getElementById('branchN') || {}).value || '256', 10) || 256;
+      const n = parseInt((document.getElementById('branchN') || {}).value || '0', 10) || 0;
       const meta = document.getElementById('branchMeta');
       if (!name || !prompt) {
         if (meta) meta.textContent = 'name and prompt are required — waiting for the new brief';

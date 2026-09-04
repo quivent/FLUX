@@ -250,6 +250,11 @@ nav.tea-nav a[aria-current="page"] {
 .word-scale { display: flex; justify-content: space-between; gap: 4px; margin-top: 8px; font: 10px/1.2 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .word-scale span.on { color: var(--tea); font-weight: 600; }
 .meter input[type=range][disabled] { opacity: 1; accent-color: var(--tea); }
+.axis-prompt {
+  display: block; width: 100%; margin-top: 8px; min-height: 4.2em;
+  font: 14px/1.45 var(--serif); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical;
+}
 .toggle { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-bg); font: 18px/1.35 var(--sans); }
 .toggle input { width: 18px; height: 18px; accent-color: var(--tea); }
 .toggle select, .toggle input[type=number] { font-size: 16px; padding: 6px 10px; }
