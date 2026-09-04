@@ -24,6 +24,8 @@ func TestDeskIsTheControlPanel(t *testing.T) {
 		`failed`,
 		`competent`,
 		`flawless`,
+		`axis-prompt`,
+		`Prompt they are asked`,
 		`setInterval(refreshHud, 2000)`,
 	} {
 		if !strings.Contains(src, tok) {

@@ -1,10 +1,10 @@
 {
   "schema": "hive.governor-memory-fill/v1",
-  "ts": "2026-09-04T23:53:43Z",
+  "ts": "2026-09-04T23:53:53Z",
   "working": {
-    "frac": 0.11246052951178043,
-    "pct": 11.25,
-    "tokens_used": 7180,
+    "frac": 0.12115618168569342,
+    "pct": 12.12,
+    "tokens_used": 7736,
     "tokens_cap": 63848,
     "label": "working KV"
   },

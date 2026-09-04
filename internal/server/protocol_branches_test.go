@@ -74,12 +74,16 @@ func TestProtocolBranchesAPIListsCap(t *testing.T) {
 
 func TestProtocolBranchHarvestDefaultsToQualityNotThumbnails(t *testing.T) {
 	n, steps, depth, width, height := clampProtocolBranchHarvest(0, 0, 0, 0, 0)
-	if n != 256 || steps != 28 || depth != 1 || width != 1024 || height != 1024 {
+	if n != 0 || steps != 28 || depth != 1 || width != 1024 || height != 1024 {
 		t.Fatalf("defaults n=%d steps=%d depth=%d %dx%d", n, steps, depth, width, height)
 	}
 	n, steps, _, width, height = clampProtocolBranchHarvest(512, 18, 1, 256, 256)
 	if n != 512 || steps != 18 || width != 256 || height != 256 {
 		t.Fatalf("explicit thumbnail harvest must still be allowed: n=%d steps=%d %dx%d", n, steps, width, height)
+	}
+	n, _, _, _, _ = clampProtocolBranchHarvest(256, 28, 1, 1024, 1024)
+	if n != 256 {
+		t.Fatalf("256 must remain legal, got %d", n)
 	}
 }
 

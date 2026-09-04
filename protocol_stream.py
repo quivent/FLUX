@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """FLUX beauty-protocol streamer.
 
-Submits N unique-seed renders (256 or 512) at 18 or 28 steps, keeps a shallow
-queue against the resident worker, and writes a status file the /protocol page
-polls. Each settled job is judged by moj_evaluator via jury_evaluator --serve.
+Submits unique-seed renders at 18 or 28 steps, keeps a shallow queue against
+the resident worker, and writes a status file the /protocol page polls.
+``--n 0`` means no frame cap. Each settled job is judged by moj_evaluator.
 """
 from __future__ import annotations
 
@@ -258,7 +258,7 @@ def active_jobs(jobs):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--n", type=int, choices=(256, 512), default=256)
+    p.add_argument("--n", type=int, default=0, help="frame cap; 0 = no cap")
     p.add_argument("--steps", type=int, default=28)
     p.add_argument("--prompt", default=DEFAULT_PROMPT)
     p.add_argument("--still-life", action="store_true", help="use the celadon kintsugi still-life prompt")
@@ -302,19 +302,35 @@ def main():
                 len(live), ", ".join(sorted(live))))
 
     output_dir = os.environ.get("OUT_DIR") or os.environ.get("FLUX_OUTPUT_DIR") or os.path.expanduser("~/models/flux-output")
+    def harvest_n(rec):
+        raw = rec.get("n") if isinstance(rec, dict) and rec.get("n") is not None else args.n
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return int(args.n or 0)
+
+    def still_open(rec):
+        n = harvest_n(rec)
+        if n <= 0:
+            return True
+        return int(rec.get("submitted") or 0) < n
+
     prev = load_state(state_path)
     resume = (
         isinstance(prev, dict)
-        and prev.get("n") == args.n
-        and prev.get("steps") == args.steps
         and prev.get("prompt") == args.prompt
-        and int(prev.get("submitted") or 0) < args.n
+        and int(prev.get("steps") or 0) == int(args.steps)
+        and int(prev.get("width") or 0) == int(args.width)
+        and int(prev.get("height") or 0) == int(args.height)
+        and (not branch or prev.get("branch") == branch)
         and prev.get("status") in ("running", "error", "stopped")
+        and (args.n <= 0 or int(prev.get("submitted") or 0) < args.n)
     )
     if resume:
         state = prev
         state["status"] = "running"
         state["error"] = ""
+        state["n"] = args.n
         state["updated_at"] = time.time()
         state.setdefault("job_ids", [])
     else:
@@ -355,7 +371,7 @@ def main():
     save_state(state, state_path)
 
     try:
-        while state["submitted"] < args.n or state["done"] < state["submitted"]:
+        while still_open(state) or state["done"] < state["submitted"]:
             if sock_path:
                 jobs = sock_request(sock_path, {"op": "jobs"}).get("jobs") or []
             else:
@@ -370,7 +386,7 @@ def main():
             state["spectacles"] = sp
             state["unscored"] = un
 
-            if state["submitted"] < args.n and state["running"] < args.depth:
+            if still_open(state) and state["running"] < args.depth:
                 tag = (args.lane or "stream").replace("/", "-")
                 prompt = args.prompt
                 guidance = args.guidance
@@ -450,7 +466,7 @@ def main():
 
             state["updated_at"] = time.time()
             save_state(state, state_path)
-            if state["submitted"] >= args.n and state["done"] >= state["submitted"]:
+            if not still_open(state) and state["done"] >= state["submitted"]:
                 break
             time.sleep(1.2)
 

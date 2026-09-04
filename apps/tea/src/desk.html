@@ -28,7 +28,7 @@
 <main class="desk">
   <div class="kicker">Operator · live control panel</div>
   <h1>Desk</h1>
-  <p class="lede">The board for this run. The language models rate in words — failed, broken, obvious, competent, specialist, flawless. These sliders are that scale. GPU 3 beauty is the default jury.</p>
+  <p class="lede">The board for this run. Each axis is a prompt the language model is asked, answered with one word: failed, broken, obvious, competent, specialist, flawless. GPU 3 beauty is the default jury.</p>
 
   <div class="desk-lanes">
     <button class="on" data-lane="fashion">GPU 3 · Beauty jury</button>
@@ -52,7 +52,7 @@
   <div class="desk-panels">
     <section class="desk-panel">
       <h2>How they rate</h2>
-      <p class="note">Each axis is a word the model must pick. The slider shows the last honest verdict on this lane — not a mix weight, not a gamma.</p>
+      <p class="note">Write the prompt they are asked. The slider is their last word on that prompt — not a mix weight, not a gamma.</p>
       <div class="desk-seats" id="seats"></div>
     </section>
 
@@ -145,8 +145,10 @@
   let hive = { enable_pixtral: true, enable_witness: true, enable_governor: true };
   let jury = { mode: "parallel", adversarial: true, text_from_gates: true, uniqueness: true, gate_triage: false, min_judges: 1 };
   let pace = { movement_ms: 83, stream_n: 256, stream_steps: 18 };
+  let prompts = {};
   let ratings = {};
   let hydrating = false;
+  let seatsDrawn = false;
 
   function wordIndex(word) {
     const i = WORDS.indexOf(String(word || "").toLowerCase());
@@ -163,6 +165,19 @@
       ? ("last verdict · " + parts.join(" · "))
       : "waiting for a verdict…";
   }
+  function readPrompts() {
+    const out = {};
+    SEATS.forEach((s) => {
+      const axes = {};
+      s.axes.forEach((ax) => {
+        const el = D.$("p-" + s.role + "-" + ax.id);
+        if (el && el.value.trim()) axes[ax.id] = el.value.trim();
+      });
+      out[s.role] = axes;
+    });
+    prompts = out;
+    return out;
+  }
   function payload() {
     return {
       hive: {
@@ -176,7 +191,8 @@
         gate_triage: D.$("triage").checked,
         min_judges: parseInt(D.$("minj").value, 10) || 1
       },
-      pace: pace
+      pace: pace,
+      prompts: readPrompts()
     };
   }
   const push = D.debounce(function () {
@@ -194,16 +210,21 @@
     jury.min_judges = parseInt(D.$("minj").value, 10) || 1;
   }
 
+  function axisPrompt(role, id) {
+    return ((prompts[role] || {})[id] || "");
+  }
   function drawSeats() {
     D.$("seats").innerHTML = SEATS.map((s) => {
       const card = ratings[s.role] || {};
       const axes = s.axes.map((ax) => {
         const word = card[ax.id] || "";
         const idx = wordIndex(word);
-        const ticks = WORDS.map((w, i) => '<span class="' + (i === idx ? "on" : "") + '">' + w + "</span>").join("");
+        const ticks = WORDS.map((w, i) => '<span data-word="' + w + '" class="' + (i === idx ? "on" : "") + '">' + w + "</span>").join("");
         return '<div class="meter" style="padding:14px 16px"><div class="top"><h3 style="font-size:20px">' + ax.title + '</h3><span class="val" id="wv-' + s.role + '-' + ax.id + '">' + (word || "—") + '</span></div>'
           + '<input type="range" min="0" max="5" step="1" value="' + (idx < 0 ? 0 : idx) + '" id="w-' + s.role + '-' + ax.id + '" disabled>'
-          + '<div class="word-scale">' + ticks + "</div></div>";
+          + '<div class="word-scale" id="ws-' + s.role + '-' + ax.id + '">' + ticks + "</div>"
+          + '<label class="hint" for="p-' + s.role + '-' + ax.id + '">Prompt they are asked</label>'
+          + '<textarea class="axis-prompt" id="p-' + s.role + '-' + ax.id + '" rows="3">' + axisPrompt(s.role, ax.id).replace(/</g, "&lt;") + "</textarea></div>";
       }).join("");
       const extra = '<label class="toggle" style="margin-top:10px;padding:10px 12px"><input type="checkbox" id="en-' + s.key + '"' + (hive[s.enable] !== false ? " checked" : "") + "> seated</label>";
       return '<div class="meter"><div class="top"><h3>' + s.title + '</h3><span class="val" id="ov-' + s.role + '">' + (card.overall || "—") + '</span></div>'
@@ -213,6 +234,28 @@
     SEATS.forEach((s) => {
       const en = D.$("en-" + s.key);
       if (en) en.onchange = function () { hive[s.enable] = this.checked; push(); };
+      s.axes.forEach((ax) => {
+        const el = D.$("p-" + s.role + "-" + ax.id);
+        if (el) el.oninput = push;
+      });
+    });
+    seatsDrawn = true;
+  }
+  function updateRatings() {
+    SEATS.forEach((s) => {
+      const card = ratings[s.role] || {};
+      const ov = D.$("ov-" + s.role);
+      if (ov) ov.textContent = card.overall || "—";
+      s.axes.forEach((ax) => {
+        const word = card[ax.id] || "";
+        const idx = wordIndex(word);
+        const val = D.$("wv-" + s.role + "-" + ax.id);
+        const slider = D.$("w-" + s.role + "-" + ax.id);
+        const scale = D.$("ws-" + s.role + "-" + ax.id);
+        if (val) val.textContent = word || "—";
+        if (slider && idx >= 0) slider.value = String(idx);
+        if (scale) scale.querySelectorAll("[data-word]").forEach((n) => n.classList.toggle("on", n.getAttribute("data-word") === word));
+      });
     });
   }
 
@@ -302,12 +345,9 @@
     D.$("hud-steps").textContent = st.steps || pace.stream_steps || 18;
     const a = d.audit || {};
     D.$("hud-scored").textContent = (a.scored || 0) + " / " + ((a.scored || 0) + (a.unscored || 0) || 24);
-    const next = (d.ratings && typeof d.ratings === "object") ? d.ratings : ratings;
-    const sig = JSON.stringify(next);
-    if (sig !== JSON.stringify(ratings)) {
-      ratings = next;
-      drawSeats();
-    }
+    if (d.ratings && typeof d.ratings === "object") ratings = d.ratings;
+    if (!seatsDrawn) drawSeats();
+    else updateRatings();
     preview();
     const frames = a.frames || [];
     D.$("frames").innerHTML = frames.slice().reverse().slice(0, 12).map((f) => {
@@ -331,7 +371,9 @@
       hive.enable_governor = h.enable_governor !== false;
       jury = Object.assign(jury, d.desk.jury || {});
       pace = Object.assign(pace, d.desk.pace || {});
+      prompts = (d.desk && d.desk.prompts) || d.prompts || {};
       ratings = d.ratings || {};
+      seatsDrawn = false;
       D.$("mode").value = jury.mode || "parallel";
       D.$("adv").checked = !!jury.adversarial;
       D.$("gates").checked = !!jury.text_from_gates;

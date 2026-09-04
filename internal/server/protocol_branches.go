@@ -295,8 +295,8 @@ func (s Server) startOrStopProtocolBranch(w http.ResponseWriter, r *http.Request
 }
 
 func clampProtocolBranchHarvest(n, steps, depth, width, height int) (int, int, int, int, int) {
-	if n != 512 {
-		n = 256
+	if n < 0 {
+		n = 0
 	}
 	if steps != 18 {
 		steps = 28

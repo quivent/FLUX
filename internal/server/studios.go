@@ -431,8 +431,8 @@ func (s Server) stopStudioStreamer(st studioSpec) {
 }
 
 func (s Server) startStudioStreamer(st studioSpec, n, steps int, prompt string) error {
-	if n != 512 {
-		n = 256
+	if n < 0 {
+		n = 0
 	}
 	study := s.loadMicrogreensStudy()
 	steps = clampStudySteps(steps)
