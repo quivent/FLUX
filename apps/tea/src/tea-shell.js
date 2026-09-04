@@ -15,6 +15,7 @@
       '<a href="/studies">Studies</a>' +
       '<a href="https://charters.apiary.vision/">Charters</a>' +
       '<a href="/engine">Engine</a>' +
+      '<a href="/train">Train</a>' +
       '<a href="/protocol">Protocol</a>' +
       '<a href="/domains">Domains</a>' +
       '<a href="/rig">Rig</a>' +

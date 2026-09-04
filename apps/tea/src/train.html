@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Train · Tea</title>
+  <meta name="description" content="Governor operating apprenticeship — supervised discourse on this rig. Not weight training.">
+  <link rel="stylesheet" href="/tea/tea.css">
+  <script src="/tea/tea-shell.js"></script>
+  <style>
+    main.train {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 24px clamp(16px, 3vw, 36px) 80px;
+    }
+    .mast { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 22px; }
+    .kicker { font: 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--tea); }
+    h1 { font: 500 clamp(36px, 5vw, 64px)/.9 var(--serif); letter-spacing: -.04em; margin: 8px 0 8px; }
+    .lede { font: 400 16px/1.55 var(--serif); color: var(--soft); max-width: 46rem; margin: 0; }
+    .note { font: 11px/1.5 var(--mono); color: var(--faint); max-width: 36rem; text-align: right; }
+    .board {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr) minmax(320px, .92fr);
+      gap: 16px;
+      min-height: 70vh;
+    }
+    .col {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card-bg);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .col h2 {
+      margin: 0; padding: 12px 14px;
+      font: 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+      color: var(--tea); border-bottom: 1px solid var(--line);
+    }
+    .lessons { overflow-y: auto; padding: 6px; }
+    .lesson {
+      display: block; width: 100%; text-align: left;
+      border: 0; background: transparent; color: inherit;
+      padding: 10px 10px; border-radius: 8px; cursor: pointer;
+      font-family: var(--sans);
+    }
+    .lesson:hover { background: var(--paper-subtle); }
+    .lesson.on { background: var(--tea-light); box-shadow: inset 0 0 0 1px rgba(121,88,62,.25); }
+    .lesson b { display: block; font: 500 13px var(--serif); }
+    .lesson span { font: 10px var(--mono); color: var(--faint); }
+    .contract { padding: 16px 18px 22px; overflow-y: auto; }
+    .contract h3 { font: 500 28px/1.1 var(--serif); margin: 0 0 8px; }
+    .meta { font: 11px var(--mono); color: var(--faint); margin-bottom: 14px; }
+    .contract p { font: 400 15px/1.55 var(--serif); color: var(--soft); margin: 0 0 16px; }
+    .label { font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--tea); margin: 16px 0 6px; }
+    ol { margin: 0; padding-left: 1.2rem; color: var(--ink); font: 400 14px/1.5 var(--serif); }
+    .cli {
+      margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+      background: var(--paper-subtle); border: 1px solid var(--line);
+      font: 11px/1.45 var(--mono); color: var(--ink); overflow-x: auto; white-space: pre-wrap;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .btn {
+      appearance: none; border: 1px solid var(--line); background: var(--card-bg);
+      color: var(--ink); border-radius: 999px; padding: 8px 14px;
+      font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+    }
+    .btn.primary { background: var(--tea); border-color: var(--tea); color: #f7f3ea; }
+    .teach { display: flex; flex-direction: column; min-height: 0; }
+    .log { flex: 1; overflow-y: auto; padding: 14px; font: 400 14px/1.55 var(--serif); }
+    .bubble { margin: 0 0 12px; }
+    .bubble .who { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+    .bubble.gov { color: var(--ink); }
+    .bubble.you { color: var(--soft); }
+    .composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+    .composer textarea {
+      flex: 1; min-height: 64px; resize: vertical; border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 10px; font: 14px var(--serif);
+      background: var(--paper-soft); color: var(--ink);
+    }
+    .status { font: 10px var(--mono); color: var(--faint); padding: 0 12px 8px; }
+    .status.ok { color: var(--matcha); }
+    .status.bad { color: var(--vermilion); }
+    @media (max-width: 1100px) {
+      .board { grid-template-columns: 1fr; }
+      .lessons { max-height: 220px; }
+    }
+  </style>
+</head>
+<body>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea"><a href="/train">Train</a></nav>
+</header>
+<main class="train">
+  <div class="mast">
+    <div>
+      <div class="kicker">Governor operating apprenticeship</div>
+      <h1>Train room</h1>
+      <p class="lede" id="purpose">Eighteen sealed lessons. Supervised discourse on GPU 1 through the agentic gateway. This does not change weights.</p>
+    </div>
+    <p class="note">The SPEC-5376 ledger in <code>gemstone/web/curriculum</code> is a different job (5376-D centroid research, A100 receipts). This room is <code>governor-core-v1</code> on this rig.</p>
+  </div>
+  <div class="board">
+    <section class="col">
+      <h2>Lessons</h2>
+      <div class="lessons" id="lessons"></div>
+    </section>
+    <section class="col">
+      <h2>Contract</h2>
+      <div class="contract" id="contract">Loading curriculum…</div>
+    </section>
+    <section class="col teach">
+      <h2>Live teach · gateway</h2>
+      <div class="status" id="health">checking governor…</div>
+      <div class="log" id="log"></div>
+      <form class="composer" id="form">
+        <textarea id="input" placeholder="Hold out a case. Ask him to classify claims. Enter sends."></textarea>
+        <button class="btn primary" type="submit">Ask</button>
+      </form>
+    </section>
+  </div>
+</main>
+<script>
+const ENDPOINT = "https://governor.apiary.vision/v1/chat/completions";
+const logEl = document.getElementById("log");
+const health = document.getElementById("health");
+let catalog = null, current = null, messages = [];
+
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+async function ping() {
+  try {
+    const r = await fetch("https://governor.apiary.vision/v1/models", { cache: "no-store" });
+    const d = await r.json();
+    const m = (d.data||[]).find(x => x.id === "governor") || (d.data||[])[0];
+    health.className = "status ok";
+    health.textContent = (m && m.id ? m.id : "governor") + " · " + ((m && m.max_model_len) ? m.max_model_len.toLocaleString() + " ctx" : "up") + " · GPU 1 gateway";
+  } catch (e) {
+    health.className = "status bad";
+    health.textContent = "gateway unreachable: " + e.message;
+  }
+}
+
+function systemFor(lesson) {
+  return [
+    "You are the Governor in a training session on rig GPU 1.",
+    "This is supervised discourse. You cannot change your weights. You cannot execute tools in this browser.",
+    "Lesson " + lesson.n + " — " + lesson.title + ".",
+    "Objective: " + lesson.objective,
+    "Strict criteria:",
+    ...(lesson.criteria||[]).map((c,i) => (i+1) + ". " + c),
+    "Held-out cases exist so you do not memorize answers. Classify claims as observed, inferred, hypothetical, or unknown.",
+    "Do not claim you ran a command. Describe what should be observed next."
+  ].join("\n");
+}
+
+function show(lesson) {
+  current = lesson;
+  messages = [{ role: "system", content: systemFor(lesson) }];
+  document.querySelectorAll(".lesson").forEach(el => el.classList.toggle("on", el.dataset.id === lesson.id));
+  document.getElementById("contract").innerHTML =
+    "<h3>" + String(lesson.n).padStart(2,"0") + " · " + esc(lesson.title) + "</h3>" +
+    "<div class=\"meta\">" + esc(lesson.id) + " · " + esc(lesson.protocols) + " · prereq " + esc(lesson.prereq) + "</div>" +
+    "<p>" + esc(lesson.objective) + "</p>" +
+    "<div class=\"label\">Strict criteria</div><ol>" + (lesson.criteria||[]).map(c => "<li>"+esc(c)+"</li>").join("") + "</ol>" +
+    "<div class=\"label\">Held-out cases</div><ol>" + (lesson.cases||[]).map(c => "<li>"+esc(c)+"</li>").join("") + "</ol>" +
+    (lesson.memory ? "<div class=\"label\">Memory to keep</div><p>"+esc(lesson.memory)+"</p>" : "") +
+    "<div class=\"label\">Hands (CLI, not this page)</div>" +
+    "<div class=\"cli\">" + esc(lesson.plan || "gemstone governor code") + "\n\n# coding TUI against the gateway\ngemstone governor code</div>" +
+    "<div class=\"actions\">" +
+      "<button class=\"btn primary\" type=\"button\" id=\"caseBtn\">Ask held-out case 1</button>" +
+      "<button class=\"btn\" type=\"button\" id=\"copyBtn\">Copy rehearse command</button>" +
+    "</div>";
+  logEl.innerHTML = "<div class=\"bubble gov\"><div class=\"who\">Room</div>Lesson loaded. Ask a held-out case. Do not paste the answer key.</div>";
+  document.getElementById("caseBtn").onclick = () => {
+    const c = (lesson.cases||[])[0];
+    if (c) { document.getElementById("input").value = c; document.getElementById("form").requestSubmit(); }
+  };
+  document.getElementById("copyBtn").onclick = async () => {
+    try { await navigator.clipboard.writeText(lesson.plan || "gemstone governor code"); } catch(_) {}
+  };
+}
+
+function addBubble(role, text) {
+  const d = document.createElement("div");
+  d.className = "bubble " + (role === "user" ? "you" : "gov");
+  d.innerHTML = "<div class=\"who\">" + (role === "user" ? "Operator" : "Governor") + "</div><div class=\"txt\"></div>";
+  d.querySelector(".txt").textContent = text;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+  return d.querySelector(".txt");
+}
+
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = document.getElementById("input").value.trim();
+  if (!text || !current) return;
+  document.getElementById("input").value = "";
+  addBubble("user", text);
+  messages.push({ role: "user", content: text });
+  const node = addBubble("assistant", "");
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "governor", messages, temperature: 0.3, max_tokens: 900, stream: true })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status + " " + await res.text().then(t => t.slice(0,200)));
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", out = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split("\n"); buf = parts.pop();
+      for (const line of parts) {
+        const s = line.trim();
+        if (!s.startsWith("data:")) continue;
+        const payload = s.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        let json; try { json = JSON.parse(payload); } catch { continue; }
+        const delta = json.choices && json.choices[0] && json.choices[0].delta ? (json.choices[0].delta.content || "") : "";
+        if (delta) { out += delta; node.textContent = out; logEl.scrollTop = logEl.scrollHeight; }
+      }
+    }
+    messages.push({ role: "assistant", content: out });
+  } catch (err) {
+    node.textContent = "Error: " + err.message;
+  }
+});
+
+(async function boot() {
+  ping();
+  const r = await fetch("/tea/train-curriculum.json", { cache: "no-store" });
+  catalog = await r.json();
+  document.getElementById("purpose").textContent = catalog.purpose;
+  const box = document.getElementById("lessons");
+  box.innerHTML = catalog.lessons.map(l =>
+    "<button class=\"lesson\" data-id=\""+l.id+"\" type=\"button\"><span>"+String(l.n).padStart(2,"0")+" · "+esc(l.protocols)+"</span><b>"+esc(l.title)+"</b></button>"
+  ).join("");
+  box.querySelectorAll(".lesson").forEach(btn => {
+    btn.onclick = () => show(catalog.lessons.find(x => x.id === btn.dataset.id));
+  });
+  show(catalog.lessons[0]);
+})();
+</script>
+</body>
+</html>
