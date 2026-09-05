@@ -1,8 +1,8 @@
 window.TeaDesk = (function () {
   var t = 0, lane = (function () {
     var h = (location.hash || "").replace("#", "");
-    if (h === "microgreens" || h === "arcane" || h === "fashion") return h;
-    return "fashion";
+    if (h === "microgreens" || h === "arcane" || h === "fashion" || h === "silken-horses") return h;
+    return "silken-horses";
   })();
   function $(id) { return document.getElementById(id); }
   function status(msg, cls) {

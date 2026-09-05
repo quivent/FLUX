@@ -354,7 +354,7 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 		_ = s.setStudioPaused(st.Slug, false)
 		s.stopStudioStreamer(st)
 		_ = os.Remove(s.studioStatePath(st))
-		if err := s.startStudioStreamer(st, req.N, req.Steps, req.Prompt); err != nil {
+		if err := s.startStudioStreamer(st, studioHarvest{N: req.N, Steps: req.Steps, Width: req.Width, Height: req.Height, Guidance: req.Guidance, Prompt: req.Prompt}); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -371,7 +371,7 @@ func (s Server) controlStudio(w http.ResponseWriter, r *http.Request, st studioS
 				return
 			}
 		}
-		if err := s.startStudioStreamer(st, req.N, req.Steps, req.Prompt); err != nil {
+		if err := s.startStudioStreamer(st, studioHarvest{N: req.N, Steps: req.Steps, Width: req.Width, Height: req.Height, Guidance: req.Guidance, Prompt: req.Prompt}); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -430,23 +430,97 @@ func (s Server) stopStudioStreamer(st studioSpec) {
 	}
 }
 
-func (s Server) startStudioStreamer(st studioSpec, n, steps int, prompt string) error {
-	if n < 0 {
-		n = 0
+type studioHarvest struct {
+	N, Steps, Width, Height int
+	Guidance                float64
+	Prompt                  string
+	KeepN                   bool
+}
+
+func (s Server) harvestForStudio(st studioSpec, h studioHarvest) studioHarvest {
+	state := readProtocolStreamStateFile(s.studioStatePath(st))
+	out := h
+	if out.Width <= 0 {
+		out.Width = 1024
+		if st.Slug == "fashion" {
+			out.Width = 256
+		}
 	}
-	study := s.loadMicrogreensStudy()
-	steps = clampStudySteps(steps)
-	if steps == 0 {
-		steps = clampStudySteps(jsonInt(study["steps"], 28))
+	if out.Height <= 0 {
+		out.Height = out.Width
+		if st.Slug == "fashion" {
+			out.Height = 256
+		}
 	}
-	if steps == 0 {
-		steps = 28
+	if st.Slug == "microgreens" && h.Width <= 0 {
+		study := s.loadMicrogreensStudy()
+		if w := clampStudySize(jsonInt(study["width"], 0)); w > 0 {
+			out.Width = w
+		}
+		if h.Height <= 0 {
+			if ht := clampStudySize(jsonInt(study["height"], 0)); ht > 0 {
+				out.Height = ht
+			}
+		}
+		if out.Steps == 0 {
+			out.Steps = clampStudySteps(jsonInt(study["steps"], 28))
+		}
+		if out.Guidance <= 0 {
+			out.Guidance = jsonFloat(study["guidance"], 0)
+		}
 	}
-	width := clampStudySize(jsonInt(study["width"], 1024))
-	height := clampStudySize(jsonInt(study["height"], 1024))
-	if strings.TrimSpace(prompt) == "" {
-		prompt = st.Prompt
+	if state != nil {
+		if h.Width <= 0 {
+			if w := jsonInt(state["width"], 0); w > 0 {
+				out.Width = w
+			}
+		}
+		if h.Height <= 0 {
+			if ht := jsonInt(state["height"], 0); ht > 0 {
+				out.Height = ht
+			}
+		}
+		if out.Steps == 0 {
+			out.Steps = jsonInt(state["steps"], 0)
+		}
+		if out.Guidance <= 0 {
+			out.Guidance = jsonFloat(state["guidance"], 0)
+		}
+		if strings.TrimSpace(out.Prompt) == "" {
+			if p, _ := state["prompt"].(string); strings.TrimSpace(p) != "" {
+				out.Prompt = p
+			}
+		}
+		if !out.KeepN && out.N == 0 {
+			out.N = jsonInt(state["n"], 0)
+		}
 	}
+	if out.N < 0 {
+		out.N = 0
+	}
+	out.Width = clampStudySize(out.Width)
+	out.Height = clampStudySize(out.Height)
+	out.Steps = clampStudySteps(out.Steps)
+	if out.Steps == 0 {
+		out.Steps = 28
+	}
+	if out.Guidance <= 0 {
+		out.Guidance = 3.5
+	}
+	if out.Guidance < 1 {
+		out.Guidance = 1
+	}
+	if out.Guidance > 7 {
+		out.Guidance = 7
+	}
+	if strings.TrimSpace(out.Prompt) == "" {
+		out.Prompt = st.Prompt
+	}
+	return out
+}
+
+func (s Server) startStudioStreamer(st studioSpec, h studioHarvest) error {
+	h = s.harvestForStudio(st, h)
 	sock := s.studioSocketPath(st)
 	statePath := s.studioStatePath(st)
 	logPath := filepath.Join(s.cfg.Root, ".fluxd", "studio_"+st.Slug+".log")
@@ -460,12 +534,13 @@ func (s Server) startStudioStreamer(st studioSpec, n, steps int, prompt string) 
 	}
 	args := []string{
 		filepath.Join(s.cfg.Root, "protocol_stream.py"),
-		"--n", strconv.Itoa(n),
-		"--steps", strconv.Itoa(steps),
-		"--width", strconv.Itoa(width),
-		"--height", strconv.Itoa(height),
+		"--n", strconv.Itoa(h.N),
+		"--steps", strconv.Itoa(h.Steps),
+		"--width", strconv.Itoa(h.Width),
+		"--height", strconv.Itoa(h.Height),
+		"--guidance", strconv.FormatFloat(h.Guidance, 'f', -1, 64),
 		"--depth", "2",
-		"--prompt", prompt,
+		"--prompt", h.Prompt,
 		"--socket", sock,
 		"--state", statePath,
 		"--lane", st.Lane,
@@ -604,6 +679,25 @@ func jsonInt(v any, fallback int) int {
 		n, err := t.Int64()
 		if err == nil {
 			return int(n)
+		}
+	}
+	return fallback
+}
+
+func jsonFloat(v any, fallback float64) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case json.Number:
+		n, err := t.Float64()
+		if err == nil {
+			return n
 		}
 	}
 	return fallback

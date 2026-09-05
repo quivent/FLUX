@@ -909,13 +909,18 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 	}
 
 	applied := false
-	if req.Apply {
+	if req.Apply && req.Proposal != nil {
 		if err := jury.SaveConfig(dir, rec.Proposal); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		rec.Applied = true
 		applied = true
+	} else if req.Apply {
+		rec.Applied = false
+		if rec.Note == "" {
+			rec.Note = "hive proposed; operator applies from Desk"
+		}
 	}
 	if req.ApplyRender && lane == "microgreens" && render != nil {
 		s.applyHiveRender(render, rec.Rationale)

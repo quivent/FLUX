@@ -28,10 +28,11 @@
 <main class="desk">
   <div class="kicker">Operator · live control panel</div>
   <h1>Desk</h1>
-  <p class="lede">The board for this run. Each axis is a prompt the language model is asked, answered with one word: failed, broken, obvious, competent, specialist, flawless. GPU 3 beauty is the default jury.</p>
+  <p class="lede">You set the harvest and the jury. Apply writes them through. Hive may propose. It does not own the board. Beauty is Pixtral :8004, structure is Gemma :8001 from gates, synthesis is the Governor :8800.</p>
 
   <div class="desk-lanes">
-    <button class="on" data-lane="fashion">GPU 3 · Beauty jury</button>
+    <button class="on" data-lane="silken-horses">GPU 3 · Silken horses</button>
+    <button data-lane="fashion">Fashion · GPU 3</button>
     <button data-lane="microgreens">Microgreens · GPU 0</button>
     <button data-lane="arcane">Arcane · GPU 0</button>
   </div>
@@ -80,9 +81,18 @@
     </section>
 
     <section class="desk-panel">
-      <h2>Pace</h2>
-      <p class="note">Motion wall grain, and the size of the next GPU 3 batch. Fashion stays paused unless you start it elsewhere.</p>
-      <div class="stack" id="pace-meters"></div>
+      <h2>Harvest</h2>
+      <p class="note">Operator-owned. n = 0 is unbounded. Apply restates the live streamer. Fashion stays paused.</p>
+      <div class="desk-fields">
+        <label>n (0 = live)<input type="number" id="stream_n" min="0" max="4096" step="1" value="0"></label>
+        <label>Steps<input type="number" id="stream_steps" min="8" max="64" step="1" value="28"></label>
+        <label>Width<input type="number" id="stream_width" min="256" max="1280" step="64" value="1024"></label>
+        <label>Height<input type="number" id="stream_height" min="256" max="1280" step="64" value="1024"></label>
+        <label>Guidance<input type="number" id="stream_guidance" min="1" max="7" step="0.1" value="3.5"></label>
+        <label>Motion grain (ms)<input type="number" id="movement_ms" min="24" max="400" step="1" value="83"></label>
+      </div>
+      <label class="desk-prompt-label" for="harvest-prompt">Generation prompt</label>
+      <textarea id="harvest-prompt" class="desk-prompt" rows="5"></textarea>
     </section>
 
     <section class="desk-panel">
@@ -90,10 +100,10 @@
       <div class="desk-actions">
         <button class="primary" id="btnApply">Apply now</button>
         <button id="btnHive">Ask the hive</button>
-        <button class="primary" id="btnHiveApply">Hive calibrate &amp; apply</button>
+        <button id="btnHiveApply">Hive propose</button>
         <a class="op-btn ghost" href="/jury" style="display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:inherit">Open jury chamber</a>
       </div>
-      <div class="desk-hive" id="hivebox">Hive is idle. Ask it to propose a calibration from recent verdicts on this lane.</div>
+      <div class="desk-hive" id="hivebox">Hive is idle. It may propose. Only Apply now writes harvest or law.</div>
     </section>
 
     <section class="desk-panel">
@@ -110,7 +120,7 @@
   const SEATS = [
     {
       role: "aesthetic", key: "pixtral", title: "Beauty", enable: "enable_pixtral",
-      hint: "Pixtral rates the object in a medium.",
+      hint: "Pixtral :8004 · aesthetic vision.",
       axes: [
         { id: "palette_cohesion", title: "Palette" },
         { id: "lighting_authenticity", title: "Light" },
@@ -121,7 +131,7 @@
     },
     {
       role: "structure", key: "qwen", title: "Structure", enable: "enable_witness",
-      hint: "Witness rates whether the world holds together.",
+      hint: "Gemma :8001 · structure from sensory gates. Not the drafter, not Qwen.",
       axes: [
         { id: "anatomy", title: "Anatomy" },
         { id: "geometry", title: "Geometry" },
@@ -132,7 +142,7 @@
     },
     {
       role: "synthesis", key: "governor", title: "Governor", enable: "enable_governor",
-      hint: "Governor rates the brief against sworn testimony.",
+      hint: "Governor :8800 · synthesis from sworn testimony. Never raw :8000.",
       axes: [
         { id: "subject_fidelity", title: "Subject" },
         { id: "attribute_binding", title: "Binding" },
@@ -178,7 +188,20 @@
     prompts = out;
     return out;
   }
+  function readHarvest() {
+    pace = {
+      movement_ms: parseInt((D.$("movement_ms") || {}).value, 10) || 83,
+      stream_n: parseInt((D.$("stream_n") || {}).value, 10) || 0,
+      stream_steps: parseInt((D.$("stream_steps") || {}).value, 10) || 28,
+      width: parseInt((D.$("stream_width") || {}).value, 10) || 1024,
+      height: parseInt((D.$("stream_height") || {}).value, 10) || 1024,
+      guidance: parseFloat((D.$("stream_guidance") || {}).value) || 3.5,
+      prompt: ((D.$("harvest-prompt") || {}).value || "").trim()
+    };
+    return pace;
+  }
   function payload() {
+    readHarvest();
     return {
       hive: {
         enable_pixtral: !!hive.enable_pixtral, enable_witness: !!hive.enable_witness, enable_governor: !!hive.enable_governor
@@ -259,27 +282,16 @@
     });
   }
 
-  function drawPace() {
-    const rows = [
-      { id: "movement_ms", title: "Motion grain", min: 24, max: 400, val: pace.movement_ms, fmt: (v) => v + " ms" },
-      { id: "stream_n", title: "Batch size", min: 256, max: 512, step: 256, val: pace.stream_n, fmt: (v) => v + " frames" },
-      { id: "stream_steps", title: "Steps", min: 18, max: 28, step: 10, val: pace.stream_steps, fmt: (v) => v + " steps" }
-    ];
-    D.$("pace-meters").innerHTML = rows.map((r) =>
-      '<div class="meter"><div class="top"><h3>' + r.title + '</h3><span class="val" id="pv-' + r.id + '">' + r.fmt(r.val) + '</span></div>'
-      + '<input type="range" min="' + r.min + '" max="' + r.max + '"' + (r.step ? ' step="' + r.step + '"' : "") + ' value="' + r.val + '" id="p-' + r.id + '">'
-      + '</div>'
-    ).join("");
-    rows.forEach((r) => {
-      D.$("p-" + r.id).oninput = function () {
-        let v = parseInt(this.value, 10);
-        if (r.id === "stream_n") v = v >= 512 ? 512 : 256;
-        if (r.id === "stream_steps") v = v >= 23 ? 28 : 18;
-        pace[r.id] = v;
-        D.$("pv-" + r.id).textContent = r.fmt(v);
-        push();
-      };
-    });
+  function fillHarvest(p) {
+    pace = Object.assign(pace, p || {});
+    const set = function (id, v) { const el = D.$(id); if (el && v != null) el.value = String(v); };
+    set("stream_n", pace.stream_n || 0);
+    set("stream_steps", pace.stream_steps || 28);
+    set("stream_width", pace.width || 1024);
+    set("stream_height", pace.height || 1024);
+    set("stream_guidance", pace.guidance || 3.5);
+    set("movement_ms", pace.movement_ms || 83);
+    if (pace.prompt != null && D.$("harvest-prompt")) D.$("harvest-prompt").value = pace.prompt;
   }
 
   ["mode", "adv", "gates", "uniq", "triage", "minj"].forEach((id) => {
@@ -315,9 +327,17 @@
       D.$("hivebox").textContent = String(e);
     }
   }
-  D.$("btnApply").onclick = function () { readLaw(); D.save(payload()); };
+  D.$("btnApply").onclick = function () {
+    readLaw();
+    var body = payload();
+    body.apply_stream = true;
+    D.status("writing through…");
+    D.save(body).then(function (d) {
+      D.status(d.stream_note ? ("live · " + d.stream_note) : "live · saved", "ok");
+    }).catch(function (e) { D.status(String(e), "bad"); });
+  };
   D.$("btnHive").onclick = function () { hiveAsk(false); };
-  D.$("btnHiveApply").onclick = function () { hiveAsk(true); };
+  D.$("btnHiveApply").onclick = function () { hiveAsk(false); };
 
   function frameWord(f) {
     const cards = f.scores || [];
@@ -380,7 +400,7 @@
       D.$("uniq").checked = !!jury.uniqueness;
       D.$("triage").checked = !!jury.gate_triage;
       D.$("minj").value = jury.min_judges || 1;
-      drawPace();
+      fillHarvest((d.desk && d.desk.pace) || {});
       paintHud(d);
       D.status((d.hive && d.hive.live ? "hive live · " : "hive down · ") + "GPU 3 beauty jury · " + D.getLane(), d.hive && d.hive.live ? "ok" : "");
     } catch (e) {

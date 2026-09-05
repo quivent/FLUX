@@ -14,11 +14,13 @@ func TestDeskIsTheControlPanel(t *testing.T) {
 	}
 	src := string(page)
 	for _, tok := range []string{
-		`GPU 3 · Beauty jury`,
+		`GPU 3 · Silken horses`,
 		`id="seats"`,
 		`Uniqueness influence`,
 		`Gate triage`,
-		`Hive calibrate`,
+		`Hive propose`,
+		`apply_stream`,
+		`id="harvest-prompt"`,
 		`/api/protocol/calibrate`,
 		`data-lane="fashion"`,
 		`failed`,
@@ -39,7 +41,7 @@ func TestDeskIsTheControlPanel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(js), `lane = "microgreens"`) {
-		t.Error("desk.js still defaults to microgreens")
+	if strings.Contains(string(js), `return "fashion"`) {
+		t.Error("desk.js still defaults to fashion")
 	}
 }

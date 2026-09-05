@@ -427,9 +427,9 @@ GOVERNOR = "governor"
 DEFAULT_ENDPOINTS: Dict[str, Dict[str, Any]] = {
     VISUAL_WITNESS: {
         "base_url": "http://127.0.0.1:8001/v1",
-        "model": "visual-witness",
-        "hf_model": "unsloth/Qwen3.8-27B-NVFP4",
-        "vision": True,
+        "model": "jury",
+        "hf_model": "nvidia/Gemma-4-31B-IT-NVFP4",
+        "vision": False,
         "enabled": True,
         "remote": False,
     },
@@ -444,7 +444,7 @@ DEFAULT_ENDPOINTS: Dict[str, Dict[str, Any]] = {
     GOVERNOR: {
         # Local when the local tenant is up, remote otherwise. Resolved from
         # pipeline_paths.GOVERNOR_BASE_URL first -- never hardcoded here.
-        "base_url": "https://governor.influx.vision/v1",
+        "base_url": "http://127.0.0.1:8800/v1",
         "model": "governor",
         "hf_model": "nvidia/Gemma-4-31B-IT-NVFP4",
         # The governor tenant is provisioned without multimodal slots, so it
@@ -452,7 +452,7 @@ DEFAULT_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         # `vision = true` on the continuum tenant) if that ever changes.
         "vision": False,
         "enabled": True,
-        "remote": True,
+        "remote": False,
     },
 }
 
