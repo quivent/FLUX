@@ -370,14 +370,6 @@ func bindLiveModels(cfg jury.JuryConfig, live liveModels) jury.JuryConfig {
 		}
 		return ""
 	}
-	if m := pick(live.Witness, []string{"jury", "gemma-jury", "visual-witness"}); m != "" {
-		cfg.Endpoints[jury.ServedWitness] = jury.JuryEndpoint{
-			BaseURL: "http://127.0.0.1:8001/v1",
-			Model:   m,
-			Enabled: trueV,
-			Vision:  falseV,
-		}
-	}
 	if m := pick(live.Pixtral, []string{"pixtral", "pixtral-12b", "pixtral-jury", "pixtral-critic"}); m != "" {
 		cfg.Endpoints[jury.ServedPixtral] = jury.JuryEndpoint{
 			BaseURL: "http://127.0.0.1:8004/v1",
@@ -385,8 +377,15 @@ func bindLiveModels(cfg jury.JuryConfig, live liveModels) jury.JuryConfig {
 			Enabled: trueV,
 			Vision:  trueV,
 		}
+		cfg.Endpoints[jury.ServedWitness] = jury.JuryEndpoint{
+			BaseURL: "http://127.0.0.1:8004/v1",
+			Model:   m,
+			Enabled: trueV,
+			Vision:  trueV,
+		}
 	} else {
 		delete(cfg.Endpoints, jury.ServedPixtral)
+		delete(cfg.Endpoints, jury.ServedWitness)
 	}
 	govModel := pick(live.Governor, []string{"governor", "qwen-governor"})
 	if govModel == "" {
@@ -679,8 +678,8 @@ Current harvest parameters (operator defaults unless designed_by=hive):
 
 Live engines:
 - aesthetic / pixtral-critic is Pixtral on :8004 (vision ON)
-- structure / visual-witness is Gemma jury on :8001 (text)
-- governor through the agentic gateway on :8800 (text; never raw :8000)
+- structure / visual-witness is Pixtral on :8004 (vision ON); :8003 drafter is not a jury seat
+- structure/sensory and synthesis are the Governor through :8800 (text; never raw :8000)
 - hive-research Qwen on :8002 is YOU, not a critic
 %s
 
@@ -849,8 +848,8 @@ func (s Server) postProtocolCalibration(w http.ResponseWriter, r *http.Request) 
 		cfg.TextFromGates = !sees
 		cfg.MinJudges = 1
 		jury.NormalizeConfig(&cfg)
-		diag := "Bound Pixtral to the aesthetic seat with vision. Qwen stays on :8002 as hive, not as a critic."
-		rationale := "Aesthetic is pixtral-critic on :8004. Structure and governor remain text seats."
+		diag := "Bound Pixtral to aesthetic and visual-witness on :8004. Governor on :8800 rates structure from gates. Drafter is not a juror."
+		rationale := "Governor bind: Pixtral :8004 sees. Governor :8800 structure/sensory and synthesis. Never raw :8000."
 		if !sees {
 			diag = "Pixtral is not live on :8004. Did not bind Qwen into the aesthetic seat."
 			rationale = "Leave pixtral-critic unbound until /models/pixtral is serving with image slots."

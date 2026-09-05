@@ -178,6 +178,10 @@ func TestBindLiveModelsPutsPixtralOnAestheticSeatNotQwen(t *testing.T) {
 	if ep.Vision == nil || !*ep.Vision {
 		t.Fatal("pixtral must see images")
 	}
+	wit := cfg.Endpoints[jury.ServedWitness]
+	if wit.BaseURL != "http://127.0.0.1:8004/v1" || wit.Model != "pixtral" {
+		t.Fatalf("visual-witness must be Pixtral :8004, got %+v", wit)
+	}
 
 	cfg = bindLiveModels(cfg, liveModels{
 		Governor: []string{"governor"},

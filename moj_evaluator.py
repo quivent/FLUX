@@ -426,10 +426,10 @@ GOVERNOR = "governor"
 #: supply the tenants.  Ports match ``jury_continuum.toml`` 3.0.0's port map.
 DEFAULT_ENDPOINTS: Dict[str, Dict[str, Any]] = {
     VISUAL_WITNESS: {
-        "base_url": "http://127.0.0.1:8001/v1",
-        "model": "jury",
-        "hf_model": "nvidia/Gemma-4-31B-IT-NVFP4",
-        "vision": False,
+        "base_url": "http://127.0.0.1:8004/v1",
+        "model": "pixtral",
+        "hf_model": "RedHatAI/pixtral-12b-quantized.w4a16",
+        "vision": True,
         "enabled": True,
         "remote": False,
     },
