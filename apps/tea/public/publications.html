@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f7f5f0">
+<title>Publications — Hive</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
+<style>
+  main { max-width: 980px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 96px; }
+  .kicker { font: 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--tea); }
+  h1 { font: 400 clamp(40px, 6vw, 76px)/.9 var(--serif); letter-spacing: -.05em; margin: 10px 0 12px; }
+  .lede { font: 400 17px/1.6 var(--serif); color: var(--soft); max-width: 42rem; }
+  .meta { font: 11px/1.45 var(--mono); color: var(--faint); margin: 14px 0 22px; }
+  .book {
+    border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px;
+    background: var(--card-bg); margin: 0 0 22px;
+  }
+  .book h2 { margin: 0 0 8px; font: 500 28px/1.15 var(--serif); }
+  .book p { margin: 0 0 14px; font: 400 15px/1.55 var(--serif); color: var(--soft); }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .btn {
+    appearance: none; border: 1px solid var(--line); background: var(--paper-soft);
+    color: var(--ink); border-radius: 999px; padding: 8px 14px;
+    font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+    text-decoration: none;
+  }
+  .btn.primary { background: var(--tea); border-color: var(--tea); color: #f7f3ea; }
+  iframe {
+    width: 100%; height: 78vh; border: 1px solid var(--line); border-radius: 10px;
+    background: #fff;
+  }
+  .toc { font: 13px/1.55 var(--serif); color: var(--soft); columns: 2; gap: 24px; margin: 8px 0 0; }
+  .toc div { break-inside: avoid; }
+  .toc b { color: var(--tea); font: 10px var(--mono); margin-right: 8px; }
+  .also { margin-top: 28px; font: 400 15px/1.5 var(--serif); color: var(--soft); }
+  .also a { color: var(--tea); }
+  @media (max-width: 720px) { .toc { columns: 1; } iframe { height: 60vh; } }
+</style>
+</head>
+<body class="tea-app">
+<main>
+  <div class="kicker">publications · hive protocol · Qwen NVFP4</div>
+  <h1>Publications</h1>
+  <p class="lede">The hive foraged a booklet from PROTOCOL.md. Twenty-four anonymous agents on GPU 2 wrote the chapters. The orchestrator compiled the PDF and left.</p>
+  <div class="meta" id="meta">Loading…</div>
+  <section class="book">
+    <h2>The Hive Protocol</h2>
+    <p>A booklet for beekeepers who intend to leave. Substrate, charters, scopes, workers, the loop, body and soul, and a hostile reading of the spec.</p>
+    <div class="acts">
+      <a class="btn primary" href="/publications/hive-protocol-booklet.pdf">Open PDF</a>
+      <a class="btn" href="/publications/hive-protocol-booklet.pdf" download>Download</a>
+      <a class="btn" href="/research">Working papers</a>
+    </div>
+    <div class="toc" id="toc"></div>
+  </section>
+  <iframe title="The Hive Protocol booklet" src="/publications/hive-protocol-booklet.pdf"></iframe>
+  <p class="also">The twenty-four scholarly working papers that preceded this booklet remain at <a href="/research">/research</a>.</p>
+</main>
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  fetch('/api/publications', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    const b = d.booklet || {};
+    const ch = b.titles || [];
+    $('meta').textContent = (b.pages ? b.pages + ' pages · ' : '') +
+      (ch.length ? ch.length + ' chapters · ' : '') +
+      ((b.swarm && b.swarm.model) || 'hive-research') + ' · GPU 2 NVFP4';
+    $('toc').innerHTML = ch.map(c => '<div><b>' + String(c.id).padStart(2,'0') + '</b>' + esc(c.title) + '</div>').join('');
+  }).catch(err => { $('meta').textContent = String(err); });
+  function $(id) { return document.getElementById(id); }
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-04T23:50:09Z",
+  "updated": "2026-09-05T00:40:32Z",
   "gpu": 1,
   "vault_note": "GPU 1 holds the serving Governor at ~58 GiB (util 0.6). ~40 GiB remains for a vault. Do not OOM the engine. Shards below are gated candidates until fluency receipts exist.",
   "pointer_range": [
@@ -440,6 +440,33 @@
       "fluency": "gated",
       "retires": "spectral-cartridge-manufacture",
       "origin": "governor-accept",
+      "pointer_ok": null,
+      "residual_match": null,
+      "no_prose": null
+    },
+    {
+      "id": "SOC-st03",
+      "kind": "spectral",
+      "name": "signal-guided-lora-rank-spectral",
+      "pointer": 128003,
+      "fluency": "gated",
+      "retires": "uniform-lora-rank-config",
+      "origin": "governor-accept",
+      "source_repo": "/home/ubuntu/socratic-tuner",
+      "pointer_ok": null,
+      "residual_match": null,
+      "no_prose": null
+    },
+    {
+      "id": "SOC-st04",
+      "kind": "residual",
+      "name": "DA-GABA_Residual_Zone_Shard",
+      "pointer": 128385,
+      "fluency": "gated",
+      "retires": "uniform_rank_allocation_bytes, global_sgd_update_payload, full_layer_residual_snapshot",
+      "origin": "governor-accept",
+      "source_repo": "/home/ubuntu/socratic-tuner",
+      "extract": "/home/ubuntu/hive/.swarm/research/spectral-externalization/residuals/chatcmpl-a873e1bc3b63da3e-b9207548.safetensors",
       "pointer_ok": null,
       "residual_match": null,
       "no_prose": null
