@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"local/flux/internal/cdn"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -451,7 +453,11 @@ func outputPublicURL(outputDir, file string) string {
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return "/outputs/" + filepath.Base(file)
 	}
-	return "/outputs/" + filepath.ToSlash(rel)
+	slash := filepath.ToSlash(rel)
+	if cdn.ShippedRel(slash) {
+		return cdn.AssetURL(slash)
+	}
+	return "/outputs/" + slash
 }
 
 func GetSpectacles(outputDir string, limit int) ([]SpectacleItem, error) {

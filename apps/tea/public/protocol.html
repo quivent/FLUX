@@ -766,15 +766,16 @@
         try {
           const scope = lane === 'arcane' ? 'arcane' : 'images';
           const imgs = await fetch('/api/recent-images?scope=' + scope + '&limit=48', { cache: 'no-store' }).then(r => r.json());
-          const needle = lane === 'arcane' ? '/outputs/arcane/' : ('protocol-' + lane + '-');
+          const needle = lane === 'arcane' ? '/arcane/' : ('protocol-' + lane + '-');
           const mine = (imgs.images || []).filter(im => {
-            const hay = (im.path || '') + ' ' + (im.name || '');
+            const hay = (im.path || '') + ' ' + (im.url || '') + ' ' + (im.name || '');
             return hay.indexOf(needle) !== -1;
           }).slice(0, 24);
           const box = document.getElementById('streamFrames');
           if (box) box.innerHTML = mine.map(im => {
-            const u = im.path || im.url || '';
-            return '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt=""></a>';
+            const href = im.url || im.path || '';
+            const thumb = im.path ? ('/api/asset/thumbnail?w=384&src=' + encodeURIComponent(im.path)) : href;
+            return '<a href="' + href + '" target="_blank" rel="noopener"><img src="' + thumb + '" alt=""></a>';
           }).join('');
         } catch (e) {}
         document.getElementById('streamStats').innerHTML =

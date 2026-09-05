@@ -327,18 +327,39 @@
   // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
   // two proxy hops. The server thumbnails to 384px and caches, so the grid
   // costs a few KB per tile and the full PNG loads only when one is opened.
+  const R2_SITE = "https://pub-197bed319eda457da858ab89c061ed38.r2.dev/site";
+
+  function outputRel(url) {
+    const u = String(url || "");
+    const coll = u.indexOf("/collections/");
+    if (coll >= 0) return u.slice(coll + 1);
+    if (u.includes("/outputs/")) return u.split("/outputs/")[1].replace(/^\/+/, "");
+    if (u.includes("/site/")) return u.split("/site/")[1].replace(/^\/+/, "");
+    return "";
+  }
+
+  function assetHref(url) {
+    const rel = outputRel(url);
+    if (rel.startsWith("collections/")) return R2_SITE + "/" + rel;
+    const u = String(url || "");
+    if (u.includes("r2.dev/")) return u.split("?")[0];
+    if (u.includes("/outputs/")) return "/outputs/" + u.split("/outputs/")[1];
+    return u;
+  }
+
   const thumb = (url) => {
-    let u = String(url || '');
-    if (u.includes('/outputs/')) {
-      u = '/outputs/' + u.split('/outputs/')[1];
-    } else if (!u.startsWith('/')) {
-      u = '/outputs/' + u;
+    const rel = outputRel(url);
+    let u = rel ? "/outputs/" + rel : String(url || "");
+    if (u.includes("/outputs/")) {
+      u = "/outputs/" + u.split("/outputs/")[1];
+    } else if (!u.startsWith("/")) {
+      u = "/outputs/" + u;
     }
-    return '/api/asset/thumbnail?w=384&src=' + encodeURIComponent(u);
+    return "/api/asset/thumbnail?w=384&src=" + encodeURIComponent(u);
   };
 
   function preload(im) {
-    const url = im.path || im.url;
+    const url = im.url || im.path;
     if (!url) return Promise.resolve(false);
     return new Promise((resolve) => {
       const image = new Image();
@@ -395,37 +416,38 @@
     const pathHay = haystack(url, name);
     const u = String(url || '');
     if (PORTRAITS) {
-      if (!u.includes('/outputs/collections/')) return false;
+      if (!u.includes('/collections/')) return false;
       if (u.includes('/protocol-') || /protocol-/.test(pathHay)) return false;
       return true;
     }
     if (LIVE_GALLERY) {
       if (SPROUT.test(pathHay) || u.includes('/microgreens/') || /protocol-microgreens/i.test(pathHay)) return false;
       if (!LIVE_SLUG || LIVE_BANNED[LIVE_SLUG]) return false;
-      const prefix = '/outputs/collections/' + LIVE_SLUG + '/';
+      const prefix = '/collections/' + LIVE_SLUG + '/';
       return u.includes(prefix) || String(name || '').indexOf('protocol-' + LIVE_SLUG) === 0;
     }
     if (MICROGREENS) {
-      return u.includes('/outputs/collections/microgreens/') || String(name || '').indexOf('protocol-microgreens') === 0;
+      return u.includes('/collections/microgreens/') || String(name || '').indexOf('protocol-microgreens') === 0;
     }
     if (BRANCH) {
-      const prefix = '/outputs/collections/' + COLLECTION_SLUG + '/';
+      const prefix = '/collections/' + COLLECTION_SLUG + '/';
       return u.includes(prefix) || String(name || '').indexOf('protocol-' + COLLECTION_SLUG) === 0;
     }
     if (ARCANE) {
       if (VANITY.test(pathHay)) return false;
       return /arcane/.test(pathHay) && !/fashion/.test(pathHay);
     }
-    if (VANITY.test(pathHay) || /arcane/.test(pathHay) || u.includes('/outputs/collections/')) return false;
+    if (VANITY.test(pathHay) || /arcane/.test(pathHay) || u.includes('/collections/')) return false;
     return /fashion/.test(pathHay);
   }
 
   function jobAssetUrl(j) {
     const raw = String(j.output_url || j.output || j.filename || '').replace(/\\/g, '/');
-    if (raw.includes('/outputs/')) return '/outputs/' + raw.split('/outputs/')[1].replace(/^\/+/, '');
     const coll = raw.indexOf('/collections/');
-    if (coll >= 0) return '/outputs' + raw.slice(coll);
-    if (raw.startsWith('collections/') || raw.startsWith('arcane/')) return '/outputs/' + raw;
+    if (coll >= 0) return R2_SITE + raw.slice(coll);
+    if (raw.startsWith('collections/')) return R2_SITE + '/' + raw;
+    if (raw.includes('/outputs/')) return '/outputs/' + raw.split('/outputs/')[1].replace(/^\/+/, '');
+    if (raw.startsWith('arcane/')) return '/outputs/' + raw;
     const arc = raw.indexOf('/arcane/');
     if (arc >= 0) return '/outputs' + raw.slice(arc);
     return '/outputs/' + raw.split('/').pop();
@@ -470,12 +492,7 @@
     }
     seen.add(fileKey);
 
-    let canonicalUrl = String(url || '');
-    if (canonicalUrl.includes('/outputs/')) {
-      canonicalUrl = '/outputs/' + canonicalUrl.split('/outputs/')[1];
-    } else if (!canonicalUrl.startsWith('/')) {
-      canonicalUrl = '/outputs/' + fileKey;
-    }
+    const canonicalUrl = assetHref(url) || ("/outputs/" + fileKey);
 
     const fig = document.createElement('figure');
     fig.className = 'cell' + (fresh ? ' fresh' : '') + (crown ? ' crown' : '');
@@ -485,7 +502,7 @@
       ? `<span class="score">${Number(score).toFixed(1)}</span> `
       : '') + displayName(name, canonicalUrl);
     fig.innerHTML = `<a href="${canonicalUrl}" target="_blank" rel="noreferrer">`
-      + `<img loading="lazy" decoding="async" src="${thumb(canonicalUrl)}" alt="">`
+      + `<img loading="lazy" decoding="async" src="${thumb(url)}" alt="">`
       + deltaHTML(delta)
       + `<figcaption>${caption}</figcaption></a>`
       + `<button class="copy-btn" onclick="copyImageLink(event, '${canonicalUrl}')" title="Copy Image Link">`
@@ -584,7 +601,7 @@
       finishOpening(images.length > 0);
     }
     for (const im of images) {
-      addCell(im.path || im.url, im.name, false, true, im.composite, false, im.beauty_delta_pct);
+      addCell(im.url || im.path, im.name, false, true, im.composite, false, im.beauty_delta_pct);
     }
   }
 
@@ -731,7 +748,7 @@
           // Walk oldest-first so the newest lands on top after prepending.
           for (let i = imgs.length - 1; i >= 0; i--) {
             const im = imgs[i];
-            const url = im.path || im.url;
+            const url = im.url || im.path;
             const key = normalizeKey(url);
             if (!key) continue;
             if (addCell(url, im.name, false, false, im.composite, false, im.beauty_delta_pct)) {

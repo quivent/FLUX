@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"local/flux/internal/cdn"
 	"local/flux/internal/config"
 	"local/flux/internal/daemon"
 	"local/flux/internal/fleet"
@@ -417,6 +418,11 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/tea/", s.gardenPage)
 	mux.HandleFunc("/tea.css", s.teaChromeAsset)
 	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
+	mux.HandleFunc("/assets/", s.teaPublicAsset)
+	mux.HandleFunc("/publications", s.publicationsPage)
+	mux.HandleFunc("/publications/", s.publicationsPage)
+	mux.HandleFunc("/discourse", s.discoursePage)
+	mux.HandleFunc("/discourse/", s.discoursePage)
 	mux.HandleFunc("/studies", s.teaStudiesPage)
 	mux.HandleFunc("/studies/", s.teaStudiesPage)
 	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
@@ -514,6 +520,22 @@ var readOnlyPaths = []string{
 	"/api/tea/movement",
 	"/tea.css",
 	"/tea-shell.js",
+	"/tea",
+	"/assets",
+	"/jury",
+	"/moj",
+	"/garden",
+	"/engine",
+	"/atlas",
+	"/research",
+	"/publications",
+	"/portal",
+	"/stallion",
+	"/discourse",
+	"/compare",
+	"/api/research",
+	"/api/publications",
+	"/api/jury/presets",
 	"/spec",
 	"/sentinel",
 	"/exhibition",
@@ -664,6 +686,60 @@ func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", name))
+}
+
+func (s Server) teaPublicAsset(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/assets/")
+	rel = path.Clean("/" + rel)
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "." || strings.Contains(rel, "..") {
+		http.NotFound(w, r)
+		return
+	}
+	root := filepath.Join(s.cfg.Root, "apps", "tea", "public", "assets")
+	file := filepath.Join(root, filepath.FromSlash(rel))
+	if file != root && !strings.HasPrefix(file, root+string(os.PathSeparator)) {
+		http.NotFound(w, r)
+		return
+	}
+	info, err := os.Stat(file)
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, file)
+}
+
+func (s Server) publicationsPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if r.URL.Path == "/publications/" {
+		http.Redirect(w, r, "/publications", http.StatusPermanentRedirect)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "publications.html"))
+}
+
+func (s Server) discoursePage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if r.URL.Path == "/discourse/" {
+		http.Redirect(w, r, "/discourse", http.StatusPermanentRedirect)
+		return
+	}
+	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
+	for _, name := range []string{"discourse.html", "hive.html"} {
+		file := filepath.Join(public, name)
+		if info, err := os.Stat(file); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, file)
+			return
+		}
+	}
+	http.NotFound(w, r)
 }
 
 func (s Server) gardenPage(w http.ResponseWriter, r *http.Request) {
@@ -4669,9 +4745,10 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			if !recentAssetAllowed(scope, filepath.ToSlash(rel)) {
 				return nil
 			}
+			slashRel := filepath.ToSlash(rel)
 			items = append(items, recentImage{
 				Name:     entry.Name(),
-				Path:     "/outputs/" + filepath.ToSlash(rel),
+				Path:     "/outputs/" + slashRel,
 				URL:      publicOutputRelURL(r, rel),
 				Kind:     "output",
 				Modified: unixValue(info),
@@ -4752,6 +4829,9 @@ func (s Server) recentImages(w http.ResponseWriter, r *http.Request) {
 			"url":      item.URL,
 			"kind":     item.Kind,
 			"modified": item.Modified,
+		}
+		if rel := strings.TrimPrefix(item.Path, "/outputs/"); cdn.ShippedRel(rel) {
+			row["r2"] = cdn.AssetURL(rel)
 		}
 		if item.Composite != nil {
 			row["composite"] = *item.Composite
@@ -5630,6 +5710,9 @@ func pathInside(root, candidate string) bool {
 }
 
 func publicOutputRelURL(r *http.Request, rel string) string {
+	if cdn.ShippedRel(rel) {
+		return cdn.AssetURL(rel)
+	}
 	parts := strings.Split(filepath.ToSlash(rel), "/")
 	for i, part := range parts {
 		parts[i] = url.PathEscape(part)

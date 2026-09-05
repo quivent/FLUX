@@ -147,6 +147,13 @@
         <h2 id="overseeTitle">Beauty protocol · live posture</h2>
         <div class="oversee-meta" id="overseeMeta">loading continuum…</div>
       </div>
+      <div class="jury-row" id="protocolLanes"></div>
+      <div id="liveFlow" class="diagram-card">
+        <h3>This frame's jury</h3>
+        <div class="live-path" id="flowPath"></div>
+        <div class="algo-seats" id="flowSeats">loading the last verdict…</div>
+        <p class="oversee-meta" id="flowNote"></p>
+      </div>
       <div class="tenant-grid" id="tenantGrid"></div>
       <div class="jury-row" id="juryRow"></div>
 
@@ -205,19 +212,19 @@
         <h2>Protocol branches</h2>
         <div class="oversee-meta" id="branchMeta">up to 3 independent collections</div>
       </div>
-      <p class="oversee-meta">New beauty prompt — not fashion. GPU 3 FP8. Own wall under <code>/collections/&lt;name&gt;</code>. Paste the prompt, set size and steps, then start. Jury stays at <a href="/judge#fashion">/judge</a>.</p>
+      <p class="oversee-meta">New beauty prompt — not fashion. GPU 3 FP8. Own wall under <code>/collections/&lt;name&gt;</code>. Paste the prompt, set size and steps, then start. This page is the jury flow. The sliders live at <a href="/judge">/judge</a>.</p>
       <div class="branch-form">
         <input id="branchName" placeholder="collection name — e.g. silk" maxlength="32" />
         <textarea id="branchPrompt" placeholder="paste the new beauty prompt here — fashion stays paused until you start"></textarea>
         <div class="stream-actions">
           <label class="oversee-meta">size
-            <select id="branchSize"><option value="256" selected>256×256</option><option value="512">512×512</option><option value="1024">1024×1024</option></select>
+            <select id="branchSize"><option value="256">256×256</option><option value="512">512×512</option><option value="1024" selected>1024×1024</option></select>
           </label>
           <label class="oversee-meta">frames
             <select id="branchN"><option value="0" selected>endless</option><option value="256">256</option><option value="512">512</option></select>
           </label>
-          <button class="primary" onclick="startBranch(18)">Start FP8 · 18 steps</button>
-          <button onclick="startBranch(28)">28 steps</button>
+          <button onclick="startBranch(18)">18 steps</button>
+          <button class="primary" onclick="startBranch(28)">Start FP8 · 28 steps</button>
         </div>
       </div>
       <div id="branchLive" class="oversee-meta" style="display:none;margin:8px 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--paper-soft);color:var(--ink);font:15px/1.5 var(--serif)"></div>
@@ -316,11 +323,22 @@
   <script src="/assets/sensory.js"></script>
   <script>
     function protocolLane() {
+      const slug = function (raw) {
+        const s = String(raw || '').toLowerCase();
+        if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(s)) return '';
+        if (s === 'celadon' || s === 'still-life' || s === 'still_life' || s === 'gpu3' || s === 'fp8') return 'fashion';
+        return s;
+      };
       const path = location.pathname.replace(/\/+$/, '');
-      if (path.endsWith('/arcane')) return 'arcane';
-      if (path.endsWith('/fashion') || path.endsWith('/celadon') || path.endsWith('/still-life')) return 'fashion';
-      const q = new URLSearchParams(location.search).get('lane');
-      if (q === 'arcane' || q === 'fashion') return q;
+      const last = path.split('/').pop();
+      if (last && last !== 'protocol' && last !== 'spec') {
+        const fromPath = slug(last);
+        if (fromPath) return fromPath;
+      }
+      const q = slug(new URLSearchParams(location.search).get('lane'));
+      if (q) return q;
+      const h = slug(location.hash.replace('#', ''));
+      if (h) return h;
       return 'fashion';
     }
     function pill(live) {
@@ -329,10 +347,10 @@
       return '<span class="pill unk">in-process</span>';
     }
     const SEATS = [
-      { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'hive', port: '8002' },
-      { key: 'qwen', label: 'Reason', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
+      { key: 'pixtral', label: 'Aesthetic', served: 'pixtral-critic', modelsFrom: 'pixtral', port: '8004' },
+      { key: 'qwen', label: 'Anatomy', served: 'visual-witness', modelsFrom: 'witness', port: '8001' },
       { key: 'decoder', label: 'Decoder (absorbed)', served: 'visual-witness', modelsFrom: 'witness', port: '8001', absorbed: true },
-      { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8000' }
+      { key: 'governor', label: 'Governor', served: 'governor', modelsFrom: 'governor', port: '8800' }
     ];
     let currentConfig = {
       mode: 'parallel',
@@ -642,9 +660,7 @@
       const pageTag = document.getElementById('protocolPageTag');
       if (pageTag) pageTag.textContent = 'PAGE: /protocol/' + lane;
       const title = document.getElementById('overseeTitle');
-      if (title) title.textContent = lane === 'arcane'
-        ? 'Arcane is unplugged'
-        : 'GPU 3 FP8 · 256×256 · 18 steps · waiting for a new brief';
+      if (title) title.textContent = 'Beauty protocol · ' + lane;
       try {
         const res = await fetch('/api/protocol?lane=' + encodeURIComponent(lane), { cache: 'no-store' });
         const d = await res.json();
@@ -695,6 +711,46 @@
         ).join('');
         const path = (d.stream_options && d.stream_options.eval_path) || (d.stream && d.stream.eval_path) || [];
         document.getElementById('evalPath').innerHTML = path.map(s => '<span>' + s + '</span>').join('');
+        const frames = ((d.audit || {}).frames) || [];
+        const last = frames.length ? frames[frames.length - 1] : {};
+        const answered = {};
+        (last.scores || []).forEach(j => { if (j.role) answered[j.role] = j; });
+        const flowPath = document.getElementById('flowPath');
+        if (flowPath) flowPath.innerHTML = path.map(s => '<span class="live-step">' + s + '</span>').join('');
+        const flowSeats = document.getElementById('flowSeats');
+        if (flowSeats) {
+          flowSeats.innerHTML = [
+            { role: 'structure', label: 'Anatomy' },
+            { role: 'aesthetic', label: 'Beauty' },
+            { role: 'synthesis', label: 'Governor' }
+          ].map(seat => {
+            const j = answered[seat.role] || {};
+            const borrowed = j.borrowed_vision;
+            const who = (j.model || 'silent') + (j.endpoint ? ' · ' + String(j.endpoint).replace('http://','') : '') +
+              (borrowed ? ' · borrowed ' + borrowed : '');
+            const score = j.score != null ? Number(j.score).toFixed(1) : '—';
+            const extra = j.anatomy != null ? ' · anatomy ' + Number(j.anatomy).toFixed(0) : '';
+            const crit = j.critique || (j.degraded ? 'did not answer' : 'waiting');
+            return '<div class="seat"><h4>' + seat.label + '</h4><div class="muted">' + who.replace(/[<>]/g,'') + extra +
+              '</div><div class="row"><span>score</span><strong>' + score + '</strong></div><p>' +
+              String(crit).replace(/[<>]/g,'') + '</p></div>';
+          }).join('');
+        }
+        const flowNote = document.getElementById('flowNote');
+        if (flowNote) {
+          const st0 = d.stream || {};
+          flowNote.textContent = lane + ' · ' + (st0.width || '—') + '×' + (st0.height || st0.width || '—') +
+            ' · ' + (st0.steps || '—') + ' steps · last ' + (last.tier || 'unscored');
+        }
+        const laneHost = document.getElementById('protocolLanes');
+        if (laneHost && d.lanes) {
+          laneHost.innerHTML = d.lanes.map(L => {
+            const id = String(L.id || '');
+            const on = id === lane ? ' style="border-color:var(--tea);color:var(--ink)"' : '';
+            return '<a class="jury-chip" href="/protocol?lane=' + encodeURIComponent(id) + '"' + on + '>' +
+              String(L.label || id).replace(/[<>]/g,'') + '</a>';
+          }).join('');
+        }
         const st = d.stream || {};
         const n = st.n || 0;
         const submitted = st.submitted || 0;
@@ -710,15 +766,16 @@
         try {
           const scope = lane === 'arcane' ? 'arcane' : 'images';
           const imgs = await fetch('/api/recent-images?scope=' + scope + '&limit=48', { cache: 'no-store' }).then(r => r.json());
-          const needle = lane === 'arcane' ? '/outputs/arcane/' : ('protocol-' + lane + '-');
+          const needle = lane === 'arcane' ? '/arcane/' : ('protocol-' + lane + '-');
           const mine = (imgs.images || []).filter(im => {
-            const hay = (im.path || '') + ' ' + (im.name || '');
+            const hay = (im.path || '') + ' ' + (im.url || '') + ' ' + (im.name || '');
             return hay.indexOf(needle) !== -1;
           }).slice(0, 24);
           const box = document.getElementById('streamFrames');
           if (box) box.innerHTML = mine.map(im => {
-            const u = im.path || im.url || '';
-            return '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt=""></a>';
+            const href = im.url || im.path || '';
+            const thumb = im.path ? ('/api/asset/thumbnail?w=384&src=' + encodeURIComponent(im.path)) : href;
+            return '<a href="' + href + '" target="_blank" rel="noopener"><img src="' + thumb + '" alt=""></a>';
           }).join('');
         } catch (e) {}
         document.getElementById('streamStats').innerHTML =
