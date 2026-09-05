@@ -2,15 +2,15 @@
   "ok": true,
   "phase": "verify",
   "decode_inject": true,
+  "longest_prefix": true,
   "text": "Please provide the claims you wish to have classified.",
-  "text_bake": "Please provide the claims you wish to have classified.",
+  "longest_prefix_text": "Claims are categorized by their evidentiary basis. Observed: The system is active.",
   "greedy_text_match": true,
-  "external_hits_before": 0.0,
-  "external_hits_after": 32.0,
+  "external_hits_cold_extra_first": 32.0,
+  "gpu_prefix_hits_cold": 0.0,
   "external_prefix_cache_hits": true,
-  "n_dump": 360,
   "dump_still_on": true,
-  "n_vault_attention": 1716,
   "must_not_store_only": true,
-  "updated": "2026-09-05T00:07:26Z"
+  "note": "Cold GPU cache. Longer prompt (PREFIX + extra) loaded 32 vault tokens before any GPU prefix hit. Exact PREFIX then matched greedy bake text.",
+  "updated": "2026-09-05T01:05:03Z"
 }
