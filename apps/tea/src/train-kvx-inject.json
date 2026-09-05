@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "phase": "verify",
+  "decode_inject": true,
+  "text": "Please provide the claims you wish to have classified.",
+  "text_bake": "Please provide the claims you wish to have classified.",
+  "greedy_text_match": true,
+  "external_hits_before": 0.0,
+  "external_hits_after": 32.0,
+  "external_prefix_cache_hits": true,
+  "n_dump": 360,
+  "dump_still_on": true,
+  "n_vault_attention": 1716,
+  "must_not_store_only": true,
+  "updated": "2026-09-05T00:07:26Z"
+}
