@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "passed": 13,
+  "failed": 0,
+  "results": [
+    {
+      "test": "T1 gateway :8800 models",
+      "ok": true,
+      "detail": "200 ['governor', 'gemma-governor']"
+    },
+    {
+      "test": "T2 engine :8000 models",
+      "ok": true,
+      "detail": "200 ['governor', 'gemma-governor']"
+    },
+    {
+      "test": "T3 qwen :8002 models",
+      "ok": true,
+      "detail": "200 ['hive-research', 'qwen-research', 'qwen38', 'qwen3.5-27b']"
+    },
+    {
+      "test": "T4 vault cudaMalloc",
+      "ok": true,
+      "detail": {
+        "index_entries": 512,
+        "index_span": "128000+",
+        "pages_bytes": 805304320,
+        "pages_base_f16": 1024,
+        "page_width": 128
+      }
+    },
+    {
+      "test": "T5 slot128 hash+width",
+      "ok": true,
+      "detail": "hash=1073703271 n=128 l2=0.999847"
+    },
+    {
+      "test": "T6 registry canonical",
+      "ok": true,
+      "detail": {
+        "id": "steer.kvx.reason_v1",
+        "slot": 128,
+        "pointer": 128128,
+        "status": "canonical",
+        "canonical": true
+      }
+    },
+    {
+      "test": "T7 residual dump path",
+      "ok": true,
+      "detail": "path=/residuals/chatcmpl-8032b05086365995-8464dec3.safetensors text='Please provide the claims you would like me to classify.'"
+    },
+    {
+      "test": "T8 greedy classify",
+      "ok": true,
+      "detail": "'Please provide the claims you would like me to classify.'"
+    },
+    {
+      "test": "T9 inject metrics present",
+      "ok": true,
+      "detail": "hits=6624.0 external_tokens=6624.0"
+    },
+    {
+      "test": "T10 pointer-only",
+      "ok": true,
+      "detail": "'128128'"
+    },
+    {
+      "test": "T11 steering_registry_test",
+      "ok": true,
+      "detail": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.004s\n\nOK\n"
+    },
+    {
+      "test": "T12 MultiConnector live",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "test": "T13 qwen hive",
+      "ok": true,
+      "detail": "'User says \"One word: hive.\"'"
+    }
+  ]
+}
