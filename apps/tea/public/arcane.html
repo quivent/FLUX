@@ -477,35 +477,36 @@
     .shell > section, .shell > .split { margin-top: 42px; }
   }
 </style>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 </head>
-<body data-conn="standby" data-realm="zaun">
+<body class="tea-app" data-conn="standby" data-realm="zaun">
 
-<header class="top-nav">
-  <a class="brand" href="/">
-    <span class="seal">壱</span>
-    <b>Influx Vision</b>
+<header class="tea-chrome">
+  <a class="tea-brand" href="/">
+    <span class="tea-seal">茶</span>
+    <span class="tea-word">Tea</span>
   </a>
-  <nav class="nav-tiers" aria-label="Surfaces">
-    <span class="tier">
-      <span class="tier-label">Tea</span>
-      <a class="nav-link" href="/jury">Jury</a>
-      <a class="nav-link" href="/gallery">Stream</a>
-      <a class="nav-link" href="/garden">Garden</a>
-      <a class="nav-link" href="/exhibition">Exhibition</a>
-    </span>
-    <span class="divider" aria-hidden="true">·</span>
-    <span class="tier">
-      <span class="tier-label">Motion</span>
-      <a class="nav-link" href="/movement">Video</a>
-      <a class="nav-link" href="/atlas/">Worlds</a>
-      <a class="nav-link" href="/studies">Studies</a>
-      <a class="nav-link active" href="/arcane" aria-current="page">Arcane</a>
-      <a class="nav-link" href="/engine">Engine</a>
-    </span>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
   </nav>
-  <button class="ritual" id="ritual" type="button" aria-live="polite">
-    <span aria-hidden="true">🍵</span><span id="ritualText">Living Parchment</span>
-  </button>
+  <div class="tea-chrome-end">
+    <button class="ritual" id="ritual" type="button" aria-live="polite">
+      <span aria-hidden="true">🍵</span><span id="ritualText">Living Parchment</span>
+    </button>
+  </div>
 </header>
 
 <div class="ribbon" role="status" aria-live="polite">

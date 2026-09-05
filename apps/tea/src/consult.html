@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>Direction — Tea</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
+<style>
+  main { width: min(820px, calc(100% - 40px)); margin: 0 auto; padding: clamp(36px, 6vw, 72px) 0 120px; }
+  .eyebrow { color: var(--tea); font: 10px/1 var(--mono); letter-spacing: .24em; text-transform: uppercase; }
+  h1 { margin: 14px 0 0; font: 400 clamp(48px, 8vw, 92px)/.9 var(--serif); letter-spacing: -.05em; }
+  .lede { margin: 22px 0 36px; max-width: 540px; color: var(--soft); font: 400 18px/1.65 var(--serif); }
+  #transcript {
+    display: flex; flex-direction: column; gap: 18px;
+    min-height: 42vh; padding: 8px 0 28px;
+  }
+  .turn { max-width: 92%; }
+  .turn.user { align-self: flex-end; }
+  .turn .who { font: 9px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  .turn.user .who { text-align: right; }
+  .turn .bubble {
+    padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--card-bg); color: var(--ink); font: 400 16px/1.55 var(--serif);
+    white-space: pre-wrap;
+  }
+  .turn.governor .bubble { background: rgba(255,255,255,.9); }
+  .turn.user .bubble { background: var(--tea-light); border-color: rgba(121,88,62,.22); }
+  .composer {
+    position: sticky; bottom: 18px;
+    display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;
+    padding: 12px; border: 1px solid var(--line); border-radius: 16px;
+    background: color-mix(in srgb, var(--paper-soft) 88%, transparent);
+    backdrop-filter: blur(14px);
+  }
+  textarea {
+    width: 100%; min-height: 52px; max-height: 160px; resize: vertical;
+    border: 0; background: transparent; color: var(--ink);
+    font: 400 16px/1.5 var(--serif); outline: none;
+  }
+  textarea::placeholder { color: var(--faint); }
+  button.send {
+    appearance: none; border: 1px solid var(--ink); background: var(--ink); color: #fff;
+    padding: 10px 16px; border-radius: 999px; cursor: pointer;
+    font: 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+  }
+  button.send:disabled { opacity: .4; cursor: default; }
+  .status { margin: 0 0 14px; color: var(--soft); font: 10px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .status.bad { color: var(--vermilion); }
+  .empty { color: var(--soft); font: 400 17px/1.6 var(--serif); }
+</style>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
+</header>
+<main>
+  <div class="eyebrow">Governor · consultation</div>
+  <h1>Direction</h1>
+  <p class="lede">Ask what to pursue, still, exhibit, or refuse. The Governor answers as director of this garden — not as an operator console.</p>
+  <p class="status" id="status">Ready</p>
+  <div id="transcript" aria-live="polite">
+    <p class="empty" id="empty">Begin with a question of taste, a prompt in trouble, or a fork between stillness and motion.</p>
+  </div>
+  <form class="composer" id="composer">
+    <textarea id="prompt" rows="2" placeholder="What should Tea do next?" autofocus></textarea>
+    <button class="send" id="send" type="submit">Consult</button>
+  </form>
+</main>
+<script>
+const KEY = "tea-consult-v1";
+const $ = (id) => document.getElementById(id);
+let messages = [];
+let busy = false;
+try { messages = JSON.parse(sessionStorage.getItem(KEY) || "[]"); } catch (_) { messages = []; }
+
+function persist() {
+  try { sessionStorage.setItem(KEY, JSON.stringify(messages.slice(-24))); } catch (_) {}
+}
+
+function render() {
+  const box = $("transcript");
+  const empty = $("empty");
+  if (!messages.length) {
+    if (empty) empty.style.display = "";
+    box.querySelectorAll(".turn").forEach((n) => n.remove());
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  box.querySelectorAll(".turn").forEach((n) => n.remove());
+  messages.forEach((m) => {
+    const el = document.createElement("article");
+    el.className = "turn " + (m.role === "user" ? "user" : "governor");
+    el.innerHTML = '<div class="who">' + (m.role === "user" ? "You" : "Governor") + "</div>"
+      + '<div class="bubble"></div>';
+    el.querySelector(".bubble").textContent = m.content || "…";
+    box.appendChild(el);
+  });
+  box.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+
+async function send(raw) {
+  const content = String(raw || "").trim();
+  if (!content || busy) return;
+  busy = true;
+  $("send").disabled = true;
+  $("status").className = "status";
+  $("status").textContent = "Waiting for the Governor";
+  messages.push({ role: "user", content });
+  messages.push({ role: "assistant", content: "" });
+  $("prompt").value = "";
+  persist();
+  render();
+  try {
+    const response = await fetch("/api/tea/consult", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: messages.filter((m) => m.content).map(({ role, content: c }) => ({ role, content: c }))
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("Direction is available on the authenticated garden, not the public wall.");
+    }
+    if (!response.ok) throw new Error(data.error || ("Governor returned HTTP " + response.status));
+    messages[messages.length - 1].content = data.choices?.[0]?.message?.content || "[empty]";
+    $("status").textContent = "Ready";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    messages[messages.length - 1].content = "[" + msg + "]";
+    $("status").className = "status bad";
+    $("status").textContent = msg;
+  } finally {
+    busy = false;
+    $("send").disabled = false;
+    persist();
+    render();
+    $("prompt").focus();
+  }
+}
+
+$("composer").addEventListener("submit", (e) => { e.preventDefault(); send($("prompt").value); });
+$("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    send($("prompt").value);
+  }
+});
+render();
+(function seed() {
+  const q = new URLSearchParams(location.search).get("q");
+  let whisper = q;
+  try {
+    if (!whisper) whisper = sessionStorage.getItem("tea-consult-seed") || "";
+    sessionStorage.removeItem("tea-consult-seed");
+  } catch (_) {}
+  if (whisper) send(whisper);
+})();
+</script>
+</body>
+</html>

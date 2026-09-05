@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f7f5f0">
 <title>The Stallion — Single Exhibition</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 <style>
   :root{--paper:#f7f5f0;--ink:#26221d;--soft:#777067;--line:rgba(53,44,36,.15);--red:#a63e39;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
   *{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 82% 0,rgba(231,181,182,.22),transparent 32rem),linear-gradient(180deg,#fff,var(--paper));font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-decoration:none}
@@ -16,27 +18,24 @@
   @media(max-width:760px){header{height:68px;gap:12px;padding:0 14px}.brand{font-size:10px;letter-spacing:.16em}.seal{width:26px;height:26px}.site-nav{gap:9px;font-size:8px;letter-spacing:.08em;white-space:nowrap}.hero,.field-head,.method{grid-template-columns:1fr;gap:24px}.facts{grid-template-columns:repeat(2,1fr);margin-bottom:72px}.film figcaption,.atlas-note{font-size:8px}}
 </style>
 </head>
-<body>
-<header>
-  <div style="display:flex; align-items:center; gap:16px;">
-    <a class="brand" href="/"><span class="seal">茶</span>Tea</a>
-    <nav class="site-nav" aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.06); padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,0.08);">
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a href="/jury" style="color:#a63e39; font-weight:700;">👑 Jury</a>
-      <a href="/gallery/">🖼️ Stream</a>
-      <a href="/garden">🌿 Garden</a>
-      <a href="/portraits">👤 Portraits</a>
-      <a href="/exhibition" style="color:var(--ink); font-weight:700;">🏛️ Exhibition</a>
-      
-      <span style="width:1px; height:12px; background:rgba(0,0,0,0.15); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a href="/movement">🎬 Video</a>
-      <a href="/atlas/">🌐 Worlds</a>
-      <a href="/studies">🐎 Studies</a>
-      <a href="/engine">⚙️ Engine</a>
-    </nav>
-  </div>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
 </header>
 <main>
   <a class="back" href="/exhibition">← All exhibitions</a>
@@ -45,6 +44,5 @@
   <div class="facts"><div class="fact"><b>7,584</b><span>Recovered renders</span></div><div class="fact"><b>65,536</b><span>Chart positions</span></div><div class="fact"><b>384²</b><span>Cell resolution</span></div><div class="fact"><b>40</b><span>Denoise steps</span></div><div class="fact"><b>BF16</b><span>FLUX precision</span></div></div>
   <section aria-labelledby="field-title"><div class="field-head"><div><div class="eyebrow">The recovered atlas</div><h2 id="field-title">7,584 images</h2></div><p>Every recovered rendered cell appears once, ordered by its atlas index from the upper left. The field is a single dense image so thousands of thumbnails arrive together without thousands of network requests.</p></div><div class="atlas-wrap"><img class="atlas" loading="lazy" src="/exhibition/stallion-atlas-grid.jpg" width="4703" height="3870" alt="A grid of 7,584 tiny Stallion atlas thumbnails"></div><div class="atlas-note"><span>96 columns × 79 rows</span><span>Cell 00000 → Cell 07583</span></div></section>
   <section class="method"><small>Record</small><p>FLUX.1-dev · seed 7 · omega mode · spherical-outward traversal. The nominal chart contains 65,536 positions; the recovered local archive contains 7,584 rendered PNG cells. The film follows 140 recorded states from the gait-path experiment rather than uniformly skipping across the archive.</p></section>
-</main>
-<script src="/assets/sensory.js"></script></body>
+</main><script src="/assets/sensory.js"></script></body>
 </html>

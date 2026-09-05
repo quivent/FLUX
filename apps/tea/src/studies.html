@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 
   <style>
     :root {
@@ -694,44 +696,36 @@
     }
   </style>
 </head>
-<body>
+<body class="tea-app">
+
+  <header class="tea-chrome">
+    <a class="tea-brand" href="/">
+      <span class="tea-seal">茶</span>
+      <span class="tea-word">Tea</span>
+    </a>
+    <nav class="tea-nav" aria-label="Tea">
+      <span class="tea-nav-label">Stillness</span>
+      <a href="/jury">Jury</a>
+      <a href="/consult">Direction</a>
+      <a href="/gallery/">Gallery</a>
+      <a href="/garden">Garden</a>
+      <a href="/portraits">Portraits</a>
+      <a href="/exhibition">Exhibition</a>
+      <span class="tea-nav-sep"></span>
+      <span class="tea-nav-label">Motion</span>
+      <a href="/movement">Movement</a>
+      <a href="/atlas/">Worlds</a>
+      <a href="/studies">Studies</a>
+      <a href="/engine">Engine</a>
+    </nav>
+    <div class="tea-chrome-end">
+      <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
+        <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
+      </button>
+    </div>
+  </header>
 
   <div class="shell">
-    
-    <!-- Top Header -->
-    <header>
-      <div class="brand-cluster">
-        <a href="/" style="display:flex; align-items:center; gap:10px;">
-          <div class="tea-seal">茶</div>
-          <span class="brand-title">Tea</span>
-        </a>
-
-        <!-- Universal Navigation Bar -->
-        <nav class="universal-nav" aria-label="Universal Navigation">
-          <span class="nav-label">🍵 TEA:</span>
-          <a href="/jury">👑 Jury</a>
-          <a href="/gallery/">🖼️ Stream</a>
-          <a href="/garden">🌿 Garden</a>
-          <a href="/portraits">👤 Portraits</a>
-          <a href="/exhibition">🏛️ Exhibition</a>
-          
-          <span class="nav-sep"></span>
-          
-          <span class="nav-label">⚡ MOTION:</span>
-          <a href="/movement">🎬 Video</a>
-          <a href="/atlas/">🌐 Worlds</a>
-          <a href="/studies" aria-current="page">🐎 Studies</a>
-          <a href="/engine">⚙️ Engine</a>
-        </nav>
-      </div>
-
-      <!-- Right Controls -->
-      <div class="header-right">
-        <button class="ritual-switch" id="themeSwitch" onclick="toggleTwilight()">
-          <span id="switchIcon">🌙</span> <span id="switchText">Nocturnal Study</span>
-        </button>
-      </div>
-    </header>
 
     <main>
       <section class="intro">

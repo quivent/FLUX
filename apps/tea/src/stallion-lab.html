@@ -3,32 +3,32 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Stallion Motion Lab — Tea Studies</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 <style>
 :root{--paper:#f7f5f0;--ink:#27231f;--soft:#776f66;--faint:#aaa198;--line:rgba(54,47,40,.15);--tea:#79583e;--red:#a63e39;--green:#607760;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% 0,rgba(231,181,182,.2),transparent 34rem),linear-gradient(180deg,#fff,var(--paper));font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit}.shell{width:min(1320px,calc(100% - 48px));margin:auto}header{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:25px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font:500 13px/1 var(--serif);letter-spacing:.28em;text-transform:uppercase}.seal{display:grid;place-items:center;width:32px;height:32px;border:1px solid rgba(121,88,62,.38);border-radius:50%;color:var(--tea);font-size:16px}nav{display:flex;gap:22px;overflow-x:auto}nav a{flex:0 0 auto;color:var(--soft);text-decoration:none;font-size:9px;letter-spacing:.16em;text-transform:uppercase}nav a[aria-current]{color:var(--ink);border-bottom:1px solid var(--tea);padding-bottom:5px}.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.5fr);gap:60px;align-items:end;padding:85px 0 60px}.eyebrow{color:var(--red);font-size:9px;letter-spacing:.26em;text-transform:uppercase}h1{margin:18px 0 0;font:400 clamp(56px,8vw,108px)/.86 var(--serif);letter-spacing:-.055em}.hero p{margin:0;color:var(--soft);font:18px/1.67 var(--serif)}.layout{display:grid;grid-template-columns:370px minmax(0,1fr);gap:18px;align-items:start;padding-bottom:100px}.panel{border:1px solid var(--line);background:rgba(255,255,255,.68);padding:25px}.panel.sticky{position:sticky;top:18px}.panel h2{margin:0 0 8px;font:400 30px/1 var(--serif)}.panel-copy{margin:0 0 22px;color:var(--soft);font:14px/1.55 var(--serif)}label{display:block;margin:16px 0 6px;color:var(--soft);font-size:8px;letter-spacing:.16em;text-transform:uppercase}input[type=number],select{width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);padding:11px;font:13px var(--mono)}.mode{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;margin:10px 0;padding:12px;border:1px solid var(--line);background:rgba(255,255,255,.52)}.mode input{margin-top:3px;accent-color:var(--tea)}.mode b{display:block;font:11px/1.3 var(--mono);text-transform:uppercase}.mode span{display:block;margin-top:4px;color:var(--soft);font:12px/1.4 var(--serif)}.row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.actions{display:flex;gap:9px;margin-top:20px}.actions button{flex:1;appearance:none;border:1px solid var(--ink);background:var(--ink);color:#fff;padding:12px 14px;font:9px var(--sans);letter-spacing:.16em;text-transform:uppercase;cursor:pointer}.actions button.secondary{border-color:var(--line);background:transparent;color:var(--ink)}.actions button:disabled{opacity:.4;cursor:default}.status{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}.state{display:flex;justify-content:space-between;gap:12px;font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase}.state b{color:var(--tea)}.bar{height:3px;margin:12px 0;background:var(--line)}.bar i{display:block;width:0;height:100%;background:var(--tea);transition:width .25s}.message{min-height:38px;color:var(--soft);font:13px/1.5 var(--serif)}.results{display:grid;gap:14px}.intro-card{padding:28px;border:1px solid var(--line);background:rgba(255,255,255,.55)}.intro-card h2{margin:0;font:400 36px/1 var(--serif)}.intro-card p{max-width:760px;color:var(--soft);font:15px/1.65 var(--serif)}.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:22px}.stage{padding:12px;background:var(--paper)}.stage b{display:block;font:15px/1 var(--serif)}.stage span{display:block;margin-top:6px;color:var(--faint);font-size:7px;letter-spacing:.12em;text-transform:uppercase}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{border:1px solid var(--line);background:rgba(255,255,255,.7);overflow:hidden}.card video{display:block;width:100%;aspect-ratio:1;object-fit:cover;background:#e7e2da}.body{padding:18px}.card-top{display:flex;justify-content:space-between;gap:12px;color:var(--faint);font:8px var(--mono);letter-spacing:.12em;text-transform:uppercase}.body h3{margin:12px 0 8px;font:400 25px/1 var(--serif)}.body p{margin:0;color:var(--soft);font:13px/1.5 var(--serif)}.metrics{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:16px;padding-top:13px;border-top:1px solid var(--line);color:var(--soft);font:8px var(--mono);letter-spacing:.08em;text-transform:uppercase}.sheet{display:block;width:100%;margin-top:14px;border:1px solid var(--line);background:#eee8df}.contact-details{border:1px solid var(--line);background:rgba(255,255,255,.55);padding:16px 18px}.contact-details summary{cursor:pointer;color:var(--tea);font:8px var(--mono);letter-spacing:.12em;text-transform:uppercase}.links{display:flex;gap:12px;margin-top:15px}.links a{color:var(--tea);font:8px var(--mono);letter-spacing:.12em;text-transform:uppercase}.empty{padding:60px;border:1px dashed var(--line);color:var(--soft);text-align:center;font:17px/1.5 var(--serif)}footer{display:flex;justify-content:space-between;gap:20px;padding:34px 0 45px;border-top:1px solid var(--line);color:var(--faint);font-size:8px;letter-spacing:.15em;text-transform:uppercase}@media(max-width:900px){.hero,.layout{grid-template-columns:1fr}.panel.sticky{position:static}.cards{grid-template-columns:1fr}.stages{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column;padding:20px 0}nav{width:100%;padding-bottom:5px}}@media(max-width:540px){.shell{width:min(100% - 26px,1320px)}.hero{padding:58px 0 40px}.row{grid-template-columns:1fr}}
 </style>
 </head>
-<body><div class="shell">
-<header>
-  <div style="display:flex; align-items:center; gap:16px;">
-    <a class="brand" href="/"><span class="seal">茶</span>Tea</a>
-    <nav aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.06); padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,0.08);">
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a href="/jury" style="color:#a63e39; font-weight:700;">👑 Jury</a>
-      <a href="/gallery/">🖼️ Stream</a>
-      <a href="/garden">🌿 Garden</a>
-      <a href="/portraits">👤 Portraits</a>
-      <a href="/exhibition">🏛️ Exhibition</a>
-      
-      <span style="width:1px; height:12px; background:rgba(0,0,0,0.15); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a href="/movement">🎬 Video</a>
-      <a href="/atlas/">🌐 Worlds</a>
-      <a href="/studies" style="color:var(--ink); font-weight:700;">🐎 Studies</a>
-      <a href="/engine">⚙️ Engine</a>
-    </nav>
-  </div>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
 </header>
+<div class="shell">
 <main><section class="hero"><div><div class="eyebrow">Computational study · object motion v2</div><h1>Stallion<br>Motion Lab</h1></div><p>Traverse the latent atlas, then admit only sequences where the stallion articulates against a stable field. Topology proposes; object motion decides.</p></section>
 <div class="layout">
 <aside class="panel sticky"><h2>Explore the field</h2><p class="panel-copy">Native cells only. Atlas composites, enlarged thumbnails, interpolation, moving backgrounds, camera substitution, and symmetric poses fail closed.</p>

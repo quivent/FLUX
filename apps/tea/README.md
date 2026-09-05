@@ -51,6 +51,7 @@ requests.
 | Route | Source |
 | --- | --- |
 | `/` | `public/index.html` |
+| `/consult` | `public/consult.html` |
 | `/gallery/`, `/portraits` | `public/gallery.html` |
 | `/movement` | `public/movement.html` |
 | `/studies` | study library plus generated-results gallery and compact history API |

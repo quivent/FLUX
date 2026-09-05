@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f7f5f0">
 <title>Exhibition — Tea Gallery</title>
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 <style>
   :root{--paper:#f7f5f0;--ink:#26221d;--soft:#777067;--line:rgba(53,44,36,.15);--red:#a63e39;--pink:#e7b5b6;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
   *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% 2%,rgba(231,181,182,.2),transparent 30rem),linear-gradient(180deg,#fff,var(--paper));font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-decoration:none}
@@ -19,25 +21,24 @@
   @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.frame{transition:none}.waiting i{animation:none}}
 </style>
 </head>
-<header>
-  <div style="display:flex; align-items:center; gap:16px;">
-    <a class="brand" href="/"><span class="seal">茶</span>Tea</a>
-    <nav class="site-nav" aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.06); padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,0.08);">
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a href="/jury" style="color:#a63e39; font-weight:700;">👑 Jury</a>
-      <a href="/gallery/">🖼️ Stream</a>
-      <a href="/garden">🌿 Garden</a>
-      <a href="/portraits">👤 Portraits</a>
-      <a href="/exhibition" style="color:var(--ink); font-weight:700;">🏛️ Exhibition</a>
-      
-      <span style="width:1px; height:12px; background:rgba(0,0,0,0.15); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--mono, monospace); font-size:9.5px; color:var(--soft); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a href="/movement">🎬 Video</a>
-      <a href="/atlas/">🌐 Worlds</a>
-      <a href="/engine">⚙️ Engine</a>
-    </nav>
-  </div>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
 </header>
 <main>
   <section class="intro">
@@ -68,6 +69,5 @@ function play(){clearInterval(timer);timer=setInterval(()=>{if(document.hidden||
 async function bootstrap(){try{const r=await fetch('/api/recent-images?scope=movement&limit=200',{cache:'no-store'}),j=await r.json();(j.images||[]).forEach(x=>accept(x.path||x.url,x.name))}catch(_){$('state-text').textContent='Waiting for the first state'}connect()}
 function connect(){socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/assets/ws');socket.onmessage=message=>{try{const event=JSON.parse(message.data),asset=event.asset||event;accept(asset.access_url||asset.url,asset.name)}catch(_){}};socket.onclose=()=>setTimeout(connect,1800);socket.onerror=()=>socket.close()}
 bootstrap();
-</script>
-<script src="/assets/sensory.js"></script></body>
+</script><script src="/assets/sensory.js"></script></body>
 </html>

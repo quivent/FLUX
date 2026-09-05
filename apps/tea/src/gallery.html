@@ -1,64 +1,34 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f7f5f0">
 <title>Images of Beauty — Tea Gallery</title>
 <!-- Tea Gallery — a living public collection. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 <style>
-  :root {
-    --base: #05060a;
-    --panel: rgba(255, 255, 255, 0.024);
-    --hair: rgba(255, 255, 255, 0.07);
-    --ink: #edf0f7;
-    --dim: #8b93a7;
-    --cyan: #3ad4e8;
-    --violet: #9d7bff;
-    --magenta: #ff5fa2;
-    --ok: #3ddc97;
-    --warn: #ffc46e;
-    --bad: #ff6470;
-    --display: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-  }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body {
-    margin: 0;
-    background:
-      radial-gradient(1100px 620px at 12% -12%, rgba(157, 123, 255, 0.11), transparent 62%),
-      radial-gradient(900px 520px at 108% 8%, rgba(58, 212, 232, 0.09), transparent 58%),
-      var(--base);
-    color: var(--ink);
-    font-family: var(--display);
-    -webkit-font-smoothing: antialiased;
-  }
-  .label { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+  .label { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--faint); font-family: var(--mono); }
   .num { font-variant-numeric: tabular-nums; }
-  .panel { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; }
-
-  header {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    padding: 18px 24px; border-bottom: 1px solid var(--hair);
-    position: sticky; top: 0; z-index: 5;
-    backdrop-filter: blur(14px); background: rgba(5, 6, 10, 0.82);
-  }
-  .word { font-size: 13px; letter-spacing: 0.44em; text-transform: uppercase; }
-  .word b { font-weight: 600; background: linear-gradient(96deg, var(--cyan), var(--violet) 52%, var(--magenta));
-            -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .collection-mark { margin-left: auto; color: var(--dim); font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+  .collection-mark { color: var(--faint); font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
   .collection-mark strong { color: var(--ink); font-size: 12px; font-weight: 500; }
-  .room-nav { display: flex; align-items: center; gap: 17px; font: 10px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; }
-  .room-nav a { color: var(--dim); }
-  .room-nav a[aria-current="page"] { color: var(--ink); }
 
-  main { padding: 22px 24px 64px; max-width: 1500px; margin: 0 auto; }
+  main { padding: 28px clamp(16px, 3vw, 40px) 80px; max-width: 1500px; margin: 0 auto; }
 
   .bar { display: flex; align-items: baseline; gap: 14px; margin: 26px 0 12px; }
-  .rule { flex: 1; height: 1px; background: var(--hair); }
+  .rule { flex: 1; height: 1px; background: var(--line); }
 
   .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+  /* Four rows: JS trims the wall to columnCount × MAX_ROWS. */
   .cell {
-    position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--hair);
-    background: #0a0c13; aspect-ratio: 1; display: block;
+    position: relative; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line);
+    background: var(--paper-subtle); aspect-ratio: 1; display: block;
     animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(9px) scale(0.985); } }
@@ -66,30 +36,31 @@
   .cell:hover img { transform: scale(1.045); }
   .cell figcaption {
     position: absolute; inset: auto 0 0 0; padding: 20px 10px 8px;
-    font-family: var(--mono); font-size: 10px; color: var(--ink);
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.86));
+    font-family: var(--mono); font-size: 10px; color: #f4f1ea;
+    background: linear-gradient(transparent, rgba(39, 35, 31, 0.78));
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .cell.fresh { border-color: rgba(58, 212, 232, 0.55); box-shadow: 0 0 0 1px rgba(58, 212, 232, 0.2), 0 0 34px rgba(58, 212, 232, 0.14); }
+  /* The live wall grows from its top-left corner. */
+  .cell.fresh { border-color: rgba(121, 88, 62, 0.55); box-shadow: 0 0 0 1px rgba(121, 88, 62, 0.18), 0 10px 28px rgba(121, 88, 62, 0.12); }
 
   .opening {
     display: flex; align-items: center; justify-content: center; gap: 16px;
-    min-height: 76px; margin-bottom: 14px; color: var(--dim);
+    min-height: 76px; margin-bottom: 14px; color: var(--soft);
     transition: opacity .35s ease, min-height .35s ease, margin .35s ease;
   }
   .opening.done { opacity: 0; min-height: 0; height: 0; margin: 0; overflow: hidden; }
   .opening-mark { position: relative; width: 42px; height: 42px; flex: 0 0 auto; animation: turn 7s linear infinite; }
-  .opening-mark i { position: absolute; left: 16px; top: 3px; width: 10px; height: 20px; border-radius: 80% 20% 80% 20%; background: linear-gradient(160deg, #fff, var(--magenta)); transform-origin: 5px 18px; opacity: .82; }
+  .opening-mark i { position: absolute; left: 16px; top: 3px; width: 10px; height: 20px; border-radius: 80% 20% 80% 20%; background: linear-gradient(160deg, #fff, var(--tea)); transform-origin: 5px 18px; opacity: .82; }
   .opening-mark i:nth-child(2) { transform: rotate(72deg); }.opening-mark i:nth-child(3) { transform: rotate(144deg); }
   .opening-mark i:nth-child(4) { transform: rotate(216deg); }.opening-mark i:nth-child(5) { transform: rotate(288deg); }
-  .opening b { display: block; color: var(--ink); font: 400 15px/1.2 var(--display); letter-spacing: .02em; }
+  .opening b { display: block; color: var(--ink); font: 400 18px/1.2 var(--serif); letter-spacing: .02em; }
   .opening span:last-child { display: block; margin-top: 5px; font: 10px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
   @keyframes turn { to { transform: rotate(360deg); } }
-  .cell.skeleton { border-color: rgba(255,255,255,.045); background: #090b11; pointer-events: none; animation: breatheTile 1.9s ease-in-out infinite alternate; }
-  .cell.skeleton:before { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, transparent 25%, rgba(255,255,255,.045) 42%, rgba(157,123,255,.08) 50%, transparent 68%); transform: translateX(-100%); animation: pass 2.4s ease-in-out infinite; }
+  .cell.skeleton { border-color: var(--line); background: var(--paper-subtle); pointer-events: none; animation: breatheTile 1.9s ease-in-out infinite alternate; }
+  .cell.skeleton:before { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, transparent 25%, rgba(255,255,255,.55) 42%, rgba(121,88,62,.08) 50%, transparent 68%); transform: translateX(-100%); animation: pass 2.4s ease-in-out infinite; }
   .cell.skeleton:nth-child(2n) { animation-delay: -.5s; }.cell.skeleton:nth-child(3n) { animation-delay: -1s; }
   @keyframes pass { 55%,100% { transform: translateX(100%); } }
-  @keyframes breatheTile { to { border-color: rgba(255,183,197,.13); background: #0c0d16; } }
+  @keyframes breatheTile { to { border-color: rgba(121, 88, 62, 0.28); background: #ebe6dc; } }
 
   .copy-btn {
     position: absolute;
@@ -101,11 +72,11 @@
     gap: 5px;
     padding: 5px 9px;
     border-radius: 6px;
-    background: rgba(10, 14, 23, 0.8);
+    background: rgba(247, 245, 240, 0.88);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #f1f5f9;
+    border: 1px solid var(--line);
+    color: var(--ink);
     font-family: var(--mono);
     font-size: 11px;
     font-weight: 500;
@@ -113,51 +84,55 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease, background 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px rgba(54, 47, 40, 0.12);
   }
   .copy-btn svg { width: 12px; height: 12px; fill: currentColor; }
   .cell:hover .copy-btn { opacity: 1; pointer-events: auto; }
-  .copy-btn:hover { background: rgba(25, 33, 50, 0.95); border-color: rgba(255, 255, 255, 0.45); transform: scale(1.04); color: #ffffff; }
-  .copy-btn.copied { background: rgba(16, 185, 129, 0.9); border-color: #10b981; color: #ffffff; opacity: 1 !important; }
+  .copy-btn:hover { background: #fff; border-color: var(--line-hover); transform: scale(1.04); color: var(--tea); }
+  .copy-btn.copied { background: var(--matcha); border-color: var(--matcha); color: #fff; opacity: 1 !important; }
 
-  .gallery-hero { margin: 18px 0 24px; padding-bottom: 18px; border-bottom: 1px solid var(--hair); }
-  .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--magenta, #ff5599); margin-bottom: 8px; }
+  .gallery-hero { margin: 8px 0 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--tea); margin-bottom: 8px; }
   .hero-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
-  .hero-title { font: 400 clamp(24px, 3.5vw, 36px)/1.15 var(--display); color: var(--ink); margin: 0; }
-  .hero-desc { font-size: 14px; color: var(--dim); line-height: 1.55; max-width: 820px; margin: 0; }
-  .live-pill { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(58, 212, 232, 0.4); background: rgba(58, 212, 232, 0.08); color: #3ad4e8; }
-  .live-pill .orb { width: 7px; height: 7px; border-radius: 50%; background: #3ad4e8; box-shadow: 0 0 8px #3ad4e8; animation: pulseOrb 2s infinite; }
-  .live-pill.curated { border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.08); color: #c084fc; }
-  .live-pill.curated .orb { background: #c084fc; box-shadow: 0 0 8px #c084fc; animation: none; }
+  .hero-title { font: 400 clamp(28px, 4vw, 44px)/1.1 var(--serif); color: var(--ink); margin: 0; letter-spacing: -0.03em; }
+  .hero-desc { font-size: 15px; color: var(--soft); line-height: 1.6; max-width: 820px; margin: 0; font-family: var(--serif); }
+  .live-pill { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(90, 115, 90, 0.35); background: var(--matcha-light); color: var(--matcha); }
+  .live-pill .orb { width: 7px; height: 7px; border-radius: 50%; background: var(--matcha); box-shadow: 0 0 8px rgba(90, 115, 90, 0.45); animation: pulseOrb 2s infinite; }
+  .live-pill.curated { border-color: rgba(121, 88, 62, 0.35); background: var(--tea-light); color: var(--tea); }
+  .live-pill.curated .orb { background: var(--tea); box-shadow: 0 0 8px rgba(121, 88, 62, 0.4); animation: none; }
   @keyframes pulseOrb { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
 
-  .empty { padding: 44px; text-align: center; color: var(--dim); font-size: 13px;
-           border: 1px dashed var(--hair); border-radius: 12px; }
-  .empty b { display: block; margin-bottom: 8px; color: var(--ink); font: 400 19px/1.3 var(--display); }
+  .empty { padding: 44px; text-align: center; color: var(--soft); font-size: 13px;
+           border: 1px dashed var(--line); border-radius: var(--radius); background: var(--card-bg); }
+  .empty b { display: block; margin-bottom: 8px; color: var(--ink); font: 400 22px/1.3 var(--serif); }
   .scroll-sentinel { height: 1px; margin-top: 72px; }
   a { color: inherit; text-decoration: none; }
 </style>
-
-<header>
-  <div style="display:flex; align-items:center; gap:16px;">
-    <a class="word" href="/">TEA <b>GALLERY</b></a>
-    <nav class="room-nav" aria-label="Universal Rooms" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.08);">
-      <span style="font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">🍵 TEA:</span>
-      <a href="/jury" style="color:#ffc83b; font-weight:700;">👑 Jury</a>
-      <a href="/gallery/" style="color:#fff;">🖼️ Stream</a>
-      <a href="/garden">🌿 Garden</a>
-      <a href="/portraits">👤 Portraits</a>
-      <a href="/exhibition">🏛️ Exhibition</a>
-      
-      <span style="width:1px; height:12px; background:rgba(255,255,255,0.18); margin:0 4px;"></span>
-      
-      <span style="font-family:var(--mono); font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; padding:0 2px;">⚡ MOTION:</span>
-      <a href="/movement">🎬 Video</a>
-      <a href="/atlas/">🌐 Worlds</a>
-      <a href="/engine">⚙️ Engine</a>
-    </nav>
+</head>
+<body class="tea-app">
+<header class="tea-chrome">
+  <a class="tea-brand" href="/">
+    <span class="tea-seal">茶</span>
+    <span class="tea-word">Tea</span>
+  </a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
+  <div class="tea-chrome-end">
+    <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
   </div>
-  <span class="collection-mark"><strong class="num" id="s-collection">0</strong> works</span>
 </header>
 
 <main>
@@ -191,9 +166,9 @@
 </main>
 
 <script>
-  // Paged, not capped. The wall held 1,184 frames while showing 96, so the
-  // body of work was unreachable from the page that exists to show it.
-  const PAGE = 24, FIRST_REVEAL = 12, REVEAL_MS = 0, PORTRAITS = location.pathname.startsWith('/portraits');
+  // Four rows on the wall. The archive is thousands of frames; showing all of
+  // them makes the page unusable. Newest stay; overflow is trimmed from the end.
+  const MAX_ROWS = 4, TILE_MIN = 232, TILE_GAP = 12, FIRST_REVEAL = 12, REVEAL_MS = 0, PORTRAITS = location.pathname.startsWith('/portraits');
   // historyOffset tracks how many items have been loaded from the paginated
   // history API. It must NOT be incremented by live-stream events — those
   // arrive outside the pagination window and would push the cursor forward,
@@ -229,10 +204,7 @@
     $('collection-name').textContent = 'Images of Beauty · Live Stream';
   }
 
-  document.querySelectorAll('.room-nav a').forEach((a) => {
-    const isSelf = PORTRAITS ? a.pathname === '/portraits' : a.pathname.startsWith('/gallery');
-    if (isSelf) a.remove();
-  });
+  // Stay inside the shared Tea shell. The current room is marked, not removed.
 
   // A 1024px render is ~1.6 MB; a wall of them is hundreds of megabytes over
   // two proxy hops. The server thumbnails to 384px and caches, so the grid
@@ -325,8 +297,31 @@
     if (fresh) setTimeout(() => fig.classList.remove('fresh'), 5000);
     $('empty').style.display = 'none';
     $('s-collection').textContent = total || seen.size;
-    updateShown();
+    trimWall();
     return true;
+  }
+
+  function columnCount() {
+    const grid = $('grid');
+    const w = grid.clientWidth || innerWidth;
+    return Math.max(1, Math.floor((w + TILE_GAP) / (TILE_MIN + TILE_GAP)));
+  }
+
+  function wallCap() {
+    return columnCount() * MAX_ROWS;
+  }
+
+  function trimWall() {
+    const cap = wallCap();
+    const cells = Array.from($('grid').querySelectorAll('.cell:not(.skeleton)'));
+    while (cells.length > cap) {
+      const extra = cells.pop();
+      const key = extra.dataset.fileKey;
+      if (key) seen.delete(key);
+      extra.remove();
+    }
+    $('more').hidden = true;
+    updateShown();
   }
 
   function updateShown() {
@@ -351,6 +346,13 @@
 
   async function backfill() {
     if (fetching) return;
+    const visible = $('grid').querySelectorAll('.cell:not(.skeleton)').length;
+    const need = wallCap() - visible;
+    if (need <= 0) {
+      $('more').hidden = true;
+      trimWall();
+      return;
+    }
     fetching = true;
     const firstPage = historyOffset === 0;
     try {
@@ -361,15 +363,12 @@
       // window; addCell silently skips any key already in `seen`, so duplicates
       // are harmless, but we only advance the cursor by items the server actually
       // returned (not by how many were visually new).
-      const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=' + PAGE + '&offset=' + historyOffset);
+      const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=' + need + '&offset=' + historyOffset);
       total = j.total || 0;
       $('s-collection').textContent = total;
       const returned = (j.images || []).length;
       historyOffset += returned;
-      // More pages remain when the cursor hasn't reached the total yet.
-      // We add liveLeadCount because those items sit in the grid above the
-      // history cursor but aren't counted in historyOffset.
-      $('more').hidden = (historyOffset + liveLeadCount) >= total || returned === 0;
+      $('more').hidden = true;
       // `path` before `url`: the server builds `url` absolute against its own
       // origin, which behind a gateway is the capability URL. Loading images
       // from that would leak the origin and break the page every time the
@@ -392,18 +391,15 @@
         queued.forEach(onAssetEvent);
       }
       fetching = false;
-      requestAnimationFrame(fillViewport);
+      trimWall();
     }
   }
 
-  function fillViewport() {
-    const sentinel = $('more');
-    if (!sentinel.hidden && sentinel.getBoundingClientRect().top < innerHeight + 800) backfill();
-  }
-
-  new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting) && !$('more').hidden) backfill();
-  }, { rootMargin: '800px 0px' }).observe($('more'));
+  window.addEventListener('resize', () => {
+    const visible = $('grid').querySelectorAll('.cell:not(.skeleton)').length;
+    if (visible > wallCap()) trimWall();
+    else if (visible < wallCap()) backfill();
+  });
 
   // The WebSocket is the branch's asset lane; SSE is the fallback that shipped
   // before it. Falling back rather than failing keeps this page working
@@ -425,79 +421,11 @@
     es.onerror = () => { es.close(); setTimeout(stream, 2000); };
   }
 
-  function setupJobsLiveStream() {
-    if (window.EventSource) {
-      const jobES = new EventSource('/api/jobs/events');
-      jobES.addEventListener('jobs', (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
-          // Replay arrives newest-first and each cell is prepended; walk it oldest-first so the newest ends on top. (fable 2026-08-21)
-          for (const j of doneJobs.slice().reverse()) {
-            const url = j.output_url || ('/outputs/' + (j.output || '').split('/').pop());
-            const key = normalizeKey(url);
-            if (key && !seen.has(key)) {
-              if (addCell(url, j.prompt || j.id, true, false)) {
-                total += 1;
-                $('s-collection').textContent = total;
-                updateShown();
-              }
-            }
-          }
-        } catch (_) {}
-      });
-    }
-
-    // High-frequency 2.5s live sync so newly completed frames shift the wall
-    // immediately. We wait until baselineReady so the first backfill() has
-    // established historyOffset before we start adding items via the live
-    // poll — otherwise items added here would fill `seen` before backfill
-    // gets to them, causing those items to be skipped in the history view.
-    function startLivePoll() {
-      setInterval(async () => {
-        try {
-          const j = await fetchJSON('/api/recent-images?scope=' + (PORTRAITS ? 'portraits' : 'images') + '&limit=12&offset=0');
-          const imgs = j.images || [];
-          // Walk oldest-first so the newest lands on top after prepending.
-          for (let i = imgs.length - 1; i >= 0; i--) {
-            const im = imgs[i];
-            const url = im.path || im.url;
-            const key = normalizeKey(url);
-            if (key && !seen.has(key)) {
-              if (addCell(url, im.name, true, false)) {
-                total = j.total || (total + 1);
-                liveLeadCount += 1;
-                $('s-collection').textContent = total;
-                // Re-evaluate the sentinel: a new live item increases total
-                // without advancing historyOffset, so more history may now
-                // be reachable.
-                $('more').hidden = (historyOffset + liveLeadCount) >= total;
-                updateShown();
-              }
-            }
-          }
-        } catch (_) {}
-      }, 2500);
-    }
-
-    // If backfill has already completed by the time we get here (fast network),
-    // start immediately. Otherwise wait for the baselineReady flag.
-    if (baselineReady) {
-      startLivePoll();
-    } else {
-      const waitForBaseline = setInterval(() => {
-        if (baselineReady) {
-          clearInterval(waitForBaseline);
-          startLivePoll();
-        }
-      }, 100);
-    }
-  }
-
   function onAsset(raw) {
     let ev;
     try { ev = JSON.parse(raw); } catch { return; }
     if (ev.event && ev.event !== 'ASSET_READY') return;
+    // replay never increments the collection; only assets after streamStartedAt count.
     if (ev.replay || Number(ev.ts || 0) < streamStartedAt - 1) return;
     if (!baselineReady) { pendingAssets.push(ev); return; }
     onAssetEvent(ev);
@@ -510,14 +438,15 @@
     const isPortrait = String(url).startsWith('/outputs/collections/');
     if (PORTRAITS !== isPortrait || String(url).startsWith('/outputs/atlas/')) return;
     if (!addCell(url, asset.name, true, false)) return; // Prepend to top
+    // Contract: if (!addCell(url, asset.name, true)) return — fourth arg is prepend=false.
     total += 1;
     // Do NOT increment historyOffset here. This asset arrived via the live
     // stream, not via the paginated history API. Advancing historyOffset would
     // shift the next history page request forward by 1, skipping a real item.
     liveLeadCount += 1;
     $('s-collection').textContent = total;
-    // Re-evaluate the "load more" sentinel now that total grew.
-    $('more').hidden = (historyOffset + liveLeadCount) >= total;
+    // Re-evaluate the scroll sentinel now that total grew.
+    $('more').hidden = true;
     updateShown();
   }
 
@@ -541,5 +470,7 @@
     }).catch(() => {});
   }
 
-  backfill(); stream(); setupJobsLiveStream();
+  backfill(); stream();
 </script>
+</body>
+</html>

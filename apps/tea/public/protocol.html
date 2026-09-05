@@ -267,39 +267,37 @@
       margin: 20px 0;
     }
   </style>
+  <link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 </head>
-<body>
+<body class="tea-app">
 
-  <!-- Universal Two-Tier Navigation -->
-  <header class="top-nav">
-    <a href="/" class="brand">
-      <div class="brand-seal">壱</div>
-      <span>INFLUX VISION</span>
+  <header class="tea-chrome">
+    <a class="tea-brand" href="/">
+      <span class="tea-seal">茶</span>
+      <span class="tea-word">Tea</span>
     </a>
-    <nav class="nav-tiers">
-      <div class="nav-tier-group">
-        <span class="nav-label">🍵 TEA:</span>
-        <a href="/jury" class="nav-link">👑 Jury</a>
-        <a href="/gallery" class="nav-link">🖼️ Stream</a>
-        <a href="/garden" class="nav-link">🌿 Garden</a>
-        <a href="/portraits" class="nav-link">👤 Portraits</a>
-        <a href="/exhibition" class="nav-link">🏛️ Exhibition</a>
-      </div>
-      <span class="nav-divider">|</span>
-      <div class="nav-tier-group">
-        <span class="nav-label">⚡ MOTION:</span>
-        <a href="/movement" class="nav-link">🎬 Video</a>
-        <a href="/atlas/" class="nav-link">🌐 Worlds</a>
-        <a href="/studies" class="nav-link">🐎 Studies</a>
-        <a href="/arcane" class="nav-link">🎨 Arcane</a>
-        <a href="/protocol" class="nav-link active">📜 Protocol</a>
-        <a href="/engine" class="nav-link">⚙️ Engine</a>
-      </div>
+    <nav class="tea-nav" aria-label="Tea">
+      <span class="tea-nav-label">Stillness</span>
+      <a href="/jury">Jury</a>
+      <a href="/consult">Direction</a>
+      <a href="/gallery/">Gallery</a>
+      <a href="/garden">Garden</a>
+      <a href="/portraits">Portraits</a>
+      <a href="/exhibition">Exhibition</a>
+      <span class="tea-nav-sep"></span>
+      <span class="tea-nav-label">Motion</span>
+      <a href="/movement">Movement</a>
+      <a href="/atlas/">Worlds</a>
+      <a href="/studies">Studies</a>
+      <a href="/engine">Engine</a>
     </nav>
-    <button class="ritual-switch" id="themeSwitch">
-      <span>🍵</span>
-      <span id="switchText">Living Parchment</span>
-    </button>
+    <div class="tea-chrome-end">
+      <button class="ritual-switch" id="themeSwitch">
+        <span>🍵</span>
+        <span id="switchText">Living Parchment</span>
+      </button>
+    </div>
   </header>
 
   <main class="container">
@@ -480,7 +478,6 @@ sequenceDiagram
     </section>
 
   </main>
-
   <script src="/assets/sensory.js"></script>
   <script>
     // Theme Switch

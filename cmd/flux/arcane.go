@@ -1735,6 +1735,7 @@ var arcaneSurfaceRoutes = []struct {
 }{
 	{"/arcane", "/arcane/", "arcane.html", true},
 	{"/jury", "/moj", "jury.html", false},
+	{"/consult", "/consult/", "consult.html", true},
 	{"/engine", "/engine-room", "engine.html", false},
 	{"/exhibition", "/exhibition/", "exhibition.html", true},
 	{"/gallery", "/gallery/", "gallery.html", true},

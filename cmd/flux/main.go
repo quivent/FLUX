@@ -458,7 +458,8 @@ func tea(cfg config.Config, args []string) error {
 func teaCheck(cfg config.Config) error {
 	root := filepath.Join(cfg.Root, "apps", "tea", "public")
 	required := []string{
-		"index.html", "gallery.html", "movement.html", "studies.html", "stallion-lab.html", "exhibition.html", "stallion.html", "sentinel.html",
+		"index.html", "gallery.html", "consult.html", "movement.html", "studies.html", "stallion-lab.html", "exhibition.html", "stallion.html", "sentinel.html",
+		"tea.css", "tea-shell.js",
 		"../studies.json",
 		"../protocols/stallion-motion-v2.json",
 		"assets/bell-learns-the-wind-contact.jpg",
@@ -2797,7 +2798,7 @@ func studio(cfg config.Config) error {
 
 func everythingCmd(cfg config.Config) error {
 	ui.Header("everything", "sovereign multi-engine estate posture (Gemma 31B + Qwen 3.8 + FLUX.1)")
-	
+
 	// 1. FLUX.1-dev resident status
 	client := daemon.New(cfg)
 	if _, err := client.Request(map[string]any{"op": "ping"}); err == nil {

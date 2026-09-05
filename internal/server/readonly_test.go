@@ -39,6 +39,7 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/api/studies", true},
 		{http.MethodGet, "/api/studies/stallion-motion", true},
 		{http.MethodGet, "/exhibition", true},
+		{http.MethodGet, "/consult", true},
 		{http.MethodGet, "/exhibition/stallion-atlas-exhibition.mp4", true},
 		{http.MethodGet, "/atelier/", true},
 		{http.MethodGet, "/motion-atlas/", true},
@@ -54,6 +55,12 @@ func TestReadOnlyGate(t *testing.T) {
 		// The gallery is unusable without thumbnails; a full-size wall is
 		// hundreds of megabytes.
 		{http.MethodGet, "/api/asset/thumbnail?w=384&src=/outputs/a.png", true},
+		{http.MethodGet, "/tea.css", true},
+		{http.MethodGet, "/tea-shell.js", true},
+		{http.MethodGet, "/tea/tea.css", true},
+		{http.MethodGet, "/tea/tea-shell.js", true},
+		{http.MethodGet, "/assets/sensory.js", true},
+		{http.MethodGet, "/jury", true},
 
 		// Renders, warmups and cancels all cost GPU time or money.
 		{http.MethodPost, "/api/render", false},
@@ -64,6 +71,7 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodPost, "/api/warm", false},
 		{http.MethodPost, "/api/atlas", false},
 		{http.MethodPost, "/api/governor/chat", false},
+		{http.MethodPost, "/api/tea/consult", false},
 		{http.MethodPost, "/api/jobs", false},
 		{http.MethodGet, "/api/jobs/abc/cancel", false},
 		// A GET is not automatically safe: warm loads the model.

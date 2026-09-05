@@ -662,6 +662,7 @@ class ServerRoutes:
 FALLBACK_SURFACES = [
     {"surface": "arcane", "file": "arcane.html", "routes": ["/arcane", "/arcane/"], "handlers": ["arcanePage"]},
     {"surface": "jury", "file": "jury.html", "routes": ["/jury", "/jury/", "/moj", "/moj/"], "handlers": ["juryPage"]},
+    {"surface": "consult", "file": "consult.html", "routes": ["/consult", "/consult/"], "handlers": ["consultPage"]},
     {"surface": "engine", "file": "engine.html", "routes": ["/engine", "/engine/", "/engine-room", "/engine-room/"], "handlers": ["enginePage"]},
     {"surface": "exhibition", "file": "exhibition.html", "routes": ["/exhibition", "/exhibition/"], "handlers": ["exhibition"]},
     {"surface": "gallery", "file": "gallery.html", "routes": ["/gallery", "/gallery/"], "handlers": ["gallery"]},

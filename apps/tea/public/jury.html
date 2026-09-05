@@ -3,36 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#020408">
+  <meta name="theme-color" content="#f7f5f0">
   <title>The Jury Chamber · Visual Spectacle Arena</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tea.css">
+<script src="/tea-shell.js"></script>
 
   <style>
     :root {
-      --bg: #020408;
-      --bg-surface: rgba(8, 12, 20, 0.7);
-      --bg-card: rgba(13, 19, 32, 0.6);
-      --border: rgba(255, 255, 255, 0.07);
-      --border-hover: rgba(255, 255, 255, 0.18);
+      --bg: var(--paper);
+      --bg-surface: var(--card-bg);
+      --bg-card: rgba(255, 255, 255, 0.88);
+      --border: var(--line);
+      --border-hover: var(--line-hover);
       
-      --gold: #ffc83b;
-      --gold-glow: rgba(255, 200, 59, 0.25);
-      --cyan: #00f0ff;
-      --cyan-glow: rgba(0, 240, 255, 0.2);
-      --emerald: #10b981;
-      --purple: #c084fc;
-      --rose: #ff3377;
+      --gold: #b38938;
+      --gold-glow: rgba(179, 137, 56, 0.18);
+      --cyan: #5a735a;
+      --cyan-glow: rgba(90, 115, 90, 0.16);
+      --emerald: #5a735a;
+      --purple: #79583e;
+      --rose: #a63e39;
       
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #475569;
+      --text: var(--ink);
+      --text-muted: var(--soft);
+      --text-dim: var(--faint);
+      --text-main: var(--ink);
       
-      --font-serif: 'Cinzel', serif;
-      --font-sans: 'Inter', system-ui, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --font-serif: "Iowan Old Style", Palatino, Georgia, serif;
+      --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,23 +47,26 @@
       min-height: 100vh;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      padding: 24px 32px 64px;
+      padding: 0 0 64px;
       overflow-x: hidden;
     }
 
     .shell {
       max-width: 1600px;
       margin: 0 auto;
+      padding: 24px 32px 0;
     }
 
-    /* Minimalist Top Navigation */
-    header {
+    /* Page title row under the shared chrome */
+    .jury-masthead {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding-bottom: 20px;
       margin-bottom: 24px;
       border-bottom: 1px solid var(--border);
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
     .brand {
@@ -112,9 +118,9 @@
     .btn-toggle-tuning {
       font-family: var(--font-mono);
       font-size: 11.5px;
-      background: rgba(255, 200, 59, 0.08);
-      border: 1px solid rgba(255, 200, 59, 0.3);
-      color: var(--gold);
+      background: var(--tea-light);
+      border: 1px solid rgba(121, 88, 62, 0.28);
+      color: var(--tea);
       padding: 6px 14px;
       border-radius: 6px;
       cursor: pointer;
@@ -125,20 +131,20 @@
     }
 
     .btn-toggle-tuning:hover {
-      background: rgba(255, 200, 59, 0.16);
+      background: rgba(121, 88, 62, 0.16);
       box-shadow: 0 0 16px var(--gold-glow);
     }
 
     /* Collapsible Minimalist Tuning Drawer */
     .tuning-drawer {
       display: none;
-      background: rgba(10, 15, 25, 0.95);
+      background: var(--card-bg-hover);
       border: 1px solid var(--border-hover);
       border-radius: 12px;
       padding: 20px 24px;
       margin-bottom: 28px;
       backdrop-filter: blur(20px);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 16px 40px rgba(54, 47, 40, 0.08);
       animation: slideDown 0.25s ease;
     }
 
@@ -223,7 +229,7 @@
       border-radius: 10px;
       overflow: hidden;
       position: relative;
-      background: #03060a;
+      background: var(--paper-subtle);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -325,7 +331,7 @@
 
     .hero-prompt-prose {
       font-size: 14px;
-      color: #f1f5f9;
+      color: var(--ink);
       font-weight: 400;
       line-height: 1.6;
     }
@@ -581,7 +587,7 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #f1f5f9;
+      color: var(--ink);
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 500;
@@ -624,9 +630,9 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background: rgba(16, 22, 38, 0.95);
+      background: var(--paper-soft);
       border: 1px solid var(--gold);
-      color: var(--gold);
+      color: var(--tea);
       padding: 10px 18px;
       border-radius: 8px;
       font-family: var(--font-mono);
@@ -638,38 +644,42 @@
     }
   </style>
 </head>
-<body>
+<body class="tea-app">
+
+<header class="tea-chrome">
+  <a class="tea-brand" href="/">
+    <span class="tea-seal">茶</span>
+    <span class="tea-word">Tea</span>
+  </a>
+  <nav class="tea-nav" aria-label="Tea">
+    <span class="tea-nav-label">Stillness</span>
+    <a href="/jury">Jury</a>
+    <a href="/consult">Direction</a>
+    <a href="/gallery/">Gallery</a>
+    <a href="/garden">Garden</a>
+    <a href="/portraits">Portraits</a>
+    <a href="/exhibition">Exhibition</a>
+    <span class="tea-nav-sep"></span>
+    <span class="tea-nav-label">Motion</span>
+    <a href="/movement">Movement</a>
+    <a href="/atlas/">Worlds</a>
+    <a href="/studies">Studies</a>
+    <a href="/engine">Engine</a>
+  </nav>
+  <div class="tea-chrome-end">
+    <button class="btn-toggle-tuning" onclick="toggleTuning()">
+      <span>⚙</span> Calibrate Jury
+    </button>
+  </div>
+</header>
 
 <div class="shell">
-  <!-- Minimalist Universal Header -->
-  <header>
+  <div class="jury-masthead">
     <div class="brand">
-      <h1><span style="color:var(--gold); font-family:var(--font-serif); margin-right:4px;">茶</span> The Jury Chamber</h1>
+      <h1>The Jury Chamber</h1>
       <span>Sovereign Visual Criticism Arena</span>
     </div>
-
-    <!-- Universal Bipartition Navigation -->
-    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-      <nav class="universal-nav" style="display:flex; gap:5px; align-items:center; background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.1);">
-        <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-dim); text-transform:uppercase; padding:0 2px; letter-spacing:0.08em;">🍵 TEA:</span>
-        <a class="nav-link" style="color:var(--gold); border-color:rgba(255,200,59,0.5); background:rgba(255,200,59,0.12); font-weight:700;" href="/jury">👑 Jury</a>
-        <a class="nav-link" href="/gallery/">🖼️ Stream</a>
-        <a class="nav-link" href="/garden">🌿 Garden</a>
-        <a class="nav-link" href="/portraits">👤 Portraits</a>
-        
-        <span style="width:1px; height:12px; background:rgba(255,255,255,0.2); margin:0 4px;"></span>
-        
-        <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-dim); text-transform:uppercase; padding:0 2px; letter-spacing:0.08em;">⚡ MOTION:</span>
-        <a class="nav-link" href="/movement">🎬 Video</a>
-        <a class="nav-link" href="/atlas/">🌐 Worlds</a>
-        <a class="nav-link" href="/engine">⚙️ Engine</a>
-      </nav>
-
-      <button class="btn-toggle-tuning" onclick="toggleTuning()">
-        <span>⚙️</span> Calibrate Jury
-      </button>
-    </div>
-  </header>
+  </div>
 
   <!-- Collapsible Minimalist Tuning Drawer -->
   <div class="tuning-drawer" id="tuningDrawer">
@@ -739,7 +749,7 @@
 
       <!-- Actions -->
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <select id="presetSelect" class="nav-link" style="background:#080c14; width:100%;" onchange="loadPreset(this.value)">
+        <select id="presetSelect" class="nav-link" style="background:var(--paper-soft); width:100%; color:var(--ink);" onchange="loadPreset(this.value)">
           <option value="">Load Preset...</option>
         </select>
         <button class="nav-link" style="background:var(--gold); color:#000; font-weight:700; cursor:pointer;" onclick="saveActiveConfig()">Apply & Persist</button>
@@ -1300,6 +1310,5 @@
   pollJury();
   setInterval(pollJury, 2000);
 </script>
-
 <script src="/assets/sensory.js"></script></body>
 </html>

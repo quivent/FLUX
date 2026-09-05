@@ -340,12 +340,18 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/jury/", s.juryPage)
 	mux.HandleFunc("/moj", s.juryPage)
 	mux.HandleFunc("/moj/", s.juryPage)
+	mux.HandleFunc("/consult", s.consultPage)
+	mux.HandleFunc("/consult/", s.consultPage)
+	mux.HandleFunc("/api/tea/consult", s.teaConsult)
 	mux.HandleFunc("/portal", s.portalPage)
 	mux.HandleFunc("/portal/", s.portalPage)
 	mux.HandleFunc("/garden", s.gardenPage)
 	mux.HandleFunc("/garden/", s.gardenPage)
 	mux.HandleFunc("/tea", s.gardenPage)
 	mux.HandleFunc("/tea/", s.gardenPage)
+	mux.HandleFunc("/tea.css", s.teaChromeAsset)
+	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
+	mux.HandleFunc("/assets/", s.teaPublicAsset)
 	mux.HandleFunc("/studies", s.teaStudiesPage)
 	mux.HandleFunc("/studies/", s.teaStudiesPage)
 	mux.HandleFunc("/api/studies", s.teaStudiesAPI)
@@ -412,8 +418,14 @@ var readOnlyPaths = []string{
 	"/protocol",
 	"/spec",
 	"/sentinel",
+	"/consult",
 	"/exhibition",
 	"/atelier",
+	"/tea.css",
+	"/tea-shell.js",
+	"/tea",
+	"/assets",
+	"/jury",
 	// Motion Atlas may be browsed from the public listener, but all of its
 	// generation controls remain blocked because this gate also requires GET
 	// or HEAD and does not expose the render/model mutation routes.
@@ -522,6 +534,37 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name != "tea.css" && name != "tea-shell.js" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", name))
+}
+
+func (s Server) teaPublicAsset(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/assets/")
+	rel = path.Clean("/" + rel)
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "." || strings.Contains(rel, "..") {
+		http.NotFound(w, r)
+		return
+	}
+	root := filepath.Join(s.cfg.Root, "apps", "tea", "public", "assets")
+	file := filepath.Join(root, filepath.FromSlash(rel))
+	if file != root && !strings.HasPrefix(file, root+string(os.PathSeparator)) {
+		http.NotFound(w, r)
+		return
+	}
+	info, err := os.Stat(file)
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, file)
 }
 
 func (s Server) gardenPage(w http.ResponseWriter, r *http.Request) {
@@ -798,8 +841,7 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "index.html"
 	}
-	// The page is deliberately a single self-contained file, so an allowlist of
-	// one is the whole surface: anything else is a path we never meant to serve.
+	// The gallery HTML is one file; shared parchment chrome lives at /tea.css.
 	if name != "index.html" {
 		http.NotFound(w, r)
 		return
@@ -835,6 +877,84 @@ func (s Server) portraits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+}
+
+func (s Server) consultPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/consult/" {
+		http.Redirect(w, r, "/consult", http.StatusPermanentRedirect)
+		return
+	}
+	if r.URL.Path != "/consult" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "consult.html"))
+}
+
+const teaConsultSystem = `You are the Governor of Tea, the living image garden of Influx Vision.
+Consult on aesthetic direction: what to pursue, still, exhibit, refuse, or hold longer.
+Speak as a director of this garden — short, specific, decisive. No operator telemetry, no tooling chatter.
+Rooms the human can open: Jury, Gallery, Garden, Portraits, Exhibition, Movement, Studies, Engine.
+Stillness and motion are one work.`
+
+func (s Server) teaConsult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	var req map[string]any
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	rawMsgs, _ := req["messages"].([]any)
+	out := make([]map[string]any, 0, len(rawMsgs)+1)
+	hasSystem := false
+	for _, item := range rawMsgs {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if stringValue(m["role"]) == "system" {
+			hasSystem = true
+		}
+		out = append(out, m)
+	}
+	if !hasSystem {
+		out = append([]map[string]any{{"role": "system", "content": teaConsultSystem}}, out...)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"model":       "governor",
+		"messages":    out,
+		"temperature": 0.35,
+		"max_tokens":  2048,
+		"stream":      false,
+	})
+	if err != nil {
+		http.Error(w, "unable to encode Governor request", http.StatusInternalServerError)
+		return
+	}
+	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://governor.influx.vision/v1/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		http.Error(w, "unable to create Governor request", http.StatusInternalServerError)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	response, err := (&http.Client{Timeout: 5 * time.Minute}).Do(request)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	defer response.Body.Close()
+	w.Header().Set("Content-Type", response.Header.Get("Content-Type"))
+	w.WriteHeader(response.StatusCode)
+	_, _ = io.Copy(w, response.Body)
 }
 
 func (s Server) sentinelPage(w http.ResponseWriter, r *http.Request) {
