@@ -1379,6 +1379,16 @@ def _base_runtime() -> Dict[str, Any]:
         if url:
             endpoints[served]["base_url"] = _normalise_base_url(url)
 
+    model_env_map = {
+        VISUAL_WITNESS: "MOJ_VISUAL_WITNESS_MODEL",
+        PIXTRAL_CRITIC: "MOJ_PIXTRAL_MODEL",
+        GOVERNOR: "MOJ_GOVERNOR_MODEL",
+    }
+    for served, name in model_env_map.items():
+        model = os.environ.get(name)
+        if model:
+            endpoints[served]["model"] = model.strip()
+
     enable_map = {
         VISUAL_WITNESS: "MOJ_VISUAL_WITNESS_ENABLED",
         PIXTRAL_CRITIC: "MOJ_PIXTRAL_ENABLED",

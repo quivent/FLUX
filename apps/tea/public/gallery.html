@@ -127,6 +127,19 @@
   .empty b { display: block; margin-bottom: 8px; color: var(--ink); font: 400 22px/1.3 var(--serif); }
   .scroll-sentinel { height: 1px; margin-top: 72px; }
   a { color: inherit; text-decoration: none; }
+  .image-viewer {
+    width: 100vw; max-width: none; height: 100vh; max-height: none; margin: 0;
+    padding: 0; border: 0; background: rgba(17, 15, 13, .94); color: #fff;
+  }
+  .image-viewer::backdrop { background: rgba(17, 15, 13, .94); }
+  .image-viewer[open] { display: grid; place-items: center; }
+  .image-viewer img { display: block; max-width: 96vw; max-height: 92vh; object-fit: contain; }
+  .viewer-close {
+    position: fixed; top: 16px; right: 18px; z-index: 2; width: 42px; height: 42px;
+    border: 1px solid rgba(255,255,255,.35); border-radius: 999px;
+    background: rgba(17,15,13,.72); color: #fff; cursor: pointer; font: 28px/1 var(--sans);
+  }
+  .cell > a { cursor: zoom-in; }
 </style>
 
 <header class="tea-chrome">
@@ -172,18 +185,19 @@
   <aside class="board" id="board">
     <div class="board-head">
       <h2>Jury</h2>
-      <span class="saved" id="boardSaved">checking live services</span>
+      <span class="saved" id="boardSaved">live · write-through</span>
     </div>
     <div class="board-top">
       <div>
         <div class="label">Flow</div>
         <div class="flow" id="flow">
-          <div class="st"><b>executor</b>checking</div>
-          <div class="st"><b>asset stream</b>checking</div>
-          <div class="st"><b>sensory gates</b>checking</div>
-          <div class="st"><b>multimodal jury</b>checking</div>
-          <div class="st"><b>governor</b>checking</div>
-          <div class="st"><b>verdicts</b>checking</div>
+          <div class="st"><b>generate</b>FLUX</div>
+          <div class="st"><b>uniqueness</b>sieve</div>
+          <div class="st"><b>sensory gates</b>gates</div>
+          <div class="st"><b>witness</b>structure</div>
+          <div class="st"><b>pixtral</b>beauty</div>
+          <div class="st"><b>governor</b>law</div>
+          <div class="st"><b>composite</b>verdict</div>
         </div>
         <div class="now" id="now">waiting for a frame</div>
       </div>
@@ -192,9 +206,9 @@
         <div class="verdict" id="verdict">no receipt yet</div>
       </div>
     </div>
-    <div class="label">Configuration not exposed on the public gallery</div>
-    <div class="board-params" id="boardParams" style="display:none"></div>
-    <div class="board-toggles" style="display:none">
+    <div class="label">Parameters · write through</div>
+    <div class="board-params" id="boardParams"></div>
+    <div class="board-toggles">
       <label><input type="checkbox" id="b-adv"> adversarial</label>
       <label><input type="checkbox" id="b-uniq" checked> uniqueness</label>
       <label><input type="checkbox" id="b-gates" checked> text from gates</label>
@@ -216,6 +230,10 @@
     <span class="cell skeleton"></span><span class="cell skeleton"></span><span class="cell skeleton"></span>
     <span class="cell skeleton"></span><span class="cell skeleton"></span><span class="cell skeleton"></span>
   </div>
+  <dialog class="image-viewer" id="imageViewer" aria-label="Full-size image viewer">
+    <button class="viewer-close" id="viewerClose" type="button" aria-label="Close full-size image">×</button>
+    <img id="viewerImage" alt="Full-size collection image">
+  </dialog>
   <div id="more" class="scroll-sentinel" hidden aria-hidden="true"></div>
   <div class="empty" id="empty" style="display:none"><b>The garden is between breaths.</b>New work will appear here as soon as the next frame settles.</div>
 </main>
@@ -238,8 +256,8 @@
   const FASHION = FASHION_COLLECTION;
   const LIVE_BANNED = { fashion: 1, arcane: 1, microgreens: 1, portraits: 1 };
   const SPROUT = /microgreen|sprout|rambo|belarro|pea[\s_-]*shoot|cotyledon/i;
-  let LIVE_SLUG = '';
-  let ROOM_SCOPE = PORTRAITS ? 'portraits' : ARCANE ? 'arcane' : FASHION_COLLECTION ? 'fashion' : MICROGREENS ? 'microgreens' : BRANCH ? COLLECTION_SLUG : '';
+  let LIVE_SLUG = LIVE_GALLERY ? 'relative-beauty' : '';
+  let ROOM_SCOPE = PORTRAITS ? 'portraits' : ARCANE ? 'arcane' : FASHION_COLLECTION ? 'fashion' : MICROGREENS ? 'microgreens' : BRANCH ? COLLECTION_SLUG : (LIVE_GALLERY ? 'relative-beauty' : '');
   const VANITY = /princess|rose|celadon|kintsugi|tea[\s_-]*bowl|italian supermodel|italian-supermodel/i;
   // historyOffset tracks how many items have been loaded from the paginated
   // history API. It must NOT be incremented by live-stream events — those
@@ -248,6 +266,25 @@
   let historyOffset = 0, total = 0;
   let fetching = false, opened = false;
   const $ = (id) => document.getElementById(id);
+  const imageViewer = $('imageViewer');
+  const viewerImage = $('viewerImage');
+
+  function closeImageViewer() {
+    if (imageViewer.open) imageViewer.close();
+    viewerImage.removeAttribute('src');
+  }
+
+  $('grid').addEventListener('click', (event) => {
+    const link = event.target.closest('.cell > a');
+    if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    viewerImage.src = link.href;
+    imageViewer.showModal();
+  });
+  $('viewerClose').addEventListener('click', closeImageViewer);
+  imageViewer.addEventListener('click', (event) => {
+    if (event.target === imageViewer) closeImageViewer();
+  });
   const seen = new Set();
   const streamStartedAt = Date.now() / 1000;
   let baselineReady = false, pendingAssets = [];
@@ -294,14 +331,14 @@
     $('collection-name').textContent = 'Collection · Microgreens';
     $('empty').innerHTML = '<b>No microgreen frames yet.</b>Start the studio at /studio/microgreens.';
   } else if (LIVE_GALLERY) {
-    document.title = 'Relative Beauty — Live Tea Gallery';
-    $('hero-eyebrow').textContent = 'LIVE · GPU 0 · RESIDENT FLUX.1 DEV';
-    $('hero-title').textContent = 'Relative Beauty';
-    $('hero-desc').textContent = '“A unique image of beauty, not yet known or seen, but of absolute pure identifyable beauty”';
+    document.title = 'Silken Horses — Tea Gallery';
+    $('hero-eyebrow').textContent = 'LIVE · GPU 3 FP8 · SILKEN-HORSES';
+    $('hero-title').textContent = 'Silken Horses';
+    $('hero-desc').textContent = 'The live GPU 3 beauty wall. Sprouts and microgreens never land here.';
     $('live-pill').className = 'live-pill';
-    $('live-pill').innerHTML = '<i class="orb"></i> LIVE EVIDENCE';
-    $('collection-name').textContent = 'Beauty Protocol · live outputs';
-    $('empty').innerHTML = '<b>No resident-FLUX output yet.</b>This wall only shows files observed through the live output API.';
+    $('live-pill').innerHTML = '<i class="orb"></i> GPU 3';
+    $('collection-name').textContent = 'Collection · silken-horses';
+    $('empty').innerHTML = '<b>Waiting for a new brief.</b>Sprouts are not this wall.';
   } else if (BRANCH) {
     const label = COLLECTION_SLUG.replace(/-/g, ' ');
     document.title = label + ' — Collection';
@@ -399,7 +436,7 @@
     if (/protocol-stream-/i.test(raw) || /protocol-gpu/i.test(raw)) return raw;
     let hash = 2166136261;
     for (const ch of raw) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
-    return raw;
+    return LEGACY_TITLES[(hash >>> 0) % LEGACY_TITLES.length];
   }
 
   function normalizeKey(url) {
@@ -421,8 +458,7 @@
     }
     if (LIVE_GALLERY) {
       if (SPROUT.test(pathHay) || u.includes('/microgreens/') || /protocol-microgreens/i.test(pathHay)) return false;
-      if (!LIVE_SLUG) return !u.includes('/collections/');
-      if (LIVE_BANNED[LIVE_SLUG]) return false;
+      if (!LIVE_SLUG || LIVE_BANNED[LIVE_SLUG]) return false;
       const prefix = '/collections/' + LIVE_SLUG + '/';
       return u.includes(prefix) || String(name || '').indexOf('protocol-' + LIVE_SLUG) === 0;
     }
@@ -557,33 +593,6 @@
     return r.json();
   }
 
-
-  async function refreshLiveTruth() {
-    if (!LIVE_GALLERY) return;
-    try {
-      const [health, jury, branches] = await Promise.all([
-        fetchJSON('/api/health'), fetchJSON('/api/jury/spectacles'), fetchJSON('/api/protocol/branches')
-      ]);
-      const workers = (health.fleet && health.fleet.workers) || [];
-      const flux = workers.find((w) => Number(w.gpu) === 0);
-      const verdicts = Array.isArray(jury.spectacles) ? jury.spectacles : [];
-      const running = (branches.branches || []).filter((b) => b.status === 'running');
-      $('flow').innerHTML =
-        '<div class="st"><b>executor</b>' + (flux && flux.loaded ? 'GPU 0 resident' : 'offline') + '</div>' +
-        '<div class="st"><b>asset stream</b>' + (health.piper_reachable ? 'Piper connected' : 'disconnected') + '</div>' +
-        '<div class="st"><b>sensory gates</b>not reported by API</div>' +
-        '<div class="st"><b>multimodal jury</b>' + (verdicts.length ? 'reporting' : 'no reports') + '</div>' +
-        '<div class="st"><b>governor</b>' + (running.length ? 'loop active' : 'protocol only') + '</div>' +
-        '<div class="st"><b>verdicts</b>' + verdicts.length + ' receipts</div>';
-      $('boardSaved').textContent = 'live · read-only · ' + new Date().toLocaleTimeString();
-      $('now').textContent = flux && flux.loaded ? flux.jobs + ' render jobs observed · output API live' : 'resident executor unavailable';
-      $('verdict').textContent = verdicts.length ? 'latest verified jury receipt available' : 'no jury receipt yet — images are unscored';
-    } catch (_) {
-      $('boardSaved').textContent = 'live telemetry unavailable';
-      $('verdict').textContent = 'unknown — endpoint read failed';
-    }
-  }
-
   function paintLiveHero(branch) {
     if (!LIVE_GALLERY || !branch) return;
     const slug = branch.slug;
@@ -656,6 +665,10 @@
 
   async function backfill() {
     if (PORTRAITS) return loadTopRated();
+    if (LIVE_GALLERY && !ROOM_SCOPE) {
+      finishOpening(false);
+      return;
+    }
     if (fetching) return;
     const visible = $('grid').querySelectorAll('.cell:not(.skeleton)').length;
     const need = wallCap() - visible;
@@ -858,7 +871,7 @@
     if (ARCANE) return "arcane";
     if (FASHION_COLLECTION) return "fashion";
     if (COLLECTION_SLUG) return COLLECTION_SLUG;
-    return ROOM_SCOPE || LIVE_SLUG || "silken-horses";
+    return ROOM_SCOPE || LIVE_SLUG || "relative-beauty";
   }
   function showBoard() { return LIVE_GALLERY || BRANCH; }
 
@@ -982,7 +995,7 @@
     const board = $("board");
     if (board) board.hidden = false;
     try {
-      const d = await fetchJSON("/api/protocol/route?scope=" + encodeURIComponent(ROOM_SCOPE || LIVE_SLUG || "silken-horses"));
+      const d = await fetchJSON("/api/protocol/route?scope=" + encodeURIComponent(ROOM_SCOPE || LIVE_SLUG || "relative-beauty"));
       const gen = (d.generating || [])[0];
       paintFlow(d.station, gen ? String(gen.filename || gen.id).split("/").pop() : "");
       paintNow(d);
@@ -1009,9 +1022,7 @@
   }
 
   (async function boot() {
-    refreshLiveTruth();
-    setInterval(refreshLiveTruth, 2500);
-    // The founding Beauty experiment owns this wall; legacy branches cannot retitle it.
+    if (LIVE_GALLERY) await resolveLiveGallery();
     if (showBoard()) {
       $("board").hidden = false;
       drawParams(boardJury);

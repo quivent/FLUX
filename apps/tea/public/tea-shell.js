@@ -4,6 +4,7 @@
     '<a class="tea-brand" href="/"><span class="tea-seal">茶</span><span class="tea-word">Tea</span></a>' +
     '<nav class="tea-nav" aria-label="Tea">' +
       '<a href="/gallery/">Gallery</a>' +
+      '<a href="/collections">Collections</a>' +
       '<a href="/protocol">Protocol</a>' +
       '<a href="/evening">Evening</a>' +
       '<a href="/jury">Jury</a>' +

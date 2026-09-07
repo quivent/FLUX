@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "models": [
+    {"id":"black-forest-labs/FLUX.1-dev","role":"generator","r2_prefix":"models/black-forest-labs/FLUX.1-dev","path":"/models/FLUX.1-dev","sentinels":["model_index.json","transformer","vae"]},
+    {"id":"facebook/dinov2-giant","role":"integrity","r2_prefix":"models/facebook/dinov2-giant","path":"/models/facebook/dinov2-giant","sentinels":["config.json"]},
+    {"id":"google/siglip-base-patch16-224","role":"aesthetic","r2_prefix":"models/google/siglip-base-patch16-224","path":"/models/google/siglip-base-patch16-224","sentinels":["config.json"]},
+    {"id":"RedHatAI/pixtral-12b-quantized.w4a16","role":"vision-critic","r2_prefix":"models/RedHatAI/pixtral-12b-quantized.w4a16","path":"/models/RedHatAI/pixtral-12b-quantized.w4a16","sentinels":["config.json"]}
+  ]
+}

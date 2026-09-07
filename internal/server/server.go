@@ -335,6 +335,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/jury/sync-r2", s.jurySyncR2API)
 	mux.HandleFunc("/api/jury/spectacles", s.jurySpectaclesAPI)
 	mux.HandleFunc("/api/jury/feedback", s.juryFeedbackAPI)
+	mux.HandleFunc("/api/relative-beauty/state", s.relativeBeautyStateAPI)
+	mux.HandleFunc("/api/relative-beauty/control", s.relativeBeautyControlAPI)
 	mux.HandleFunc("/api/protocol", s.protocolAPI)
 	mux.HandleFunc("/api/protocol/branches", s.protocolBranchesAPI)
 	mux.HandleFunc("/api/studios", s.studiosAPI)
@@ -860,7 +862,11 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 	rel = strings.TrimPrefix(rel, "/jury")
 	rel = strings.TrimPrefix(rel, "/")
 	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
-	if rel == "" || rel == "index.html" || rel == "arcane" || rel == "arcane.html" {
+	if rel == "" || rel == "index.html" {
+		http.ServeFile(w, r, filepath.Join(public, "relative-beauty.html"))
+		return
+	}
+	if rel == "arcane" || rel == "arcane.html" {
 		http.ServeFile(w, r, filepath.Join(public, "study-beauty.html"))
 		return
 	}

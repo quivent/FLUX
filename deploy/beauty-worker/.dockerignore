@@ -1,0 +1,7 @@
+# Keep all model weights, outputs, and host runtime state out of the image.
+models/
+.fluxd/
+outputs/
+__pycache__/
+*.pyc
+.git/
