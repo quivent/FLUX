@@ -202,8 +202,6 @@ def clip_holds_extra(prompt, needle=ARCANE_EXTRA):
 
 def refuse_banned(prompt, arcane=False):
     pl = (prompt or "").lower()
-    if "celadon tea bowl" in pl or "kintsugi seam" in pl:
-        raise SystemExit("still-life / celadon tea-bowl stream is stopped")
     if not arcane:
         return
     for word in ARCANE_BANNED:
@@ -275,7 +273,7 @@ def main():
     sock_path = args.socket or ""
     pinned = "flux-gpu3.sock" in sock_path
     if args.still_life:
-        raise SystemExit("still-life / celadon tea-bowl stream is stopped")
+        args.prompt = STILL_LIFE_PROMPT
     branch = ""
     if args.branch:
         try:

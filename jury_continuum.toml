@@ -282,12 +282,12 @@ guidance_scale = 3.5
 resolution = [1024, 1024]
 queue_depth = 2
 eval_path = ["generate", "uniqueness", "sensory_gates", "witness", "pixtral", "governor", "composite"]
-# Fashion lock: GPU 0 and GPU 3 commission this brief only. Celadon/arcane
-# are refused at protocol_stream.py, /api/protocol, and fashion_lock.py.
+# Fashion lock applies only to the fashion and Arcane lanes. Custom collection
+# branches (including Tea/Celadon) use the resident FLUX worker through the UDS.
 prompt = "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
 prompt_fashion = "The most extravagant fashion models in the most unique and exquisite dresses ever made, of all shapes and sizes and colors, the new Fashion beauty on beauty"
 prompt_arcane = "An adult stunning princess with the beauty of an Italian supermodel, acting as a character in an Arcane style hybrid animation that blends 3D character modeling with hand painted 2D effects, elegant regal costume, expressive face, consistent character identity, holding a glowing impossible procedural 3D rose as the extra element, floating crimson velvet rose petals, enchanted glass garden, the rose painted with the same visible brushwork as the character not rendered smooth, cinematic hybrid animation still, painterly 2D brushwork over sculpted 3D form, hand-painted rim light, graphic shadows, unique art beauty not generic fashion, high-end animated series frame, matte painted skin with visible strokes, no plastic CGI"
-prompt_still_life = "STOPPED — celadon tea-bowl / mug stream is forbidden"
+prompt_still_life = "A single celadon tea vessel visibly floating above a rain-dark stone basin; one gold repair seam, blue-hour mountain tea room, tactile glazed ceramic and wet stone, painterly material depth, no table, no clutter, no text"
 steps_fashion = 28
 steps_arcane = 28
 steps_still_life = 18

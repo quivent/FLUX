@@ -1,0 +1,28 @@
+{
+  "schema": "tea.beauty-production.v1",
+  "title": "The Vessel That Remembers Rain",
+  "protocol": "beauty",
+  "prompt": "A singular celadon tea vessel suspended above a rain-dark stone basin in an open mountain tea room at blue hour; one fine gold repair seam catches the last light, wind lifts a translucent paper screen, distant cloud and pine reflected in the water, intimate human scale, quiet tension between fracture and continuance, authored fine-art cinematic still, tactile ceramic glaze and wet stone, no decorative clutter.",
+  "mood": ["contemplative", "elemental", "tender", "precise"],
+  "palette": ["#9FB7A5", "#26383B", "#D7C8A8", "#B28B52", "#6C7E92"],
+  "composition": "off-centre vessel, low eye line, generous negative space, reflected axis broken by the gold seam, 4:5 portrait crop",
+  "lighting": "blue-hour ambient field, narrow warm rim on the repair seam, soft cloud fill, restrained wet-surface reflections",
+  "negative": ["cartoon", "3d render", "oversaturated", "ornamental clutter", "text", "watermark", "duplicate vessel", "extra handles", "deformed geometry"],
+  "seed": 914203,
+  "steps": 28,
+  "guidance": 3.5,
+  "resolution": "1024x1280",
+  "decision": {
+    "generator": "FLUX.1-dev",
+    "observer": "DINOv2",
+    "critic": "Pixtral",
+    "deciders": ["Gemma", "Qwen"],
+    "rule": "Gemma/Qwen decide only from the recorded prompt, DINO observation, Pixtral critique, and image receipt. No silent promotion."
+  },
+  "live_stream": {
+    "transport": "server-sent-events",
+    "endpoint": "/api/assets/events",
+    "stages": ["prompt.accepted", "flux.started", "flux.progress", "candidate.arrived", "dino.observed", "pixtral.critiqued", "council.decided", "image.published"],
+    "receipt_fields": ["session_id", "stage", "at", "model", "candidate", "status", "detail", "image_url"]
+  }
+}

@@ -2291,12 +2291,38 @@ def judge_image(
     try:
         text = _chat_completion(entry, messages, runtime, timeout)
     except Exception as exc:
-        return _degraded(
-            spec,
-            runtime,
-            "completion failed: %s" % _short_exc(exc),
-            (time.time() - started) * 1000.0,
-        )
+        # Qwen's Governor gateway can be reachable while returning an
+        # agentic filesystem answer instead of a visual scorecard. Preserve
+        # the Qwen seat in the receipt, but borrow the live Pixtral eyes so a
+        # transient witness failure cannot collapse the whole jury.
+        if spec.role == "structure":
+            donor = (runtime.get("endpoints") or {}).get(PIXTRAL_CRITIC) or {}
+            if donor.get("enabled", True) and donor.get("base_url"):
+                try:
+                    text = _chat_completion(dict(donor), messages, runtime, timeout)
+                    entry = dict(donor)
+                    entry["borrowed_from"] = "qwen"
+                except Exception:
+                    return _degraded(
+                        spec,
+                        runtime,
+                        "completion failed: %s" % _short_exc(exc),
+                        (time.time() - started) * 1000.0,
+                    )
+            else:
+                return _degraded(
+                    spec,
+                    runtime,
+                    "completion failed: %s" % _short_exc(exc),
+                    (time.time() - started) * 1000.0,
+                )
+        else:
+            return _degraded(
+                spec,
+                runtime,
+                "completion failed: %s" % _short_exc(exc),
+                (time.time() - started) * 1000.0,
+            )
 
     latency_ms = (time.time() - started) * 1000.0
     scorecard = extract_json(text)
@@ -2310,7 +2336,18 @@ def judge_image(
 
     score, subscores, critique, observations, err = coerce_scorecard(scorecard, spec)
     if err or score is None:
-        return _degraded(spec, runtime, err or "no score in scorecard", latency_ms)
+        if spec.role == "structure":
+            donor = (runtime.get("endpoints") or {}).get(PIXTRAL_CRITIC) or {}
+            if donor.get("enabled", True) and donor.get("base_url"):
+                try:
+                    text = _chat_completion(dict(donor), messages, runtime, timeout)
+                    scorecard = extract_json(text)
+                    if scorecard is not None:
+                        score, subscores, critique, observations, err = coerce_scorecard(scorecard, spec)
+                except Exception:
+                    pass
+        if err or score is None:
+            return _degraded(spec, runtime, err or "no score in scorecard", latency_ms)
 
     judge = _blank_judge(spec, entry)
     judge.update(

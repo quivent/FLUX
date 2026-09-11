@@ -39,6 +39,7 @@ import json
 import os
 import re
 import sqlite3
+import shutil
 import subprocess
 import sys
 import threading
@@ -72,6 +73,28 @@ LEDGER_TAIL = int(os.environ.get("JURY_LEDGER_TAIL") or 30)
 #: Percentile below which a frame is filed as a defect, preserved from the
 #: original evaluator.
 DEFECT_PERCENTILE = 35.0
+
+
+def gemstone_invocation():
+    """Use the installed binary and sealed node credentials for R2 writes."""
+    binary = os.environ.get("GEMSTONE_BIN") or shutil.which("gemstone")
+    if not binary:
+        candidate = os.path.expanduser("~/.local/bin/gemstone.bin")
+        if os.path.exists(candidate):
+            binary = candidate
+    if not binary:
+        return None, None
+    env = os.environ.copy()
+    env_file = os.path.expanduser("~/.gemstone/.env.local")
+    if os.path.exists(env_file):
+        with open(env_file) as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                env.setdefault(key.strip(), value.strip().strip("\"'"))
+    return binary, env
 
 
 _COLLECTION_DIR_RE = re.compile(r"(?:^|/)collections/([a-z0-9-]+)(?:/|$)")
@@ -140,10 +163,15 @@ def stream_image_to_r2_async(img_path):
 
     def _upload():
         try:
+            binary, env = gemstone_invocation()
+            if not binary:
+                LOG.warn("R2 stream skipped: gemstone binary is not installed")
+                return
             fname = os.path.basename(img_path)
             r2_key = "outputs/%s" % fname
             subprocess.run(
-                ["gemstone", "r2", "push", img_path, r2_key],
+                [binary, "r2", "push", img_path, r2_key],
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=30,
@@ -159,6 +187,9 @@ def sync_state_to_r2_async():
     """Pushes active SQLite database & Spectacle genome to Cloudflare R2."""
 
     def _sync():
+        binary, env = gemstone_invocation()
+        if not binary:
+            return
         for local, remote in (
             (SQLITE_DB, "state/jury.sqlite3"),
             (SPECTACLE_LOG, "outputs/spectacle_genome.jsonl"),
@@ -167,7 +198,8 @@ def sync_state_to_r2_async():
             try:
                 if os.path.exists(local):
                     subprocess.run(
-                        ["gemstone", "r2", "push", local, remote],
+                        [binary, "r2", "push", local, remote],
+                        env=env,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         timeout=20,

@@ -11,6 +11,7 @@ GPU pinning is unrelated: workers still write here; this is the off-box stream.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -22,6 +23,27 @@ STATE = Path(os.environ.get("FLUXD_DIR") or os.path.expanduser("~/CLIs/flux/.flu
 # Jury evaluator uses outputs/<file> — that is the live vault prefix.
 DEST_PREFIXES = ("outputs/",)
 POLL = float(os.environ.get("PROTOCOL_R2_POLL_S") or 8)
+
+
+def gemstone_invocation():
+    """Return the durable Gemstone binary and its sealed node environment."""
+    binary = os.environ.get("GEMSTONE_BIN") or shutil.which("gemstone")
+    if not binary:
+        candidate = Path.home() / ".local/bin/gemstone.bin"
+        if candidate.exists():
+            binary = str(candidate)
+    if not binary:
+        return None, None
+    env = os.environ.copy()
+    env_file = Path.home() / ".gemstone/.env.local"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            env.setdefault(key.strip(), value.strip().strip("\"'"))
+    return binary, env
 
 
 def seen_set():
@@ -54,6 +76,10 @@ def protocol_pngs(out: Path):
 
 
 def push(path: Path) -> bool:
+    binary, env = gemstone_invocation()
+    if not binary:
+        print("r2 push fail: gemstone binary not installed", flush=True)
+        return False
     try:
         name = path.relative_to(OUT).as_posix()
     except ValueError:
@@ -62,7 +88,8 @@ def push(path: Path) -> bool:
     for dest in (f"{prefix}{name}" for prefix in DEST_PREFIXES):
         try:
             r = subprocess.run(
-                ["gemstone", "r2", "push", str(path), dest],
+                [binary, "r2", "push", str(path), dest],
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=60,

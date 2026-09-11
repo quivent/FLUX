@@ -520,6 +520,9 @@ var readOnlyPaths = []string{
 	"/api/tea/desk",
 	"/api/protocol/route",
 	"/api/tea/movement",
+	"/api/assets/events",
+	"/api/jobs/events",
+	"/api/recent-images",
 	"/tea.css",
 	"/tea-shell.js",
 	"/tea",
@@ -1076,32 +1079,45 @@ func readProtocolStreamStateLane(root, lane string) map[string]any {
 	return readProtocolStreamStateFile(protocolStreamStatePathFor(root, lane))
 }
 
+func protocolWorkerSocket(root string, gpu3 bool) string {
+	if gpu3 {
+		candidate := filepath.Join(root, ".fluxd", "flux-gpu3.sock")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	for _, name := range []string{"flux.sock", "flux-gpu0.sock"} {
+		candidate := filepath.Join(root, ".fluxd", name)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return filepath.Join(root, ".fluxd", "flux-gpu0.sock")
+}
+
 func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
-	writeError(w, http.StatusConflict, "generation halted by operator")
-	return
 	var req struct {
-		N      int    `json:"n"`
+		N      *int   `json:"n"`
 		Steps  int    `json:"steps"`
 		Prompt string `json:"prompt"`
 		Lane   string `json:"lane"`
+		Branch string `json:"branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if req.N != 512 {
-		req.N = 256
+	n := 256
+	if req.N != nil {
+		n = *req.N
+		if n != 0 && n != 256 && n != 512 {
+			n = 256
+		}
 	}
 	if req.Steps != 18 {
 		req.Steps = 28
 	}
 	lane := strings.ToLower(strings.TrimSpace(req.Lane))
-	promptL := strings.ToLower(req.Prompt)
-	if lane == "celadon" || lane == "still-life" || lane == "still_life" ||
-		strings.Contains(promptL, "celadon tea bowl") || strings.Contains(promptL, "kintsugi seam") {
-		writeError(w, http.StatusConflict, "still-life / celadon tea-bowl stream is stopped")
-		return
-	}
 	if lane == "arcane" {
 		writeError(w, http.StatusConflict, "arcane generation is unplugged; GPU 0 is a motion experiment")
 		return
@@ -1113,14 +1129,18 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	script := filepath.Join(s.cfg.Root, "protocol_stream.py")
-	args := []string{script, "--n", strconv.Itoa(req.N), "--steps", strconv.Itoa(req.Steps)}
+	args := []string{script, "--n", strconv.Itoa(n), "--steps", strconv.Itoa(req.Steps)}
+	branch := strings.ToLower(strings.TrimSpace(req.Branch))
+	if branch == "" && lane != "" && lane != "fashion" && lane != "gpu3" && lane != "fp8" {
+		branch = lane
+	}
 	logPath := filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.log")
 	if lane == "arcane" {
 		args = append(args, "--arcane",
 			"--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu0.sock"),
 			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.json"),
 			"--lane", "arcane")
-	} else if lane == "fashion" || lane == "celadon" || lane == "still-life" || lane == "gpu3" || lane == "fp8" {
+	} else if lane == "fashion" || lane == "gpu3" || lane == "fp8" {
 		if req.Steps != 18 && req.Steps != 28 {
 			req.Steps = 18
 			args[4] = strconv.Itoa(req.Steps)
@@ -1130,12 +1150,15 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		} else {
 			args = append(args, "--prompt", req.Prompt)
 		}
-		args = append(args, "--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.sock"),
+		args = append(args, "--socket", protocolWorkerSocket(s.cfg.Root, true),
 			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.json"),
 			"--lane", "fashion")
 		logPath = filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.log")
-	} else if strings.TrimSpace(req.Prompt) != "" {
-		args = append(args, "--prompt", req.Prompt)
+	} else {
+		args = append(args, "--prompt", req.Prompt, "--socket", protocolWorkerSocket(s.cfg.Root, false))
+		if branch != "" {
+			args = append(args, "--branch", branch)
+		}
 	}
 	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -1164,7 +1187,7 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		"ok":      true,
 		"started": true,
 		"lane":    lane,
-		"n":       req.N,
+		"n":       n,
 		"steps":   req.Steps,
 		"stream":  readProtocolStreamStateLane(s.cfg.Root, lane),
 	})
