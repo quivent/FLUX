@@ -143,7 +143,7 @@ SSE /api/jobs/events   (what it replaced)
 That is cross-site WebSocket hijacking. In the default local no-token
 configuration, any site the user visited while the dashboard was running
 could read their render jobs, prompts, and output paths off 127.0.0.1. A
-bearer token does mitigate it (browsers cannot set custom headers on a WS
+ token does mitigate it (browsers cannot set custom headers on a WS
 handshake, so a cross-origin attacker gets 401) -- but the documented
 default for local use is no token, so the default was the exposed case.
 

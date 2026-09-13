@@ -2481,7 +2481,7 @@ def governor_chat(paths, opts, system, user, temperature=0.95, max_tokens=180, t
     headers = {"Content-Type": "application/json"}
     token = _first_env("GOVERNOR_API_KEY", "OPENAI_API_KEY")
     if token:
-        headers["Authorization"] = "Bearer %s" % token
+        headers["Authorization"] = " %s" % token
     request = urllib.request.Request(base + "/chat/completions",
                                      data=json.dumps(body).encode("utf-8"), headers=headers)
     try:
@@ -2501,7 +2501,7 @@ def governor_reachable(opts, timeout=3.0):
         request = urllib.request.Request(base + "/models")
         token = _first_env("GOVERNOR_API_KEY", "OPENAI_API_KEY")
         if token:
-            request.add_header("Authorization", "Bearer %s" % token)
+            request.add_header("Authorization", " %s" % token)
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return 200 <= response.getcode() < 300, "HTTP %s" % response.getcode()
     except urllib.error.HTTPError as exc:

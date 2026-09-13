@@ -32,7 +32,7 @@ DIRECTIVE = GOV / "directive.json"        # he writes here; we clear it
 CONTROL = GOV / "control.json"            # current estate posture
 COSIGN = GOV / "cosign_queue.json"        # node-level actions awaiting the veto window
 AUDIT = GOV / "audit.jsonl"
-NODE_TOKEN = GOV / "node_token"           # givemeanode API bearer, if minted
+NODE_TOKEN = GOV / "node_token"           # givemeanode API , if minted
 
 RATE_PER_MIN = 0.0666                     # per node, USD
 VETO_WINDOW = 600                         # 10 minutes, his number
@@ -77,7 +77,7 @@ def _node_api(path, method="POST", body=None):
     data = json.dumps(body or {}).encode()
     req = urllib.request.Request(
         API_BASE + path, data=data if method != "GET" else None,
-        headers={"Authorization": "Bearer " + token,
+        headers={"Authorization": " " + token,
                  "Content-Type": "application/json"},
         method=method)
     try:

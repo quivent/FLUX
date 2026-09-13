@@ -1204,7 +1204,7 @@ func arcaneStageFit(profile arcane.Profile, silicon arcaneSilicon, budget arcane
 	if profile.WheelInBank {
 		stage.add("vllm wheel", "ok", "the R2 artifact bank carries a wheel for "+profile.SM)
 	} else {
-		stage.add("vllm wheel", "warn", "PREREQUISITE: the R2 wheel bank ships sm100 and sm80 only — there is no sm120 wheel; vLLM >= "+profile.VLLMMin+" must be built for "+profile.SM+" first")
+		stage.add("vllm wheel", "warn", "PREREQUISITE: the R2 wheel bank has no wheel for "+profile.SM+"; vLLM >= "+profile.VLLMMin+" must be built for "+profile.SM+" first")
 	}
 	return stage
 }

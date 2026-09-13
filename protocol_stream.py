@@ -53,6 +53,10 @@ try:
     import belarro_direction
 except ImportError:
     belarro_direction = None
+try:
+    import glass_city_direction
+except ImportError:
+    glass_city_direction = None
 EVAL_PATH = [
     "generate",
     "uniqueness",
@@ -412,6 +416,11 @@ def main():
                     depth = int(study.get("depth") or args.depth)
                     if depth >= 1:
                         args.depth = min(3, depth)
+                elif branch == "glass-cloud-cities" and glass_city_direction is not None:
+                    prompt, axis = glass_city_direction.prompt_for(state["submitted"], args.prompt)
+                    state["prompt"] = prompt
+                    state["direction"] = "weighted-one-axis"
+                    state["mutation_axis"] = axis
                 if branch:
                     filename = branch_relpath(branch, state["id"], state["submitted"] + 1)
                     os.makedirs(os.path.join(output_dir, "collections", branch), exist_ok=True)
@@ -455,6 +464,8 @@ def main():
                         state["job_ids"].append(jid)
                         state["submitted"] += 1
                         state["error"] = ""
+                        if branch == "glass-cloud-cities" and glass_city_direction is not None:
+                            glass_city_direction.consumed(state["submitted"], jid, state.get("mutation_axis",""))
                 except urllib.error.HTTPError as exc:
                     state["error"] = "render %s: %s" % (exc.code, exc.read()[:200].decode("utf-8", "replace"))
                     time.sleep(2)

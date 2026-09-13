@@ -13,3 +13,7 @@ sentencepiece
 protobuf
 safetensors
 para-attn
+fastapi
+httpx
+uvicorn
+websockets

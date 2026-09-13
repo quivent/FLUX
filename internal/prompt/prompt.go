@@ -168,6 +168,11 @@ var OrderedPresets = []Preset{
 	{"arcane-jayce", "fortiche", "optimistic", "wide", 30, 3.5, "gilded high defender, hextech warhammer, gold-trimmed white armor, radiant rim light"},
 	{"arcane-silco", "arcane", "nocturne", "portrait", 32, 3.6, "scarred crime lord, glowing orange prosthetic eye, toxic emerald shadows"},
 	{"arcane-ekko", "arcane", "electric", "wide", 30, 3.5, "firelight leader, hourglass face paint, kinetic hoverboard action, vibrant neon rim"},
+	{"beauty-royal", "editorial", "electric", "portrait", 32, 3.6, "extravagant royal couture, architectural silhouette, precious metals, confident editorial staging"},
+	{"beauty-elemental", "editorial", "ominous", "portrait", 32, 3.6, "elemental haute couture, physically coherent fabric, dramatic atmospheric spectacle"},
+	{"beauty-botanical", "editorial", "warm", "portrait", 32, 3.6, "botanical couture, monumental flowers, crafted natural materials, lavish garden setting"},
+	{"beauty-futurist", "speculative", "electric", "portrait", 32, 3.6, "extravagant futuristic couture, engineered materials, luminous architecture, premium editorial finish"},
+	{"beauty-opera", "editorial", "nocturne", "portrait", 32, 3.6, "mythic opera spectacle, theatrical couture, jewel-toned lighting, grand cinematic staging"},
 }
 
 func Compose(base string, s Shape) (string, error) {

@@ -41,10 +41,6 @@ import (
 type Options struct {
 	Addr  string
 	Token string
-	// PublicDir overrides the presentation bundle while keeping the shared
-	// FLUX APIs, event streams, output archive, and worker lifecycle on the
-	// same origin. An empty value preserves the Tea bundle.
-	PublicDir string
 	// PublicReadOnly serves the gallery to the open internet: safe GETs on an
 	// allowlist, everything else refused. Set it whenever the listener is
 	// reachable without a token, which is the only way a browser can open the
@@ -53,9 +49,8 @@ type Options struct {
 }
 
 type Server struct {
-	cfg       config.Config
-	client    daemon.Client
-	publicDir string
+	cfg    config.Config
+	client daemon.Client
 	// pool spans one worker per detected GPU. It is empty on hosts with no
 	// GPU, in which case every worker helper falls back to client.
 	pool fleet.Pool
@@ -256,15 +251,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	if strings.TrimSpace(opt.Addr) == "" {
 		opt.Addr = "127.0.0.1:7861"
 	}
-	publicDir := strings.TrimSpace(opt.PublicDir)
-	if publicDir != "" {
-		var err error
-		publicDir, err = filepath.Abs(publicDir)
-		if err != nil {
-			return fmt.Errorf("resolve public directory: %w", err)
-		}
-	}
-	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg), publicDir: publicDir}
+	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg)}
 	if s.fleetOn() {
 		slog.Info("flux fleet enabled", "gpus", s.pool.GPUs(), "workers", s.pool.Size())
 	}
@@ -352,7 +339,6 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/relative-beauty/control", s.relativeBeautyControlAPI)
 	mux.HandleFunc("/api/protocol", s.protocolAPI)
 	mux.HandleFunc("/api/protocol/branches", s.protocolBranchesAPI)
-	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/api/studios", s.studiosAPI)
 	mux.HandleFunc("/api/studios/", s.studiosAPI)
 	mux.HandleFunc("/studios", s.studiosPage)
@@ -434,8 +420,6 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/tea/", s.gardenPage)
 	mux.HandleFunc("/tea.css", s.teaChromeAsset)
 	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
-	mux.HandleFunc("/beauty.css", s.siteChromeAsset)
-	mux.HandleFunc("/beauty-shell.js", s.siteChromeAsset)
 	mux.HandleFunc("/assets/", s.teaPublicAsset)
 	mux.HandleFunc("/publications", s.publicationsPage)
 	mux.HandleFunc("/publications/", s.publicationsPage)
@@ -472,9 +456,15 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	go s.runRigHub(ctx)
 	go s.runTeaSentinel(ctx)
 
+	handler := http.Handler(withLocalHeaders(mux))
+	if opt.PublicReadOnly {
+		handler = withPublicOperator(handler, opt.Token)
+	} else {
+		handler = withAuth(handler, opt.Token)
+	}
 	httpServer := &http.Server{
 		Addr:              opt.Addr,
-		Handler:           withAuth(withReadOnly(withLocalHeaders(mux), opt.PublicReadOnly), opt.Token),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -536,13 +526,8 @@ var readOnlyPaths = []string{
 	"/api/tea/desk",
 	"/api/protocol/route",
 	"/api/tea/movement",
-	"/api/assets/events",
-	"/api/jobs/events",
-	"/api/recent-images",
 	"/tea.css",
 	"/tea-shell.js",
-	"/beauty.css",
-	"/beauty-shell.js",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -579,7 +564,6 @@ var readOnlyPaths = []string{
 	"/api/rig/ws",
 	"/api/protocol",
 	"/api/protocol/branches",
-	"/api/beauty/pipeline",
 	"/api/studios",
 	"/studios",
 	"/studio",
@@ -590,6 +574,7 @@ var readOnlyPaths = []string{
 	"/api/jury/config",
 	"/api/jury/spectacles",
 	"/api/recent-images",
+	"/api/relative-beauty/state",
 	"/api/studies",
 	"/api/reports",
 	"/api/sentinel",
@@ -638,6 +623,24 @@ func withReadOnly(next http.Handler, enabled bool) http.Handler {
 	})
 }
 
+// withPublicOperator keeps presentation GETs open while allowing an operator
+// holding the configured token to use mutation routes. The token is never
+// shipped in the UI; the operator supplies it per browser session.
+func withPublicOperator(next http.Handler, token string) http.Handler {
+	token = strings.TrimSpace(token)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if readOnlyAllowed(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if token == "" || !authorized(r, token) {
+			writeError(w, http.StatusForbidden, "operator token required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func withAuth(next http.Handler, token string) http.Handler {
 	token = strings.TrimSpace(token)
 	if token == "" {
@@ -663,8 +666,8 @@ func authorized(r *http.Request, token string) bool {
 	}
 	auth := strings.TrimSpace(r.Header.Get("Authorization"))
 	lower := strings.ToLower(auth)
-	if strings.HasPrefix(lower, "bearer ") {
-		return strings.TrimSpace(auth[len("bearer "):]) == token
+	if strings.HasPrefix(lower, " ") {
+		return strings.TrimSpace(auth[len(" "):]) == token
 	}
 	if strings.HasPrefix(lower, "basic ") {
 		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(auth[len("basic "):]))
@@ -680,10 +683,6 @@ func authorized(r *http.Request, token string) bool {
 func (s Server) home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
-		return
-	}
-	if s.publicDir != "" {
-		http.ServeFile(w, r, s.sitePublicFile("index.html"))
 		return
 	}
 	host := requestHost(r)
@@ -705,26 +704,6 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
-}
-
-func (s Server) sitePublicDir() string {
-	if s.publicDir != "" {
-		return s.publicDir
-	}
-	return filepath.Join(s.cfg.Root, "apps", "tea", "public")
-}
-
-func (s Server) sitePublicFile(name string) string {
-	return filepath.Join(s.sitePublicDir(), filepath.FromSlash(name))
-}
-
-func (s Server) siteChromeAsset(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimPrefix(r.URL.Path, "/")
-	if name != "beauty.css" && name != "beauty-shell.js" {
-		http.NotFound(w, r)
-		return
-	}
-	http.ServeFile(w, r, s.sitePublicFile(name))
 }
 
 func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
@@ -862,15 +841,15 @@ func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
 	rel = strings.TrimPrefix(rel, "/protocol")
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
 		return
 	}
-	file := s.sitePublicFile(rel)
+	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
 	if info, err := os.Stat(file); err == nil && !info.IsDir() {
 		http.ServeFile(w, r, file)
 		return
 	}
-	http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
 }
 
 func (s Server) trainPage(w http.ResponseWriter, r *http.Request) {
@@ -907,11 +886,7 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/moj")
 	rel = strings.TrimPrefix(rel, "/jury")
 	rel = strings.TrimPrefix(rel, "/")
-	public := s.sitePublicDir()
-	if s.publicDir != "" {
-		http.ServeFile(w, r, filepath.Join(public, "jury.html"))
-		return
-	}
+	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
 	if rel == "" || rel == "index.html" {
 		http.ServeFile(w, r, filepath.Join(public, "relative-beauty.html"))
 		return
@@ -1126,45 +1101,32 @@ func readProtocolStreamStateLane(root, lane string) map[string]any {
 	return readProtocolStreamStateFile(protocolStreamStatePathFor(root, lane))
 }
 
-func protocolWorkerSocket(root string, gpu3 bool) string {
-	if gpu3 {
-		candidate := filepath.Join(root, ".fluxd", "flux-gpu3.sock")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-	for _, name := range []string{"flux.sock", "flux-gpu0.sock"} {
-		candidate := filepath.Join(root, ".fluxd", name)
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-	return filepath.Join(root, ".fluxd", "flux-gpu0.sock")
-}
-
 func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusConflict, "generation halted by operator")
+	return
 	var req struct {
-		N      *int   `json:"n"`
+		N      int    `json:"n"`
 		Steps  int    `json:"steps"`
 		Prompt string `json:"prompt"`
 		Lane   string `json:"lane"`
-		Branch string `json:"branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	n := 256
-	if req.N != nil {
-		n = *req.N
-		if n != 0 && n != 256 && n != 512 {
-			n = 256
-		}
+	if req.N != 512 {
+		req.N = 256
 	}
 	if req.Steps != 18 {
 		req.Steps = 28
 	}
 	lane := strings.ToLower(strings.TrimSpace(req.Lane))
+	promptL := strings.ToLower(req.Prompt)
+	if lane == "celadon" || lane == "still-life" || lane == "still_life" ||
+		strings.Contains(promptL, "celadon tea bowl") || strings.Contains(promptL, "kintsugi seam") {
+		writeError(w, http.StatusConflict, "still-life / celadon tea-bowl stream is stopped")
+		return
+	}
 	if lane == "arcane" {
 		writeError(w, http.StatusConflict, "arcane generation is unplugged; GPU 0 is a motion experiment")
 		return
@@ -1176,18 +1138,14 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	script := filepath.Join(s.cfg.Root, "protocol_stream.py")
-	args := []string{script, "--n", strconv.Itoa(n), "--steps", strconv.Itoa(req.Steps)}
-	branch := strings.ToLower(strings.TrimSpace(req.Branch))
-	if branch == "" && lane != "" && lane != "fashion" && lane != "gpu3" && lane != "fp8" {
-		branch = lane
-	}
+	args := []string{script, "--n", strconv.Itoa(req.N), "--steps", strconv.Itoa(req.Steps)}
 	logPath := filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.log")
 	if lane == "arcane" {
 		args = append(args, "--arcane",
 			"--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu0.sock"),
 			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream.json"),
 			"--lane", "arcane")
-	} else if lane == "fashion" || lane == "gpu3" || lane == "fp8" {
+	} else if lane == "fashion" || lane == "celadon" || lane == "still-life" || lane == "gpu3" || lane == "fp8" {
 		if req.Steps != 18 && req.Steps != 28 {
 			req.Steps = 18
 			args[4] = strconv.Itoa(req.Steps)
@@ -1197,15 +1155,12 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		} else {
 			args = append(args, "--prompt", req.Prompt)
 		}
-		args = append(args, "--socket", protocolWorkerSocket(s.cfg.Root, true),
+		args = append(args, "--socket", filepath.Join(s.cfg.Root, ".fluxd", "flux-gpu3.sock"),
 			"--state", filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.json"),
 			"--lane", "fashion")
 		logPath = filepath.Join(s.cfg.Root, ".fluxd", "protocol_stream_gpu3.log")
-	} else {
-		args = append(args, "--prompt", req.Prompt, "--socket", protocolWorkerSocket(s.cfg.Root, false))
-		if branch != "" {
-			args = append(args, "--branch", branch)
-		}
+	} else if strings.TrimSpace(req.Prompt) != "" {
+		args = append(args, "--prompt", req.Prompt)
 	}
 	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -1234,7 +1189,7 @@ func (s Server) startProtocolStream(w http.ResponseWriter, r *http.Request) {
 		"ok":      true,
 		"started": true,
 		"lane":    lane,
-		"n":       n,
+		"n":       req.N,
 		"steps":   req.Steps,
 		"stream":  readProtocolStreamStateLane(s.cfg.Root, lane),
 	})
@@ -1442,7 +1397,7 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
-	http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
+	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 }
 
 // movement presents one live authored path. The exhibition is a second,
@@ -5050,12 +5005,12 @@ func (s Server) teaCollectionsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	switch path {
 	case "/collections":
-		http.ServeFile(w, r, s.sitePublicFile("collections.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "collections.html"))
 	case "/collections/fashion", "/collections/arcane":
-		http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
+		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 	default:
 		if _, ok := publicCollectionSlug(path); ok {
-			http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
+			http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 			return
 		}
 		http.NotFound(w, r)

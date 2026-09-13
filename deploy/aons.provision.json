@@ -26,6 +26,15 @@
       {"source": "../check_flux.py", "destination": "/home/dev/FLUX/check_flux.py", "executable": true},
       {"source": "../flux_paths.py", "destination": "/home/dev/FLUX/flux_paths.py"},
       {"source": "../flux_ane.py", "destination": "/home/dev/FLUX/flux_ane.py"},
+      {"source": "../qwen_ws_adapter.py", "destination": "/home/dev/FLUX/qwen_ws_adapter.py", "executable": true},
+      {"source": "../moj_evaluator.py", "destination": "/home/dev/FLUX/moj_evaluator.py", "executable": true},
+      {"source": "../jury_evaluator.py", "destination": "/home/dev/FLUX/jury_evaluator.py", "executable": true},
+      {"source": "../pipeline_paths.py", "destination": "/home/dev/FLUX/pipeline_paths.py"},
+      {"source": "../jury_continuum.toml", "destination": "/home/dev/FLUX/jury_continuum.toml"},
+      {"source": "../arcane_aesthetic.py", "destination": "/home/dev/FLUX/arcane_aesthetic.py"},
+      {"source": "../sensory_gates.py", "destination": "/home/dev/FLUX/sensory_gates.py"},
+      {"source": "../uniqueness_tracker.py", "destination": "/home/dev/FLUX/uniqueness_tracker.py"},
+      {"source": "../arcane_log.py", "destination": "/home/dev/FLUX/arcane_log.py"},
       {"source": "givemeanode/requirements-node.txt", "destination": "/home/dev/FLUX/deploy/givemeanode/requirements-node.txt"}
     ],
     "fileTrees": [
@@ -114,6 +123,47 @@
         "reloadCommand": "pkill -TERM -f '[f]lux serve --addr 0.0.0.0:7861' || true",
         "startupTimeoutSeconds": 120,
         "health": {"port": 7861, "path": "/api/health"}
+      },
+      {
+        "name": "qwen-ws-adapter",
+        "command": "cd \"$HOME/FLUX\" && exec \"$HOME/.venv/bin/python\" -m uvicorn qwen_ws_adapter:app --host 127.0.0.1 --port 8800",
+        "env": {
+          "QWEN_WS_URL": {"secret": "qwen-governor-ws-url"},
+          "QWEN_WS_TOKEN": {"secret": "qwen-governor-ws-token"},
+          "QWEN_HTTP_URL": {"secret": "qwen-governor-http-url"}
+        },
+        "restart": "on-failure",
+        "maxRestarts": 20,
+        "watchPaths": ["/home/dev/FLUX/qwen_ws_adapter.py"],
+        "restartOnChange": true,
+        "commandHandlePath": "/home/dev/.aons/run/qwen-ws-adapter.command-id",
+        "startupTimeoutSeconds": 60,
+        "health": {"port": 8800, "path": "/health"}
+      },
+      {
+        "name": "beauty-jury",
+        "command": "cd \"$HOME/FLUX\" && exec \"$HOME/.venv/bin/python\" -u moj_evaluator.py --serve",
+        "env": {
+          "FLUX_OUTPUT_DIR": "/home/dev/models/flux-output",
+          "GOVERNOR_BASE_URL": "http://127.0.0.1:8800/v1",
+          "MOJ_GOVERNOR_ENABLED": "1",
+          "MOJ_GOVERNOR_MODEL": "governor",
+          "MOJ_GOVERNOR_URL": "http://127.0.0.1:8800/v1",
+          "PYTHONUNBUFFERED": "1"
+        },
+        "restart": "on-failure",
+        "maxRestarts": 20,
+        "dependsOn": ["flux-worker", "qwen-ws-adapter"],
+        "watchPaths": [
+          "/home/dev/FLUX/moj_evaluator.py",
+          "/home/dev/FLUX/jury_evaluator.py",
+          "/home/dev/FLUX/jury_continuum.toml",
+          "/home/dev/FLUX/pipeline_paths.py"
+        ],
+        "restartOnChange": true,
+        "commandHandlePath": "/home/dev/.aons/run/beauty-jury.command-id",
+        "startupTimeoutSeconds": 60,
+        "health": {"command": "pgrep -f '[m]oj_evaluator.py --serve' >/dev/null && curl -fsS http://127.0.0.1:8800/health >/dev/null"}
       }
     ],
     "endpoints": [{"port": 7861, "auth": "capability-url"}],

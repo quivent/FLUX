@@ -95,7 +95,7 @@ K_CONFIG = 12.0         # a config aggregates many duels; it should move slowly
 SPECIMEN_N = 12
 SPECIMEN_MIN_COMPARISONS = 3    # one lucky win is not a standard
 
-ANCHOR_EVERY = 3        # one duel in three faces the current standard-bearer
+ANCHOR_EVERY = 3        # one duel in three faces the current standard-
 SAMPLE_PAIRS = 600      # candidate pairs considered per selection
 MIN_SEPARATION = 0.05   # pooled standard deviations; below this it is one image
 NEWCOMERS = 80          # never-compared cards admitted to the pool per call

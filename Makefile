@@ -314,7 +314,7 @@ receipt:
 	@echo "║   base: wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/                 ║"
 	@echo "║ • sm100  Blackwell datacenter · B200/B300      : built                        ║"
 	@echo "║ • sm80   Ampere · A100                         : built                        ║"
-	@echo "║ • sm90   Hopper · H100/H200                    : NOT BUILT                    ║"
+	@echo "║ • sm90   Hopper · H100/H200                    : built                        ║"
 	@echo "║ • sm120  Blackwell workstation · RTX PRO 6000  : NOT BUILT                    ║"
 	@echo "║ • Settled Outputs  : 1,235+ PNGs synced to Cloudflare R2 outputs/             ║"
 	@echo "╚═══════════════════════════════════════════════════════════════════════════════╝"

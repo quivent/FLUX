@@ -201,7 +201,7 @@ def consult(packet, timeout=240, retries=2):
     token = TOKEN_FILE.read_text().strip() if TOKEN_FILE.is_file() else ""
     headers = {"Content-Type": "application/json", "User-Agent": UA}
     if token:
-        headers["Authorization"] = "Bearer " + token
+        headers["Authorization"] = " " + token
 
     last = None
     for attempt in range(retries + 1):

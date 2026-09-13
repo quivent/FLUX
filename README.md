@@ -157,7 +157,7 @@ curl -X POST http://127.0.0.1:7861/api/render \
 <details>
 <summary>Remote Access & Security</summary>
 
-Expose it to another machine with a bearer token:
+Expose it to another machine with a  token:
 
 ```zsh
 export FLUX_HTTP_TOKEN="$(openssl rand -hex 24)"

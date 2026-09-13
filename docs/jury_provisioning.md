@@ -1,5 +1,8 @@
 # Sovereign FLUX Visual Jury & Continuum Provisioning
 
+For the compact agent handoff, use `docs/H100_BEAUTY_COMPACT.md`. It defines
+the supported one-H100 lane and the safe two-H100 topology.
+
 The model roster, VRAM budget, ports, and precision for every supported card
 are no longer documented here — they live in **`jury_continuum.toml`** as the
 single source of truth, read by `provision_jury.sh` via `pipeline_paths.py`.

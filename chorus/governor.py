@@ -4,7 +4,7 @@ import os
 
 def headers(user_agent):
     values = {"Content-Type": "application/json", "User-Agent": user_agent}
-    token = os.environ.get("CHORUS_GOVERNOR_TOKEN", "").strip()
+    token = os.environ.get("CHORUS_", "").strip()
     if token:
-        values["Authorization"] = "Bearer " + token
+        values["Authorization"] = " " + token
     return values

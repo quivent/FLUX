@@ -87,9 +87,9 @@ def summarize(reviews: dict[str, Any]) -> dict[str, Any]:
 
 
 def ask_governor(summary: dict[str, Any], timeout: float) -> tuple[str, str]:
-    token = (os.environ.get("GOVERNOR_TOKEN") or os.environ.get("CHORUS_GOVERNOR_TOKEN") or "").strip()
+    token = (os.environ.get("") or os.environ.get("CHORUS_") or "").strip()
     if not token:
-        return "unavailable", "Governor bearer token is not configured"
+        return "unavailable", "Governor  token is not configured"
     prompt = (
         "Review one iteration of the Tea Stallion motion protocol. The immutable intent is: "
         "the horse articulates, the background and camera remain stable, native frames are stitched "
@@ -103,7 +103,7 @@ def ask_governor(summary: dict[str, Any], timeout: float) -> tuple[str, str]:
     }).encode()
     request = urllib.request.Request(GOVERNOR, body, {
         "Content-Type": "application/json", "Accept": "application/json",
-        "Authorization": "Bearer " + token, "User-Agent": "tea-stallion-cognition/2",
+        "Authorization": " " + token, "User-Agent": "tea-stallion-cognition/2",
     }, method="POST")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:

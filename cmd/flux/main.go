@@ -501,8 +501,8 @@ func teaServe(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("tea serve", flag.ContinueOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
 	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
-	token := fs.String("token", "", "HTTP bearer token")
-	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	token := fs.String("token", "", "HTTP  token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP  token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
 	publicReadOnly := fs.Bool("public-read-only", false, "serve Tea and safe GETs; refuse GPU mutations")
 	open := fs.Bool("open", false, "open Tea in the default browser")
@@ -3015,8 +3015,8 @@ func serveStudio(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("serve studio", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
 	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
-	token := fs.String("token", "", "HTTP bearer token")
-	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	token := fs.String("token", "", "HTTP  token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP  token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
 	publicReadOnly := fs.Bool("public-read-only", false, "serve only the gallery and safe GETs; refuse everything else")
 	open := fs.Bool("open", false, "open the dashboard in the default browser")
@@ -3225,8 +3225,8 @@ func gallery(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("gallery", flag.ExitOnError)
 	addr := fs.String("addr", "127.0.0.1:7861", "HTTP listen address")
 	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
-	token := fs.String("token", "", "HTTP bearer token")
-	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	token := fs.String("token", "", "HTTP  token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP  token")
 	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
 	open := fs.Bool("open", false, "open the gallery in the default browser")
 	if err := fs.Parse(args); err != nil {
@@ -3292,7 +3292,7 @@ func authState(token string, public bool, unsafeNoAuth bool) string {
 		}
 		return ui.State("local") + " " + ui.Soft("no token")
 	}
-	return ui.State("ready") + " " + ui.Soft("bearer/basic token")
+	return ui.State("ready") + " " + ui.Soft("/basic token")
 }
 
 func remote(args []string) error {
@@ -3404,7 +3404,7 @@ func remoteStop(args []string) error {
 func remoteRender(args []string) error {
 	fs := flag.NewFlagSet("remote render", flag.ExitOnError)
 	baseURL, token, tokenEnv := remoteFlags(fs)
-	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
+	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir, beauty-royal, beauty-elemental, beauty-botanical, beauty-futurist, beauty-opera")
 	backend := fs.String("backend", "auto", "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	style := fs.String("style", "", "prompt style")
 	mood := fs.String("mood", "", "prompt mood")
@@ -3493,8 +3493,8 @@ func remoteRender(args []string) error {
 
 func remoteFlags(fs *flag.FlagSet) (*string, *string, *string) {
 	baseURL := fs.String("url", "http://127.0.0.1:7861", "remote FLUX HTTP URL")
-	token := fs.String("token", "", "HTTP bearer token")
-	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	token := fs.String("token", "", "HTTP  token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP  token")
 	return baseURL, token, tokenEnv
 }
 
@@ -3516,7 +3516,7 @@ func remoteRequest(method, baseURL, path, token string, body any) (map[string]an
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if strings.TrimSpace(token) != "" {
-		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
+		req.Header.Set("Authorization", " "+strings.TrimSpace(token))
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	httpResp, err := client.Do(req)
@@ -3774,7 +3774,7 @@ func openJob(cfg config.Config, args []string) error {
 
 func render(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("render", flag.ExitOnError)
-	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir")
+	presetName := fs.String("preset", "", "preset: sketch, hero, object, space, cover, future, anime, noir, beauty-royal, beauty-elemental, beauty-botanical, beauty-futurist, beauty-opera")
 	backend := fs.String("backend", cfg.Backend, "backend: auto, cuda, mps, mlx, coreml, ane, cpu")
 	style := fs.String("style", "", "prompt style: cinema, product, editorial, architect, document, speculative, anime, noir")
 	mood := fs.String("mood", "", "prompt mood: quiet, electric, clinical, warm, ominous, optimistic, melancholy, fever")
