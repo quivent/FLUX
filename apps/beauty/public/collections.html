@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Collections — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head"><div><div class="eyebrow">Archive</div><h1>Collections</h1><p class="lede">Separate runs, kept with their original prompt and review history.</p></div><a class="button" href="/control">New collection</a></section>
+    <section class="section" style="padding-top:0"><div class="collection-grid" id="collections"><div class="empty">Reading protocol branches…</div></div></section>
+    <footer><span>Beauty / Collections</span><span>Archive index</span></footer>
+  </main>
+  <script>
+  const fixed = [
+    {slug:'fashion', name:'Fashion', note:'The main image stream.'},
+    {slug:'arcane', name:'Arcane', note:'Character and world studies.'},
+    {slug:'microgreens', name:'Microgreens', note:'Form, colour and growth.'}
+  ];
+  async function thumb(item) {
+    try {
+      const d = await fetch('/api/recent-images?scope=' + encodeURIComponent(item.slug) + '&limit=1', {cache:'no-store'}).then(r => r.json());
+      const im = (d.images || [])[0], url = im && (im.path || im.url || im.output_url);
+      if (url) document.getElementById('visual-' + item.slug).innerHTML = '<img src="/api/asset/thumbnail?w=900&src=' + encodeURIComponent(url) + '" alt="">';
+    } catch (_) {}
+  }
+  (async function () {
+    let branches = [];
+    try { branches = (await fetch('/api/protocol/branches', {cache:'no-store'}).then(r => r.json())).branches || []; } catch (_) {}
+    const bySlug = new Map(fixed.map(x => [x.slug, x]));
+    branches.forEach(b => { if (!bySlug.has(b.slug)) bySlug.set(b.slug, {slug:b.slug, name:b.name || b.slug, note:b.prompt || 'Independent Beauty Protocol branch.'}); Object.assign(bySlug.get(b.slug), b); });
+    const items = [...bySlug.values()];
+    document.getElementById('collections').innerHTML = items.map(item => '<a class="collection-card" href="/collections/' + encodeURIComponent(item.slug) + '"><div class="collection-visual" id="visual-' + Beauty.esc(item.slug) + '"></div><div class="collection-copy"><div class="tiny">' + Beauty.esc(item.status || 'archive') + ' · ' + Beauty.esc(item.slug) + '</div><h3>' + Beauty.esc(item.name || item.slug) + '</h3><p class="muted">' + Beauty.esc(item.note || item.prompt || 'Beauty Protocol collection.') + '</p></div></a>').join('');
+    items.forEach(thumb);
+  })();
+  </script>
+</body>
+</html>

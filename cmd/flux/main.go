@@ -62,6 +62,8 @@ func main() {
 		err = atelier(cfg, os.Args[2:])
 	case "tea":
 		err = tea(cfg, os.Args[2:])
+	case "beauty":
+		err = beauty(cfg, os.Args[2:])
 	case "atlas":
 		err = atlas(cfg, os.Args[2:])
 	case "anime":
@@ -532,6 +534,96 @@ func teaServe(cfg config.Config, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return server.ListenAndServe(ctx, cfg, server.Options{Addr: *addr, Token: resolvedToken, PublicReadOnly: *publicReadOnly})
+}
+
+func beauty(cfg config.Config, args []string) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		ui.Header("beauty", "streaming gallery and operator protocol")
+		ui.Suite("subcommands", ui.Rose, []ui.PairRow{
+			{"check", "verify the reduced Beauty site bundle"},
+			{"dev", "serve Beauty locally with the shared FLUX runtime"},
+			{"serve", "same as dev; supports auth and public read-only mode"},
+		})
+		return nil
+	}
+	switch strings.ToLower(args[0]) {
+	case "check", "doctor":
+		if len(args) != 1 {
+			return errors.New("usage: flux beauty check")
+		}
+		return beautyCheck(cfg)
+	case "dev", "serve", "start":
+		return beautyServe(cfg, args[1:])
+	default:
+		return fmt.Errorf("unknown beauty command %q; use check, dev, or serve", args[0])
+	}
+}
+
+func beautyCheck(cfg config.Config) error {
+	root := filepath.Join(cfg.Root, "apps", "beauty", "public")
+	required := []string{
+		"index.html", "gallery.html", "collections.html", "protocol.html", "jury.html", "control.html",
+		"beauty.css", "beauty-shell.js",
+	}
+	var missing []string
+	for _, rel := range required {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil || info.IsDir() || info.Size() == 0 {
+			missing = append(missing, rel)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("Beauty app is incomplete under %s; missing or empty: %s", root, strings.Join(missing, ", "))
+	}
+	ui.Header("beauty check", "reduced app bundle ready")
+	ui.KV("root", root)
+	ui.KV("surfaces", "gallery collections protocol jury controls")
+	ui.KV("runtime", "shared FLUX APIs, output archive, and event streams")
+	ui.KV("assets", fmt.Sprintf("%d required files present", len(required)))
+	return nil
+}
+
+func beautyServe(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("beauty serve", flag.ContinueOnError)
+	addr := fs.String("addr", "127.0.0.1:7863", "HTTP listen address")
+	backend := fs.String("backend", cfg.Backend, "default backend: auto, cuda, mps, mlx, coreml, ane, cpu")
+	token := fs.String("token", "", "HTTP bearer token")
+	tokenEnv := fs.String("token-env", "FLUX_HTTP_TOKEN", "env var containing HTTP bearer token")
+	unsafeNoAuth := fs.Bool("unsafe-no-auth", false, "allow public bind without HTTP auth")
+	publicReadOnly := fs.Bool("public-read-only", false, "serve Beauty and safe GETs; refuse GPU mutations")
+	open := fs.Bool("open", false, "open Beauty in the default browser")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := beautyCheck(cfg); err != nil {
+		return err
+	}
+	if err := validateBackend(*backend); err != nil {
+		return err
+	}
+	cfg.Backend = strings.ToLower(*backend)
+	resolvedToken := resolveToken(*token, *tokenEnv)
+	if publicBindAddr(*addr) && resolvedToken == "" && !*unsafeNoAuth {
+		return fmt.Errorf("refusing to expose %s without auth; set --token, %s, or --unsafe-no-auth", *addr, *tokenEnv)
+	}
+	url := "http://" + *addr + "/"
+	ui.Header("beauty", "the beauty protocol, reduced to its live instruments")
+	ui.KV("local url", url)
+	ui.KV("auth", authState(resolvedToken, publicBindAddr(*addr), *unsafeNoAuth))
+	ui.KV("backend", cfg.Backend)
+	ui.KV("outputs", cfg.OutputDir)
+	if *publicReadOnly {
+		ui.KV("public", "read-only gallery, collections, protocol, and jury")
+	}
+	if *open {
+		server.OpenBrowser(url)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return server.ListenAndServe(ctx, cfg, server.Options{
+		Addr: *addr, Token: resolvedToken, PublicReadOnly: *publicReadOnly,
+		PublicDir: filepath.Join(cfg.Root, "apps", "beauty", "public"),
+	})
 }
 
 func atelierStudies(cfg config.Config, args []string) error {
@@ -2880,6 +2972,8 @@ func serve(cfg config.Config, args []string) error {
 		switch app {
 		case "tea", "garden":
 			return teaServe(cfg, subArgs)
+		case "beauty":
+			return beautyServe(cfg, subArgs)
 		case "rosarium", "museum":
 			return serveRosarium(cfg, subArgs)
 		case "atlas", "motion-atlas", "oscillihue", "motion", "web":
@@ -2900,6 +2994,7 @@ func serve(cfg config.Config, args []string) error {
 				{"flux serve studio", "primary HTTP/WebSocket API and studio dashboard on :7861"},
 				{"flux serve arcane", "Arcane Fortiche world forge and character studio on :7860"},
 				{"flux serve tea", "Tea living image garden and Stallion motion lab on :7861"},
+				{"flux serve beauty", "reduced Beauty Protocol gallery and controls on :7863"},
 				{"flux serve rosarium", "recovered visual museum & 7,218-item catalog on :7862"},
 				{"flux serve atlas", "Motion Atlas Sphere & agent console on :7870"},
 				{"flux serve atelier", "Atelier synthesis cockpit & prompt duels on :7860"},
@@ -2908,7 +3003,7 @@ func serve(cfg config.Config, args []string) error {
 			})
 			return nil
 		default:
-			return fmt.Errorf("unknown application %q for `flux serve`\n\nAvailable applications:\n  • studio   (primary HTTP API & studio UI on :7861)\n  • tea      (living garden & Stallion lab on :7861)\n  • rosarium (grand museum on :7862)\n  • atlas    (Motion Atlas Sphere on :7870)\n  • atelier  (synthesis cockpit on :7860)\n  • portal   (constellation index on :8898)\n  • gallery  (live generation archive on :7861/gallery)", app)
+			return fmt.Errorf("unknown application %q for `flux serve`\n\nAvailable applications:\n  • studio   (primary HTTP API & studio UI on :7861)\n  • tea      (living garden & Stallion lab on :7861)\n  • beauty   (reduced Beauty Protocol gallery and controls on :7863)\n  • rosarium (grand museum on :7862)\n  • atlas    (Motion Atlas Sphere on :7870)\n  • atelier  (synthesis cockpit on :7860)\n  • portal   (constellation index on :8898)\n  • gallery  (live generation archive on :7861/gallery)", app)
 		}
 	}
 	return serveStudio(cfg, args)

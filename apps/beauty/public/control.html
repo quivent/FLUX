@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a"><meta http-equiv="Cache-Control" content="no-store">
+  <title>Controls — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head"><div><div class="eyebrow">Private working controls</div><h1>Controls</h1><p class="lede">Set the prompt and pace for the next run. Jury changes apply to later reviews.</p></div><span class="pill" id="control-status">checking</span></section>
+    <section class="section" style="padding-top:0">
+      <div class="split">
+        <form class="panel panel-pad stack" id="stream-form">
+          <div><div class="eyebrow">Generation</div><h2 style="margin:14px 0 0">Next run</h2></div>
+          <div class="form-grid">
+            <div class="field wide"><label for="prompt">Prompt</label><textarea id="prompt" name="prompt" placeholder="Describe the world the stream should hold…"></textarea></div>
+            <div class="field"><label for="lane">Collection</label><input id="lane" name="lane" value="fashion" pattern="[a-z0-9-]+"></div>
+            <div class="field"><label for="count">Frame cap</label><select id="count" name="count"><option value="0" selected>Continuous</option><option>8</option><option>16</option><option>64</option><option>256</option></select></div>
+            <div class="field"><label for="steps">Steps</label><select id="steps" name="steps"><option>8</option><option>12</option><option selected>18</option><option>24</option><option>28</option></select></div>
+            <div class="field"><label for="guidance">Guidance</label><input id="guidance" name="guidance" type="number" min="0" max="20" step="0.1" value="3.5"></div>
+            <div class="field"><label for="seed">Base seed</label><input id="seed" name="seed" inputmode="numeric" placeholder="random each frame"></div>
+            <div class="field"><label for="size">Native size</label><select id="size" name="size"><option selected>512</option></select></div>
+            <div class="field"><label for="advisor-timeout">Advisor timeout</label><select id="advisor-timeout" name="advisor-timeout"><option>0.5</option><option>1</option><option>2</option><option selected>4</option><option>8</option></select></div>
+          </div>
+          <div class="actions"><button class="button primary" type="submit">Start stream</button><button class="button danger" type="button" id="stop-stream">Stop branch</button><a class="button" href="/gallery/">Watch wall</a></div>
+          <div class="notice" id="stream-notice"></div>
+        </form>
+        <aside class="stack">
+          <form class="panel panel-pad stack" id="jury-form">
+            <div><div class="eyebrow">Jury</div><h3 style="margin:12px 0 0">Weights and strictness</h3></div>
+            <div class="field"><label for="mode">Mode</label><select id="mode"><option value="parallel">Parallel</option><option value="sequential">Sequential</option></select></div>
+            <label class="check"><input type="checkbox" id="adversarial"> Adversarial review</label>
+            <label class="check"><input type="checkbox" id="text-gates"> Text from sensory gates</label>
+            <div id="weights"></div>
+            <button class="button" type="submit">Apply jury</button>
+            <div class="notice" id="jury-notice"></div>
+          </form>
+          <section class="panel panel-pad"><div class="eyebrow">Live state</div><div class="terminal" id="live-state">connecting</div></section>
+        </aside>
+      </div>
+    </section>
+    <footer><span>Writes require operator access</span><span>512 × 512 default</span></footer>
+  </main>
+  <script>
+  let juryConfig = null;
+  const keys = ['pixtral','qwen','decoder','governor'];
+  function notice(id, text, bad) { const el = document.getElementById(id); el.textContent = text; el.style.color = bad ? 'var(--danger)' : 'var(--cyan)'; }
+  function renderWeights(cfg) {
+    const weights = cfg.weights || {}, strict = cfg.strictness || {};
+    document.getElementById('weights').innerHTML = keys.map(key => '<div class="range-row"><label class="tiny" for="w-' + key + '">' + key + '</label><input id="w-' + key + '" type="range" min="0" max="1" step="0.05" value="' + Number(weights[key] || 0) + '"><output id="wo-' + key + '">' + Math.round(100 * Number(weights[key] || 0)) + '%</output></div><div class="range-row" style="margin-bottom:14px"><label class="tiny" for="g-' + key + '">γ strict</label><input id="g-' + key + '" type="range" min="0.5" max="3" step="0.1" value="' + Number(strict[key] || 1) + '"><output id="go-' + key + '">' + Number(strict[key] || 1).toFixed(1) + '</output></div>').join('');
+    keys.forEach(key => {
+      document.getElementById('w-' + key).oninput = e => document.getElementById('wo-' + key).textContent = Math.round(100 * Number(e.target.value)) + '%';
+      document.getElementById('g-' + key).oninput = e => document.getElementById('go-' + key).textContent = Number(e.target.value).toFixed(1);
+    });
+  }
+  async function hydrate() {
+    try {
+      const d = await fetch('/api/protocol?lane=fashion', {cache:'no-store'}).then(r => r.json());
+      juryConfig = d.jury || {};
+      document.getElementById('mode').value = juryConfig.mode || 'parallel';
+      document.getElementById('adversarial').checked = !!juryConfig.adversarial_mode;
+      document.getElementById('text-gates').checked = !!juryConfig.text_from_gates;
+      renderWeights(juryConfig);
+      const stream = d.stream || {};
+      document.getElementById('live-state').textContent = 'lane       ' + (d.lane || 'fashion') + '\nstream     ' + (stream.status || 'idle') + '\nprogress   ' + (stream.done || 0) + '/' + (stream.n || 0) + '\nengine     ' + ((d.flux && d.flux.loaded) ? 'ready' : 'cold') + '\nspectacles ' + ((d.spectacles && d.spectacles.count) || 0);
+      document.getElementById('control-status').textContent = (stream.status === 'running' ? '● stream live' : 'controls live');
+    } catch (_) { document.getElementById('control-status').textContent = 'controls unavailable'; }
+  }
+  document.getElementById('stream-form').onsubmit = async e => {
+    e.preventDefault();
+    const lane = document.getElementById('lane').value.trim().toLowerCase();
+    const body = {action:'start', prompt:document.getElementById('prompt').value.trim(), n:Number(document.getElementById('count').value), steps:Number(document.getElementById('steps').value), width:Number(document.getElementById('size').value), height:Number(document.getElementById('size').value), guidance:Number(document.getElementById('guidance').value), seed:document.getElementById('seed').value.trim(), advisor_timeout:Number(document.getElementById('advisor-timeout').value)};
+    if (!lane || !body.prompt) return notice('stream-notice','Collection and prompt are required.',true);
+    notice('stream-notice','Starting ' + lane + '…');
+    try { const r = await fetch('/api/beauty/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); notice('stream-notice','Adaptive 512px loop accepted. The wall will update live.'); hydrate(); } catch (err) { notice('stream-notice',String(err),true); }
+  };
+  document.getElementById('stop-stream').onclick = async () => {
+    const name = document.getElementById('lane').value.trim().toLowerCase();
+    notice('stream-notice','Stopping ' + name + '…');
+    try { const r = await fetch('/api/beauty/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stop'})}); if (!r.ok) throw new Error('request ' + r.status); notice('stream-notice','Stop requested.'); hydrate(); } catch (err) { notice('stream-notice',String(err),true); }
+  };
+  document.getElementById('jury-form').onsubmit = async e => {
+    e.preventDefault();
+    if (!juryConfig) return;
+    const next = {...juryConfig, mode:document.getElementById('mode').value, adversarial_mode:document.getElementById('adversarial').checked, text_from_gates:document.getElementById('text-gates').checked, weights:{...juryConfig.weights}, strictness:{...juryConfig.strictness}};
+    keys.forEach(key => { next.weights[key] = Number(document.getElementById('w-' + key).value); next.strictness[key] = Number(document.getElementById('g-' + key).value); });
+    notice('jury-notice','Applying jury…');
+    try { const r = await fetch('/api/jury/config?lane=fashion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); juryConfig = d.config || next; notice('jury-notice','Jury applied live.'); hydrate(); } catch (err) { notice('jury-notice',String(err) + ' — use an authenticated operator listener.',true); }
+  };
+  hydrate(); setInterval(hydrate, 5000);
+  </script>
+</body>
+</html>

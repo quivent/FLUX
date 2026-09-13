@@ -14,11 +14,11 @@ import (
 )
 
 type teaDaemon struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Role     string `json:"role"`
-	Kind     string `json:"kind"`
-	Bind     string `json:"bind"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	Kind      string `json:"kind"`
+	Bind      string `json:"bind"`
 	Required  bool   `json:"required"`
 	Protected bool   `json:"protected"`
 	Live      bool   `json:"live"`
@@ -58,6 +58,7 @@ var teaDaemonSpecs = []daemonSpec{
 	{ID: "flux-gpu0", Name: "FLUX GPU 0", Role: "BF16 generator. Arcane / microgreens.", Kind: "worker", Bind: "uds:.fluxd/flux-gpu0.sock", Sock: ".fluxd/flux-gpu0.sock", Required: true, Proc: "flux-gpu0.sock"},
 	{ID: "flux-gpu3", Name: "FLUX GPU 3", Role: "FP8 generator. Fashion wall.", Kind: "worker", Bind: "uds:.fluxd/flux-gpu3.sock", Sock: ".fluxd/flux-gpu3.sock", Required: true, Proc: "flux-gpu3.sock"},
 	{ID: "protocol-stream", Name: "Protocol stream", Role: "Perpetual stills into the collection.", Kind: "stream", Bind: "gpu0 worker", Required: false, Proc: "protocol_stream.py"},
+	{ID: "beauty-pipeline", Name: "Beauty pipeline", Role: "Latency-first 512px render, publish, critique, direct loop.", Kind: "stream", Bind: "flux worker + remote advisors", Required: false, Proc: "beauty_pipeline.py"},
 	{ID: "hive-research", Name: "Qwen", Role: "Reason. GPU 2. Protected sounding board for thought, not a second Governor.", Kind: "engine", Bind: "127.0.0.1:8002", TCP: "127.0.0.1:8002", Required: true, Protected: true, Proc: "served-model-name hive-research"},
 	{ID: "pixtral", Name: "Pixtral", Role: "Beauty critic. GPU 3.", Kind: "engine", Bind: "127.0.0.1:8004", TCP: "127.0.0.1:8004", Required: true, Proc: "served-model-name pixtral"},
 	{ID: "drafter", Name: "Drafter", Role: "Gemma 12B decoder + MTP.", Kind: "engine", Bind: "127.0.0.1:8003", TCP: "127.0.0.1:8003", Required: false, Proc: "served-model-name drafter"},

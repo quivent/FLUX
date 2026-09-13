@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Beauty Protocol</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head"><div><div class="eyebrow">How images enter the archive</div><h1>Protocol</h1><p class="lede">The prompt is fixed before a run. Each result is checked for structure, difference and adherence; the record keeps both the decision and its source.</p></div><div class="actions"><a class="button" href="/jury">Jury</a><a class="button" href="/control">Controls</a></div></section>
+    <section class="section" style="padding-top:0">
+      <div class="split">
+        <div class="panel panel-pad"><div class="eyebrow">The contract</div><div class="law-list">
+          <article class="law"><div><h3>Keep the brief intact</h3><p>The prompt and collection are chosen before generation. Criticism may alter the next attempt, but never the record of the first.</p></div></article>
+          <article class="law"><div><h3>Keep the source frame</h3><p>The archive stores the rendered image, not an interpolated or quietly repaired substitute.</p></div></article>
+          <article class="law"><div><h3>Measure before describing</h3><p>Structure and difference are checked before a language model is asked for an opinion.</p></div></article>
+          <article class="law"><div><h3>Name every judge</h3><p>A score retains its model, role, criticism and response time.</p></div></article>
+          <article class="law"><div><h3>Selection is relative</h3><p>A strong frame earns its place against the work around it, not against a fixed marketing label.</p></div></article>
+        </div></div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Live protocol</div><h3 id="protocol-name" style="margin-top:16px">Reading topology…</h3><div class="terminal" id="topology">connecting</div></section>
+          <section class="panel panel-pad"><div class="eyebrow">Evaluation path</div><div class="terminal" id="eval-path">generate → uniqueness → sensory gates → witness → beauty critic → governor → composite</div></section>
+        </aside>
+      </div>
+    </section>
+    <footer><span>jury_continuum.toml</span><span>Revision 3</span></footer>
+  </main>
+  <script>
+  async function loadProtocol() {
+    try {
+      const d = await fetch('/api/protocol?lane=fashion', {cache:'no-store'}).then(r => r.json());
+      document.getElementById('protocol-name').textContent = d.name || 'Influx Vision Beauty Protocol';
+      document.getElementById('eval-path').textContent = ((d.stream_options && d.stream_options.eval_path) || []).join(' → ');
+      document.getElementById('topology').textContent = (d.tenants || []).map(t => (t.live ? '● ' : '○ ') + t.id.padEnd(11) + ' ' + (t.role || '') + '\n  ' + (t.note || t.endpoint || '')).join('\n\n');
+    } catch (_) { document.getElementById('topology').textContent = 'Live topology unavailable.'; }
+  }
+  loadProtocol(); setInterval(loadProtocol, 5000);
+  </script>
+</body>
+</html>

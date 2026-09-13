@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07070a">
+  <title>Beauty Protocol</title>
+  <meta name="description" content="The live Beauty Protocol: gallery, collections, jury, and operator controls.">
+  <link rel="stylesheet" href="/beauty.css?v=2">
+  <script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head">
+      <div>
+        <div class="eyebrow">FLUX.1 / live archive</div>
+        <h1>Images, selected<br>as they are made.</h1>
+        <p class="lede">A working collection of generated images. New frames arrive in the gallery; the jury records what passed and why.</p>
+      </div>
+      <div class="actions"><a class="button primary" href="/gallery/">View the gallery</a><a class="button" href="/control">Controls</a></div>
+    </section>
+    <section class="section">
+      <div class="stat-grid" id="overview">
+        <div class="stat"><strong id="stream-state">—</strong><span>Stream</span></div>
+        <div class="stat"><strong id="stream-count">—</strong><span>Frames</span></div>
+        <div class="stat"><strong id="jury-count">—</strong><span>Selected</span></div>
+        <div class="stat"><strong id="engine-state">—</strong><span>FLUX engine</span></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><div class="eyebrow">Latest arrivals</div><h2>On the wall</h2></div><a class="button" href="/gallery/">All frames</a></div>
+      <div class="image-grid" id="latest"><div class="empty">Opening the image stream…</div></div>
+    </section>
+    <footer><span>beauty.oceanica.network</span><span>Live archive</span></footer>
+  </main>
+  <script>
+  (async function () {
+    const esc = (v) => window.Beauty ? Beauty.esc(v) : String(v || '');
+    try {
+      const [protocol, recent] = await Promise.all([
+        fetch('/api/protocol?lane=fashion', {cache:'no-store'}).then(r => r.json()),
+        fetch('/api/recent-images?scope=fashion&limit=8', {cache:'no-store'}).then(r => r.json())
+      ]);
+      const stream = protocol.stream || {};
+      document.getElementById('stream-state').textContent = stream.status || 'idle';
+      document.getElementById('stream-count').textContent = stream.done || stream.current || 0;
+      document.getElementById('jury-count').textContent = (protocol.spectacles && protocol.spectacles.count) || 0;
+      document.getElementById('engine-state').textContent = protocol.flux && protocol.flux.loaded ? 'ready' : 'cold';
+      const images = recent.images || [];
+      document.getElementById('latest').innerHTML = images.length ? images.map(im => {
+        const url = im.path || im.url || im.output_url || '';
+        const name = im.filename || im.name || url.split('/').pop();
+        return '<a class="image-card" href="' + esc(url) + '" target="_blank" rel="noreferrer"><img src="/api/asset/thumbnail?w=640&src=' + encodeURIComponent(url) + '" alt=""><span class="caption">' + esc(name) + '</span></a>';
+      }).join('') : '<div class="empty">No fashion frames yet. The wall will open when the stream writes its first image.</div>';
+    } catch (_) {
+      document.getElementById('latest').innerHTML = '<div class="empty">The live archive is not answering yet.</div>';
+    }
+  })();
+  </script>
+</body>
+</html>

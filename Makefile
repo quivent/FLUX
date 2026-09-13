@@ -23,7 +23,7 @@ VENV_PY := $(VENV)/bin/python
 GMAN_FLUX := scripts/gman-flux.sh
 NODE ?= flux-worker
 
-.PHONY: tea-setup tea-check tea-dev tea-rubric chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
+.PHONY: tea-setup tea-check tea-dev tea-rubric beauty-check beauty-dev chorus chorus-status chorus-stop chorus-control help setup check generate run flux go-build install motion-install motion-dev motion-prod motion-probe studio accel bench warm serve jobs recipes muse history tree colors download clean-output node-up node-sync node-bootstrap node-model node-verify node-render node-serve node-status node-stop node-all
 
 help:
 	@echo "Targets:"
@@ -36,6 +36,8 @@ help:
 	@echo "  make tea-check  Run Tea, server, and object-motion rubric checks"
 	@echo "  make tea-dev    Serve Tea locally on DEV_ADDR"
 	@echo "  make tea-rubric Run the fail-closed Stallion adversarial fixtures"
+	@echo "  make beauty-check Verify the reduced Beauty Protocol site"
+	@echo "  make beauty-dev   Serve Beauty locally on 127.0.0.1:7863"
 	@echo "  make motion-install  Install all Motion Atlas dependencies and model"
 	@echo "  make motion-dev      Install and serve Motion Atlas locally"
 	@echo "  make motion-prod     Install and serve Motion Atlas on PROD_ADDR (auth required)"
@@ -184,6 +186,12 @@ tea-check: go-build tea-rubric
 
 tea-dev: go-build
 	./flux tea dev --addr "$(DEV_ADDR)"
+
+beauty-check: go-build
+	./flux beauty check
+
+beauty-dev: go-build
+	./flux beauty dev --addr 127.0.0.1:7863
 
 motion-install: setup flux
 	./flux atlas motion --backend "$(BACKEND)" --setup-only

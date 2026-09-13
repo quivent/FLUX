@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Jury — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head"><div><div class="eyebrow">Review record</div><h1>Jury</h1><p class="lede">Who reviewed the work, how much their opinion counts, and whether they answered.</p></div><div class="actions"><span class="pill" id="jury-health">reading</span><a class="button" href="/control">Set weights</a></div></section>
+    <section class="section" style="padding-top:0"><div class="stat-grid"><div class="stat"><strong id="mode">—</strong><span>Mode</span></div><div class="stat"><strong id="minimum">—</strong><span>Minimum judges</span></div><div class="stat"><strong id="spectacles">—</strong><span>Spectacles</span></div><div class="stat"><strong id="stream">—</strong><span>Stream</span></div></div></section>
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Current chamber</div><h2>Jurors</h2></div></div><div class="jury-grid" id="jurors"><div class="empty">Opening the chamber…</div></div></section>
+    <section class="section"><div class="section-head"><div><div class="eyebrow">Latest evidence</div><h2>Verdict receipt</h2></div></div><div class="panel panel-pad"><div class="terminal" id="receipt">No receipt yet.</div></div></section>
+    <footer><span>Weights shown as configured</span><span>Latest receipt</span></footer>
+  </main>
+  <script>
+  const names = {pixtral:'Aesthetic critic', qwen:'Structural witness', decoder:'Representation consensus', governor:'Law & intent'};
+  async function loadJury() {
+    try {
+      const [protocol, relative] = await Promise.all([
+        fetch('/api/protocol?lane=fashion', {cache:'no-store'}).then(r => r.json()),
+        fetch('/api/relative-beauty/state', {cache:'no-store'}).then(r => r.json()).catch(() => ({}))
+      ]);
+      const cfg = protocol.jury || {}, weights = cfg.weights || {}, strict = cfg.strictness || {};
+      document.getElementById('mode').textContent = cfg.mode || 'parallel';
+      document.getElementById('minimum').textContent = cfg.min_judges || 1;
+      document.getElementById('spectacles').textContent = (protocol.spectacles && protocol.spectacles.count) || 0;
+      document.getElementById('stream').textContent = (protocol.stream && protocol.stream.status) || 'idle';
+      document.getElementById('jury-health').textContent = cfg.adversarial_mode ? 'adversarial / live' : 'balanced / live';
+      const order = cfg.order || Object.keys(weights);
+      document.getElementById('jurors').innerHTML = order.map(key => '<article class="juror"><div class="juror-top"><div><div class="tiny">' + Beauty.esc(key) + '</div><h3>' + Beauty.esc(names[key] || key) + '</h3></div><div class="score">' + Math.round(100 * Number(weights[key] || 0)) + '%</div></div><p class="verdict">Strictness γ ' + Number(strict[key] || 1).toFixed(1) + ' · ' + (cfg.adversarial_mode ? 'adversarial review' : 'standard review') + '</p></article>').join('');
+      const receipt = relative.jury && relative.jury.last_receipt;
+      document.getElementById('receipt').textContent = receipt ? JSON.stringify(receipt, null, 2) : 'No relative-beauty receipt has been written yet.';
+    } catch (_) {
+      document.getElementById('jury-health').textContent = 'jury unavailable';
+      document.getElementById('jurors').innerHTML = '<div class="empty">The jury state is not answering.</div>';
+    }
+  }
+  loadJury(); setInterval(loadJury, 4000);
+  </script>
+</body>
+</html>

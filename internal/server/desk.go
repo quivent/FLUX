@@ -45,11 +45,11 @@ type deskJury struct {
 }
 
 type deskState struct {
-	Lane    string                         `json:"lane"`
-	Hive    deskHive                       `json:"hive"`
-	Jury    deskJury                       `json:"jury"`
-	Pace    deskPace                       `json:"pace"`
-	Prompts map[string]map[string]string   `json:"prompts,omitempty"`
+	Lane    string                       `json:"lane"`
+	Hive    deskHive                     `json:"hive"`
+	Jury    deskJury                     `json:"jury"`
+	Pace    deskPace                     `json:"pace"`
+	Prompts map[string]map[string]string `json:"prompts,omitempty"`
 }
 
 func (s Server) deskPage(w http.ResponseWriter, r *http.Request) {
@@ -58,9 +58,14 @@ func (s Server) deskPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := "desk.html"
+	if s.publicDir != "" {
+		name = "control.html"
+	}
 	switch strings.TrimSuffix(r.URL.Path, "/") {
 	case "/desk", "/control":
-		name = "desk.html"
+		if s.publicDir == "" {
+			name = "desk.html"
+		}
 	case "/desk/hive":
 		name = "desk-hive.html"
 	case "/desk/jury":
@@ -75,7 +80,7 @@ func (s Server) deskPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", name))
+	http.ServeFile(w, r, s.sitePublicFile(name))
 }
 
 func (s Server) scoresPage(w http.ResponseWriter, r *http.Request) {

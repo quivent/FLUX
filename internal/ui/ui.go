@@ -267,6 +267,7 @@ func Usage() {
 	Suite("applications", Rose, []PairRow{
 		{"serve studio", "primary HTTP API and studio dashboard on :7861"},
 		{"serve tea", "Tea living image garden & Stallion motion lab on :7861"},
+		{"serve beauty", "reduced Beauty Protocol gallery and controls on :7863"},
 		{"serve rosarium", "recovered visual museum (7,218 works) on :7862"},
 		{"serve atlas", "Motion Atlas Sphere & agent console on :7870"},
 		{"serve atelier", "Koyomi synthesis cockpit & prompt duels on :7860"},
@@ -330,6 +331,7 @@ func Examples() {
 	Suite("applications & serving", Rose, []PairRow{
 		{"flux serve studio", "serve primary HTTP/WebSocket API & studio UI on :7861"},
 		{"flux serve tea", "serve Tea living garden & Stallion motion lab on :7861"},
+		{"flux serve beauty", "serve reduced Beauty Protocol gallery and controls on :7863"},
 		{"flux serve rosarium", "serve recovered visual museum (7,218 works) on :7862"},
 		{"flux serve atlas", "serve Motion Atlas Sphere on :7870"},
 		{"flux serve atelier", "serve Atelier synthesis cockpit on :7860"},

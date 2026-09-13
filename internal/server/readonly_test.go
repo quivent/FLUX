@@ -35,6 +35,7 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/collections/arcane", true},
 		{http.MethodGet, "/collections/silk", true},
 		{http.MethodGet, "/api/protocol/branches", true},
+		{http.MethodGet, "/api/beauty/pipeline", true},
 		{http.MethodGet, "/studios", true},
 		{http.MethodGet, "/studio/fashion", true},
 		{http.MethodGet, "/api/studios", true},
@@ -71,6 +72,8 @@ func TestReadOnlyGate(t *testing.T) {
 		{http.MethodGet, "/api/tea/desk", true},
 		{http.MethodGet, "/tea.css", true},
 		{http.MethodGet, "/tea-shell.js", true},
+		{http.MethodGet, "/beauty.css", true},
+		{http.MethodGet, "/beauty-shell.js", true},
 		{http.MethodGet, "/tea/tea.css", true},
 		{http.MethodGet, "/tea/tea-shell.js", true},
 		{http.MethodGet, "/tea/desk.js", true},
@@ -110,6 +113,7 @@ func TestReadOnlyGate(t *testing.T) {
 
 		// Renders, warmups and cancels all cost GPU time or money.
 		{http.MethodPost, "/api/protocol/branches", false},
+		{http.MethodPost, "/api/beauty/pipeline", false},
 		{http.MethodPost, "/api/studios/fashion", false},
 		{http.MethodPost, "/api/render", false},
 		{http.MethodPost, "/api/generate", false},

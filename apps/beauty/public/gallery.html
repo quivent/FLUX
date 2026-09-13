@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta name="theme-color" content="#07070a">
+  <title>Live Gallery — Beauty</title>
+  <link rel="stylesheet" href="/beauty.css?v=2">
+  <script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head">
+      <div><div class="eyebrow" id="gallery-kicker">Newest first</div><h1 id="gallery-title">Gallery</h1><p class="lede" id="gallery-copy">The current run, followed as it develops. Open a frame to see the original.</p></div>
+      <div class="actions"><span class="pill" id="gallery-status">connecting</span><a class="button" href="/control">Edit the run</a></div>
+    </section>
+    <section class="section" style="padding-top:0">
+      <div class="stat-grid">
+        <div class="stat"><strong id="frame-count">0</strong><span>Frames loaded</span></div>
+        <div class="stat"><strong id="lane-name">fashion</strong><span>Collection lane</span></div>
+        <div class="stat"><strong id="stream-progress">—</strong><span>Stream progress</span></div>
+        <div class="stat"><strong id="jury-state">—</strong><span>Jury state</span></div>
+      </div>
+    </section>
+    <section class="section" style="padding-top:0"><div class="image-grid" id="wall"><div class="empty">Opening the archive and live signal…</div></div></section>
+    <footer><span id="foot-lane">Beauty / fashion</span><span>Newest frames first</span></footer>
+  </main>
+  <script>
+  const wall = document.getElementById('wall');
+  const seen = new Set();
+  let total = 0;
+  function lane() {
+    const parts = location.pathname.split('/').filter(Boolean);
+    return parts[0] === 'collections' && parts[1] ? decodeURIComponent(parts[1]) : 'fashion';
+  }
+  function urlOf(item) { return item.path || item.url || item.output_url || item.output || ''; }
+  function belongs(item, selected) {
+    if (selected === 'fashion') return !/\/collections\/(arcane|microgreens)\//i.test(urlOf(item));
+    return urlOf(item).includes('/collections/' + selected + '/') || String(item.scope || item.lane || '') === selected;
+  }
+  function add(item, fresh) {
+    const url = urlOf(item);
+    if (!url || seen.has(url) || !belongs(item, lane())) return;
+    seen.add(url);
+    if (wall.querySelector('.empty')) wall.innerHTML = '';
+    const a = document.createElement('a');
+    a.className = 'image-card' + (fresh ? ' new' : '');
+    a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
+    const name = item.filename || item.name || url.split('/').pop();
+    a.innerHTML = '<img loading="lazy" src="/api/asset/thumbnail?w=768&src=' + encodeURIComponent(url) + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
+    wall.prepend(a);
+    total += 1;
+    document.getElementById('frame-count').textContent = total;
+    while (wall.children.length > 80) wall.lastElementChild.remove();
+  }
+  async function load() {
+    const selected = lane();
+    document.getElementById('lane-name').textContent = selected;
+    document.getElementById('foot-lane').textContent = 'Beauty / ' + selected;
+    if (selected !== 'fashion') {
+      document.getElementById('gallery-kicker').textContent = 'Collection';
+      document.getElementById('gallery-title').textContent = selected.replace(/-/g, ' ');
+      document.title = selected + ' — Beauty Collections';
+    }
+    try {
+      const data = await fetch('/api/recent-images?scope=' + encodeURIComponent(selected) + '&limit=80', {cache:'no-store'}).then(r => r.json());
+      (data.images || []).slice().reverse().forEach(item => add(item, false));
+      if (!total) wall.innerHTML = '<div class="empty">This collection has no frames yet.</div>';
+    } catch (_) { wall.innerHTML = '<div class="empty">The archive is unavailable.</div>'; }
+    refresh();
+  }
+  async function refresh() {
+    try {
+      const data = await fetch('/api/protocol?lane=' + encodeURIComponent(lane()), {cache:'no-store'}).then(r => r.json());
+      const stream = data.stream || {};
+      const done = stream.done || stream.current || 0, n = stream.n || stream.total || 0;
+      document.getElementById('stream-progress').textContent = n ? done + '/' + n : (stream.status || 'idle');
+      document.getElementById('jury-state').textContent = ((data.spectacles && data.spectacles.count) || 0) + ' picks';
+      document.getElementById('gallery-status').textContent = stream.status === 'running' ? '● stream live' : (stream.status || 'watching');
+    } catch (_) { document.getElementById('gallery-status').textContent = 'signal retrying'; }
+  }
+  function onAsset(raw) { try { add(JSON.parse(raw), true); } catch (_) {} }
+  function connect() {
+    if (!window.EventSource) return;
+    const assets = new EventSource('/api/assets/events');
+    assets.addEventListener('asset', e => onAsset(e.data));
+    assets.onerror = () => { document.getElementById('gallery-status').textContent = 'signal retrying'; };
+    const jobs = new EventSource('/api/jobs/events');
+    jobs.addEventListener('jobs', e => { try { (JSON.parse(e.data).jobs || []).filter(j => j.status === 'done').reverse().forEach(j => add(j, true)); } catch (_) {} });
+  }
+  load(); connect(); setInterval(refresh, 4000);
+  </script>
+</body>
+</html>

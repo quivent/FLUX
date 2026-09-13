@@ -41,6 +41,10 @@ import (
 type Options struct {
 	Addr  string
 	Token string
+	// PublicDir overrides the presentation bundle while keeping the shared
+	// FLUX APIs, event streams, output archive, and worker lifecycle on the
+	// same origin. An empty value preserves the Tea bundle.
+	PublicDir string
 	// PublicReadOnly serves the gallery to the open internet: safe GETs on an
 	// allowlist, everything else refused. Set it whenever the listener is
 	// reachable without a token, which is the only way a browser can open the
@@ -49,8 +53,9 @@ type Options struct {
 }
 
 type Server struct {
-	cfg    config.Config
-	client daemon.Client
+	cfg       config.Config
+	client    daemon.Client
+	publicDir string
 	// pool spans one worker per detected GPU. It is empty on hosts with no
 	// GPU, in which case every worker helper falls back to client.
 	pool fleet.Pool
@@ -251,7 +256,15 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	if strings.TrimSpace(opt.Addr) == "" {
 		opt.Addr = "127.0.0.1:7861"
 	}
-	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg)}
+	publicDir := strings.TrimSpace(opt.PublicDir)
+	if publicDir != "" {
+		var err error
+		publicDir, err = filepath.Abs(publicDir)
+		if err != nil {
+			return fmt.Errorf("resolve public directory: %w", err)
+		}
+	}
+	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg), publicDir: publicDir}
 	if s.fleetOn() {
 		slog.Info("flux fleet enabled", "gpus", s.pool.GPUs(), "workers", s.pool.Size())
 	}
@@ -339,6 +352,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/api/relative-beauty/control", s.relativeBeautyControlAPI)
 	mux.HandleFunc("/api/protocol", s.protocolAPI)
 	mux.HandleFunc("/api/protocol/branches", s.protocolBranchesAPI)
+	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/api/studios", s.studiosAPI)
 	mux.HandleFunc("/api/studios/", s.studiosAPI)
 	mux.HandleFunc("/studios", s.studiosPage)
@@ -420,6 +434,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/tea/", s.gardenPage)
 	mux.HandleFunc("/tea.css", s.teaChromeAsset)
 	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
+	mux.HandleFunc("/beauty.css", s.siteChromeAsset)
+	mux.HandleFunc("/beauty-shell.js", s.siteChromeAsset)
 	mux.HandleFunc("/assets/", s.teaPublicAsset)
 	mux.HandleFunc("/publications", s.publicationsPage)
 	mux.HandleFunc("/publications/", s.publicationsPage)
@@ -525,6 +541,8 @@ var readOnlyPaths = []string{
 	"/api/recent-images",
 	"/tea.css",
 	"/tea-shell.js",
+	"/beauty.css",
+	"/beauty-shell.js",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -561,6 +579,7 @@ var readOnlyPaths = []string{
 	"/api/rig/ws",
 	"/api/protocol",
 	"/api/protocol/branches",
+	"/api/beauty/pipeline",
 	"/api/studios",
 	"/studios",
 	"/studio",
@@ -663,6 +682,10 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if s.publicDir != "" {
+		http.ServeFile(w, r, s.sitePublicFile("index.html"))
+		return
+	}
 	host := requestHost(r)
 	if host == "flux.influx.vision" {
 		http.Redirect(w, r, "/motion-atlas/", http.StatusTemporaryRedirect)
@@ -682,6 +705,26 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+}
+
+func (s Server) sitePublicDir() string {
+	if s.publicDir != "" {
+		return s.publicDir
+	}
+	return filepath.Join(s.cfg.Root, "apps", "tea", "public")
+}
+
+func (s Server) sitePublicFile(name string) string {
+	return filepath.Join(s.sitePublicDir(), filepath.FromSlash(name))
+}
+
+func (s Server) siteChromeAsset(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name != "beauty.css" && name != "beauty-shell.js" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, s.sitePublicFile(name))
 }
 
 func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
@@ -819,15 +862,15 @@ func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
 	rel = strings.TrimPrefix(rel, "/protocol")
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
+		http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
 		return
 	}
-	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
+	file := s.sitePublicFile(rel)
 	if info, err := os.Stat(file); err == nil && !info.IsDir() {
 		http.ServeFile(w, r, file)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
+	http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
 }
 
 func (s Server) trainPage(w http.ResponseWriter, r *http.Request) {
@@ -864,7 +907,11 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/moj")
 	rel = strings.TrimPrefix(rel, "/jury")
 	rel = strings.TrimPrefix(rel, "/")
-	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
+	public := s.sitePublicDir()
+	if s.publicDir != "" {
+		http.ServeFile(w, r, filepath.Join(public, "jury.html"))
+		return
+	}
 	if rel == "" || rel == "index.html" {
 		http.ServeFile(w, r, filepath.Join(public, "relative-beauty.html"))
 		return
@@ -1395,7 +1442,7 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+	http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
 }
 
 // movement presents one live authored path. The exhibition is a second,
@@ -5003,12 +5050,12 @@ func (s Server) teaCollectionsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	switch path {
 	case "/collections":
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "collections.html"))
+		http.ServeFile(w, r, s.sitePublicFile("collections.html"))
 	case "/collections/fashion", "/collections/arcane":
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+		http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
 	default:
 		if _, ok := publicCollectionSlug(path); ok {
-			http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+			http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
 			return
 		}
 		http.NotFound(w, r)

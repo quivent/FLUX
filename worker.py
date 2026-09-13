@@ -20,6 +20,19 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
+
+# Torch 2.13 nightlies no longer register torchvision::nms before torchvision's
+# fake-kernel table is imported. Transformers pulls the image processor while
+# Diffusers resolves FluxImg2ImgPipeline, so define the absent signature just
+# as the resident Qwen launcher on these machines does. This has no effect on
+# FLUX inference; it only lets torchvision finish importing.
+try:
+    _torchvision_compat = torch.library.Library("torchvision", "DEF")
+    _torchvision_compat.define("nms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
+    _torchvision_compat.define("qnms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
+except (RuntimeError, AttributeError):
+    _torchvision_compat = None
+
 from diffusers import FluxImg2ImgPipeline, FluxPipeline
 from PIL import Image
 import numpy as np
