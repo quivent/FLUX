@@ -165,6 +165,7 @@ for row in budget["per_gpu"]:
          ",".join(row["tenants"]))
 emit("TOGGLE", "kontext", "on" if cfg["toggles"]["kontext"] else "off")
 emit("TOGGLE", "governor_remote", "on" if cfg["toggles"]["governor_remote"] else "off")
+emit("TOGGLE", "witness_remote", "on" if cfg["toggles"]["witness_remote"] else "off")
 emit("PATHS", pp.FLUX_HOME, pp.OUT_DIR, pp.FLUXD_DIR, pp.FLUXD_SOCK,
      pp.KONTEXT_SOCK, pp.FLUX_BIN, pp.LOG_DIR, pp.MOJ_LOG, cfg["governor_base_url"])
 
@@ -194,7 +195,7 @@ field() { printf '%s' "$1" | cut -d'	' -f"$2"; }
 PROFILE=""; GPU=""; SM=""; VLLM_MIN=""; WHEEL=""
 VRAM_TOTAL=""; VRAM_RESERVE=""; VRAM_USABLE=""; VRAM_ALLOC=""; VRAM_FREE=""
 VRAM_HEADROOM=""; VRAM_FITS=""; VRAM_REASON=""
-KONTEXT="off"; GOV_REMOTE="off"
+KONTEXT="off"; GOV_REMOTE="off"; WITNESS_REMOTE="off"
 GPUS=1; INTERCONNECT="none"; IC_VERIFIED="no"; TP_VIABLE="no"; MAX_TP=1; LAYOUT=""
 GPUROWS=()
 P_HOME=""; P_OUT=""; P_FLUXD=""; P_SOCK=""; P_KSOCK=""; P_BIN=""; P_LOGDIR=""
@@ -221,6 +222,7 @@ while IFS= read -r line; do
       case "$(field "$line" 2)" in
         kontext)         KONTEXT=$(field "$line" 3) ;;
         governor_remote) GOV_REMOTE=$(field "$line" 3) ;;
+        witness_remote)  WITNESS_REMOTE=$(field "$line" 3) ;;
       esac ;;
     PATHS)
       P_HOME=$(field "$line" 2);   P_OUT=$(field "$line" 3)
@@ -251,6 +253,7 @@ ui_kv "python"    "$($PY -c 'import sys;print(sys.executable, ".".join(map(str,s
 ui_kv "topology"  "${GPUS} x $([ "$GPUS" -gt 1 ] && printf '96 GiB card' || printf 'card')$([ -n "$LAYOUT" ] && printf '  %slayout: %s%s' "$C_DIM" "$LAYOUT" "$C_RESET")"
 ui_kv "kontext"   "$([ "$KONTEXT" = on ] && printf '%sENABLED%s' "$C_MINT" "$C_RESET" || printf '%sdisabled%s' "$C_INK" "$C_RESET")"
 ui_kv "governor"  "$([ "$GOV_REMOTE" = on ] && printf '%sREMOTE%s  %s' "$C_TEAL" "$C_RESET" "$GOV_URL" || printf '%slocal%s   %s' "$C_INK" "$C_RESET" "$GOV_URL")"
+ui_kv "witness"   "$([ "$WITNESS_REMOTE" = on ] && printf '%sREMOTE%s' "$C_TEAL" "$C_RESET" || printf '%slocal%s' "$C_INK" "$C_RESET")"
 
 # ------------------------------------------------------------------------------
 # 1b · Interconnect. DETECT, DO NOT ASSUME.
@@ -399,7 +402,11 @@ if [ "$MODE" = "status" ]; then
     t_name=$(field "$row" 2); t_kind=$(field "$row" 3); t_on=$(field "$row" 4)
     t_remote=$(field "$row" 5); t_port=$(field "$row" 8); t_sock=$(field "$row" 17)
     if [ "$t_remote" = "yes" ]; then
-      ui_skip "$t_name — remote ($GOV_URL)"
+      t_endpoint=""
+      for endpoint_row in "${ENDPOINTS[@]}"; do
+        [ "$(field "$endpoint_row" 2)" = "$t_name" ] && t_endpoint=$(field "$endpoint_row" 3)
+      done
+      ui_skip "$t_name — remote (${t_endpoint:-configured endpoint})"
     elif [ "$t_on" != "on" ]; then
       ui_skip "$t_name — disabled"
     elif [ "$t_kind" = "vllm" ]; then
@@ -524,7 +531,11 @@ for row in "${TENANTS[@]}"; do
   [ "$(field "$row" 3)" = "vllm" ] || continue
   t_name=$(field "$row" 2); t_on=$(field "$row" 4); t_remote=$(field "$row" 5)
   if [ "$t_remote" = "yes" ]; then
-    ui_skip "$t_name — served remotely at $GOV_URL; no container launched"
+    t_endpoint=""
+    for endpoint_row in "${ENDPOINTS[@]}"; do
+      [ "$(field "$endpoint_row" 2)" = "$t_name" ] && t_endpoint=$(field "$endpoint_row" 3)
+    done
+    ui_skip "$t_name — served remotely at ${t_endpoint:-configured endpoint}; no container launched"
     record "tenant:$t_name" skip "remote"
     continue
   fi

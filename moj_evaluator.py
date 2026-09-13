@@ -1413,6 +1413,14 @@ def _base_runtime() -> Dict[str, Any]:
     gov_key = _env("GOVERNOR_API_KEY", "MOJ_GOVERNOR_API_KEY")
     if gov_key:
         endpoints[GOVERNOR]["api_key"] = gov_key
+    witness_key = _env(
+        "MOJ_VISUAL_WITNESS_API_KEY", "VISUAL_WITNESS_API_KEY", "QWEN_API_KEY"
+    )
+    if witness_key:
+        endpoints[VISUAL_WITNESS]["api_key"] = witness_key
+    pixtral_key = _env("MOJ_PIXTRAL_API_KEY", "PIXTRAL_API_KEY")
+    if pixtral_key:
+        endpoints[PIXTRAL_CRITIC]["api_key"] = pixtral_key
 
     # Final safety net: never call a banned model, whatever the config said.
     for served, entry in endpoints.items():
@@ -1471,6 +1479,10 @@ def _base_runtime() -> Dict[str, Any]:
     adversarial = bool(jurors.get("adversarial_mode", True))
 
     min_judges = _num(_env("MOJ_MIN_JUDGES"))
+    eye_gate = dict(cont.get("eye_gate") or {})
+    eye_gate_env = _env("BEAUTY_EYE_GATE_REQUIRED")
+    if eye_gate_env:
+        eye_gate["required"] = _truthy(eye_gate_env)
 
     return {
         "_moj_runtime": True,
@@ -1483,6 +1495,7 @@ def _base_runtime() -> Dict[str, Any]:
         "timeouts": timeouts,
         "tiers": tiers,
         "min_judges": int(min_judges) if min_judges is not None else 1,
+        "eye_gate": eye_gate,
         "temperature": 0.15,
         "top_p": 0.9,
         "max_tokens": 640,
@@ -1491,6 +1504,8 @@ def _base_runtime() -> Dict[str, Any]:
         "image_max_bytes": int(_num(_env("MOJ_IMAGE_MAX_BYTES")) or 12 * 1024 * 1024),
         "probe_ttl": float(_num(_env("MOJ_PROBE_TTL_S")) or 20.0),
         "uniqueness_influence": not _truthy(_env("MOJ_DISABLE_UNIQUENESS")),
+        "uniqueness_collapse_penalty": -8.0,
+        "uniqueness_novelty_bonus": 3.0,
         "gate_triage": _truthy(_env("MOJ_GATE_TRIAGE")),
         "text_from_gates": _truthy(_env("MOJ_TEXT_FROM_GATES")),
         "output_dir": output_dir(),
@@ -1538,7 +1553,8 @@ def load_runtime_config(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
             if key in runtime["timeouts"] and num is not None and num > 0:
                 runtime["timeouts"][key] = float(num)
 
-    for key in ("min_judges", "temperature", "top_p", "max_tokens", "image_max_side"):
+    for key in ("min_judges", "temperature", "top_p", "max_tokens", "image_max_side",
+                "uniqueness_collapse_penalty", "uniqueness_novelty_bonus"):
         if key in cfg:
             num = _num(cfg[key])
             if num is not None:
@@ -2722,7 +2738,9 @@ def is_arcane_job(job: Dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------
 
 
-def _uniqueness_adjustment(uniq: Dict[str, Any], enabled: bool) -> float:
+def _uniqueness_adjustment(uniq: Dict[str, Any], enabled: bool,
+                           collapse_penalty: float = -8.0,
+                           novelty_bonus: float = 3.0) -> float:
     """Bounded, evidence-backed nudge from real pixel novelty.
 
     Applied to the composite, never to an individual judge's score, and always
@@ -2734,9 +2752,9 @@ def _uniqueness_adjustment(uniq: Dict[str, Any], enabled: bool) -> float:
     if score is None:
         return 0.0
     if uniq.get("mode_collapse") or score < 35.0:
-        return -8.0
+        return float(collapse_penalty)
     if score >= 75.0:
-        return 3.0
+        return float(novelty_bonus)
     return 0.0
 
 
@@ -3110,7 +3128,9 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
         weighted = sum(j["calibrated_score"] * j["weight"] for j in survivors)
         raw_pre_uniqueness = round(weighted / total_weight, 1)
         uniqueness_adjustment = _uniqueness_adjustment(
-            uniq, bool(runtime.get("uniqueness_influence", True))
+            uniq, bool(runtime.get("uniqueness_influence", True)),
+            float(runtime.get("uniqueness_collapse_penalty", -8.0)),
+            float(runtime.get("uniqueness_novelty_bonus", 3.0)),
         )
         raw_composite = round(_clamp(raw_pre_uniqueness + uniqueness_adjustment), 1)
         percentile_rank, curved_score = compute_percentile_and_curved_score(
@@ -3167,6 +3187,9 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
             epigram = candidate.strip()
             break
 
+    eye_gate = dict(runtime.get("eye_gate") or {})
+    operator_required = bool(eye_gate.get("required", False))
+    machine_recommendation = tier
     receipt: Dict[str, Any] = {
         # ---- keys the Go server, the SQLite writer and /jury already read ----
         "ts": time.time(),
@@ -3189,14 +3212,26 @@ def evaluate(job: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[
         },
         "jury_scores": jury_scores,
         "strictness_multipliers": gammas,
-        "is_spectacle": bool(
+        "is_spectacle": bool(not operator_required and
             percentile_rank is not None
             and percentile_rank >= float(tiers.get("spectacle_percentile", 90.0))
         ),
-        "is_masterpiece": bool(
+        "is_masterpiece": bool(not operator_required and
             percentile_rank is not None
             and percentile_rank >= float(tiers.get("masterpiece_percentile", 98.0))
         ),
+        "machine_recommendation": machine_recommendation,
+        "operator_gate": {
+            "protocol": eye_gate.get("protocol", "EGRL") if operator_required else None,
+            "required": operator_required,
+            "status": "pending" if operator_required else "not_required",
+            "operator_is_final": bool(eye_gate.get("operator_is_final", operator_required)),
+            "builder_observation": eye_gate.get("builder_observation"),
+            "independent_critic": eye_gate.get("independent_critic"),
+            "synthesist": eye_gate.get("synthesist"),
+            "design_laws": eye_gate.get("design_laws"),
+            "taste_log": eye_gate.get("taste_log"),
+        },
         # ---- new keys ----
         "judges": judges,
         "degraded_judges": degraded_judges,
@@ -3532,9 +3567,9 @@ def _self_test() -> int:
         }
     )
     check(
-        "structure stays on the text jury seat",
-        endpoint_for(JUDGE_STRUCTURE, seated).get("model") == "jury"
-        and endpoint_for(JUDGE_STRUCTURE, seated).get("vision") is False,
+        "blind structure seat borrows the available vision endpoint",
+        endpoint_for(JUDGE_STRUCTURE, seated).get("model") == "pixtral"
+        and endpoint_for(JUDGE_STRUCTURE, seated).get("vision") is True,
     )
     check(
         "synthesis stays text-only on the governor gateway",

@@ -25,6 +25,9 @@ Environment variables, all optional:
     ARCANE_LAYOUT           balanced | dense | tp     (multi-GPU profiles only)
     ARCANE_KONTEXT          1/0 — the only tenant toggle
     ARCANE_GOVERNOR_REMOTE  1/0 — serve the governor off-card
+    ARCANE_WITNESS_REMOTE   1/0 — serve the Qwen witness off-card
+    ARCANE_WITNESS_REMOTE_URL / MOJ_VISUAL_WITNESS_URL
+                            OpenAI-compatible URL for the remote witness
     ARCANE_<TENANT>_PRECISION   e.g. ARCANE_FLUX_PRECISION=q4_k_s
     GOVERNOR_BASE_URL       OpenAI-compatible base URL for the governor
 
@@ -370,11 +373,46 @@ def _governor_is_remote(tenant: dict[str, Any]) -> bool:
     return bool(env_flag("ARCANE_GOVERNOR_REMOTE", bool(tenant.get("remote", False))))
 
 
-def tenant_endpoint(tenant: dict[str, Any]) -> str | None:
+def _tenant_is_remote(name: str, tenant: dict[str, Any]) -> bool:
+    """Resolve placement for any served tenant while preserving the original
+    governor-specific compatibility switch."""
+    if name == "pixtral":
+        return bool(env_flag("ARCANE_PIXTRAL_REMOTE", bool(tenant.get("remote", False))))
+    if name == "governor":
+        return _governor_is_remote(tenant)
+    return bool(env_flag(f"ARCANE_{name.upper()}_REMOTE", bool(tenant.get("remote", False))))
+
+
+def _remote_tenant_url(name: str, tenant: dict[str, Any]) -> str | None:
+    env_names = []
+    declared_env = str(tenant.get("remote_url_env") or "").strip()
+    if declared_env:
+        env_names.append(declared_env)
+    env_names.append(f"ARCANE_{name.upper()}_REMOTE_URL")
+    if name == "witness":
+        env_names.extend(("MOJ_VISUAL_WITNESS_URL", "VISUAL_WITNESS_URL"))
+    elif name == "pixtral":
+        env_names.extend(("MOJ_PIXTRAL_URL", "PIXTRAL_CRITIC_URL"))
+    elif name == "governor":
+        env_names.extend(("MOJ_GOVERNOR_URL", "GOVERNOR_BASE_URL"))
+    for env_name in env_names:
+        value = os.environ.get(env_name, "").strip()
+        if value:
+            return value.rstrip("/")
+    fallback = tenant.get("remote_base_url")
+    return str(fallback).rstrip("/") if fallback else None
+
+
+def tenant_endpoint(tenant: dict[str, Any], name: str | None = None) -> str | None:
     """OpenAI-compatible base URL for a served tenant, or None if it has no
     HTTP surface (UDS worker, in-process gate)."""
     if tenant.get("remote"):
-        return str(tenant.get("remote_base_url") or GOVERNOR_REMOTE_URL_DEFAULT)
+        remote_url = _remote_tenant_url(name or str(tenant.get("name") or "tenant"), tenant)
+        if remote_url:
+            return remote_url
+        if name == "governor" or tenant.get("name") == "governor":
+            return GOVERNOR_REMOTE_URL_DEFAULT
+        return None
     port = tenant.get("port")
     if not port:
         return None
@@ -423,18 +461,27 @@ def load_continuum(path: str | None = None) -> dict:
     for name, tenant in profile.get("tenants", {}).items():
         resolved = _resolve_tenant(name, tenant, per_gpu, warnings)
         resolved["enabled"] = _apply_toggles(name, tenant)
-        if name == "governor":
-            resolved["remote"] = _governor_is_remote(resolved)
-            if resolved["remote"]:
-                resolved["vram_expected_gib"] = 0.0
-                resolved["weights_gib"] = 0.0
-                resolved["port"] = None
+        resolved["remote"] = _tenant_is_remote(name, resolved)
+        if resolved["remote"]:
+            resolved["vram_expected_gib"] = 0.0
+            resolved["weights_gib"] = 0.0
+            resolved["port"] = None
         tenants[name] = resolved
+
+    if profile.get("pixtral_colocated_with_flux", False):
+        flux_span = tenants.get("flux", {}).get("gpu_span")
+        pixtral = tenants.get("pixtral", {})
+        pixtral_span = pixtral.get("gpu_span")
+        if pixtral.get("remote") or flux_span != pixtral_span:
+            raise ValueError(
+                f"{profile_name}: Pixtral must stay local on FLUX gpu_span "
+                f"{flux_span}; got remote={pixtral.get('remote')} gpu_span={pixtral_span}"
+            )
 
     endpoints = {
         name: url
         for name, tenant in tenants.items()
-        if tenant.get("enabled") and (url := tenant_endpoint(tenant))
+        if tenant.get("enabled") and (url := tenant_endpoint(tenant, name))
     }
 
     verdict = dict(raw.get("verdict", {}))
@@ -478,6 +525,9 @@ def load_continuum(path: str | None = None) -> dict:
             "notes": profile.get("notes"),
         },
         "continuum": raw.get("continuum", {}),
+        "suite": profile.get("suite"),
+        "topology": profile.get("topology", {}),
+        "eye_gate": profile.get("eye_gate", {}),
         "ports": raw.get("ports", {}),
         "tenants": tenants,
         "endpoints": endpoints,
@@ -489,6 +539,7 @@ def load_continuum(path: str | None = None) -> dict:
         "toggles": {
             "kontext": tenants.get("kontext", {}).get("enabled", False),
             "governor_remote": governor.get("remote", False),
+            "witness_remote": tenants.get("witness", {}).get("remote", False),
             "pixtral": True,   # mandatory, not a toggle
             "gates": True,     # mandatory, not a toggle
         },
@@ -580,6 +631,16 @@ def vram_budget(
         )
 
     raw_tenants = prof.get("tenants", {})
+    if prof.get("pixtral_colocated_with_flux", False):
+        flux_raw = raw_tenants.get("flux", {})
+        pixtral_raw = raw_tenants.get("pixtral", {})
+        flux_gpu = flux_raw.get("gpu_span") or [int(flux_raw.get("gpu", 0) or 0)]
+        pixtral_gpu = pixtral_raw.get("gpu_span") or [int(pixtral_raw.get("gpu", 0) or 0)]
+        if _tenant_is_remote("pixtral", pixtral_raw) or list(flux_gpu) != list(pixtral_gpu):
+            raise ValueError(
+                f"{profile_name}: Pixtral must stay local and share FLUX placement; "
+                f"got FLUX={list(flux_gpu)} Pixtral={list(pixtral_gpu)}"
+            )
     gov_raw = raw_tenants.get("governor", {})
     if governor_remote is None:
         governor_remote = _governor_is_remote(gov_raw)
@@ -609,8 +670,10 @@ def vram_budget(
         weights = float(resolved.get("weights_gib", vram) or 0.0)
         span = list(resolved.get("gpu_span", [0]))
         tp = int(resolved.get("tensor_parallel", 1) or 1)
-        remote = False
-        if name == "governor" and governor_remote:
+        remote = _tenant_is_remote(name, resolved)
+        if name == "governor":
+            remote = bool(governor_remote)
+        if remote:
             remote, vram, per_card, weights, span = True, 0.0, 0.0, 0.0, []
 
         if tp > 1 and not tp_viable:
@@ -804,6 +867,7 @@ def vram_budget(
         "kontext": next((t["enabled"] for t in rows if t["name"] == "kontext"), False),
         "pixtral": True,
         "governor_remote": bool(governor_remote),
+        "witness_remote": next((t["remote"] for t in rows if t["name"] == "witness"), False),
         "tenants": rows,
         "overcommit_reason": reason,
         "warnings": warnings,

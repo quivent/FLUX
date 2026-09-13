@@ -70,6 +70,8 @@ func main() {
 		err = anime(cfg, os.Args[2:])
 	case "arcane", "fortiche":
 		err = arcaneCmd(cfg, os.Args[2:])
+	case "suite", "suites":
+		err = suitesCmd(cfg, os.Args[2:])
 	case "ane":
 		err = ane(cfg, os.Args[2:])
 	case "bench", "benchmark":

@@ -55,10 +55,10 @@
 # >>> it false on the rtx-pro-6000 profile, you have broken the node.
 #
 # >>> PROVISIONING PREREQUISITE: the R2 artifact bank advertised by `make receipt`
-# >>> carries wheels/vllm/65b7662d.../sm100/ and .../sm80/ ONLY. There is **no
-# >>> sm120 wheel in the bank.** The rtx-pro-6000 profile has no prebuilt vLLM
-# >>> and requires vLLM >= 0.13.0 compiled for sm_120 before it can be
-# >>> provisioned. provision_jury.sh checks for this and says so.
+# >>> carries wheels/vllm/65b7662d.../sm100/, .../sm80/, and .../sm90/. There is
+# >>> no sm120 wheel in the bank. H100/H200 provisioning uses the pinned sm90
+# >>> wheel from the R2 artifact bank; RTX PRO 6000 still requires a local
+# >>> sm120 build.
 #
 # ==============================================================================
 # II. PRECISION POLICY — judges quantize, the generator never does
@@ -300,7 +300,8 @@ witness = 8001
 pixtral = 8002
 reserved = [8003]
 
-# The governor is the one tenant that can live off-card. `remote` is per-profile
+# Served cognition tenants can live off-card. `remote` is per-profile
+# for Qwen/Gemma; Pixtral is always local beside FLUX.
 # (see each [profiles.*.tenants.governor]); these are the endpoints it resolves
 # to either way. ARCANE_GOVERNOR_REMOTE=1 forces remote on any profile.
 [governor]
@@ -1501,6 +1502,8 @@ variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1
 # ==============================================================================
 [profiles.h100]
 description = "Single NVIDIA H100 SXM5, 80 GB HBM3 — the only shape givemeanode's workspace currently offers"
+suite = "beauty"
+pixtral_colocated_with_flux = true
 gpu = "NVIDIA H100 80GB HBM3"
 sm = "sm_90"
 vram_gib = 80.0
@@ -1517,6 +1520,16 @@ native_nvfp4_dense = false
 native_nvfp4_moe = false
 prebuilt_wheel_available = true
 notes = "Hopper, not Blackwell: no NVFP4 kernels, so every tenant runs its FP8/W4A16 fallback. Governor is remote by default (ARCANE_GOVERNOR_REMOTE=1, https://governor.influx.vision/v1) — the standing governor node already runs it, and a local FP8 copy (31 GiB weights + KV cache) does not co-tenant with FLUX BF16 + the witness on 80 GiB. vllm-judge.sh already documents the two H100-specific landmines for anyone who does run a judge locally here: gpu-memory-utilization >= 0.87 OOMs the draft during CUDA graph capture, and FlashInfer crashes outright on SM90 with sliding-window attention (use VLLM_ATTENTION_BACKEND=TRITON_ATTN, no speculative config)."
+
+[profiles.h100.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+taste_log = "taste-log.jsonl"
+design_laws = "chorus/LAWS.md"
 
 # --- Generative engine. BF16, hard-pinned. Not a vLLM tenant: a resident UDS
 # --- worker addressed over .fluxd/flux-gpu0.sock. Unchanged from rtx-pro-6000.
@@ -1648,6 +1661,333 @@ mandatory = false
 toggleable = true
 dense = true
 variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0, note = "No headroom for this on an 80 GiB card at the same time as witness + pixtral; overcommits without evicting a tenant first." }
+
+
+# ==============================================================================
+# PROFILE: h100-remote-witness  ·  QWEN ON A CLEAN REMOTE MACHINE
+# ==============================================================================
+# Pixtral is deliberately local beside FLUX. Qwen and Gemma are HTTP tenants;
+# their URLs may be overridden without editing this file. The studio card keeps
+# 30 GiB+ free for larger batches, resolution passes, or optional Kontext.
+[profiles.h100-remote-witness]
+description = "H100 Beauty studio with local FLUX + Pixtral + gates and remote Qwen + Gemma"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H100 80GB HBM3"
+sm = "sm_90"
+vram_gib = 80.0
+gpu_count = 1
+vram_per_gpu_gib = 80.0
+reserve_gib = 3.2
+gpus = 1
+interconnect = "network"
+interconnect_verified = false
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+native_nvfp4_moe = false
+prebuilt_wheel_available = true
+layout = "remote-witness"
+notes = "Studio invariant: Pixtral stays beside FLUX. Qwen is a clean remote witness; Gemma remains remote. Every model is tensor_parallel=1."
+
+[profiles.h100-remote-witness.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+taste_log = "taste-log.jsonl"
+design_laws = "chorus/LAWS.md"
+
+[profiles.h100-remote-witness.topology]
+studio = ["flux", "pixtral", "gates", "kontext"]
+qwen_machine = ["witness"]
+gemma_machine = ["governor"]
+fanout_judges = true
+converge_at = "governor"
+
+[profiles.h100-remote-witness.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.h100-remote-witness.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Dedicated Remote Spatial Grounding, Anatomy, Line Integrity & Defect Witness"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.75
+vram_expected_gib = 60.0
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_url_env = "MOJ_VISUAL_WITNESS_URL"
+remote_base_url = "https://beauty.governor.influx.vision/v1"
+max_model_len = 65536
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.75 }
+
+[profiles.h100-remote-witness.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Remote Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.75
+vram_expected_gib = 60.0
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.75 }
+
+[profiles.h100-remote-witness.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Local Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.11
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.11 }
+
+[profiles.h100-remote-witness.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "Local High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0 }
+
+[profiles.h100-remote-witness.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "city96/FLUX.1-Kontext-dev-gguf"
+precision = "q4_k_s"
+socket = "flux-kontext.sock"
+vram_expected_gib = 9.0
+weights_gib = 6.8
+enabled = false
+mandatory = false
+toggleable = true
+dense = true
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
+
+
+# ==============================================================================
+# PROFILE: h100-distributed-atelier  ·  STUDIO + QWEN + GEMMA MACHINES
+# ==============================================================================
+# The studio remains visually self-contained: FLUX, Pixtral, and sensory gates
+# stay together. Qwen receives images as the independent witness. Gemma receives
+# the two evidence reports and owns verdict synthesis and prompt evolution.
+# Kontext is enabled here because moving both large reasoning tenants off-card
+# leaves a genuine operating margin on the studio H100.
+[profiles.h100-distributed-atelier]
+description = "Three-machine Beauty atelier: visual studio, clean Qwen witness, dedicated Gemma governor"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H100 80GB HBM3"
+sm = "sm_90"
+vram_gib = 80.0
+gpu_count = 1
+vram_per_gpu_gib = 80.0
+reserve_gib = 3.2
+gpus = 1
+interconnect = "network"
+interconnect_verified = false
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+native_nvfp4_moe = false
+prebuilt_wheel_available = true
+layout = "distributed-atelier"
+notes = "Pixtral always stays next to FLUX. Dedicated Qwen and Gemma machines widen context and isolate cognition from generation."
+
+[profiles.h100-distributed-atelier.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+taste_log = "taste-log.jsonl"
+design_laws = "chorus/LAWS.md"
+
+[profiles.h100-distributed-atelier.topology]
+studio = ["flux", "pixtral", "gates", "kontext"]
+qwen_machine = ["witness"]
+gemma_machine = ["governor"]
+fanout_judges = true
+converge_at = "governor"
+
+[profiles.h100-distributed-atelier.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Expanded Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.h100-distributed-atelier.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Clean Dedicated Remote Spatial, Anatomy, Defect & Novelty Witness"
+model = "Qwen/Qwen3.8-27B"
+precision = "bf16"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.85
+vram_expected_gib = 68.0
+weights_gib = 54.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_url_env = "MOJ_VISUAL_WITNESS_URL"
+remote_base_url = "https://beauty.governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.bf16 = { model = "Qwen/Qwen3.8-27B", weights_gib = 54.0, gpu_memory_utilization = 0.85 }
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.75 }
+
+[profiles.h100-distributed-atelier.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Dedicated Remote Verdict Synthesizer, Semantic Auditor & Artistic Director"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.75
+vram_expected_gib = 60.0
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.75 }
+
+[profiles.h100-distributed-atelier.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Local Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.11
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.11 }
+
+[profiles.h100-distributed-atelier.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "Local High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0 }
+
+[profiles.h100-distributed-atelier.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Resident Instruction-Guided Edit & Re-Composition Pass"
+model = "city96/FLUX.1-Kontext-dev-gguf"
+precision = "q4_k_s"
+socket = "flux-kontext.sock"
+vram_expected_gib = 9.0
+weights_gib = 6.8
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+variants.q4_k_s = { model = "city96/FLUX.1-Kontext-dev-gguf", gguf_file = "flux1-kontext-dev-Q4_K_S.gguf", weights_gib = 6.8, vram_expected_gib = 9.0 }
 
 
 # ==============================================================================

@@ -137,6 +137,7 @@ def _paths_for_dir(output_dir):
         "spectacle": os.path.join(output_dir, "spectacle_genome.jsonl"),
         "masterpiece": os.path.join(output_dir, "masterpiece_vault.jsonl"),
         "defect": os.path.join(output_dir, "defect_blacklist.jsonl"),
+        "eye_gate_candidates": os.path.join(output_dir, "eye-gate-candidates.jsonl"),
     }
 
 
@@ -351,6 +352,7 @@ def persist_receipt(receipt, output_dir=None):
     tier = receipt.get("tier")
     percentile = receipt.get("percentile_rank")
     job_id = receipt.get("job_id")
+    operator_required = bool((receipt.get("operator_gate") or {}).get("required"))
 
     # 1. Real-time R2 streaming: push the image the instant it settles.
     image_path = receipt.get("image_path")
@@ -363,7 +365,13 @@ def persist_receipt(receipt, output_dir=None):
 
     # 3. Tier routing. An unscored frame reaches NO feed: it did not earn a
     #    promotion and it did not earn a demotion, because nobody judged it.
-    if tier == "unscored":
+    if operator_required:
+        _append_jsonl(paths["eye_gate_candidates"], receipt)
+        LOG.info(
+            "job %s queued for operator eye-gate; machine tier %s is a "
+            "recommendation, not a promotion" % (job_id, tier)
+        )
+    elif tier == "unscored":
         LOG.warn(
             "job %s recorded to audit.jsonl as UNSCORED; excluded from every "
             "tier feed and from the percentile CDF" % job_id
