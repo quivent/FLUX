@@ -96,15 +96,61 @@ h100-distributed        F+P+gates+K       BF16 remote FP8 remote</div>
             <div class="terminal" id="eval-path">generate → uniqueness → sensory gates → witness → beauty critic → governor → composite</div>
           </section>
           <section class="panel panel-pad">
-            <div class="eyebrow">Three-gate eye</div>
-            <div class="terminal">Gate 1  Qwen        observation evidence
-Gate 2  Pixtral     structurally separate critic
-        Gemma       synthesizes the reports
-Gate 3  Operator    crown → masterpiece_vault.jsonl
-                    (the only path in)
+            <div class="eyebrow">Three gates → final submission</div>
+            <div class="terminal">Gate 1  witness seat  observation evidence
+Gate 2  Pixtral       structurally separate critic
+        governor seat synthesizes the reports
+Gate 3  Operator      crown → masterpiece_vault.jsonl
+                      (the only path in)
+        ↓
+final   an approved brief is resubmitted
+        to the FLUX worker as the next
+        generation → submission-ledger.jsonl
 records → taste-log.jsonl (verbatim)</div>
           </section>
+          <section class="panel panel-pad">
+            <div class="eyebrow">Who fills each seat</div>
+            <div class="terminal">seats are ROLES, set in
+[profiles.*.eye_gate] of
+jury_continuum.toml — not
+hardcoded models:
+
+  witness  = observation  (Qwen default;
+             a resident Gemma under
+             adaptive-coexist)
+  critic   = pixtral      (operator standing
+             order: "Pixtral we keep")
+  synthesis= governor     (Gemma)
+
+jury weights [verdict.jurors]:
+  pixtral .35  qwen .35
+  decoder .15  governor .15</div>
+          </section>
         </aside>
+      </div>
+    </section>
+
+    <!-- LIVE METRICS (tractability) -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Tractability · /api/beauty/metrics</div><h2>Eye-gate metrics</h2></div><span class="tiny mono" id="metrics-updated">reading…</span></div>
+      <div class="stat-grid">
+        <div class="stat"><strong id="m-decided">—</strong><span>verdicts recorded</span></div>
+        <div class="stat"><strong id="m-crowns">—</strong><span>crowns → vault</span></div>
+        <div class="stat"><strong id="m-agree">—</strong><span>critic–operator agreement</span></div>
+        <div class="stat"><strong id="m-blind">—</strong><span>blind submission rate</span></div>
+      </div>
+      <div class="stat-grid" style="margin-top:2px">
+        <div class="stat"><strong id="m-override">—</strong><span>override yield</span></div>
+        <div class="stat"><strong id="m-pending">—</strong><span>pending slate</span></div>
+        <div class="stat"><strong id="m-submits">—</strong><span>final submissions</span></div>
+        <div class="stat"><strong id="m-kills">—</strong><span>kills</span></div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:8px">
+        <div class="eyebrow">Targets</div>
+        <div class="terminal">critic–operator agreement   ≥ 0.70 by generation 3
+override yield              &gt; 0.50   (overrides mined into laws/registers)
+blind submission rate      = 0.0    (every candidate was observed)
+generation score trend     <span id="m-trend">—</span></div>
       </div>
     </section>
 
@@ -306,6 +352,30 @@ GMan verification
   }
   loadOverview();
   setInterval(loadOverview, 5000);
+
+  async function loadMetrics() {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const pct = (v) => (v == null ? '—' : Math.round(v * 100) + '%');
+    try {
+      const m = await fetch('/api/beauty/metrics', { cache: 'no-store' }).then(r => r.json());
+      set('m-decided', m.decided ?? 0);
+      set('m-crowns', (m.crowns ?? 0) + ' / ' + (m.crowned_in_vault ?? 0));
+      set('m-agree', pct(m.critic_operator_agreement_rate));
+      set('m-blind', pct(m.blind_submission_rate));
+      set('m-override', pct(m.override_yield));
+      set('m-pending', m.pending ?? 0);
+      set('m-submits', (m.final_submissions_ok ?? 0) + ' / ' + (m.final_submissions ?? 0));
+      set('m-kills', m.kills ?? 0);
+      const trend = m.generation_score_trend || {};
+      const keys = Object.keys(trend);
+      set('m-trend', keys.length ? keys.map(g => 'g' + g + ' ' + trend[g]).join('  ·  ') : 'no crowned generations yet');
+      document.getElementById('metrics-updated').textContent = m.ok === false ? 'log-derived (idle)' : 'updated ' + new Date().toLocaleTimeString();
+    } catch (_) {
+      document.getElementById('metrics-updated').textContent = 'unavailable';
+    }
+  }
+  loadMetrics();
+  setInterval(loadMetrics, 10000);
   </script>
 </body>
 </html>

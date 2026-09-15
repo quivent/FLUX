@@ -63,9 +63,39 @@ func beautySuite(cfg config.Config, args []string) error {
 		return beautyEyeGate(cfg, append([]string{"slate"}, args[1:]...))
 	case "record":
 		return beautyEyeGate(cfg, append([]string{"record"}, args[1:]...))
+	case "submit":
+		return beautyEyeGate(cfg, append([]string{"submit"}, args[1:]...))
+	case "metrics":
+		return beautyEyeGate(cfg, append([]string{"metrics"}, args[1:]...))
+	case "eye-gate", "eyegate":
+		beautyEyeGateOverview()
+		return nil
 	default:
 		return fmt.Errorf("unknown beauty command %q; run `flux suites beauty COMMANDLIST`", args[0])
 	}
+}
+
+func beautyEyeGateOverview() {
+	ui.Header("beauty eye-gate", "EGRL — three gates, then a final submission back to the worker")
+	ui.Suite("gates", ui.Lilac, []ui.PairRow{
+		{"gate 1 · builder observation", "the witness seat reads the rendered frame; unviewed output is undefined output"},
+		{"gate 2 · independent critic", "Pixtral (built nothing) ranks candidates against calibrated anchors"},
+		{"synthesis", "the governor seat synthesizes the reports; never the final gate"},
+		{"gate 3 · operator", "crown / kill / note; overrides the critic in either direction, persisted verbatim"},
+		{"final submission", "an approved brief is pushed back to the FLUX worker as the next generation"},
+	})
+	fmt.Println()
+	ui.Suite("commands", ui.Gold, []ui.PairRow{
+		{"flux suites beauty slate", "every pending candidate in machine-ranked order"},
+		{"flux suites beauty record --job-id <id> --verdict crown|kill|note --words <t> --delta <n>", "persist a verdict verbatim"},
+		{"flux suites beauty submit --job-id <id>", "final submission: resubmit a crowned candidate's brief to the worker"},
+		{"flux suites beauty submit --brief <text>", "final submission: push an explicit brief to the worker"},
+		{"flux suites beauty metrics", "EGRL tractability metrics computed from the logs"},
+	})
+	fmt.Println()
+	ui.KV("seats", "witness = observation, pixtral = critic, governor = synthesis (see [profiles.*.eye_gate])")
+	ui.KV("note", "the witness seat is model-agnostic: Qwen by default, a resident Gemma under adaptive-coexist")
+	ui.KV("ledger", "taste-log.jsonl · masterpiece_vault.jsonl · submission-ledger.jsonl")
 }
 
 func isHelp(value string) bool {
@@ -94,6 +124,9 @@ func beautyCommandList(cfg config.Config) {
 		{"flux suites beauty status <architecture>", "show the selected topology and tenant health"},
 		{"flux suites beauty slate", "show every pending candidate in machine-ranked order"},
 		{"flux suites beauty record --job-id <id> --verdict crown|kill|note --words <text> --delta <n>", "persist the operator verdict verbatim"},
+		{"flux suites beauty submit --job-id <id>", "final submission: resubmit a crowned brief to the FLUX worker"},
+		{"flux suites beauty metrics", "EGRL tractability metrics (agreement, override yield, blind rate, trend)"},
+		{"flux suites beauty eye-gate", "the three gates + final submission, explained"},
 	})
 	fmt.Println()
 	ui.KV("invariant", "Pixtral is local on the FLUX studio in every Beauty architecture")

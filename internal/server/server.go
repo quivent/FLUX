@@ -410,6 +410,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/profiles", s.profilesPage)
 	mux.HandleFunc("/profiles/", s.profilesPage)
 	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
+	mux.HandleFunc("/api/beauty/metrics", s.beautyMetricsAPI)
 	mux.HandleFunc("/scores", s.scoresPage)
 	mux.HandleFunc("/scores/", s.scoresPage)
 	mux.HandleFunc("/governor", s.governorPage)
@@ -549,6 +550,7 @@ var readOnlyPaths = []string{
 	"/beauty.css",
 	"/beauty-shell.js",
 	"/api/beauty/pipeline",
+	"/api/beauty/metrics",
 	"/overview",
 	"/profiles",
 	"/tea",

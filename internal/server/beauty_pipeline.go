@@ -196,3 +196,35 @@ func (s Server) stopBeautyPipeline(w http.ResponseWriter) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "stopped": running, "pipeline": state})
 }
+
+// beautyMetricsAPI returns EGRL tractability metrics for the operator who is
+// only periodically in the loop. It shells out to beauty_eye_gate.py metrics,
+// which computes everything from the append-only ledgers, and passes the JSON
+// through. On any failure it returns a well-formed zeroed payload so the site
+// never breaks — the point is at-a-glance tractability, not a hard dependency.
+func (s Server) beautyMetricsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	script := filepath.Join(s.cfg.Root, "beauty_eye_gate.py")
+	cmd := exec.Command(s.cfg.Python, script, "--output-dir", s.cfg.OutputDir, "metrics")
+	cmd.Dir = s.cfg.Root
+	out, err := cmd.Output()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok": false, "error": err.Error(),
+			"decided": 0, "crowns": 0, "kills": 0, "pending": 0,
+			"critic_operator_agreement_rate": nil, "blind_submission_rate": nil,
+			"override_yield": nil, "final_submissions": 0,
+		})
+		return
+	}
+	var metrics map[string]any
+	if jsonErr := json.Unmarshal(out, &metrics); jsonErr != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "metrics parse failed"})
+		return
+	}
+	metrics["ok"] = true
+	writeJSON(w, http.StatusOK, metrics)
+}
