@@ -12,3 +12,6 @@ outputs/
 serve.log
 .build_num
 *.log
+
+# Built Beauty Suite bundles (reproducible via package/build-bundle.sh)
+dist/

@@ -1,0 +1,53 @@
+# Beauty Protocol Suite — installable package manifest
+# Everything needed to run the FLUX Beauty Protocol: the generator loop, the
+# EGRL operator eye-gate (with final submission + metrics), the H200 hardware
+# profiles, the ralpheye protocol + agents, and the web surface.
+#
+# Build the bundle:   package/build-bundle.sh
+# Install it:         ./bootstrap.sh            (inside the built bundle)
+
+[suite]
+name = "beauty"
+version = "1.0.0"
+summary = "FLUX Beauty Protocol: latency-first generation, EGRL three-gate eye-gate, H200 profiles, and a web surface"
+default_profile = "h200-adaptive-coexist"
+web_addr = "127.0.0.1:7863"
+public_hostname = "beauty.influx.vision"
+
+# Files copied verbatim into the install root, preserving these paths.
+[payload]
+binary        = ["flux"]                                   # the compiled Go server/CLI
+python        = ["beauty_pipeline.py", "beauty_eye_gate.py", "pipeline_paths.py"]
+config        = ["jury_continuum.toml"]
+web           = ["apps/beauty/public/"]                    # index, gallery, collections, protocol, overview, profiles, jury, control + chrome
+protocols     = ["protocols/EGRL.md", "protocols/agents/"] # canonical EGRL + ralph-* agent specs
+deploy        = ["deploy/deploy_h100_beauty.sh", "scripts/beauty-stack.sh"]
+doctrine      = ["chorus/LAWS.md", "chorus/PROTOCOL.md", "chorus/beauty-queue.json"]
+
+# Seeded (created empty if absent) so the eye-gate ledgers exist from install.
+[state]
+output_dir = "outputs"
+seed_files = ["chorus/anchors.jsonl"]        # EGRL anchor set, grows with crowns
+ledgers    = ["outputs/taste-log.jsonl", "outputs/eye-gate-candidates.jsonl", "outputs/masterpiece_vault.jsonl", "outputs/submission-ledger.jsonl"]
+
+# The five competing H200 protocols + the three H100 shapes, all defined in
+# jury_continuum.toml [profiles.*].
+[profiles]
+h200 = ["h200-resident-tribunal", "h200-speed-swarm", "h200-multi-critic", "h200-deep-context", "h200-adaptive-coexist"]
+h100 = ["h100", "h100-remote-witness", "h100-distributed-atelier"]
+
+[eye_gate]
+protocol = "EGRL"
+gates = ["builder-observation (witness seat)", "independent-critic (pixtral)", "operator (crown/kill/note)"]
+final_submission = "beauty_eye_gate.py submit  →  FLUX worker  →  submission-ledger.jsonl"
+metrics = "beauty_eye_gate.py metrics  →  agreement, override yield, blind-rate (target 0), trend"
+
+[requirements]
+python = ">=3.11 preferred (3.10 works; tomllib import is optional)"
+gpu = "NVIDIA GPU with a matching [profiles.*] entry (H200 NVL native)"
+runtime = "vLLM >= 0.13.0 for the served tenants; a resident FLUX BF16 worker"
+
+[verify]
+build = "flux beauty check"
+web = "curl -s http://127.0.0.1:7863/overview"
+metrics = "flux suites beauty metrics"
