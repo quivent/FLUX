@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#11110f">
+  <title>Setup — Beauty</title>
+  <meta name="description" content="Install the Beauty Protocol Suite in one command.">
+  <link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+
+    <section class="page-head">
+      <div>
+        <div class="eyebrow">One bundle · one command</div>
+        <h1>Setup</h1>
+        <p class="lede">The whole Beauty Protocol Suite — the server, the generation loop, the EGRL eye-gate, the hardware profiles, and this web surface — ships as one bundle. Unpack it, run one script, and you have a working install.</p>
+      </div>
+      <div class="actions">
+        <a class="button primary" href="/overview">Protocol overview</a>
+        <a class="button" href="/profiles">Profiles</a>
+      </div>
+    </section>
+
+    <!-- THE THREE STEPS -->
+    <section class="section" style="padding-top:36px">
+      <div class="section-head"><div><div class="eyebrow">The whole thing</div><h2>Three steps</h2></div></div>
+      <div class="law-list">
+        <article class="law"><div>
+          <h3>Unpack the bundle</h3>
+          <div class="terminal">tar -xzf beauty-suite-1.0.0.tar.gz
+cd beauty-suite-1.0.0</div>
+        </div></article>
+        <article class="law"><div>
+          <h3>Install &amp; verify</h3>
+          <div class="terminal">./bootstrap.sh</div>
+          <p>Lays the suite down, seeds the EGRL ledgers, points the <span class="mono">flux</span> binary at the bundle, and verifies. No root, no system packages.</p>
+        </div></article>
+        <article class="law"><div>
+          <h3>Serve it</h3>
+          <div class="terminal">./bootstrap.sh --serve
+# → http://127.0.0.1:7863/overview</div>
+          <p>Add <span class="mono">--publish</span> to map <span class="mono">beauty.influx.vision</span> through gemstone in the same step.</p>
+        </div></article>
+      </div>
+    </section>
+
+    <!-- WHAT VERIFY LOOKS LIKE -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">A good install prints this</div><h2>Verification</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="terminal">▸ Beauty Protocol Suite installer
+  bundle : ./beauty-suite-1.0.0
+  prefix : ./beauty-suite-1.0.0
+  python : python3
+  seeding ledgers → ./outputs
+▸ verifying
+  ✓ flux beauty check
+  ✓ eye-gate metrics run under python3
+  ✓ 8 hardware profiles registered
+▸ done.</div>
+      </div>
+    </section>
+
+    <!-- WHATS IN THE BOX -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">What installed</div><h2>In the box</h2></div><span class="tiny muted">30 files · ~11 MB</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <div class="terminal">flux                       server + `flux suites beauty …` CLI
+beauty_pipeline.py         latency-first FLUX render loop
+beauty_eye_gate.py         EGRL gates + final submission + metrics
+jury_continuum.toml        8 hardware profiles, each with [eye_gate]
+protocols/EGRL.md          the protocol of record
+protocols/agents/ralph-*   the eye-gate agent specs
+apps/beauty/public/*       this web surface
+chorus/LAWS.md · queue     design laws + the 48-study queue
+deploy/*                   provisioning entrypoints</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad">
+            <div class="eyebrow">Requirements</div>
+            <div class="terminal">python  3.11+ preferred
+        (3.10 works — tomllib
+         import is optional)
+gpu     NVIDIA w/ a matching
+        [profiles.*] (H200 native)
+vllm    >= 0.13.0 for served
+        tenants; resident FLUX
+        BF16 worker</div>
+          </section>
+          <section class="panel panel-pad">
+            <div class="eyebrow">Rebuild the bundle</div>
+            <div class="terminal">package/build-bundle.sh
+# compiles flux fresh, writes
+# dist/beauty-suite-&lt;ver&gt;.tar.gz</div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- PICK A PROFILE -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Choose how it runs</div><h2>Pick a profile</h2></div><a class="button" href="/profiles">All five</a></div>
+      <div class="panel panel-pad">
+        <div class="terminal"># the default — adapts to whatever is already resident on the card
+export ARCANE_PROFILE=h200-adaptive-coexist
+
+# or one of the other four H200 protocols
+#   h200-resident-tribunal   every judge on-card, self-contained EGRL
+#   h200-speed-swarm         two FLUX workers, one tribunal
+#   h200-multi-critic        Pixtral + InternVL, disagreement is signal
+#   h200-deep-context        131k windows, taste log in-context
+
+flux suites beauty deploy adaptive-coexist --dry-run   # validate, change nothing
+flux suites beauty deploy adaptive-coexist             # provision</div>
+      </div>
+    </section>
+
+    <!-- RUN THE LOOP -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Day to day</div><h2>Run the loop</h2></div><a class="button" href="/overview">The protocol</a></div>
+      <div class="panel panel-pad">
+        <div class="terminal">flux suites beauty eye-gate     # the three gates + final submission, explained
+flux suites beauty slate        # pending candidates, machine-ranked
+flux suites beauty record --job-id &lt;id&gt; --verdict crown --words '…' --delta &lt;n&gt;
+flux suites beauty submit  --job-id &lt;id&gt;    # final submission → the FLUX worker
+flux suites beauty metrics      # agreement, override yield, blind-rate (target 0), trend</div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Beauty Protocol Suite · v1.0.0</span>
+      <span>package/bootstrap.sh</span>
+      <span>one bundle, one command</span>
+    </footer>
+  </main>
+</body>
+</html>

@@ -409,6 +409,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/overview/", s.overviewPage)
 	mux.HandleFunc("/profiles", s.profilesPage)
 	mux.HandleFunc("/profiles/", s.profilesPage)
+	mux.HandleFunc("/setup", s.setupPage)
+	mux.HandleFunc("/setup/", s.setupPage)
 	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/api/beauty/metrics", s.beautyMetricsAPI)
 	mux.HandleFunc("/scores", s.scoresPage)
@@ -553,6 +555,7 @@ var readOnlyPaths = []string{
 	"/api/beauty/metrics",
 	"/overview",
 	"/profiles",
+	"/setup",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -785,6 +788,24 @@ func (s Server) profilesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	file := s.sitePublicFile("profiles.html")
+	if _, err := os.Stat(file); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, file)
+}
+
+// setupPage serves the install/setup room from the active bundle.
+func (s Server) setupPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if r.URL.Path == "/setup/" {
+		http.Redirect(w, r, "/setup", http.StatusPermanentRedirect)
+		return
+	}
+	file := s.sitePublicFile("setup.html")
 	if _, err := os.Stat(file); err != nil {
 		http.NotFound(w, r)
 		return

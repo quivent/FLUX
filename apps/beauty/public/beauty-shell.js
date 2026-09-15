@@ -5,6 +5,7 @@
     ['/protocol', 'Protocol'],
     ['/overview', 'Overview'],
     ['/profiles', 'Profiles'],
+    ['/setup', 'Setup'],
     ['/jury', 'Jury'],
     ['/control', 'Controls']
   ];
