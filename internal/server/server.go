@@ -407,8 +407,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/control/", s.deskPage)
 	mux.HandleFunc("/overview", s.overviewPage)
 	mux.HandleFunc("/overview/", s.overviewPage)
-	mux.HandleFunc("/h200", s.h200Page)
-	mux.HandleFunc("/h200/", s.h200Page)
+	mux.HandleFunc("/profiles", s.profilesPage)
+	mux.HandleFunc("/profiles/", s.profilesPage)
 	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/scores", s.scoresPage)
 	mux.HandleFunc("/scores/", s.scoresPage)
@@ -550,7 +550,7 @@ var readOnlyPaths = []string{
 	"/beauty-shell.js",
 	"/api/beauty/pipeline",
 	"/overview",
-	"/h200",
+	"/profiles",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -771,18 +771,18 @@ func (s Server) overviewPage(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, file)
 }
 
-// h200Page serves the H200 competing-protocols room from the active bundle.
-// Bundle-scoped, same as overviewPage: no h200.html on the Tea surface.
-func (s Server) h200Page(w http.ResponseWriter, r *http.Request) {
+// profilesPage serves the competing-protocols / hardware-profiles room from the
+// active bundle. Bundle-scoped, same as overviewPage: no profiles.html on Tea.
+func (s Server) profilesPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		methodNotAllowed(w, http.MethodGet)
 		return
 	}
-	if r.URL.Path == "/h200/" {
-		http.Redirect(w, r, "/h200", http.StatusPermanentRedirect)
+	if r.URL.Path == "/profiles/" {
+		http.Redirect(w, r, "/profiles", http.StatusPermanentRedirect)
 		return
 	}
-	file := s.sitePublicFile("h200.html")
+	file := s.sitePublicFile("profiles.html")
 	if _, err := os.Stat(file); err != nil {
 		http.NotFound(w, r)
 		return
