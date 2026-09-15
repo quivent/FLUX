@@ -21,6 +21,11 @@ var beautyArchitectures = []beautyArchitecture{
 	{"compact", "h100", "one studio H100: FLUX + Qwen + Pixtral + gates; Gemma remote"},
 	{"remote-qwen", "h100-remote-witness", "studio H100 keeps FLUX + Pixtral; Qwen and Gemma are remote"},
 	{"distributed", "h100-distributed-atelier", "expanded studio + dedicated Qwen + dedicated Gemma machines"},
+	{"resident-tribunal", "h200-resident-tribunal", "H200 143GiB: every judge on-card; self-contained EGRL, Kontext BF16 resident"},
+	{"speed-swarm", "h200-speed-swarm", "H200: two resident FLUX workers feeding one tribunal; governor remote"},
+	{"multi-critic", "h200-multi-critic", "H200: Pixtral + InternVL dual critics; disagreement is the operator signal"},
+	{"deep-context", "h200-deep-context", "H200: 131k windows; the full anchor set + taste log ride in-context"},
+	{"adaptive-coexist", "h200-adaptive-coexist", "H200: adapt to resident work — reuse live Gemmas as witness+governor, add only FLUX+Pixtral+gates"},
 }
 
 func suitesCmd(cfg config.Config, args []string) error {
@@ -106,10 +111,14 @@ func beautyArchitectureList() {
 func beautyProtocolList() {
 	ui.Suite("protocols", ui.Lilac, []ui.PairRow{
 		{"egrl", "Qwen observation → independent Pixtral critique → Gemma synthesis → operator verdict"},
+		{"egrl-recal", "EGRL as a learning loop: anchor update, critic-delta audit, law promotion, register expansion"},
+		{"tribunal", "two structurally-separate critics; their disagreement is the operator's priority signal"},
+		{"adaptive", "discover what is already resident on the card and bind the witness/governor seats to it"},
+		{"ralpheye", "the three-gate operator eye-gate: verdict overrides the critic, persisted verbatim as taste data"},
 		{"moj-audit", "inspect machine evidence and ranking; every result remains pending"},
 		{"operator-eye", "crown, kill, or note; append verbatim taste data and recalibrate later generations"},
 	})
-	fmt.Println(ui.Soft("  Every protocol view works with compact, remote-qwen, and distributed architectures."))
+	fmt.Println(ui.Soft("  Protocol views compose with every architecture; egrl-recal/tribunal/adaptive are H200-native."))
 }
 
 func beautyProtocols(args []string) error {
@@ -130,8 +139,27 @@ func beautyProtocols(args []string) error {
 	case "operator-eye", "eye":
 		ui.KV("flow", "ranked full slate → crown / kill / note → append-only taste log")
 		ui.KV("command", "flux suites beauty record --job-id <id> --verdict <verdict> --words <text> --delta <n>")
+	case "egrl-recal", "recalibration":
+		ui.KV("flow", "generation N verdicts → anchor update → critic-delta audit → law promotion → register expansion → generation N+1")
+		ui.KV("learns", "the operator's taste function; the asset built is the calibrated critic, not any single frame")
+		ui.KV("source", "protocols/EGRL.md")
+	case "tribunal", "multi-critic":
+		ui.KV("flow", "two independent critics rank every candidate; disagreement is flagged for priority operator attention")
+		ui.KV("critics", "Pixtral (palette/medium) + InternVL (composition/narrative)")
+		ui.KV("profile", "h200-multi-critic")
+	case "adaptive", "coexist":
+		ui.KV("flow", "discover resident vLLM servers via /v1/models → bind witness/governor seats to them → add only FLUX + Pixtral + gates")
+		ui.KV("why", "co-exist with other work on the card (e.g. surgery Gemmas) instead of evicting it")
+		ui.KV("profile", "h200-adaptive-coexist")
+	case "ralpheye", "eye-gate":
+		ui.KV("gate 1", "builder observation — the witness reads the rendered frame; unviewed output is undefined output")
+		ui.KV("gate 2", "independent critic — ranks against calibrated anchors; built nothing itself")
+		ui.KV("gate 3", "operator — overrides the critic in either direction; verdict persisted verbatim")
+		ui.KV("recalibrate", "verdicts + overrides feed forward as taste data and provisional design laws")
+		ui.KV("command", "flux suites beauty slate  ·  flux suites beauty record ...")
+		ui.KV("source", "protocols/EGRL.md")
 	default:
-		return fmt.Errorf("unknown Beauty protocol %q; use egrl, moj-audit, or operator-eye", name)
+		return fmt.Errorf("unknown Beauty protocol %q; use egrl, egrl-recal, tribunal, adaptive, ralpheye, moj-audit, or operator-eye", name)
 	}
 	return nil
 }
@@ -145,7 +173,11 @@ func beautyProfile(name string) (string, error) {
 			return arch.Profile, nil
 		}
 	}
-	return "", fmt.Errorf("unknown Beauty architecture %q; use compact, remote-qwen, or distributed", name)
+	names := make([]string, 0, len(beautyArchitectures))
+	for _, arch := range beautyArchitectures {
+		names = append(names, arch.Name)
+	}
+	return "", fmt.Errorf("unknown Beauty architecture %q; use one of: %s", name, strings.Join(names, ", "))
 }
 
 func beautyDeploy(cfg config.Config, args []string, status bool) error {

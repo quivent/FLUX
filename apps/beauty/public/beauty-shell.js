@@ -4,6 +4,7 @@
     ['/collections', 'Collections'],
     ['/protocol', 'Protocol'],
     ['/overview', 'Overview'],
+    ['/h200', 'H200'],
     ['/jury', 'Jury'],
     ['/control', 'Controls']
   ];

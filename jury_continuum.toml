@@ -2025,3 +2025,817 @@ masterpiece_percentile = 98.0
 spectacle_percentile = 90.0
 banal_percentile = 40.0
 rolling_window = 300
+
+# ==============================================================================
+# ==============================================================================
+# H200 BEAUTY PROFILES  ·  four competing protocols for one 143 GiB NVL card
+# ==============================================================================
+# This node is a single NVIDIA H200 NVL: sm_90 (Hopper, so FP8/W4A16 — NOT
+# NVFP4), 143 GiB HBM3e. That is ~63 GiB more than the H100 the older Beauty
+# profiles were squeezed onto. The H100 compact profile had to push Gemma
+# remote and forbid Kontext; the H200 does not. These four profiles are
+# deliberately COMPETING takes on how to spend that headroom. Pick one per run;
+# they are not meant to co-exist on the card simultaneously.
+#
+# Shared floor (resident in every H200 profile):
+#   flux BF16        35.0     UDS flux-gpu0.sock
+#   witness Qwen FP8 30.0     :8001
+#   pixtral W4A16     8.8     :8002
+#   gates fp16        3.0     in-process
+#   reserve           4.0
+#   ------------------------
+#   floor            80.8     leaves ~62 GiB to allocate — that is the design space.
+# ==============================================================================
+
+
+# ------------------------------------------------------------------------------
+# PROFILE: h200-resident-tribunal  ·  PROTOCOL "Resident Tribunal"
+# ------------------------------------------------------------------------------
+# Everything local. No remote hop, no witness-URL, no cross-machine failure
+# mode. Gemma governor moves ON-CARD (the H100 could not afford this), so all
+# three judges answer over localhost and the whole EGRL loop runs self-contained
+# on one machine. Kontext resident too. This is the default H200 protocol.
+#   floor 80.8 + governor 32.0 + kontext 9.0 = 121.8 / 143  (~21 GiB free)
+[profiles.h200-resident-tribunal]
+description = "H200 NVL 143 GiB — every judge resident on-card; self-contained EGRL, no remote hop"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H200 NVL"
+sm = "sm_90"
+vram_gib = 143.0
+gpu_count = 1
+vram_per_gpu_gib = 143.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink"
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+native_nvfp4_moe = false
+prebuilt_wheel_available = true
+notes = "Hopper sm_90: FP8/W4A16, no NVFP4. 143 GiB lets the governor run ON-CARD instead of remote — the whole three-gate EGRL loop is self-contained on one machine with no cross-machine health dependency. Use VLLM_ATTENTION_BACKEND=TRITON_ATTN and no speculative decoding on SM90 (FlashInfer sliding-window crashes; util >= 0.87 OOMs during CUDA graph capture)."
+
+[profiles.h200-resident-tribunal.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+recalibration = true
+anchor_set = "chorus/anchors.jsonl"
+design_laws = "chorus/LAWS.md"
+taste_log = "taste-log.jsonl"
+candidates = "eye-gate-candidates.jsonl"
+vault = "masterpiece_vault.jsonl"
+blind_submission_rate_target = 0.0
+iteration_min = 3
+iteration_max = 6
+
+[profiles.h200-resident-tribunal.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0, note = "BF16 native. 143 GiB never needs the GGUF escape hatch." }
+
+[profiles.h200-resident-tribunal.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.22
+vram_expected_gib = 31.5
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.22, note = "0.22*143 = 31.5 GiB. Roomier KV than the H100's 0.375*80." }
+
+[profiles.h200-resident-tribunal.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.24
+vram_expected_gib = 34.3
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.24, note = "LOCAL by default on H200 — the whole point of this profile. 0.24*143 = 34.3 GiB co-tenants fine with flux + witness + pixtral + gates." }
+
+[profiles.h200-resident-tribunal.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.07
+vram_expected_gib = 10.0
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.07, note = "Independent Gate-2 critic. Never co-scores with the witness before Gemma synthesis." }
+
+[profiles.h200-resident-tribunal.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+[profiles.h200-resident-tribunal.tenants.kontext]
+kind = "uds"
+gpu = 0
+role = "Instruction-Guided Edit & Re-Composition Pass"
+model = "black-forest-labs/FLUX.1-Kontext-dev"
+precision = "bf16"
+socket = "flux-kontext.sock"
+vram_expected_gib = 20.0
+weights_gib = 18.0
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+variants.bf16 = { model = "black-forest-labs/FLUX.1-Kontext-dev", weights_gib = 18.0, vram_expected_gib = 20.0, note = "BF16 Kontext RESIDENT — the H100 could only afford the Q4 GGUF, and only by evicting a tenant. The H200 keeps full-precision Kontext alongside everything else." }
+
+
+# ------------------------------------------------------------------------------
+# PROFILE: h200-speed-swarm  ·  PROTOCOL "Parallel Swarm"
+# ------------------------------------------------------------------------------
+# EGRL Phase-1 says N heterogeneous builders. On one card the H200 can hold TWO
+# resident FLUX workers rendering different seeds/directions in parallel, feeding
+# one shared tribunal. Doubles candidate throughput per operator batch. Governor
+# goes remote to buy the VRAM for the second worker.
+#   flux0 35 + flux1 35 + witness 30 + pixtral 8.8 + gates 3 + reserve 4 = 115.8 / 143
+[profiles.h200-speed-swarm]
+description = "H200 NVL — two resident FLUX workers feeding one tribunal; max candidate throughput"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H200 NVL"
+sm = "sm_90"
+vram_gib = 143.0
+gpu_count = 1
+vram_per_gpu_gib = 143.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink"
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+prebuilt_wheel_available = true
+notes = "Two FLUX BF16 workers resident on one H200, rendering independent seeds/directions in parallel into one candidate pool. This is EGRL's 'N heterogeneous builders' realised on a single card. Governor is remote to free the VRAM for worker #2."
+
+[profiles.h200-speed-swarm.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+recalibration = true
+parallel_builders = 2
+anchor_set = "chorus/anchors.jsonl"
+design_laws = "chorus/LAWS.md"
+taste_log = "taste-log.jsonl"
+
+[profiles.h200-speed-swarm.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Builder #0 — Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.h200-speed-swarm.tenants.flux_b]
+kind = "uds"
+gpu = 0
+role = "Builder #1 — parallel second FLUX worker, independent seed lane"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0b.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0, note = "Second resident builder. Only an H200-class card has the VRAM for two BF16 FLUX workers plus the witness + pixtral + gates." }
+
+[profiles.h200-speed-swarm.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.21
+vram_expected_gib = 30.0
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.21 }
+
+[profiles.h200-speed-swarm.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.40
+vram_expected_gib = 32.0
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = true
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.40, note = "Remote by default in the swarm profile — worker #1 spends its VRAM budget instead." }
+
+[profiles.h200-speed-swarm.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.07
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.07 }
+
+[profiles.h200-speed-swarm.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+
+# ------------------------------------------------------------------------------
+# PROFILE: h200-multi-critic  ·  PROTOCOL "Multi-Critic Tribunal"
+# ------------------------------------------------------------------------------
+# EGRL "compose with a multi-critic tribunal": treat critic DISAGREEMENT as the
+# signal. Adds a SECOND independent critic (InternVL) beside Pixtral, framed
+# differently. Two structurally separate critics rank every candidate; where
+# they disagree, that candidate is flagged for priority operator attention. All
+# resident — this is what the extra 62 GiB is best spent on for taste precision.
+#   flux 35 + witness 30 + pixtral 8.8 + critic2 24 + gemma-local 32 + gates 3 + reserve 4 = 136.8 / 143
+[profiles.h200-multi-critic]
+description = "H200 NVL — two independent critics (Pixtral + InternVL); disagreement is the operator signal"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H200 NVL"
+sm = "sm_90"
+vram_gib = 143.0
+gpu_count = 1
+vram_per_gpu_gib = 143.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink"
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+prebuilt_wheel_available = true
+notes = "A second structurally-separate critic (InternVL2.5-8B) rides beside Pixtral. Both rank every candidate independently; critic-vs-critic disagreement is surfaced as the highest-information event for the operator, exactly as EGRL treats operator-vs-critic overrides. Governor stays local — 136.8 GiB fits."
+
+[profiles.h200-multi-critic.eye_gate]
+protocol = "EGRL-tribunal"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+second_critic = "internvl"
+disagreement_is_signal = true
+synthesist = "gemma"
+operator_is_final = true
+recalibration = true
+anchor_set = "chorus/anchors.jsonl"
+design_laws = "chorus/LAWS.md"
+taste_log = "taste-log.jsonl"
+
+[profiles.h200-multi-critic.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.h200-multi-critic.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.21
+vram_expected_gib = 30.0
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.21 }
+
+[profiles.h200-multi-critic.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.24
+vram_expected_gib = 34.3
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.24 }
+
+[profiles.h200-multi-critic.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Critic A — Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.07
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.07 }
+
+[profiles.h200-multi-critic.tenants.critic2]
+kind = "vllm"
+gpu = 0
+role = "Critic B — independent second eye, differently framed (composition & narrative legibility)"
+model = "OpenGVLab/InternVL2_5-8B"
+precision = "fp8"
+port = 8003
+served_name = "internvl-critic"
+gpu_memory_utilization = 0.17
+vram_expected_gib = 24.0
+weights_gib = 16.0
+enabled = true
+mandatory = false
+toggleable = true
+dense = true
+max_model_len = 16384
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.fp8 = { model = "OpenGVLab/InternVL2_5-8B", weights_gib = 16.0, gpu_memory_utilization = 0.17, note = "Second structurally-separate critic. Frames composition/narrative rather than palette/medium, so its disagreement with Pixtral is meaningful signal, not noise." }
+
+[profiles.h200-multi-critic.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+
+# ------------------------------------------------------------------------------
+# PROFILE: h200-deep-context  ·  PROTOCOL "Long-Memory Recalibration"
+# ------------------------------------------------------------------------------
+# Spends the headroom on KV cache instead of extra models: every judge gets a
+# huge context window so the whole anchor set + verbatim taste log fit IN the
+# prompt each generation. This is EGRL's recalibration loop taken to its limit —
+# the critic literally sees every prior operator verdict, not a summary.
+#   flux 35 + witness(0.30) 43 + gemma-local(0.30) 43 + pixtral 8.8 + gates 3 + reserve 4 = 136.8 / 143
+[profiles.h200-deep-context]
+description = "H200 NVL — headroom spent on KV; judges carry the full anchor set + taste log in-context"
+suite = "beauty"
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H200 NVL"
+sm = "sm_90"
+vram_gib = 143.0
+gpu_count = 1
+vram_per_gpu_gib = 143.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink"
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+prebuilt_wheel_available = true
+notes = "The extra VRAM buys context length, not more models. Witness and governor run at 131072-token windows so each generation's full anchor set and verbatim taste log ride inside the prompt. EGRL recalibration stops being a summary and becomes literal recall of every prior operator verdict."
+
+[profiles.h200-deep-context.eye_gate]
+protocol = "EGRL"
+required = true
+builder_observation = "qwen"
+independent_critic = "pixtral"
+synthesist = "gemma"
+operator_is_final = true
+recalibration = true
+full_taste_log_in_context = true
+anchor_set = "chorus/anchors.jsonl"
+design_laws = "chorus/LAWS.md"
+taste_log = "taste-log.jsonl"
+
+[profiles.h200-deep-context.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+[profiles.h200-deep-context.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "Qwen/Qwen3.8-27B-FP8"
+precision = "fp8"
+port = 8001
+served_name = "visual-witness"
+gpu_memory_utilization = 0.30
+vram_expected_gib = 43.0
+weights_gib = 27.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 131072
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "Qwen/Qwen3.8-27B-FP8", weights_gib = 27.0, gpu_memory_utilization = 0.30, note = "0.30*143 = 43 GiB: 27 weights + ~16 GiB KV for a 131k window. The anchor set + taste log fit in-context." }
+
+[profiles.h200-deep-context.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "redhatai/gemma-4-31b-it-fp8-dynamic"
+precision = "fp8"
+port = 8000
+served_name = "governor"
+gpu_memory_utilization = 0.30
+vram_expected_gib = 43.0
+weights_gib = 31.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+remote = false
+remote_base_url = "https://governor.influx.vision/v1"
+max_model_len = 131072
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.fp8 = { model = "redhatai/gemma-4-31b-it-fp8-dynamic", weights_gib = 31.0, gpu_memory_utilization = 0.30, note = "0.30*143 = 43 GiB: 31 weights + ~12 GiB KV for a 131k window. Governs with the full generational history in-prompt." }
+
+[profiles.h200-deep-context.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.07
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.07 }
+
+[profiles.h200-deep-context.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }
+
+# ------------------------------------------------------------------------------
+# PROFILE: h200-adaptive-coexist  ·  PROTOCOL "Adaptive Reuse-Resident"
+# ------------------------------------------------------------------------------
+# The protocol that ADAPTS to what is already on the card instead of demanding
+# its own tenants. This node often runs OTHER work (e.g. Surgery: two resident
+# Gemma-4-31B w4a16 servers on :18080 and :18081). Rather than evict them and
+# reload its own witness + governor, Beauty REUSES them:
+#
+#   * one resident Gemma  -> the visual-witness role   (local HTTP :18080)
+#   * the other resident Gemma -> the governor role     (local HTTP :18081)
+#
+# and only adds the pieces that are genuinely Beauty-specific into the free
+# VRAM: the FLUX generator, the Pixtral critic, and the in-process gates.
+#
+# `adaptive = true` tells the provisioner to DISCOVER resident vLLM servers via
+# /v1/models and bind the witness/governor seats to them when their capability
+# matches, only starting its own copy when nothing suitable is resident. The
+# witness/governor endpoints below are the surgery defaults; the discovery pass
+# overrides them with whatever is actually live.
+#
+# Live arithmetic on the observed node (2026-09-15):
+#   2x Gemma-31B w4a16 (surgery, already resident)   81.7   reused as witness+governor
+#   flux BF16 (the generator, Beauty-specific)        35.0
+#   pixtral W4A16 critic                               8.8
+#   gates fp16 in-process                              3.0
+#   reserve                                            4.0
+#   ------------------------------------------------------
+#   total                                            132.5 / 143  (~11 GiB free)
+# The two Gemmas are HTTP tenants: they count against the card because they are
+# physically resident, but Beauty neither loads nor unloads them.
+[profiles.h200-adaptive-coexist]
+description = "H200 NVL — Beauty adapts to resident work: reuse the two surgery Gemmas as witness + governor, add only FLUX + Pixtral + gates"
+suite = "beauty"
+adaptive = true
+pixtral_colocated_with_flux = true
+gpu = "NVIDIA H200 NVL"
+sm = "sm_90"
+vram_gib = 143.0
+gpu_count = 1
+vram_per_gpu_gib = 143.0
+reserve_gib = 4.0
+gpus = 1
+interconnect = "nvlink"
+tensor_parallel_viable = false
+vllm_min_version = "0.13.0"
+native_nvfp4_dense = false
+prebuilt_wheel_available = true
+notes = "ADAPTIVE co-existence profile. Discovers resident vLLM servers via /v1/models and binds the witness + governor seats to already-loaded models (the surgery Gemmas on :18080/:18081) instead of loading its own. Only FLUX + Pixtral + gates are Beauty-owned tenants. A resident Gemma standing in for the Qwen witness is a deliberate substitution: the witness ROLE (spatial/anatomy/defect scan) matters, not the specific base model. If a true Qwen VLM is resident it is preferred for the witness seat; otherwise Gemma serves both seats with different system prompts. This is how the protocol learns to fit the machine it lands on."
+
+[profiles.h200-adaptive-coexist.eye_gate]
+protocol = "EGRL-adaptive"
+required = true
+builder_observation = "witness"
+independent_critic = "pixtral"
+synthesist = "governor"
+operator_is_final = true
+recalibration = true
+adapts_to_resident = true
+anchor_set = "chorus/anchors.jsonl"
+design_laws = "chorus/LAWS.md"
+taste_log = "taste-log.jsonl"
+candidates = "eye-gate-candidates.jsonl"
+vault = "masterpiece_vault.jsonl"
+
+# --- Beauty-owned: the generator. Loaded by Beauty into free VRAM.
+[profiles.h200-adaptive-coexist.tenants.flux]
+kind = "uds"
+gpu = 0
+role = "Continuous Flow-Matching Candidate Production"
+model = "black-forest-labs/FLUX.1-dev"
+precision = "bf16"
+socket = "flux-gpu0.sock"
+vram_expected_gib = 35.0
+weights_gib = 35.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+steps = 28
+guidance_scale = 3.5
+resolution = [1024, 1024]
+variants.bf16 = { model = "black-forest-labs/FLUX.1-dev", weights_gib = 35.0, vram_expected_gib = 35.0 }
+
+# --- REUSED resident tenant: witness seat bound to an already-running server.
+# --- Beauty does not load or unload this; adaptive discovery fills the URL.
+[profiles.h200-adaptive-coexist.tenants.witness]
+kind = "vllm"
+gpu = 0
+role = "Spatial Grounding, Anatomy, Line Integrity, Defect Scan & Scorecard Synthesis"
+model = "reuse:resident"
+precision = "w4a16"
+port = 18080
+served_name = "gemma-governor-surgeon"
+remote = true
+remote_base_url = "http://127.0.0.1:18080/v1"
+reuse_resident = true
+prefer_capability = "vision"
+vram_expected_gib = 0.0
+weights_gib = 0.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 65536
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.reuse = { model = "reuse:resident", vram_expected_gib = 0.0, note = "Bound to a resident server (surgery's Gemma on :18080). vram_expected_gib = 0 because Beauty does not allocate it; it is already counted in the surgery workload. Discovery prefers a resident vision-capable VLM (a real Qwen witness) if one appears." }
+
+# --- REUSED resident tenant: governor seat bound to the second resident server.
+[profiles.h200-adaptive-coexist.tenants.governor]
+kind = "vllm"
+gpu = 0
+role = "Senior Protocol Advisor, Semantic Auditor & Evolutionary Prompt Mutator"
+model = "reuse:resident"
+precision = "w4a16"
+port = 18081
+served_name = "gemma-governor-patient"
+remote = true
+remote_base_url = "http://127.0.0.1:18081/v1"
+reuse_resident = true
+vram_expected_gib = 0.0
+weights_gib = 0.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 65536
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+attention_backend = "TRITON_ATTN"
+variants.reuse = { model = "reuse:resident", vram_expected_gib = 0.0, note = "Bound to the second resident Gemma on :18081. Beauty neither loads nor unloads it." }
+
+# --- Beauty-owned: the palette critic. Small; always fits the free budget.
+[profiles.h200-adaptive-coexist.tenants.pixtral]
+kind = "vllm"
+gpu = 0
+role = "Artistic Theory, Palette Cohesion, Tonal Density & Medium Authenticity"
+model = "RedHatAI/pixtral-12b-quantized.w4a16"
+precision = "w4a16"
+port = 8002
+served_name = "pixtral-critic"
+gpu_memory_utilization = 0.07
+vram_expected_gib = 8.8
+weights_gib = 7.0
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+max_model_len = 32768
+kv_cache_dtype = "fp8"
+tensor_parallel = 1
+variants.w4a16 = { model = "RedHatAI/pixtral-12b-quantized.w4a16", weights_gib = 7.0, gpu_memory_utilization = 0.07, note = "Beauty-owned. The one critic Beauty always brings itself, because 'Pixtral we keep' and no surgery workload provides a palette/medium critic." }
+
+# --- Beauty-owned: in-process gates. Tiny.
+[profiles.h200-adaptive-coexist.tenants.gates]
+kind = "inproc"
+gpu = 0
+role = "High-Frequency Micro-Sensory Gates (<10ms)"
+model = "facebook/dinov2-giant+google/siglip-base-patch16-224"
+precision = "fp16"
+vram_expected_gib = 3.0
+weights_gib = 3.0
+declared_vram_expected_gib = 2.5
+enabled = true
+mandatory = true
+toggleable = false
+dense = true
+siglip_aesthetic_head = true
+dinov2_semantic_novelty = true
+palette_delta_evidence = true
+variants.fp16 = { model = "facebook/dinov2-giant+google/siglip-base-patch16-224", weights_gib = 2.494, vram_expected_gib = 3.0, declared_vram_expected_gib = 2.5 }

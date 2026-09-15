@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#11110f">
+  <title>H200 Protocols — Beauty</title>
+  <meta name="description" content="Five competing Beauty protocols for one 143 GiB H200 NVL, including the adaptive profile that reuses whatever is already resident.">
+  <link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+
+    <!-- Over-inclusive by design. Source: jury_continuum.toml [profiles.h200-*],
+         cmd/flux/beauty.go, protocols/EGRL.md, live nvidia-smi on this node. -->
+
+    <section class="page-head">
+      <div>
+        <div class="eyebrow">One 143 GiB card · five ways to spend it</div>
+        <h1>H200 Protocols</h1>
+        <p class="lede">This node is a single NVIDIA H200 NVL — Hopper sm_90, 143&nbsp;GiB, FP8/W4A16 (no NVFP4). That is ~63&nbsp;GiB more than the H100 the compact profile was squeezed onto. These five protocols are competing takes on how to spend the headroom. Pick one per run. The protocol adapts to the machine it lands on.</p>
+      </div>
+      <div class="actions">
+        <a class="button primary" href="/overview">Protocol overview</a>
+        <a class="button" href="/gallery/">Gallery</a>
+      </div>
+    </section>
+
+    <!-- LIVE CARD STATE -->
+    <section class="section" style="padding-top:36px">
+      <div class="section-head"><div><div class="eyebrow">This card, right now</div><h2>Live budget</h2></div><span class="tiny mono" id="live-updated">reading…</span></div>
+      <div class="stat-grid">
+        <div class="stat"><strong id="s-total">143 GiB</strong><span>H200 NVL total</span></div>
+        <div class="stat"><strong id="s-used">—</strong><span>used</span></div>
+        <div class="stat"><strong id="s-free">—</strong><span>free</span></div>
+        <div class="stat"><strong id="s-tenants">—</strong><span>live tenants</span></div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:8px">
+        <div class="eyebrow">Live topology · /api/protocol</div>
+        <div class="terminal" id="topology">connecting…</div>
+      </div>
+    </section>
+
+    <!-- THE FIVE PROFILES AT A GLANCE -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">The competing protocols</div><h2>Five profiles</h2></div><span class="tiny muted">on-card GiB / 143</span></div>
+      <div class="stat-grid">
+        <div class="stat"><strong>138</strong><span>resident-tribunal</span></div>
+        <div class="stat"><strong>116</strong><span>speed-swarm</span></div>
+        <div class="stat"><strong>139</strong><span>multi-critic</span></div>
+        <div class="stat"><strong>137</strong><span>deep-context</span></div>
+      </div>
+      <div class="stat-grid" style="margin-top:2px">
+        <div class="stat"><strong>132</strong><span>adaptive-coexist ◀ fits now</span></div>
+        <div class="stat"><strong class="mono" style="font-size:19px">FP8</strong><span>sm_90 · no NVFP4</span></div>
+        <div class="stat"><strong class="mono" style="font-size:19px">BF16</strong><span>FLUX generator, pinned</span></div>
+        <div class="stat"><strong class="mono" style="font-size:19px">EGRL</strong><span>every profile</span></div>
+      </div>
+    </section>
+
+    <!-- 1. RESIDENT TRIBUNAL -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Protocol · everything local</div><h2>Resident Tribunal</h2></div><span class="tiny muted">h200-resident-tribunal · EGRL</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <p class="lede" style="max-width:none;margin-top:0">Every judge runs on-card. No remote hop, no witness-URL, no cross-machine failure mode — the whole three-gate EGRL loop is self-contained on one machine. The H100 could not afford a local governor; the H200 keeps it, and full-precision Kontext too.</p>
+          <div class="terminal">flux BF16          35.0   UDS flux-gpu0.sock
+witness Qwen FP8   31.5   :8001
+governor Gemma FP8 34.3   :8000  (LOCAL — the point)
+pixtral W4A16      10.0   :8002
+gates fp16          3.0   in-process
+kontext BF16       20.0   :flux-kontext.sock (resident!)
+reserve             4.0
+────────────────────────────
+total             137.8 / 143</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Eye-gate</div><div class="terminal">protocol       EGRL
+recalibration  on
+builder obs    qwen
+critic         pixtral
+synthesist     gemma (local)
+operator       final</div></section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 2. SPEED SWARM -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Protocol · parallel builders</div><h2>Parallel Swarm</h2></div><span class="tiny muted">h200-speed-swarm · EGRL</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <p class="lede" style="max-width:none;margin-top:0">EGRL Phase-1 calls for N heterogeneous builders. On one card the H200 holds <em>two</em> resident FLUX workers rendering independent seeds in parallel into one shared candidate pool — max throughput per operator batch. Governor goes remote to buy the VRAM for worker&nbsp;#1.</p>
+          <div class="terminal">flux #0 BF16       35.0   flux-gpu0.sock
+flux #1 BF16       35.0   flux-gpu0b.sock (parallel)
+witness Qwen FP8   30.0   :8001
+pixtral W4A16       8.8   :8002
+gates fp16          3.0   in-process
+governor           remote governor.influx.vision
+reserve             4.0
+────────────────────────────
+total on-card     115.8 / 143</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Eye-gate</div><div class="terminal">protocol         EGRL
+parallel_builders 2
+recalibration    on
+one tribunal for both lanes</div></section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 3. MULTI-CRITIC -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Protocol · disagreement is signal</div><h2>Multi-Critic Tribunal</h2></div><span class="tiny muted">h200-multi-critic · EGRL-tribunal</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <p class="lede" style="max-width:none;margin-top:0">A second, differently-framed critic (InternVL) rides beside Pixtral. Both rank every candidate independently; where they <em>disagree</em>, that candidate is flagged for priority operator attention — exactly as EGRL treats an operator-vs-critic override: the highest-information event in the system.</p>
+          <div class="terminal">flux BF16          35.0   flux-gpu0.sock
+witness Qwen FP8   30.0   :8001
+governor Gemma FP8 34.3   :8000  (local)
+pixtral W4A16       8.8   :8002  critic A (palette/medium)
+internvl FP8       24.0   :8003  critic B (composition)
+gates fp16          3.0   in-process
+reserve             4.0
+────────────────────────────
+total             139.1 / 143</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Eye-gate</div><div class="terminal">protocol        EGRL-tribunal
+critic A        pixtral
+critic B        internvl
+disagreement    = operator signal
+recalibration   on</div></section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 4. DEEP CONTEXT -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Protocol · long-memory recalibration</div><h2>Deep Context</h2></div><span class="tiny muted">h200-deep-context · EGRL</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <p class="lede" style="max-width:none;margin-top:0">Spends the headroom on KV cache, not extra models. Witness and governor run 131k-token windows so each generation's full anchor set and verbatim taste log ride <em>inside</em> the prompt. EGRL recalibration stops being a summary and becomes literal recall of every prior operator verdict.</p>
+          <div class="terminal">flux BF16          35.0   flux-gpu0.sock
+witness Qwen FP8   43.0   :8001  (131k window)
+governor Gemma FP8 43.0   :8000  (131k window, local)
+pixtral W4A16       8.8   :8002
+gates fp16          3.0   in-process
+reserve             4.0
+────────────────────────────
+total             136.8 / 143</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Eye-gate</div><div class="terminal">protocol                 EGRL
+full_taste_log_in_context on
+recalibration            on
+critic sees every prior
+operator verdict verbatim</div></section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 5. ADAPTIVE COEXIST -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Protocol · teach it to adapt ◀</div><h2>Adaptive Reuse-Resident</h2></div><span class="tiny muted">h200-adaptive-coexist · EGRL-adaptive</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <p class="lede" style="max-width:none;margin-top:0">The protocol that adapts to what is <em>already</em> on the card instead of demanding its own tenants. When this node runs other work — e.g. Surgery's two resident Gemma-31B servers on :18080 and :18081 — Beauty reuses them: one becomes the witness seat, the other the governor, and Beauty adds only the pieces surgery does not provide (FLUX, Pixtral, gates). It discovers resident vLLM servers via <span class="mono">/v1/models</span> and binds to whatever is live, preferring a real Qwen VLM for the witness if one appears.</p>
+          <div class="terminal">2× Gemma-31B (surgery, REUSED)  81.7   :18080 witness · :18081 governor
+flux BF16                       35.0   flux-gpu0.sock   (Beauty-owned)
+pixtral W4A16                    8.8   :8002            (Beauty-owned)
+gates fp16                       3.0   in-process       (Beauty-owned)
+reserve                          4.0
+──────────────────────────────────────
+Beauty adds                     50.8   into free space
+total on card                  132.5 / 143   ◀ fits alongside surgery now</div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad"><div class="eyebrow">Eye-gate</div><div class="terminal">protocol           EGRL-adaptive
+adapts_to_resident on
+witness            reuse:resident :18080
+governor           reuse:resident :18081
+critic             pixtral (Beauty-owned)
+recalibration      on</div></section>
+          <section class="panel panel-pad"><div class="eyebrow">Why substitute a Gemma for Qwen</div><div class="terminal">the witness ROLE matters
+(spatial / anatomy / defect scan),
+not the specific base model.
+prefer a resident Qwen VLM if present;
+otherwise one Gemma serves the seat
+with a witness system prompt.</div></section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- RALPH EYE-GATE -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">protocols/EGRL.md · wired first-class</div><h2>The Ralph eye-gate</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="law-list">
+          <article class="law"><div><h3>Gate 1 — builder observation</h3><p>The witness reads the rendered frame with vision every iteration and scores it against explicit, numbered design laws. Unviewed output is undefined output; a candidate may only be submitted with its design-law checklist attached. Tracked metric: Blind Submission Rate = 0.</p></div></article>
+          <article class="law"><div><h3>Gate 2 — independent critic</h3><p>A critic that built nothing ranks all candidates against calibrated prior winners (the anchor set). Scores are comparative — "beats anchor X on axis Y" — never absolute vibes. Output is a ranked slate plus a typed evidence trace per candidate.</p></div></article>
+          <article class="law"><div><h3>Gate 3 — operator eye-gate</h3><p>The operator views the full slate and the verdict is final: it overrides the critic in both directions (a critic 9 can be killed; a 6.5 crowned). Every verdict is persisted verbatim to the taste log. A crown is the only path into the masterpiece vault.</p></div></article>
+          <article class="law"><div><h3>Recalibration — the loop learns</h3><p>After each generation: approved pieces enter the anchor set; every override is a measured critic-calibration error that retunes the critic prompt; provisional laws distilled from operator notes are tested and promoted; a favourable override of a low-scored candidate names a new approved register. The asset being built is the calibrated taste function, not any single frame.</p></div></article>
+        </div>
+        <div class="terminal" style="margin-top:8px">python3.12 beauty_eye_gate.py slate
+python3.12 beauty_eye_gate.py record --job-id &lt;id&gt; --verdict crown|kill|note \
+  --words '&lt;verbatim operator words&gt;' --delta &lt;n&gt; --generation &lt;n&gt;
+# or via the suite CLI:
+flux suites beauty slate
+flux suites beauty record --job-id &lt;id&gt; --verdict crown --words '...' --delta &lt;n&gt;
+
+writes: taste-log.jsonl · eye-gate-candidates.jsonl · masterpiece_vault.jsonl
+agents: protocols/agents/ralph-{orchestrator,critic,quality-checker,eyegate-recorder,task-picker}.md</div>
+      </div>
+    </section>
+
+    <footer>
+      <span>H200 NVL · sm_90 · 143 GiB</span>
+      <span>jury_continuum.toml · protocols/EGRL.md</span>
+      <span>competing draft — prune later</span>
+    </footer>
+  </main>
+
+  <script>
+  async function loadH200() {
+    try {
+      const d = await fetch('/api/protocol?lane=fashion', { cache: 'no-store' }).then(r => r.json());
+      const tenants = d.tenants || [];
+      const liveCount = tenants.filter(t => t.live).length;
+      document.getElementById('s-tenants').textContent = tenants.length ? (liveCount + ' / ' + tenants.length) : '—';
+      // GPU memory, if the protocol payload carries it
+      const gpu = d.gpu || d.card || {};
+      if (gpu.used_gib != null) document.getElementById('s-used').textContent = Math.round(gpu.used_gib) + ' GiB';
+      if (gpu.free_gib != null) document.getElementById('s-free').textContent = Math.round(gpu.free_gib) + ' GiB';
+      document.getElementById('topology').textContent = tenants.length
+        ? tenants.map(t => (t.live ? '● ' : '○ ') + String(t.id || '').padEnd(12) + ' ' + (t.role || '') + '\n  ' + (t.note || t.endpoint || '')).join('\n\n')
+        : 'No tenants reported (Beauty pipeline idle).';
+      document.getElementById('live-updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+    } catch (_) {
+      document.getElementById('topology').textContent = 'Live topology unavailable.';
+      document.getElementById('live-updated').textContent = 'offline';
+    }
+  }
+  loadH200();
+  setInterval(loadH200, 5000);
+  </script>
+</body>
+</html>
