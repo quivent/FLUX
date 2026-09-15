@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#11110f">
+  <title>Beauty Protocol — Overview</title>
+  <meta name="description" content="The whole FLUX Beauty Protocol on one page: architectures, protocols, topology, pipeline, deployment, and operator gate.">
+  <link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+</head>
+<body>
+  <main class="shell">
+
+    <!-- ==================================================================
+         This is a deliberately OVER-INCLUSIVE aggregate of every Beauty
+         Protocol surface in the repo. Prune and tune later. Sources:
+         cmd/flux/beauty.go, apps/beauty/README.md, beauty_pipeline.py,
+         chorus/beauty-queue.json, docs/H100_BEAUTY_{COMPACT,TOPOLOGY,
+         PACKAGE_CHECKLIST}.md, deploy/deploy_h100_beauty.sh.
+         =================================================================== -->
+
+    <section class="page-head">
+      <div>
+        <div class="eyebrow">The whole protocol, on one page</div>
+        <h1>Beauty Protocol</h1>
+        <p class="lede">One fixed brief, one resident FLUX worker, independent machine evidence, and a human verdict that owns the record. This page gathers every surface — architectures, protocols, topology, pipeline, deployment, and the operator gate — in one place. Over-inclusive by design; prune later.</p>
+      </div>
+      <div class="actions">
+        <a class="button primary" href="/gallery/">Live gallery</a>
+        <a class="button" href="/jury">Jury</a>
+        <a class="button" href="/control">Controls</a>
+      </div>
+    </section>
+
+    <!-- LIVE STATE ------------------------------------------------------- -->
+    <section class="section" style="padding-top:36px">
+      <div class="section-head"><div><div class="eyebrow">Right now</div><h2>Live state</h2></div><span class="tiny mono" id="live-updated">reading…</span></div>
+      <div class="stat-grid">
+        <div class="stat"><strong id="s-status">—</strong><span>pipeline</span></div>
+        <div class="stat"><strong id="s-worker">—</strong><span>flux worker</span></div>
+        <div class="stat"><strong id="s-tenants">—</strong><span>live tenants</span></div>
+        <div class="stat"><strong id="s-lane">fashion</strong><span>active lane</span></div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:8px">
+        <div class="eyebrow">Live topology · /api/protocol</div>
+        <div class="terminal" id="topology">connecting…</div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURES ---------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Where the models sit</div><h2>Architectures</h2></div><span class="tiny muted">Pixtral is local to the FLUX studio in every profile</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <div class="law-list">
+            <article class="law"><div><h3>compact → h100</h3><p>One studio H100 (80&nbsp;GiB): FLUX.1-dev BF16 + Qwen3.8-27B FP8 witness + Pixtral-12B W4A16 critic + DINO/SigLIP gates. Governor (Gemma) remote by default. Total 80.0 GiB exactly — do not add another resident model.</p></div></article>
+            <article class="law"><div><h3>remote-qwen → h100-remote-witness</h3><p>Studio H100 keeps FLUX + Pixtral + gates. Qwen witness moves to a dedicated clean machine (set <span class="mono">MOJ_VISUAL_WITNESS_URL</span>). Gemma remote. Kontext optional, off by default.</p></div></article>
+            <article class="law"><div><h3>distributed → h100-distributed-atelier</h3><p>Expanded studio (FLUX + Pixtral + gates + Kontext) plus a dedicated BF16 Qwen witness machine and a dedicated Gemma governor machine. Witness and critic fan out independently; evidence converges at Gemma.</p></div></article>
+          </div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad">
+            <div class="eyebrow">VRAM budget · compact (80 GiB)</div>
+            <div class="terminal">FLUX.1-dev BF16        35.0 GiB   UDS flux-gpu0.sock
+Qwen3.8-27B FP8        30.0 GiB   :8001  witness
+Pixtral-12B W4A16       8.8 GiB   :8002  critic
+DINOv2-G + SigLIP       3.0 GiB   in-process gates
+reserve                 3.2 GiB
+────────────────────────────────
+total                  80.0 GiB   exact</div>
+          </section>
+          <section class="panel panel-pad">
+            <div class="eyebrow">Placement matrix</div>
+            <div class="terminal">profile                 studio            qwen        gemma
+h100                    F+Q+P+gates       —           remote
+h100-remote-witness     F+P+gates (+K?)   FP8 remote  remote
+h100-distributed        F+P+gates+K       BF16 remote FP8 remote</div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- PROTOCOLS -------------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">How a frame is judged</div><h2>Protocols</h2></div><span class="tiny muted">Works with every architecture</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <div class="law-list">
+            <article class="law"><div><h3>EGRL</h3><p>Qwen observation → independent Pixtral anchored critique → Gemma synthesis → operator verdict. <span class="mono">flux suites beauty slate</span>.</p></div></article>
+            <article class="law"><div><h3>moj-audit</h3><p>DINO/SigLIP → Qwen + Pixtral → Gemma recommendation. Diagnostic only — every candidate stays pending; nothing is auto-killed. <span class="mono">flux jury --probe</span>.</p></div></article>
+            <article class="law"><div><h3>operator-eye</h3><p>Ranked full slate → crown / kill / note → append-only taste log. <span class="mono">flux suites beauty record --job-id &lt;id&gt; --verdict crown|kill|note --words &lt;text&gt; --delta &lt;n&gt;</span>.</p></div></article>
+          </div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad">
+            <div class="eyebrow">Evaluation path</div>
+            <div class="terminal" id="eval-path">generate → uniqueness → sensory gates → witness → beauty critic → governor → composite</div>
+          </section>
+          <section class="panel panel-pad">
+            <div class="eyebrow">Three-gate eye</div>
+            <div class="terminal">Gate 1  Qwen        observation evidence
+Gate 2  Pixtral     structurally separate critic
+        Gemma       synthesizes the reports
+Gate 3  Operator    crown → masterpiece_vault.jsonl
+                    (the only path in)
+records → taste-log.jsonl (verbatim)</div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- TOPOLOGY / CONNECTION CONTRACT ----------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Who talks to whom</div><h2>Connection contract</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="terminal">component        placement                 connection                         role
+FLUX worker      studio                    UDS .fluxd/flux-gpu0.sock          candidate generation
+Pixtral critic   studio                    local HTTP :8002                   palette, medium, aesthetic evidence
+DINO / SigLIP    studio                    in-process                         novelty, alignment, sensory gates
+Qwen witness     remote (expanded)         MOJ_VISUAL_WITNESS_URL /v1         spatial, anatomy, line, defect evidence
+Gemma governor   gemma machine             MOJ_GOVERNOR_URL / GOVERNOR_BASE   evidence synthesis, prompt evolution — never final gate
+Tea / FLUX app   studio / app host         HTTP :7861 (dev :7863)             operator control and live status
+
+flow:  APP → FLUX → DINO/SigLIP → { Pixtral, Qwen } → Gemma → Operator → taste-log → APP
+       the passing image fans out to Qwen and Pixtral independently; neither
+       report may overwrite the other before Gemma synthesizes them.</div>
+      </div>
+    </section>
+
+    <!-- PIPELINE --------------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">The generation loop</div><h2>Pipeline</h2></div><span class="tiny muted">beauty_pipeline.py · latency-first</span></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <div class="law-list">
+            <article class="law"><div><h3>One frame at a time</h3><p>One resident FLUX worker renders a single 512×512 frame at 18 steps, then publishes it immediately.</p></div></article>
+            <article class="law"><div><h3>One bounded advisor per frame</h3><p>Pixtral gets first refusal because it sees pixels; Qwen is the vision/text fallback; Gemma the text-only fallback. Exactly one advisor is called per frame.</p></div></article>
+            <article class="law"><div><h3>Dead advisors cool down</h3><p>An unreachable endpoint cools down for 30&nbsp;seconds instead of taxing every render. No judge stalls the loop.</p></div></article>
+            <article class="law"><div><h3>State is durable</h3><p>Exposed at <span class="mono">/api/beauty/pipeline</span>, written to <span class="mono">.fluxd/protocol_stream_gpu3.json</span>. Restart-safe; no false success when a judge is unreachable.</p></div></article>
+          </div>
+        </div>
+        <aside class="stack">
+          <section class="panel panel-pad">
+            <div class="eyebrow">Fixed geometry</div>
+            <div class="terminal">frame        512 × 512
+steps        18
+guidance     3.5 (default)
+publish      immediate
+advisors     1 per frame, timeout-bounded
+cooldown     30 s per dead endpoint</div>
+          </section>
+          <section class="panel panel-pad">
+            <div class="eyebrow">Required H100 settings</div>
+            <div class="terminal">FLUX        bf16 (never quantize the generator)
+witness     fp8 · util 0.375 · maxlen 32768 · kv fp8
+pixtral     w4a16 · util 0.11 · maxlen 32768 · kv fp8
+gates       fp16 · mandatory · in-process
+attention   TRITON_ATTN
+spec-decode off · Kontext off (evicts a tenant)
+kernels     no NVFP4 (H100 is sm_90 Hopper)
+parallel    tensor_parallel = 1 for every tenant</div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- COMMAND SURFACE -------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">flux suites beauty</div><h2>Command surface</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="terminal">flux suites beauty architectures                              list deployment variants + continuum profile names
+flux suites beauty protocols                                  list EGRL, moj-audit, operator-gate views
+flux suites beauty protocol &lt;name&gt;                             explain one protocol view and its commands
+flux suites beauty deploy compact --dry-run                   validate the one-H100 studio without changing it
+flux suites beauty deploy compact                             provision the compact studio
+flux suites beauty deploy remote-qwen --witness-url &lt;url&gt;      keep Qwen clean on another machine
+flux suites beauty deploy distributed --witness-url &lt;url&gt; \
+                          --governor-url &lt;url&gt;                provision the three-machine atelier
+flux suites beauty status &lt;architecture&gt;                       show the selected topology and tenant health
+flux suites beauty slate                                      every pending candidate in machine-ranked order
+flux suites beauty record --job-id &lt;id&gt; --verdict crown \
+             --words '&lt;verbatim&gt;' --delta &lt;n&gt;                 persist the operator verdict verbatim
+
+invariant   Pixtral is local on the FLUX studio in every Beauty architecture
+source      jury_continuum.toml · [profiles.h100]</div>
+      </div>
+    </section>
+
+    <!-- DEPLOYMENT ------------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">deploy/deploy_h100_beauty.sh</div><h2>Deployment</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="terminal"># compact (one H100)
+sudo deploy/deploy_h100_beauty.sh --dry-run
+sudo deploy/deploy_h100_beauty.sh
+sudo deploy/deploy_h100_beauty.sh --status
+
+# remote-qwen witness
+sudo deploy/deploy_h100_beauty.sh --profile h100-remote-witness \
+  --witness-url https://beauty.governor.influx.vision/v1 --dry-run
+
+# distributed atelier
+sudo deploy/deploy_h100_beauty.sh --profile h100-distributed-atelier \
+  --witness-url https://beauty.governor.influx.vision/v1 \
+  --governor-url https://governor.influx.vision/v1
+
+# verified sm90 vLLM wheel
+r2://governor/wheels/vllm/65b7662d3fcb773afaf751ab29ac6960a0cf011d/sm90/
+vllm-0.26.1rc1.dev602+g65b7662d3.d20260820.cu129-cp312-cp312-linux_x86_64.whl
+
+gate:  dry-run must report a fitting studio VRAM budget, an H100/80 GiB card,
+       and every remote endpoint + local Pixtral passing health before success.</div>
+      </div>
+    </section>
+
+    <!-- OPERATOR EYE-GATE ------------------------------------------------ -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">ralpheye · beauty_eye_gate.py</div><h2>Operator eye-gate</h2></div><span class="tiny muted">A crown is the only path into the vault</span></div>
+      <div class="panel panel-pad">
+        <div class="terminal">python3.12 beauty_eye_gate.py slate
+python3.12 beauty_eye_gate.py record \
+  --job-id &lt;job-id&gt; --verdict crown \
+  --words '&lt;verbatim operator words&gt;' \
+  --delta &lt;signed-placement-delta&gt; --generation &lt;n&gt;
+
+Gate 1  Qwen observation evidence
+Gate 2  Pixtral independent critic
+        Gemma synthesizes the reports
+Gate 3  operator records crown | kill | note → taste-log.jsonl
+        candidates enter eye-gate-candidates.jsonl; a "masterpiece"
+        machine tier is only a recommendation — never auto-promoted.</div>
+      </div>
+    </section>
+
+    <!-- INVARIANTS ------------------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">Non-negotiable</div><h2>Invariants</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="law-list">
+          <article class="law"><div><h3>Pixtral never leaves the studio</h3><p>Pixtral is local to the FLUX studio in every Beauty profile. Moving Qwen remote must remove its local VRAM reservation and suppress its local vLLM container.</p></div></article>
+          <article class="law"><div><h3>Remote judges speak OpenAI</h3><p>Remote endpoints must expose OpenAI-compatible <span class="mono">/v1/models</span> and <span class="mono">/v1/chat/completions</span>. Cross-machine traffic uses HTTP + auth. Unix sockets never cross machine boundaries.</p></div></article>
+          <article class="law"><div><h3>A failed gate is not a deployment</h3><p>A failed witness, critic, or governor health gate is not a successful Beauty deployment. First bring-up provisions GPU 0 only; GPU 1 is untouched until GPU 0 passes.</p></div></article>
+          <article class="law"><div><h3>The operator owns the verdict</h3><p>Operator words are persisted verbatim. Machine scores rank the full slate but never hide or automatically kill a candidate. Gemma is never the final gate.</p></div></article>
+          <article class="law"><div><h3>Keep the brief and the source frame</h3><p>The prompt and collection are fixed before a run. The archive stores the rendered image, not an interpolated or quietly repaired substitute.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- DELIVERY CHECKLIST ----------------------------------------------- -->
+    <section class="section" style="padding-top:0">
+      <div class="section-head"><div><div class="eyebrow">docs/H100_BEAUTY_PACKAGE_CHECKLIST.md</div><h2>Delivery checklist</h2></div></div>
+      <div class="panel panel-pad">
+        <div class="terminal">nonstop pipeline
+  [ ] resident FLUX worker
+  [ ] beauty protocol stream / queue
+  [ ] Qwen witness, Pixtral critic, Gemma governor, sensory gates
+  [ ] jury evaluator + durable verdict/audit ledger
+  [ ] R2 output/ledger sync
+  [ ] worker/app/stream/pipeline sentinels with bounded repair
+  [ ] restart-safe state; no false success when a judge is unreachable
+
+operator surface
+  [ ] Tea/FLUX app is the single control surface
+  [ ] start/stop, prompt, collection/branch, jury calibration, status, health
+  [ ] app displays active hardware profile and exact tenant placement
+  [ ] 45 prompts by category, preserved in manifests
+  [ ] CLI variants expose the five beauty categories
+
+GMan verification
+  [ ] sync package · hydrate model + R2 sm90 wheel
+  [ ] hardware / import / wheel / VRAM checks
+  [ ] start GPU 0 only → verify FLUX + Gemma health + memory ownership
+  [ ] start GPU 1 only after GPU 0 passes
+  [ ] verify full pipeline + app controls · re-run after restart</div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Beauty Protocol · aggregate overview</span>
+      <span>jury_continuum.toml</span>
+      <span>over-inclusive draft — prune later</span>
+    </footer>
+  </main>
+
+  <script>
+  async function loadOverview() {
+    try {
+      const d = await fetch('/api/protocol?lane=fashion', { cache: 'no-store' }).then(r => r.json());
+      const stream = d.stream || {};
+      const running = stream.status === 'running' || stream.running === true;
+      document.getElementById('s-status').textContent = running ? 'running' : (stream.status || 'idle');
+      document.getElementById('s-worker').textContent = (d.flux && d.flux.loaded) ? 'loaded' : (d.flux && d.flux.live ? 'live' : 'idle');
+      const tenants = d.tenants || [];
+      const liveCount = tenants.filter(t => t.live).length;
+      document.getElementById('s-tenants').textContent = tenants.length ? (liveCount + ' / ' + tenants.length) : '—';
+      document.getElementById('s-lane').textContent = d.lane || 'fashion';
+      const evalPath = (d.stream_options && d.stream_options.eval_path) || [];
+      if (evalPath.length) document.getElementById('eval-path').textContent = evalPath.join(' → ');
+      document.getElementById('topology').textContent = tenants.length
+        ? tenants.map(t => (t.live ? '● ' : '○ ') + String(t.id || '').padEnd(12) + ' ' + (t.role || '') + '\n  ' + (t.note || t.endpoint || '')).join('\n\n')
+        : 'No tenants reported.';
+      document.getElementById('live-updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+    } catch (_) {
+      document.getElementById('topology').textContent = 'Live topology unavailable.';
+      document.getElementById('live-updated').textContent = 'offline';
+    }
+  }
+  loadOverview();
+  setInterval(loadOverview, 5000);
+  </script>
+</body>
+</html>

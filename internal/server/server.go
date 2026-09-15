@@ -405,6 +405,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/desk/", s.deskPage)
 	mux.HandleFunc("/control", s.deskPage)
 	mux.HandleFunc("/control/", s.deskPage)
+	mux.HandleFunc("/overview", s.overviewPage)
+	mux.HandleFunc("/overview/", s.overviewPage)
 	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/scores", s.scoresPage)
 	mux.HandleFunc("/scores/", s.scoresPage)
@@ -545,6 +547,7 @@ var readOnlyPaths = []string{
 	"/beauty.css",
 	"/beauty-shell.js",
 	"/api/beauty/pipeline",
+	"/overview",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -743,6 +746,26 @@ func (s Server) sitePublicFile(name string) string {
 		return filepath.Join(s.publicDir, name)
 	}
 	return filepath.Join(s.cfg.Root, "apps", "tea", "public", name)
+}
+
+// overviewPage serves the aggregate Beauty Protocol overview from the active
+// presentation bundle. It is bundle-scoped: the default Tea surface has no
+// overview.html, so it 404s there and only resolves under the Beauty bundle.
+func (s Server) overviewPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if r.URL.Path == "/overview/" {
+		http.Redirect(w, r, "/overview", http.StatusPermanentRedirect)
+		return
+	}
+	file := s.sitePublicFile("overview.html")
+	if _, err := os.Stat(file); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, file)
 }
 
 // siteChromeAsset serves the active bundle's chrome (CSS/JS). For the Tea

@@ -3,6 +3,7 @@
     ['/gallery/', 'Gallery'],
     ['/collections', 'Collections'],
     ['/protocol', 'Protocol'],
+    ['/overview', 'Overview'],
     ['/jury', 'Jury'],
     ['/control', 'Controls']
   ];
