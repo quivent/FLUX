@@ -69,7 +69,7 @@ func (s Server) beautyPipelineAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		switch strings.ToLower(strings.TrimSpace(request.Action)) {
 		case "start", "run":
-			s.startBeautyPipeline(w, request.Prompt, request.N, request.Steps, request.Width, request.Height, request.Guidance)
+			s.startBeautyPipeline(w, request.Prompt, request.N, request.Steps, request.Width, request.Height, request.Guidance, request.Seed, request.AdvisorTimeout)
 		case "stop":
 			s.stopBeautyPipeline(w)
 		default:
@@ -80,7 +80,7 @@ func (s Server) beautyPipelineAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Server) startBeautyPipeline(w http.ResponseWriter, prompt string, n, steps, width, height int, guidance float64) {
+func (s Server) startBeautyPipeline(w http.ResponseWriter, prompt string, n, steps, width, height int, guidance float64, seed string, advisorTimeout float64) {
 	if _, running := beautyPipelineProcess(s.cfg.Root); running {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok": true, "started": false, "pipeline": readProtocolStreamStateFile(beautyPipelineStatePath(s.cfg.Root)),
@@ -134,11 +134,11 @@ func (s Server) startBeautyPipeline(w http.ResponseWriter, prompt string, n, ste
 		"--socket", socketPath, "--state", beautyPipelineStatePath(s.cfg.Root),
 		"--pid", beautyPipelinePIDPath(s.cfg.Root), "--lane", "fashion",
 	}
-	if strings.TrimSpace(request.Seed) != "" {
-		args = append(args, "--seed", strings.TrimSpace(request.Seed))
+	if strings.TrimSpace(seed) != "" {
+		args = append(args, "--seed", strings.TrimSpace(seed))
 	}
-	if request.AdvisorTimeout > 0 {
-		args = append(args, "--advisor-timeout", strconv.FormatFloat(request.AdvisorTimeout, 'f', -1, 64))
+	if advisorTimeout > 0 {
+		args = append(args, "--advisor-timeout", strconv.FormatFloat(advisorTimeout, 'f', -1, 64))
 	}
 	command := exec.Command(s.cfg.Python, args...)
 	command.Dir = s.cfg.Root

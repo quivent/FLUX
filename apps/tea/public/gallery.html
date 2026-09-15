@@ -2,7 +2,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<link rel="stylesheet" href="/tea/tea.css">
+<link rel="stylesheet" href="/tea.css">
 <script src="/tea/tea-shell.js"></script>
 <title>Images of Beauty — Tea Gallery</title>
 <!-- Tea Gallery — a living public collection. -->
@@ -155,6 +155,7 @@
     <a href="/scores">Scores</a>
     <a href="/movement">Movement</a>
     <a href="/studies">Studies</a>
+    <a href="/exhibition">Exhibition</a>
   </nav>
   <div class="tea-chrome-end">
     <a class="op-btn" href="/jury">Jury</a>
@@ -746,30 +747,8 @@
   }
 
   function setupJobsLiveStream() {
-    if (window.EventSource) {
-      const jobES = new EventSource('/api/jobs/events');
-      jobES.addEventListener('jobs', (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          const doneJobs = (data.jobs || []).filter((j) => j.status === 'done' && (j.output_url || j.output));
-          // Replay arrives newest-first and each cell is prepended; walk it oldest-first so the newest ends on top. (fable 2026-08-21)
-          for (const j of doneJobs.slice().reverse()) {
-            const created = Number(j.created || j.started || j.finished || 0);
-            if (!created || created < streamStartedAt - 1) continue;
-            const url = jobAssetUrl(j);
-            if (!belongsOnWall(url, j.filename || j.output || j.prompt || j.id, j.prompt)) continue;
-            const key = normalizeKey(url);
-            if (key && !seen.has(key)) {
-              if (addCell(url, j.filename || j.output || j.id, false, false)) {
-                total += 1;
-                $('s-collection').textContent = total;
-                updateShown();
-              }
-            }
-          }
-        } catch (_) {}
-      });
-    }
+    // The wall grows only from pushed asset events (WebSocket/SSE) and the
+    // recent-images sync below. It does not subscribe to production job feeds.
 
     // High-frequency 2.5s live sync so newly completed frames shift the wall
     // immediately. We wait until baselineReady so the first backfill() has

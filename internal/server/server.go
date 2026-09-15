@@ -46,11 +46,19 @@ type Options struct {
 	// reachable without a token, which is the only way a browser can open the
 	// page at all.
 	PublicReadOnly bool
+	// PublicDir binds the listener to an app-specific presentation bundle
+	// (e.g. apps/beauty/public). When empty the default Tea surface is served.
+	PublicDir string
 }
 
 type Server struct {
 	cfg    config.Config
 	client daemon.Client
+	// publicDir, when non-empty, points at an app-specific presentation
+	// bundle (e.g. apps/beauty/public) whose pages and chrome assets take
+	// precedence over the default Tea public directory. Empty means serve
+	// the standard Tea surface.
+	publicDir string
 	// pool spans one worker per detected GPU. It is empty on hosts with no
 	// GPU, in which case every worker helper falls back to client.
 	pool fleet.Pool
@@ -251,7 +259,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	if strings.TrimSpace(opt.Addr) == "" {
 		opt.Addr = "127.0.0.1:7861"
 	}
-	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg)}
+	s := Server{cfg: cfg, client: daemon.New(cfg), pool: fleet.New(cfg), publicDir: opt.PublicDir}
 	if s.fleetOn() {
 		slog.Info("flux fleet enabled", "gpus", s.pool.GPUs(), "workers", s.pool.Size())
 	}
@@ -397,6 +405,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/desk/", s.deskPage)
 	mux.HandleFunc("/control", s.deskPage)
 	mux.HandleFunc("/control/", s.deskPage)
+	mux.HandleFunc("/api/beauty/pipeline", s.beautyPipelineAPI)
 	mux.HandleFunc("/scores", s.scoresPage)
 	mux.HandleFunc("/scores/", s.scoresPage)
 	mux.HandleFunc("/governor", s.governorPage)
@@ -420,6 +429,8 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	mux.HandleFunc("/tea/", s.gardenPage)
 	mux.HandleFunc("/tea.css", s.teaChromeAsset)
 	mux.HandleFunc("/tea-shell.js", s.teaChromeAsset)
+	mux.HandleFunc("/beauty.css", s.siteChromeAsset)
+	mux.HandleFunc("/beauty-shell.js", s.siteChromeAsset)
 	mux.HandleFunc("/assets/", s.teaPublicAsset)
 	mux.HandleFunc("/publications", s.publicationsPage)
 	mux.HandleFunc("/publications/", s.publicationsPage)
@@ -528,6 +539,12 @@ var readOnlyPaths = []string{
 	"/api/tea/movement",
 	"/tea.css",
 	"/tea-shell.js",
+	// The Beauty presentation bundle ships its own chrome and its live
+	// pipeline status is a safe GET (the POST controls stay blocked by the
+	// GET/HEAD requirement of this gate).
+	"/beauty.css",
+	"/beauty-shell.js",
+	"/api/beauty/pipeline",
 	"/tea",
 	"/assets",
 	"/jury",
@@ -699,11 +716,13 @@ func (s Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	portalFile := filepath.Join(s.cfg.Root, "web", "portal", "index.html")
-	if _, err := os.Stat(portalFile); err == nil {
-		http.ServeFile(w, r, portalFile)
-		return
+	if s.publicDir == "" {
+		if _, err := os.Stat(portalFile); err == nil {
+			http.ServeFile(w, r, portalFile)
+			return
+		}
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "index.html"))
+	http.ServeFile(w, r, s.sitePublicFile("index.html"))
 }
 
 func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
@@ -713,6 +732,33 @@ func (s Server) teaChromeAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", name))
+}
+
+// sitePublicFile resolves a public presentation file by name. When the server
+// is bound to an app-specific bundle (publicDir set, e.g. apps/beauty/public)
+// the file is served from there; otherwise it falls back to the default Tea
+// public directory.
+func (s Server) sitePublicFile(name string) string {
+	if s.publicDir != "" {
+		return filepath.Join(s.publicDir, name)
+	}
+	return filepath.Join(s.cfg.Root, "apps", "tea", "public", name)
+}
+
+// siteChromeAsset serves the active bundle's chrome (CSS/JS). For the Tea
+// surface this is tea.css / tea-shell.js; for an app bundle it is that app's
+// own chrome (e.g. beauty.css / beauty-shell.js) resolved via publicDir.
+func (s Server) siteChromeAsset(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if strings.Contains(name, "/") || strings.Contains(name, "..") {
+		http.NotFound(w, r)
+		return
+	}
+	if !strings.HasSuffix(name, ".css") && !strings.HasSuffix(name, ".js") {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, s.sitePublicFile(name))
 }
 
 func (s Server) teaPublicAsset(w http.ResponseWriter, r *http.Request) {
@@ -841,7 +887,7 @@ func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
 	rel = strings.TrimPrefix(rel, "/protocol")
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
+		http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
 		return
 	}
 	file := filepath.Join(s.cfg.Root, "apps", "tea", "public", filepath.FromSlash(rel))
@@ -849,7 +895,7 @@ func (s Server) protocolPage(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, file)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "protocol.html"))
+	http.ServeFile(w, r, s.sitePublicFile("protocol.html"))
 }
 
 func (s Server) trainPage(w http.ResponseWriter, r *http.Request) {
@@ -888,7 +934,11 @@ func (s Server) juryPage(w http.ResponseWriter, r *http.Request) {
 	rel = strings.TrimPrefix(rel, "/")
 	public := filepath.Join(s.cfg.Root, "apps", "tea", "public")
 	if rel == "" || rel == "index.html" {
-		http.ServeFile(w, r, filepath.Join(public, "relative-beauty.html"))
+		if s.publicDir != "" {
+			http.ServeFile(w, r, s.sitePublicFile("jury.html"))
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(public, "study-beauty.html"))
 		return
 	}
 	if rel == "arcane" || rel == "arcane.html" {
@@ -1397,7 +1447,7 @@ func (s Server) galleryFlux(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
-	http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
+	http.ServeFile(w, r, s.sitePublicFile("gallery.html"))
 }
 
 // movement presents one live authored path. The exhibition is a second,
@@ -5005,7 +5055,7 @@ func (s Server) teaCollectionsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	switch path {
 	case "/collections":
-		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "collections.html"))
+		http.ServeFile(w, r, s.sitePublicFile("collections.html"))
 	case "/collections/fashion", "/collections/arcane":
 		http.ServeFile(w, r, filepath.Join(s.cfg.Root, "apps", "tea", "public", "gallery.html"))
 	default:

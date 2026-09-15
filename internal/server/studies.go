@@ -85,9 +85,23 @@ func loadTeaStudies(root string) ([]map[string]any, error) {
 			return nil, fmt.Errorf("parse atlas draft %s: %w", entry.Name(), err)
 		}
 		study := sanitizeTeaStudy(raw, filepath.ToSlash(filepath.Join("atlas_drafts", entry.Name())), "draft")
-		if seen[stringValue(study["id"])] {
-			continue
+		id := stringValue(study["id"])
+		if seen[id] {
+			// A curated or beauty-queue card already claimed this id. The atlas
+			// draft is a distinct recovered study (the full sphere form), so keep
+			// it under a disambiguated id rather than silently dropping it.
+			base := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+			candidate := id + "-atlas-draft"
+			if candidate == id || seen[candidate] {
+				candidate = "atlas-draft-" + base
+			}
+			for seen[candidate] {
+				candidate = candidate + "-x"
+			}
+			study["id"] = candidate
+			id = candidate
 		}
+		seen[id] = true
 		drafts = append(drafts, study)
 	}
 	sort.SliceStable(drafts, func(i, j int) bool {
