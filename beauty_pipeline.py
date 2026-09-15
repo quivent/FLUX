@@ -18,6 +18,7 @@ import signal
 import socket
 import time
 import urllib.request
+import jury_evaluator
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -281,6 +282,31 @@ def main():
                 image=image_path, render_seconds=settled.get("seconds"),
                 published_at=time.time(), error="", updated_at=time.time(),
             )
+            atomic_json(args.state, state)
+
+            # --- JURY: this is what makes it a loop. Score the published frame
+            # and queue it for the operator eye-gate. Without this the pipeline
+            # is a render firehose; with it, every frame enters EGRL Gate 2.
+            # Degrades safely: if the judges are down, the frame is still
+            # published and the loop continues — the receipt just records it.
+            try:
+                state.update(stage="judging", updated_at=time.time())
+                atomic_json(args.state, state)
+                jury_job = {
+                    "id": job_id,
+                    "job_id": job_id,
+                    "prompt": prompt,
+                    "seed": seed,
+                    "output": image_path,
+                    "image_path": image_path,
+                    "lane": "fashion",
+                    "ts": time.time(),
+                }
+                receipt = jury_evaluator.score_frame(jury_job)
+                state["last_tier"] = (receipt or {}).get("tier")
+                state["last_score"] = (receipt or {}).get("curved_score")
+            except Exception as jury_exc:  # never let a judge stall the loop
+                state["jury_error"] = str(jury_exc)[:300]
             atomic_json(args.state, state)
 
             directed = None

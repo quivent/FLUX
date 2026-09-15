@@ -467,6 +467,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, opt Options) error {
 	s.restoreAtlasReceipts()
 	go s.reconcileAtlasCatalog()
 	go s.runPiperAssetHub(ctx)
+	go s.runOutputDirAssetHub(ctx)
 	go s.runTelemetryHub(ctx)
 	go s.runTelemetryProcessHub(ctx)
 	go s.runJobsHub(ctx)
@@ -2210,6 +2211,76 @@ func (s Server) assetEvents(w http.ResponseWriter, r *http.Request) {
 			if !send(event) {
 				return
 			}
+		}
+	}
+}
+
+func (s Server) runOutputDirAssetHub(ctx context.Context) {
+	if strings.TrimSpace(os.Getenv("FLUX_SOLO_STREAM")) != "1" {
+		return
+	}
+	root := s.cfg.OutputDir
+	if strings.TrimSpace(root) == "" {
+		return
+	}
+	seen := map[string]bool{}
+	entries, _ := os.ReadDir(root)
+	for _, e := range entries {
+		if !e.IsDir() {
+			seen[e.Name()] = true
+		}
+	}
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		items, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		names := make([]string, 0, len(items))
+		for _, e := range items {
+			if e.IsDir() {
+				continue
+			}
+			lower := strings.ToLower(e.Name())
+			if !strings.HasSuffix(lower, ".png") && !strings.HasSuffix(lower, ".jpg") && !strings.HasSuffix(lower, ".jpeg") {
+				continue
+			}
+			names = append(names, e.Name())
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			if seen[n] {
+				continue
+			}
+			seen[n] = true
+			event := map[string]any{
+				"event":  "ASSET_READY",
+				"job_id": strings.TrimSuffix(n, filepath.Ext(n)),
+				"ts":     time.Now().Unix(),
+				"asset": map[string]any{
+					"access_url": "/outputs/" + n,
+					"name":       n,
+					"lane":       "fashion",
+				},
+			}
+			motionAssetHub.Lock()
+			motionAssetHub.recent = append(motionAssetHub.recent, event)
+			if len(motionAssetHub.recent) > 64 {
+				motionAssetHub.recent = motionAssetHub.recent[len(motionAssetHub.recent)-64:]
+			}
+			for client := range motionAssetHub.clients {
+				select {
+				case client <- event:
+				default:
+				}
+			}
+			motionAssetHub.Unlock()
 		}
 	}
 }
