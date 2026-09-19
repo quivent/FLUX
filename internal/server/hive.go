@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -37,7 +38,11 @@ func (s Server) hiveAPI(w http.ResponseWriter, r *http.Request) {
 	if logPath == "" {
 		logPath = "/home/ubuntu/hive-research/logs/dual-seat-drive.jsonl"
 	}
-	pid := strings.TrimSpace(readText("/home/ubuntu/hive-research/run/dual-seat-drive.pid"))
+	// The public Hive display and this Tea surface must read the same swarm.
+	// The old dual-seat drive PID is a separate historical experiment and can
+	// be absent even while hive_tick.py is actively foraging.
+	actualState, actualAlive := liveHiveState(root)
+	control, _ := readJSONFile(filepath.Join(root, ".swarm", "run", "hive-tick.json")).(map[string]any)
 	st, _ := readJSONFile(filepath.Join(research, "state.json")).(map[string]any)
 	if st == nil {
 		st = map[string]any{}
@@ -60,23 +65,70 @@ func (s Server) hiveAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	activeCharter := ""
+	if c, ok := control["charter"].(map[string]any); ok {
+		activeCharter, _ = c["id"].(string)
+		if activeCharter == "" {
+			activeCharter, _ = c["title"].(string)
+		}
+	}
+	question := ""
+	if objective, ok := control["objective"].(map[string]any); ok {
+		question, _ = objective["summary"].(string)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":        true,
-		"exclusive": true,
-		"gpu":       1,
-		"question":  "Move Gemma/Qwen out of weights and text context into spectral vectors, residuals, and VRAM shards the model is fluent in.",
-		"alive":     pid != "" && processAlive(pid),
-		"pid":       pid,
-		"state":     st,
-		"hats":      readJSONFile(filepath.Join(research, "hat-bind.json")),
-		"kind":      kind,
-		"charter":   charterForKind(kind),
-		"charters":  active,
-		"discourse": loadHiveDiscourse(research, intel, kind, wantTick),
-		"outcomes":  loadHiveOutcomes(research, intel, tea, st),
-		"recent":    tailDriveLog(logPath, 400),
-		"ticks":     listTickFiles(intel, 16),
+		"ok":           true,
+		"exclusive":    true,
+		"gpu":          1,
+		"question":     question,
+		"alive":        actualAlive,
+		"pid":          "hive_tick.py",
+		"swarm":        actualState,
+		"compute":      hiveComputeTelemetry(),
+		"state":        actualState,
+		"legacy_state": st,
+		"hats":         readJSONFile(filepath.Join(research, "hat-bind.json")),
+		"kind":         kind,
+		"charter":      activeCharter,
+		"charters":     active,
+		"discourse":    loadHiveDiscourse(research, intel, kind, wantTick),
+		"outcomes":     loadHiveOutcomes(research, intel, tea, st),
+		"recent":       tailDriveLog(logPath, 400),
+		"ticks":        listTickFiles(intel, 16),
 	})
+}
+
+func liveHiveState(root string) (map[string]any, bool) {
+	state, _ := readJSONFile(filepath.Join(root, ".swarm", "run", "hive-tick-state.json")).(map[string]any)
+	if state == nil {
+		state = map[string]any{}
+	}
+	state["tick"] = state["tick_n"]
+	phase := "foraging"
+	if parked, _ := state["parked"].(bool); parked {
+		phase = "parked"
+	}
+	state["phase"] = phase
+	out, err := exec.Command("pgrep", "-f", "hive_tick.py").Output()
+	alive := err == nil && strings.TrimSpace(string(out)) != ""
+	return state, alive
+}
+
+func hiveComputeTelemetry() map[string]any {
+	out, err := exec.Command("nvidia-smi",
+		"--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
+		"--format=csv,noheader,nounits",
+	).Output()
+	if err != nil {
+		return map[string]any{"available": false, "gpus": []map[string]any{}}
+	}
+	gpus := make([]map[string]any, 0)
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if gpu, ok := parseTelemetryLine(line); ok {
+			gpus = append(gpus, gpu)
+		}
+	}
+	return map[string]any{"available": len(gpus) > 0, "gpus": gpus}
 }
 
 func charterForKind(kind string) string {
@@ -97,11 +149,11 @@ func loadHiveDiscourse(research, intel, kind, want string) map[string]any {
 	merge := readJSONFile(filepath.Join(ext, kind+"-merge.json"))
 	verdict := readJSONFile(filepath.Join(ext, kind+"-verdict.json"))
 	return map[string]any{
-		"kind":    kind,
-		"charter": charterForKind(kind),
-		"tick":    tick,
-		"qwen":    forage,
-		"merge":   merge,
+		"kind":     kind,
+		"charter":  charterForKind(kind),
+		"tick":     tick,
+		"qwen":     forage,
+		"merge":    merge,
 		"governor": verdict,
 		"seats": map[string]any{
 			"qwen":     "GPU 2 · hive-research :8002 · forage then pack",
@@ -153,8 +205,8 @@ func loadHiveOutcomes(research, intel, tea string, st map[string]any) map[string
 	}
 	shards, _ := readJSONFile(filepath.Join(tea, "train-shards.json")).(map[string]any)
 	return map[string]any{
-		"last":     last,
-		"verdict":  verdict,
+		"last":    last,
+		"verdict": verdict,
 		"verdicts": map[string]any{
 			"spectral":   readJSONFile(filepath.Join(research, "externalize", "spectral-verdict.json")),
 			"residual":   readJSONFile(filepath.Join(research, "externalize", "residual-verdict.json")),

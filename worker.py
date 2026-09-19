@@ -27,11 +27,17 @@ import torch
 # as the resident Qwen launcher on these machines does. This has no effect on
 # FLUX inference; it only lets torchvision finish importing.
 try:
-    _torchvision_compat = torch.library.Library("torchvision", "DEF")
-    _torchvision_compat.define("nms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
-    _torchvision_compat.define("qnms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
-except (RuntimeError, AttributeError):
+    # When torchvision is installed and healthy it registers these itself; defining
+    # them here first makes its own C++ registration abort the process.
+    import torchvision  # noqa: F401
     _torchvision_compat = None
+except Exception:
+    try:
+        _torchvision_compat = torch.library.Library("torchvision", "DEF")
+        _torchvision_compat.define("nms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
+        _torchvision_compat.define("qnms(Tensor dets, Tensor scores, float iou_threshold) -> Tensor")
+    except (RuntimeError, AttributeError):
+        _torchvision_compat = None
 
 from diffusers import FluxImg2ImgPipeline, FluxPipeline
 from PIL import Image
