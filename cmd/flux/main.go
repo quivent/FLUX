@@ -545,7 +545,13 @@ func beauty(cfg config.Config, args []string) error {
 			{"check", "verify the reduced Beauty site bundle"},
 			{"dev", "serve Beauty locally with the shared FLUX runtime"},
 			{"serve", "same as dev; supports auth and public read-only mode"},
+			{"study start|stop|status|config", "drive the study loop (beauty_prompt.py on :8096)"},
+			{"score --study <n> --cycle <c> --dim <d> --value <v>", "the teacher's score: beauty, direction, difference, uniqueness"},
+			{"remove --study <n> --cycle <c> [--restore]", "take a frame out of a study, or put it back"},
+			{"publish --study <n> --album <a>", "stage a study's frames for influx.pictures"},
 		})
+		fmt.Println()
+		ui.KV("doc", "docs/BEAUTY_STUDIES.md")
 		return nil
 	}
 	switch strings.ToLower(args[0]) {
@@ -556,8 +562,16 @@ func beauty(cfg config.Config, args []string) error {
 		return beautyCheck(cfg)
 	case "dev", "serve", "start":
 		return beautyServe(cfg, args[1:])
+	case "study":
+		return beautyStudy(args[1:])
+	case "score", "mark":
+		return beautyScore(args[1:])
+	case "remove":
+		return beautyRemove(args[1:])
+	case "publish":
+		return beautyPublish(args[1:])
 	default:
-		return fmt.Errorf("unknown beauty command %q; use check, dev, or serve", args[0])
+		return fmt.Errorf("unknown beauty command %q; use check, dev, serve, study, score, remove, or publish", args[0])
 	}
 }
 

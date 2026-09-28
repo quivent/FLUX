@@ -228,6 +228,10 @@ class H(BaseHTTPRequestHandler):
             if cur.get("subject") and cur["subject"] != subject:
                 return self.send({"error": "collection '%s' already holds the subject '%s'" % (name, cur["subject"])}, 409)
             cur.update({"name": name, "subject": subject, "active": True, "preset": str(b.get("preset") or cur.get("preset") or "hero")})
+            for k in ("title", "album"):             # album: the loop stages every new frame for influx.pictures
+                v = str(b.get(k) or "").strip()
+                if v:
+                    cur[k] = v
             cur.setdefault("prompt", subject); cur.setdefault("guidance", 3.5); cur.setdefault("generation", 0)
             cur.setdefault("seed", __import__("random").randrange(1, 2**31 - 1))   # the first champion's seed; challengers reuse the champion's
             cur.setdefault("started", time.time())
