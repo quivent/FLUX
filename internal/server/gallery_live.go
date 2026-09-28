@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -53,7 +55,14 @@ func (s Server) galleryLiveScope(r *http.Request, scope string) string {
 		return scope
 	}
 	if scope == "" || scope == "microgreens" || scope == "images" || scope == "fashion" {
-		return s.liveBeautyScope()
+		// Follow the live protocol branch only when it has a room on disk.
+		// With no branch (the default slug has no collections/ directory),
+		// remapping empties the wall; stay on the fashion stream instead.
+		live := s.liveBeautyScope()
+		if info, err := os.Stat(filepath.Join(s.cfg.OutputDir, "collections", live)); err == nil && info.IsDir() {
+			return live
+		}
+		return "fashion"
 	}
 	if scope == "microgreens" {
 		return s.liveBeautyScope()

@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-store">
   <meta name="theme-color" content="#07070a">
   <title>Live Gallery — Beauty</title>
-  <link rel="stylesheet" href="/beauty.css?v=2">
+  <link rel="stylesheet" href="/beauty.css?v=4">
   <script defer src="/beauty-shell.js?v=2"></script>
 </head>
 <body>
@@ -17,43 +17,339 @@
     </section>
     <section class="section" style="padding-top:0">
       <div class="stat-grid">
-        <div class="stat"><strong id="frame-count">0</strong><span>Frames loaded</span></div>
+        <div class="stat"><strong id="frame-count">0</strong><span>Frames in archive</span></div>
         <div class="stat"><strong id="lane-name">fashion</strong><span>Collection lane</span></div>
         <div class="stat"><strong id="stream-progress">—</strong><span>Stream progress</span></div>
         <div class="stat"><strong id="jury-state">—</strong><span>Jury state</span></div>
       </div>
     </section>
-    <section class="section" style="padding-top:0"><div class="image-grid" id="wall"><div class="empty">Opening the archive and live signal…</div></div></section>
-    <footer><span id="foot-lane">Beauty / fashion</span><span>Newest frames first</span></footer>
+    <section class="section" style="padding-top:0">
+      <nav class="pager" id="pager-top" aria-label="Gallery pages"></nav>
+      <div class="image-grid" id="wall"><div class="empty">Opening the archive and live signal…</div></div>
+      <nav class="pager" id="pager-bottom" aria-label="Gallery pages, bottom"></nav>
+    </section>
+    <footer><span id="foot-lane">Beauty / fashion</span><span id="foot-order">Newest frames first</span></footer>
   </main>
   <script>
   const wall = document.getElementById('wall');
   const seen = new Set();
-  let total = 0;
+  const SIZES = [20, 30, 40];
+
+  // Paging state. Page 1 is the live wall: new frames land on top and the
+  // oldest slide off to page 2. Older pages are pinned to the archive size
+  // they were opened at ("at"), so frames arriving meanwhile do not shift
+  // their contents; the offset is corrected by however many arrived since.
+  const pg = { page: 1, per: 30, at: 0, total: 0, busy: false, arrived: 0 };
+  function readURL() {
+    const q = new URLSearchParams(location.search);
+    const per = Number(q.get('per'));
+    pg.per = SIZES.includes(per) ? per : 30;
+    pg.page = Math.max(1, Math.floor(Number(q.get('page')) || 1));
+    pg.at = pg.page > 1 ? Math.max(0, Math.floor(Number(q.get('at')) || 0)) : 0;
+  }
+  function hrefFor(page, per, at) {
+    const q = new URLSearchParams();
+    if (page > 1) { q.set('page', page); if (at) q.set('at', at); }
+    if (per !== 30) q.set('per', per);
+    const s = q.toString();
+    return location.pathname + (s ? '?' + s : '');
+  }
+  function pages() {
+    const n = pg.page === 1 ? pg.total : (pg.at || pg.total);
+    return Math.max(1, Math.ceil(n / pg.per));
+  }
+
   function lane() {
     const parts = location.pathname.split('/').filter(Boolean);
     return parts[0] === 'collections' && parts[1] ? decodeURIComponent(parts[1]) : 'fashion';
   }
-  function urlOf(item) { return item.path || item.url || item.output_url || item.output || ''; }
+  // One key per frame: the archive lists /outputs/x.png, the job stream sends
+  // https://host/outputs/x.png, asset events nest it under .asset. Same-origin
+  // URLs collapse to their path; filesystem paths (/home/...) are not URLs.
+  function norm(u) {
+    try { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname + x.search : x.href; } catch (_) { return ''; }
+  }
+  function urlOf(item) {
+    const a = (item && item.asset) || {};
+    const c = [item.path, item.url, item.output_url, a.url, a.access_url, item.output];
+    for (const u of c) if (typeof u === 'string' && /^(\/outputs\/|\/staged\/|https?:)/.test(u)) return norm(u);
+    return '';
+  }
   function belongs(item, selected) {
     if (selected === 'fashion') return !/\/collections\/(arcane|microgreens)\//i.test(urlOf(item));
     return urlOf(item).includes('/collections/' + selected + '/') || String(item.scope || item.lane || '') === selected;
   }
+  function thumb(url) { return '/api/asset/thumbnail?w=768&src=' + encodeURIComponent(url); }
+  const cards = () => Array.from(wall.querySelectorAll('.image-card'));
+
+  // Returns true when the frame was placed on the wall.
   function add(item, fresh) {
     const url = urlOf(item);
-    if (!url || seen.has(url) || !belongs(item, lane())) return;
+    if (!url || seen.has(url) || !belongs(item, lane())) return false;
+    // Keep the wall newest first: the job stream replays older finished jobs
+    // after the archive has loaded, and those must not land above newer frames.
+    const t = Number(item.modified || item.finished || item.ts || item.created) || Date.now() / 1000;
+    const after = cards().find(c => Number(c.dataset.t) < t) || null;
+    if (!after && cards().length >= pg.per) return false;
     seen.add(url);
     if (wall.querySelector('.empty')) wall.innerHTML = '';
     const a = document.createElement('a');
     a.className = 'image-card' + (fresh ? ' new' : '');
     a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
-    const name = item.filename || item.name || url.split('/').pop();
-    a.innerHTML = '<img loading="lazy" src="/api/asset/thumbnail?w=768&src=' + encodeURIComponent(url) + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
-    wall.prepend(a);
-    total += 1;
-    document.getElementById('frame-count').textContent = total;
-    while (wall.children.length > 80) wall.lastElementChild.remove();
+    a.dataset.src = url;
+    a.dataset.t = String(t);
+    const name = item.filename || item.name || (item.asset && item.asset.name) || url.split('/').pop();
+    a.dataset.name = name;
+    a.setAttribute('aria-label', 'View ' + name);
+    a.innerHTML = '<img loading="lazy" src="' + thumb(url) + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
+    wall.insertBefore(a, after);
+    while (cards().length > pg.per) cards().pop().remove();
+    return true;
   }
+
+  function pagerHTML(withSize) {
+    const n = pages(), p = pg.page;
+    const link = (page, label, cls, attrs) =>
+      '<a class="pager-link ' + cls + '" href="' + hrefFor(page, pg.per, pg.page === 1 && page > 1 ? pg.total : pg.at) + '" data-page="' + page + '"' + (attrs || '') + '>' + label + '</a>';
+    const off = (label, cls) => '<span class="pager-link ' + cls + '" aria-disabled="true">' + label + '</span>';
+    const nums = [];
+    const want = new Set([1, n, p - 1, p, p + 1]);
+    let last = 0;
+    for (let i = 1; i <= n; i++) {
+      if (!want.has(i)) continue;
+      if (i - last > 1) nums.push('<span class="pager-gap">…</span>');
+      nums.push(i === p ? '<span class="pager-link pager-num" aria-current="page">' + i + '</span>' : link(i, String(i), 'pager-num', ' aria-label="Page ' + i + '"'));
+      last = i;
+    }
+    const first = pg.total ? (p - 1) * pg.per + 1 : 0;
+    const shown = cards().length;
+    const range = shown ? first.toLocaleString() + '–' + (first + shown - 1).toLocaleString() : '0';
+    const of = (pg.page === 1 ? pg.total : (pg.at || pg.total)).toLocaleString();
+    let note = pg.page === 1 ? 'live' : (pg.arrived > 0 ? '+' + pg.arrived + ' newer on page 1' : '');
+    let size = '';
+    if (withSize) {
+      size = '<label class="pager-size">Per page <select data-per aria-label="Frames per page">' +
+        SIZES.map(s => '<option value="' + s + '"' + (s === pg.per ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></label>';
+    }
+    return '<div class="pager-steps">' +
+      (p > 1 ? link(p - 1, '‹ Newer', 'pager-dir', ' rel="prev"') : off('‹ Newer', 'pager-dir')) +
+      '<span class="pager-pages">' + nums.join('') + '</span>' +
+      (p < n ? link(p + 1, 'Older ›', 'pager-dir', ' rel="next"') : off('Older ›', 'pager-dir')) +
+      '</div><div class="pager-meta"><span class="pager-range">' + range + ' of ' + of + (note ? ' · <b>' + note + '</b>' : '') + '</span>' + size + '</div>';
+  }
+  function renderPager() {
+    document.getElementById('pager-top').innerHTML = pagerHTML(true);
+    document.getElementById('pager-bottom').innerHTML = pagerHTML(false);
+    document.getElementById('frame-count').textContent = pg.total.toLocaleString();
+    document.getElementById('foot-order').textContent = pg.page === 1 ? 'Newest frames first · live' : 'Page ' + pg.page + ' of ' + pages();
+    if (lane() === 'fashion') document.getElementById('gallery-kicker').textContent = pg.page === 1 ? 'Newest first' : 'Page ' + pg.page + ' · older frames';
+    lightbox.sync();
+  }
+
+  async function fetchPage(offset, signal) {
+    const u = '/api/recent-images?scope=' + encodeURIComponent(lane()) + '&limit=' + pg.per + '&offset=' + offset;
+    return fetch(u, { cache: 'no-store', signal }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  // Load a page. how: 'push' (user navigation), 'replace' (first load), 'pop'.
+  // The latest navigation wins: a newer call aborts the one in flight, so a
+  // slow load never swallows a click or a Back.
+  let nav = null;
+  async function go(page, how, focusEdge) {
+    if (nav) nav.abort();
+    const mine = nav = new AbortController();
+    pg.busy = true;
+    const target = Math.max(1, page);
+    let at = target === 1 ? 0 : (pg.at || pg.total);
+    try {
+      const base = (target - 1) * pg.per;
+      let data = await fetchPage(base + (at ? Math.max(0, pg.total - at) : 0), mine.signal);
+      let drift = 0;
+      if (target > 1) {
+        if (!at || at > data.total) at = data.total;
+        drift = data.total - at;
+        if (data.offset !== base + drift) data = await fetchPage(base + drift, mine.signal);
+      }
+      if (nav !== mine) return false;
+      const total = data.total || 0;
+      const n = Math.max(1, Math.ceil((target === 1 ? total : at) / pg.per));
+      if (target > n) { pg.total = total; pg.at = at; nav = null; return go(n, how === 'push' ? 'replace' : how, focusEdge); }
+      pg.page = target; pg.at = at; pg.total = total; pg.arrived = drift;
+      seen.clear();
+      wall.innerHTML = '';
+      (data.images || []).slice().reverse().forEach(item => add(item, false));
+      if (!cards().length) wall.innerHTML = '<div class="empty">' + (pg.total ? 'No frames on this page.' : 'This collection has no frames yet.') + '</div>';
+      const href = hrefFor(pg.page, pg.per, pg.at);
+      if (how === 'push') history.pushState({ page: pg.page }, '', href);
+      else if (how === 'replace') history.replaceState({ page: pg.page }, '', href);
+      renderPager();
+      if (how === 'push' && !focusEdge) document.getElementById('pager-top').scrollIntoView({ block: 'start', behavior: 'auto' });
+      return true;
+    } catch (_) {
+      if (nav === mine) wall.innerHTML = '<div class="empty">The archive is unavailable.</div>';
+      return false;
+    } finally { if (nav === mine) { nav = null; pg.busy = false; } }
+  }
+
+  document.querySelector('main').addEventListener('click', e => {
+    const a = e.target.closest('.pager-link[data-page]');
+    if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    go(Number(a.dataset.page), 'push');
+  });
+  document.querySelector('main').addEventListener('change', e => {
+    if (!e.target.matches('select[data-per]')) return;
+    const per = Number(e.target.value);
+    if (!SIZES.includes(per)) return;
+    // Keep the first frame on screen in view after resizing the page.
+    const firstIndex = (pg.page - 1) * pg.per;
+    pg.per = per;
+    go(Math.floor(firstIndex / per) + 1, 'push');
+  });
+  window.addEventListener('popstate', () => {
+    const was = pg.total;
+    readURL();
+    if (!pg.at && pg.page > 1) pg.at = was;
+    lightbox.close();
+    go(pg.page, 'pop');
+  });
+
+  // Same-page viewer. It sits outside #wall and is keyed by image URL, so live
+  // arrivals and wall trimming only update its counter, never close or reset it.
+  // Arrow keys step within the page; past either edge they turn the page.
+  const lightbox = (() => {
+    const root = document.createElement('div');
+    root.className = 'lightbox';
+    root.hidden = true;
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.setAttribute('aria-label', 'Image viewer');
+    root.innerHTML =
+      '<div class="lightbox-bar"><span class="lightbox-count" aria-live="polite"></span>' +
+      '<div class="actions"><a class="button lightbox-original" target="_blank" rel="noreferrer">Open original</a>' +
+      '<button type="button" class="button lightbox-close">Close</button></div></div>' +
+      '<div class="lightbox-stage"><button type="button" class="lightbox-nav lightbox-prev" aria-label="Previous image">‹</button>' +
+      '<img alt=""><button type="button" class="lightbox-nav lightbox-next" aria-label="Next image">›</button></div>' +
+      '<div class="lightbox-caption"></div>';
+    document.body.appendChild(root);
+    const img = root.querySelector('img');
+    const count = root.querySelector('.lightbox-count');
+    const original = root.querySelector('.lightbox-original');
+    const closeBtn = root.querySelector('.lightbox-close');
+    const prev = root.querySelector('.lightbox-prev');
+    const next = root.querySelector('.lightbox-next');
+    const caption = root.querySelector('.lightbox-caption');
+    const reduced = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+    let current = '', lastIndex = 0, returnTo = null, seq = 0, hideTimer = 0, touch = null, swipedAt = 0;
+
+    const list = () => cards().map(a => a.dataset.src);
+    const cardFor = url => cards().find(a => a.dataset.src === url);
+    const isOpen = () => !root.hidden;
+
+    function sync() {
+      if (!isOpen()) return;
+      const l = list();
+      const i = l.indexOf(current);
+      if (i >= 0) lastIndex = i;
+      const n = pages();
+      count.textContent = (i >= 0 ? (i + 1) : '—') + ' / ' + l.length + (n > 1 ? ' · page ' + pg.page + ' of ' + n : '');
+      const atStart = i >= 0 ? i === 0 : lastIndex <= 0;
+      const atEnd = i >= 0 ? i >= l.length - 1 : lastIndex >= l.length;
+      prev.disabled = atStart && pg.page <= 1;
+      next.disabled = atEnd && pg.page >= n;
+      prev.setAttribute('aria-label', atStart && pg.page > 1 ? 'Previous page' : 'Previous image');
+      next.setAttribute('aria-label', atEnd && pg.page < n ? 'Next page' : 'Next image');
+    }
+    function show(url) {
+      current = url;
+      const card = cardFor(url);
+      const name = (card && card.dataset.name) || url.split('/').pop();
+      caption.textContent = name;
+      img.alt = name;
+      original.href = url;
+      const token = ++seq;
+      img.classList.add('loading');
+      img.src = thumb(url);
+      const full = new Image();
+      full.onload = () => { if (token === seq) { img.src = url; img.classList.remove('loading'); } };
+      full.onerror = () => { if (token === seq) img.classList.remove('loading'); };
+      full.src = url;
+      sync();
+    }
+    async function step(d) {
+      if (pg.busy) return;
+      const l = list();
+      let i = l.indexOf(current);
+      // The shown frame was trimmed off the wall: step from where it was.
+      if (i < 0) i = d > 0 ? lastIndex - 1 : Math.min(lastIndex, l.length);
+      const target = l[i + d];
+      if (target) { show(target); return; }
+      // Past the edge of this page: turn it and land on the adjoining frame.
+      const to = pg.page + (d > 0 ? 1 : -1);
+      if (to < 1 || to > pages()) return;
+      if (await go(to, 'replace', true) && isOpen()) {
+        const nl = list();
+        if (nl.length) show(d > 0 ? nl[0] : nl[nl.length - 1]);
+      }
+    }
+    function open(url, from) {
+      clearTimeout(hideTimer);
+      returnTo = from || document.activeElement;
+      root.hidden = false;
+      document.documentElement.classList.add('lightbox-open');
+      show(url);
+      void root.offsetWidth;
+      root.classList.add('open');
+      closeBtn.focus({ preventScroll: true });
+    }
+    function close() {
+      if (!isOpen()) return;
+      ++seq;
+      root.classList.remove('open');
+      document.documentElement.classList.remove('lightbox-open');
+      const done = () => { root.hidden = true; img.removeAttribute('src'); };
+      if (reduced.matches) done(); else hideTimer = setTimeout(done, 180);
+      const back = cardFor(current) || (returnTo && returnTo.isConnected ? returnTo : null);
+      if (back) back.focus({ preventScroll: false });
+    }
+
+    closeBtn.addEventListener('click', close);
+    prev.addEventListener('click', () => step(-1));
+    next.addEventListener('click', () => step(1));
+    root.addEventListener('click', e => {
+      if (Date.now() - swipedAt < 400) return;
+      if (!e.target.closest('img, button, a')) close();
+    });
+    document.addEventListener('keydown', e => {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+      else if (e.key === 'Tab') {
+        const f = [original, closeBtn, prev, next].filter(el => !el.disabled);
+        const i = f.indexOf(document.activeElement);
+        e.preventDefault();
+        f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
+    });
+    root.addEventListener('touchstart', e => {
+      touch = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    }, { passive: true });
+    root.addEventListener('touchend', e => {
+      if (!touch || e.changedTouches.length !== 1) { touch = null; return; }
+      const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
+      touch = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { swipedAt = Date.now(); step(dx < 0 ? 1 : -1); }
+    }, { passive: true });
+
+    wall.addEventListener('click', e => {
+      const card = e.target.closest('.image-card');
+      if (!card || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      open(card.dataset.src, card);
+    });
+    return { open, close, sync };
+  })();
+
   async function load() {
     const selected = lane();
     document.getElementById('lane-name').textContent = selected;
@@ -63,11 +359,8 @@
       document.getElementById('gallery-title').textContent = selected.replace(/-/g, ' ');
       document.title = selected + ' — Beauty Collections';
     }
-    try {
-      const data = await fetch('/api/recent-images?scope=' + encodeURIComponent(selected) + '&limit=80', {cache:'no-store'}).then(r => r.json());
-      (data.images || []).slice().reverse().forEach(item => add(item, false));
-      if (!total) wall.innerHTML = '<div class="empty">This collection has no frames yet.</div>';
-    } catch (_) { wall.innerHTML = '<div class="empty">The archive is unavailable.</div>'; }
+    readURL();
+    await go(pg.page, 'replace');
     refresh();
   }
   async function refresh() {
@@ -80,14 +373,33 @@
       document.getElementById('gallery-status').textContent = stream.status === 'running' ? '● stream live' : (stream.status || 'watching');
     } catch (_) { document.getElementById('gallery-status').textContent = 'signal retrying'; }
   }
-  function onAsset(raw) { try { add(JSON.parse(raw), true); } catch (_) {} }
+  // Live frames go on page 1. On older pages the wall holds still; the pager
+  // counts what arrived so the reader knows page 1 has moved on.
+  let recount = 0;
+  function arrived(item) {
+    if (pg.busy) return;
+    if (pg.page === 1) {
+      if (add(item, true)) { pg.total += 1; renderPager(); }
+      return;
+    }
+    if (!urlOf(item) || !belongs(item, lane())) return;
+    if (recount) return;
+    recount = setTimeout(async () => {
+      recount = 0;
+      try {
+        const d = await fetch('/api/recent-images?scope=' + encodeURIComponent(lane()) + '&limit=1', { cache: 'no-store' }).then(r => r.json());
+        if (pg.page > 1 && typeof d.total === 'number') { pg.total = d.total; pg.arrived = Math.max(0, d.total - pg.at); renderPager(); }
+      } catch (_) {}
+    }, 1500);
+  }
+  function onAsset(raw) { try { arrived(JSON.parse(raw)); } catch (_) {} }
   function connect() {
     if (!window.EventSource) return;
     const assets = new EventSource('/api/assets/events');
     assets.addEventListener('asset', e => onAsset(e.data));
     assets.onerror = () => { document.getElementById('gallery-status').textContent = 'signal retrying'; };
     const jobs = new EventSource('/api/jobs/events');
-    jobs.addEventListener('jobs', e => { try { (JSON.parse(e.data).jobs || []).filter(j => j.status === 'done').reverse().forEach(j => add(j, true)); } catch (_) {} });
+    jobs.addEventListener('jobs', e => { try { (JSON.parse(e.data).jobs || []).filter(j => j.status === 'done').reverse().forEach(j => arrived(j)); } catch (_) {} });
   }
   load(); connect(); setInterval(refresh, 4000);
   </script>

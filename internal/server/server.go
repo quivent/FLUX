@@ -5110,7 +5110,10 @@ func recentAssetAllowed(scope, rel string) bool {
 		if strings.Contains(path, "/") {
 			return false
 		}
-		return strings.Contains(base, "fashion") && !strings.Contains(base, "arcane") && !galleryVanityName(base)
+		// flux-<backend>-* is the resident worker's own render name; on this
+		// box those are the fashion renders queued straight to the worker.
+		named := strings.Contains(base, "fashion") || strings.HasPrefix(base, "flux-")
+		return named && !strings.Contains(base, "arcane") && !strings.Contains(base, "microgreens") && !galleryVanityName(base)
 	default:
 		if scope != "" {
 			if top != "collections" {

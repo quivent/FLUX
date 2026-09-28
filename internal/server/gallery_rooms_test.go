@@ -16,6 +16,7 @@ func TestFashionGalleryRejectsArcanePrincessRose(t *testing.T) {
 	output := t.TempDir()
 	files := map[string]string{
 		"protocol-fashion-stream-001.png":        "fashion",
+		"flux-cuda-20260928-002151-seed-1.png":   "worker",
 		"protocol-arcane-atlas-001.png":          "arcane-root",
 		"arcane/protocol-arcane-atlas-002.png":   "arcane-dir",
 		"collections/silk/protocol-silk-001.png": "branch-silk",
@@ -60,6 +61,9 @@ func TestFashionGalleryRejectsArcanePrincessRose(t *testing.T) {
 	fashion := strings.Join(get("fashion"), " ")
 	if !strings.Contains(fashion, "protocol-fashion-stream-001.png") {
 		t.Fatalf("fashion wall missing the stream: %s", fashion)
+	}
+	if !strings.Contains(fashion, "flux-cuda-20260928-002151-seed-1.png") {
+		t.Fatalf("fashion wall missing worker renders: %s", fashion)
 	}
 	for _, banned := range []string{"protocol-arcane-atlas-001.png", "protocol-arcane-atlas-002.png", "protocol-silk-001.png", "protocol-noir-001.png", "princess-rose.png", "celadon-bowl.png", "finished-work.png"} {
 		if strings.Contains(fashion, banned) {
