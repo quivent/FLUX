@@ -1615,6 +1615,8 @@ def endpoint_for(spec: JudgeSpec, runtime: Dict[str, Any]) -> Dict[str, Any]:
 
 def judge_enabled(spec: JudgeSpec, runtime: Dict[str, Any]) -> bool:
     entry = endpoint_for(spec, runtime)
+    if judge_weight(spec, runtime) <= 0:
+        return False          # influence 0 on /control means not involved: the judge is not called at all
     if "enabled" in entry:
         return bool(entry["enabled"])
     return bool(spec.enabled_by_default)

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Beauty Scoring</title><link rel="stylesheet" href="/beauty.css?v=4"><script defer src="/beauty-shell.js?v=2"></script>
+  <style>
+    .doc p{max-width:78ch;line-height:1.6}.doc ol,.doc ul{max-width:80ch;line-height:1.6;padding-left:20px}.doc li{margin:4px 0}
+    .flowline{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0}
+    .flowline div{border:1px solid var(--rule,#333);padding:10px 12px}.flowline b{display:block;font-weight:500}.flowline span{font-size:12px;opacity:.75}
+    table.sc{width:100%;border-collapse:collapse;font-size:13px}table.sc th{text-align:left;font-weight:500;opacity:.7;padding:6px 10px 6px 0;border-bottom:1px solid var(--rule,#333)}
+    table.sc td{padding:8px 10px 8px 0;border-bottom:1px solid var(--rule,#333);vertical-align:top}.tagnow{font-size:11px;opacity:.7;letter-spacing:.06em;text-transform:uppercase}
+    .scroll{overflow-x:auto}
+  </style>
+</head>
+<body>
+  <main class="shell doc">
+    <section class="page-head"><div><div class="eyebrow">Architecture · proposal</div><h1>Scoring</h1><p class="lede">No judge's number in the loop. Every new frame is compared with the collection's best, and the difference is scored aspect by aspect, better (+), worse (−) or the same, measured as well as judged. Evolution acts on that profile. A single number is only for judging one image on its own.</p></div><div class="actions"><a class="button" href="/jury">Jury</a><a class="button" href="/control">Controls</a></div></section>
+
+    <section class="section" style="padding-top:0"><div class="panel panel-pad">
+      <div class="eyebrow">Why today's scores don't move</div>
+      <ul>
+        <li><b>A six-word ladder.</b> Each juror answers one word per axis: failed, broken, obvious, competent, specialist, flawless. Each word maps to a fixed number, so a frame can only land on a few scores. Qwen gives 78.0 to almost every frame, Pixtral 90.5 to most, and different frames tie.</li>
+        <li><b>A curve that saturates.</b> The published score is a percentile against recent history. In a young collection it reads 99.9 "masterpiece" on frame after frame.</li>
+        <li><b>A uniqueness penalty that fights the goal.</b> It subtracts for resembling recent frames, and a collection on one subject is supposed to resemble itself.</li>
+        <li><b>Seed noise.</b> Every render uses a random seed, so two frames differ mostly by seed, not by the prompt change being tested. Evolution can't tell cause from chance.</li>
+      </ul>
+    </div></section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">The loop</div><h2>Champion and challenger</h2></div></div>
+      <div class="flowline">
+        <div><b>Change</b><span>Evolution edits one phrase of the champion's prompt</span></div>
+        <div><b>Render, paired</b><span>The challenger uses the champion's seed, so the only difference is the edit</span></div>
+        <div><b>Measure the diff</b><span>DINOv2 and SigLIP: how much changed, and whether it drifted from the subject</span></div>
+        <div><b>Judge the pair</b><span>Each juror sees both, side by side, twice with the order swapped</span></div>
+        <div><b>Profile</b><span>A signed +/− per aspect: what got better, what got worse</span></div>
+        <div><b>Keep or return</b><span>The aimed-at aspect improved and nothing else fell: new champion. Otherwise back to the champion.</span></div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">1 · Objective</div><h2>Scoring the diff</h2></div></div>
+      <p>Measured, not judged. No language model involved. Both models are already on the box.</p>
+      <div class="scroll"><table class="sc">
+        <thead><tr><th>Measure</th><th>From</th><th>Answers</th></tr></thead>
+        <tbody>
+          <tr><td>Δ previous</td><td>DINOv2-giant, cosine distance to the previous frame</td><td>Did the prompt edit actually change the image? Near zero means the edit didn't take.</td></tr>
+          <tr><td>Δ champion</td><td>DINOv2-giant, distance to the champion</td><td>How far this challenger is from the best frame: a small step or a leap.</td></tr>
+          <tr><td>Subject hold</td><td>SigLIP, image-to-text similarity with the fixed subject</td><td>Is it still the same subject? A drop is subject drift, whatever the jurors think of the frame.</td></tr>
+          <tr><td>Direction hold</td><td>SigLIP, similarity with each of the teacher's directions</td><td>Is the teacher's direction still visible in the frame?</td></tr>
+        </tbody>
+      </table></div>
+      <p>The diff is scored twice: measured here, and named by the jurors in section 2. The two together tell evolution whether its edit caused the change.</p>
+    </section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">2 · Subjective</div><h2>The jurors score the diff, aspect by aspect</h2></div></div>
+      <ul>
+        <li>Each vision juror gets the champion and the challenger in one request, labeled A and B, and scores its own aspects.</li>
+        <li>For each aspect it answers with a sign and a size: <b>+1 / +2 / +3</b> if B is better (slightly, clearly, decisively), <b>0</b> if the same, <b>−1 / −2 / −3</b> if worse. It adds one sentence naming the visible difference.</li>
+        <li>It's asked twice with A and B swapped. Where the two answers disagree, that aspect is 0. This cancels the bias toward whichever image comes first.</li>
+        <li>Influence on /control weights each juror's aspects when two jurors score the same aspect. Influence 0 means not asked.</li>
+        <li>No absolute number is produced in the loop. The six-word ladder is kept only as a floor (broken or failed is out) and for judging a single image on its own.</li>
+      </ul>
+      <div class="scroll"><table class="sc" style="margin-top:8px">
+        <thead><tr><th>Juror</th><th>Aspects it scores (proposed)</th></tr></thead>
+        <tbody>
+          <tr><td>Pixtral 12B · aesthetic critic</td><td>light · color · composition and pose · medium and finish · mood</td></tr>
+          <tr><td>Qwen3.8-27B · structural witness</td><td>anatomy and hands · garment construction · fabric and drape · geometry · defects</td></tr>
+          <tr><td>Instruments (section 1)</td><td>Δ previous · Δ champion · subject hold · direction hold</td></tr>
+        </tbody>
+      </table></div>
+      <p>A profile looks like: <code>hands +2 · drape +1 · light 0 · color −1 · subject hold 0.00 · Δ previous 0.18</code>.</p>
+    </section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">3 · Evolution</div><h2>Acting on the profile</h2></div></div>
+      <p>Each edit aims at one aspect, the one the jurors named weakest, and says so. Its profile is then read against that aim:</p>
+      <div class="scroll"><table class="sc">
+        <thead><tr><th>Aimed-at aspect</th><th>Other aspects</th><th>Measured diff</th><th>Reading</th><th>Next step</th></tr></thead>
+        <tbody>
+          <tr><td>+</td><td>none worse than −1</td><td>any</td><td>The edit worked</td><td>New champion; aim at the next weakest aspect</td></tr>
+          <tr><td>+</td><td>something −2 or worse</td><td>any</td><td>A trade: gained one aspect, lost another</td><td>Keep the champion; retry the aim with a narrower edit</td></tr>
+          <tr><td>0</td><td>—</td><td>small</td><td>The edit didn't take</td><td>A bolder edit on the same aspect</td></tr>
+          <tr><td>0 or −</td><td>—</td><td>clear</td><td>The image changed, just not for the better</td><td>Keep the champion; try a different approach to that aspect</td></tr>
+          <tr><td>any</td><td>—</td><td>subject hold falls</td><td>Drift</td><td>Rejected, whatever the jurors say</td></tr>
+        </tbody>
+      </table></div>
+      <p>The collection's record is the chain of accepted profiles: which aspects moved, when, and by which edit. That is its history of improvement, with no number standing in for it.</p>
+    </section>
+
+    <section class="section" style="padding-top:0"><div class="panel panel-pad">
+      <div class="eyebrow">The prompt</div>
+      <p><b>Subject</b> (fixed) + <b>craft phrase</b> (the only part that evolves, at most 40 words: lighting, color, composition and pose, cut and construction, fabric, finish, camera) + <b>the teacher's directions</b> (attached verbatim at render time, so changing them on /control applies at once). The model that proposes edits never restates the directions, so it can't drop or soften them, and the prompt can't bloat.</p>
+      <p>Each prompt and seed is rendered once; while the next edit is being made, the wall keeps the GPU busy. If no usable edit comes back after one retry, the champion's prompt is re-rendered with a fresh seed as a new baseline, so the loop never stalls.</p>
+    </div></section>
+
+    <section class="section" style="padding-top:0"><div class="panel panel-pad">
+      <div class="eyebrow">What it takes</div>
+      <ul>
+        <li>Pixtral and Qwen restarted with 2 images per request (<code>--limit-mm-per-prompt image:2</code>). About 1 minute each.</li>
+        <li>DINOv2-giant and SigLIP loaded once in the jury service: about 4 GB of GPU memory, which fits.</li>
+        <li>Paired seeds: the filler renders each challenger with its champion's seed.</li>
+        <li>Cost: two requests per juror per frame (the order swap), about twice today's jury time. At 7 seconds a verdict, that's about 15.</li>
+        <li>No change to the Go server or the gallery. Receipts gain the pairwise and diff fields; the jury page's live feed shows them.</li>
+      </ul>
+    </div></section>
+
+    <section class="section" style="padding-top:0"><div class="panel panel-pad">
+      <div class="eyebrow">Your decisions</div>
+      <ol>
+        <li><b>Paired seeds.</b> The same seed for champion and challenger (clean diffs, less variety), or two seeds per challenger (more robust, twice the renders)?</li>
+        <li><b>What counts as an accepted step.</b> Proposed: the aimed-at aspect +1 or better, and no other aspect below −1.</li>
+        <li><b>The aspects.</b> The proposed list above, or the ones that matter for these shoots.</li>
+        <li><b>Objective against subjective.</b> Should measured subject hold be a hard gate (as proposed), or only a signal?</li>
+        <li><b>The uniqueness penalty.</b> Drop it inside a collection (proposed), or keep a small version to stop the collection repeating itself?</li>
+      </ol>
+    </div></section>
+    <footer><span>Proposal, revision 2 · not built yet</span><span>The prompt is subject + craft + the teacher's directions; only the craft evolves</span></footer>
+  </main>
+</body>
+</html>

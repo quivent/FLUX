@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Collection</title><link rel="stylesheet" href="/beauty.css?v=4"><script defer src="/beauty-shell.js?v=2"></script>
+  <style>
+    .stats{display:flex;gap:10px 28px;flex-wrap:wrap;font-size:13px;margin-top:10px}.stats b{font-weight:500}
+    .chain{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:10px}
+    .champ{position:relative}.champ img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+    .champ .cap{font-size:12px;line-height:1.45;margin-top:6px}.champ .gain{font-weight:600}
+    .step{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:2px 6px}
+    .frames{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:10px}
+    .fr{position:relative}.fr img{width:100%;aspect-ratio:1;object-fit:cover;display:block;opacity:.72}.fr.kept img{opacity:1;outline:2px solid #5fbf7f}
+    .fr .t{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.62);color:#fff;font-size:10.5px;padding:3px 5px;line-height:1.3}
+    .health{padding:8px 10px;border-left:2px solid var(--rule,#555);font-size:13px;margin-top:10px}
+    .empty{opacity:.7;font-size:13px}
+    .mk{position:absolute;top:5px;right:5px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.55);color:#fff;font:600 15px/1 system-ui;cursor:pointer}
+    .mk.plus{background:#2e7d4f;border-color:#5fbf7f}.mk.minus{background:#8a2f2f;border-color:#d98476}
+    .pick{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px;flex-wrap:wrap}.pick select{background:transparent;color:inherit;border:1px solid var(--rule,#444);padding:3px 6px}
+    a.fl{display:block}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="page-head"><div><div class="eyebrow">Collection</div><h1 id="title">—</h1><p class="lede" id="subject"></p>
+      <div class="stats" id="stats"></div><div class="pick"><label for="study">Study</label><select id="study"></select><span class="tiny" style="opacity:.7">+ on any frame, from any study, makes it the running study's basis. − on this study's frame undoes that change.</span></div><div class="health" id="health"></div></div>
+      <div class="actions"><a class="button" href="/control">Controls</a><a class="button" href="/scoring">Scoring</a><a class="button" href="/gallery/">Wall</a></div></section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">The collection</div><h2>Champions, in order</h2></div></div>
+      <p class="tiny" style="opacity:.75;margin:0">Each frame here beat the one before it. Under each: the change that won, and its gain against the previous champion.</p>
+      <div class="chain" id="chain"><div class="empty">Loading…</div></div></section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Every frame</div><h2>Latest candidates</h2></div></div>
+      <p class="tiny" style="opacity:.75;margin:0">Newest first. Outlined: kept. The number is the frame's net change against the champion of its time.</p>
+      <div class="frames" id="frames"></div></section>
+    <footer><span>One image, evaluated, diffed, then the next</span><span id="updated"></span></footer>
+  </main>
+  <script>
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  const thumb = (src, w) => '/api/asset/thumbnail?w=' + w + '&src=' + encodeURIComponent(src);
+  const sg = x => x == null ? '' : (x > 0 ? '+' : '') + Number(x).toFixed(1);
+  let lastKey = '';
+  async function load() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const cur = await fetch('/api/collection', {cache: 'no-store'}).then(r => r.json());
+      const c = cur.active || {};
+      const name = params.get('name') || c.name || ((cur.collections || [])[0] || {}).name;
+      const sel = document.getElementById('study');
+      const names = [...new Set([c.name, ...(cur.collections || []).map(x => x.name)].filter(Boolean))];
+      if (sel.options.length !== names.length) { sel.innerHTML = names.map(n => '<option' + (n === name ? ' selected' : '') + '>' + esc(n) + '</option>').join(''); sel.onchange = () => { location.search = '?name=' + encodeURIComponent(sel.value); }; }
+      window.__study = name;
+      if (!name) { document.getElementById('title').textContent = 'No collection yet'; return; }
+      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=120', {cache: 'no-store'}).then(r => r.json());
+      const key = h.total + ':' + (c.updated_at || '');
+      if (key === lastKey) return; lastKey = key;
+      const same = c.name === name;
+      document.getElementById('title').textContent = name;
+      document.getElementById('subject').textContent = same ? (c.subject || '') : '';
+      document.getElementById('stats').innerHTML = same ? [
+        '<span><b>' + esc(h.total) + '</b> frames</span>', '<span><b>' + esc(Math.max(0, h.champions.length - 1)) + '</b> improvements kept</span>',
+        '<span>running progress <b>' + esc(sg((c.progress || {}).net)) + '</b></span>', '<span>cycle <b>' + esc(c.cycle || 0) + '</b></span>',
+        '<span>' + (c.active ? '● evolving' : 'stopped') + '</span>'].join('') : '';
+      const hl = c.health || {};
+      document.getElementById('health').innerHTML = same && hl.verdict ? '<b>' + esc(hl.verdict) + '</b>' + (hl.vs_origin && hl.vs_origin.net != null ? ' · champion vs the first frame: net ' + esc(sg(hl.vs_origin.net)) : '') : '';
+      document.getElementById('chain').innerHTML = h.champions.length ? h.champions.map((r, i) =>
+        '<div class="champ"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 384)) + '" alt=""></a><span class="step">' + (i ? '#' + i : 'start') + '</span>'
+        + '<div class="cap">' + (i ? '<span class="gain">' + esc(sg(r.net)) + '</span> · ' + esc(r.change || '') : 'the first frame') + '</div></div>').join('')
+        : '<div class="empty">No champion yet.</div>';
+      document.getElementById('frames').innerHTML = h.recent.filter(r => r.src).map(r => {
+        const kept = String(r.outcome || '').startsWith('accepted') || String(r.outcome || '').startsWith('first');
+        return '<div class="fr' + (kept ? ' kept' : '') + '" title="' + esc((r.outcome || '') + ' · ' + (r.change || '') + (r.note ? ' · ' + r.note : '')) + '"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 256)) + '" alt=""></a><div class="t">c' + esc(r.cycle) + ' ' + esc(sg(r.net)) + (kept ? ' kept' : '') + '</div>'
+          + '<button type="button" class="mk' + ((r.mark || 0) > 0 ? ' plus' : (r.mark || 0) < 0 ? ' minus' : '') + '" data-c="' + esc(r.cycle) + '" data-m="' + (r.mark || 0) + '" aria-label="Mark image ' + esc(r.cycle) + '">' + ((r.mark || 0) > 0 ? '+' : (r.mark || 0) < 0 ? '−' : '·') + '</button></div>';
+      }).join('');
+      document.getElementById('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+    } catch (e) { document.getElementById('health').textContent = 'collection unavailable'; }
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('.mk'); if (!b) return;
+    e.preventDefault();
+    const cur = Number(b.dataset.m), next = cur === 0 ? 1 : cur === 1 ? -1 : 0;
+    b.disabled = true;
+    try {
+      const r = await fetch('/api/collection/mark', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: window.__study, cycle: Number(b.dataset.c), mark: next})});
+      if (r.ok) { b.dataset.m = next; b.className = 'mk' + (next > 0 ? ' plus' : next < 0 ? ' minus' : ''); b.textContent = next > 0 ? '+' : next < 0 ? '−' : '·'; lastKey = ''; }
+    } finally { b.disabled = false; }
+  });
+  load(); setInterval(load, 5000);
+  </script>
+</body>
+</html>

@@ -1,15 +1,33 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <style>#prompt-form .field:has(#wall-prompts), #prompt-form .actions:has(button[type=submit]), #prompt-form > div:has(#composed) {display:none}#prompt-form h2{display:none}</style>
+  <style>.health{margin:10px 0 4px;padding:8px 10px;border-left:2px solid var(--rule,#555);font-size:13px}</style>
+  <style>.coll-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.cgrid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:14px}.cgrid p{margin:4px 0 10px;line-height:1.5}.cjs{margin-top:6px}.cj{font-size:12.5px;margin-top:5px;line-height:1.45}@media(max-width:700px){.cgrid{grid-template-columns:1fr}}</style>
+  <style>.jsw{display:flex;gap:16px}.seatrow{border-top:1px solid var(--rule,#333);padding-top:10px}.seatrow.off{opacity:.55}.seatname{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}.seatname b{font-size:15px;font-weight:500}.share{margin:-2px 0 6px;opacity:.85}</style>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a"><meta http-equiv="Cache-Control" content="no-store">
   <title>Controls — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
 </head>
 <body>
   <main class="shell">
     <section class="page-head"><div><div class="eyebrow">Private working controls</div><h1>Controls</h1><p class="lede">Set the prompt and pace for the next run. Jury changes apply to later reviews.</p></div><span class="pill" id="control-status">checking</span></section>
+    <section class="section" style="padding-top:0;display:none" aria-hidden="true">
+      <div class="panel panel-pad stack" id="coll-panel">
+        <div class="coll-head"><div><div class="eyebrow">Collection</div><h2 style="margin:14px 0 0" id="coll-title">No collection running</h2></div><span class="pill" id="coll-status">off</span></div>
+        <p class="tiny" style="opacity:.75;margin:0">One subject. Each new frame (the challenger) is compared with the best so far (the champion), rendered with the same seed, and scored aspect by aspect, + or −. An edit aimed at one aspect is kept only if that aspect improved and nothing else fell. See Scoring. While a collection runs, the wall renders only its prompt.</p>
+        <div class="form-grid">
+          <div class="field"><label for="c-name">Collection</label><input id="c-name" placeholder="e.g. emerald-gown"></div>
+          <div class="field wide"><label for="c-subject">Subject (fixed)</label><input id="c-subject" placeholder="e.g. a silk evening gown in deep emerald"></div>
+          <div class="field"><label for="c-preset">Preset</label><select id="c-preset"><option>hero</option><option>cover</option><option>noir</option><option>space</option><option>object</option><option>beauty-royal</option><option>beauty-elemental</option><option>beauty-botanical</option><option>beauty-futurist</option><option>beauty-opera</option></select></div>
+        </div>
+        <div class="actions"><button class="button primary" type="button" id="c-start">Start collection</button><button class="button danger" type="button" id="c-stop">Stop</button></div>
+        <div class="coll-now" id="coll-now"></div>
+        <div class="notice" id="coll-notice"></div>
+      </div>
+    </section>
     <section class="section" style="padding-top:0">
       <form class="panel panel-pad stack" id="prompt-form">
-        <div><div class="eyebrow">Wall</div><h2 style="margin:14px 0 0">Prompt</h2></div>
+        <div><div class="eyebrow">Directions</div></div>
         <div class="field wide"><label for="wall-prompts">Prompt · one per line, the wall rotates through them</label><textarea id="wall-prompts" rows="6"></textarea></div>
         <div class="actions"><button class="button primary" type="submit">Save prompt</button></div>
         <div class="field wide"><label for="direction">Directions · what to factor into the prompt</label><textarea id="direction" rows="2" placeholder="e.g. more natural light; no runway backdrops"></textarea></div>
@@ -24,7 +42,7 @@
         <form class="panel panel-pad stack" id="stream-form">
           <div><div class="eyebrow">Generation</div><h2 style="margin:14px 0 0">Next run</h2></div>
           <div class="form-grid">
-            <div class="field wide"><label for="prompt">Prompt</label><textarea id="prompt" name="prompt" placeholder="Describe the world the stream should hold…"></textarea></div>
+            <div class="field wide"><label for="prompt">Prompt</label><textarea id="prompt" name="prompt" placeholder="Describe the world the stream should hold…"></textarea><div class="actions" style="margin-top:6px"><button class="button" type="button" id="save-prompt">Save prompt</button><span class="tiny" id="saved-note" style="opacity:.75"></span></div><div class="tiny" id="saved-list" style="margin-top:6px;line-height:1.6"></div><div class="tiny" style="margin-top:8px;opacity:.85">Renders as: <span id="renders-as"></span></div></div>
             <div class="field"><label for="lane">Collection</label><input id="lane" name="lane" value="fashion" pattern="[a-z0-9-]+"></div>
             <div class="field"><label for="count">Frame cap</label><select id="count" name="count"><option value="0" selected>Continuous</option><option>8</option><option>16</option><option>64</option><option>256</option></select></div>
             <div class="field"><label for="steps">Steps</label><select id="steps" name="steps"><option>8</option><option>12</option><option selected>18</option><option>24</option><option>28</option></select></div>
@@ -38,11 +56,17 @@
         </form>
         <aside class="stack">
           <form class="panel panel-pad stack" id="jury-form">
-            <div><div class="eyebrow">Jury</div><h3 style="margin:12px 0 0">Weights and strictness</h3></div>
+            <div><div class="eyebrow">Jury</div><h3 style="margin:12px 0 0">Who judges, what, and how much</h3></div>
+            <div class="field"><label>Judging</label>
+              <div class="jsw" role="radiogroup" aria-label="What the jury judges">
+                <label class="check"><input type="radio" name="judging" value="wall"> New wall renders</label>
+                <label class="check"><input type="radio" name="judging" value="off"> Off</label>
+              </div></div>
             <div class="field"><label for="mode">Mode</label><select id="mode"><option value="parallel">Parallel</option><option value="sequential">Sequential</option></select></div>
             <label class="check"><input type="checkbox" id="adversarial"> Adversarial review</label>
             <label class="check"><input type="checkbox" id="text-gates"> Text from sensory gates</label>
             <div id="weights"></div>
+            <p class="tiny" style="opacity:.7;margin:0">Influence 0 = not involved: that juror isn’t called. Share is its part of the verdict among the seated jurors.</p>
             <button class="button" type="submit">Apply jury</button>
             <div class="notice" id="jury-notice"></div>
           </form>
@@ -53,25 +77,47 @@
     <footer><span>Writes require operator access</span><span>512 × 512 default</span></footer>
   </main>
   <script>
-  let juryConfig = null;
-  const keys = ['pixtral','qwen','decoder','governor'];
+  let juryConfig = null, tenantsNow = {};
+  let SEATS = [
+    {key: "pixtral", job: "Aesthetic critic", name: "Pixtral 12B · W4A16", live: false},
+    {key: "qwen", job: "Structural witness", name: "Ornith 1.5 · English-v2 FP8", live: false},
+    {key: "governor", job: "Synthesis · law & intent", name: "Gemma 4 12B · FP8", live: false}
+  ];
+  const PRETTY = {"pixtral-critic": "Pixtral 12B · W4A16", "visual-witness": "Qwen3.8-27B · INT4", "ornith-judge": "Ornith 1.5 · English-v2 FP8", "qwen3.8-27b-int4": "Qwen3.8-27B · INT4", "gemma-12b-governor-visionary": "Gemma 4 12B · FP8"};
+  const seatModel = s => ({live: !!s.live, name: s.name});
   function notice(id, text, bad) { const el = document.getElementById(id); el.textContent = text; el.style.color = bad ? 'var(--danger)' : 'var(--cyan)'; }
+  function shares() {
+    const w = {}; SEATS.forEach(s => { const v = Number(document.getElementById("w-" + s.key).value) / 100; w[s.key] = seatModel(s).live ? v : 0; });
+    const tot = Object.values(w).reduce((a, b) => a + b, 0);
+    SEATS.forEach(s => { const o = document.getElementById("sh-" + s.key); o.textContent = tot > 0 && w[s.key] > 0 ? Math.round(100 * w[s.key] / tot) + "% of the verdict" : (seatModel(s).live ? "not involved" : "not seated"); });
+  }
   function renderWeights(cfg) {
     const weights = cfg.weights || {}, strict = cfg.strictness || {};
-    document.getElementById('weights').innerHTML = keys.map(key => '<div class="range-row"><label class="tiny" for="w-' + key + '">' + key + '</label><input id="w-' + key + '" type="range" min="0" max="1" step="0.05" value="' + Number(weights[key] || 0) + '"><output id="wo-' + key + '">' + Math.round(100 * Number(weights[key] || 0)) + '%</output></div><div class="range-row" style="margin-bottom:14px"><label class="tiny" for="g-' + key + '">γ strict</label><input id="g-' + key + '" type="range" min="0.5" max="3" step="0.1" value="' + Number(strict[key] || 1) + '"><output id="go-' + key + '">' + Number(strict[key] || 1).toFixed(1) + '</output></div>').join('');
-    keys.forEach(key => {
-      document.getElementById('w-' + key).oninput = e => document.getElementById('wo-' + key).textContent = Math.round(100 * Number(e.target.value)) + '%';
-      document.getElementById('g-' + key).oninput = e => document.getElementById('go-' + key).textContent = Number(e.target.value).toFixed(1);
+    const wOf = s => s.key === "qwen" ? Number(weights.qwen || 0) + Number(weights.decoder || 0) : Number(weights[s.key] || 0);
+    document.getElementById("weights").innerHTML = SEATS.map(s => { const m = seatModel(s), v = Math.round(100 * Math.min(1, wOf(s)));
+      return '<div class="seatrow' + (m.live ? '' : ' off') + '"><div class="seatname"><b>' + m.name + '</b><span class="tiny">' + s.job + ' · ' + (m.live ? 'seated' : 'not seated') + '</span></div>'
+        + '<div class="range-row"><label class="tiny" for="w-' + s.key + '">influence</label><input id="w-' + s.key + '" type="range" min="0" max="100" step="5" value="' + v + '"><output id="wo-' + s.key + '">' + v + '</output></div>'
+        + '<div class="tiny share" id="sh-' + s.key + '"></div>'
+        + '<div class="range-row" style="margin-bottom:12px"><label class="tiny" for="g-' + s.key + '">γ strict</label><input id="g-' + s.key + '" type="range" min="0.5" max="3" step="0.1" value="' + Number(strict[s.key] || 1) + '"><output id="go-' + s.key + '">' + Number(strict[s.key] || 1).toFixed(1) + '</output></div></div>'; }).join("");
+    SEATS.forEach(s => {
+      document.getElementById("w-" + s.key).oninput = e => { document.getElementById("wo-" + s.key).textContent = e.target.value; shares(); };
+      document.getElementById("g-" + s.key).oninput = e => document.getElementById("go-" + s.key).textContent = Number(e.target.value).toFixed(1);
     });
+    shares();
   }
   async function hydrate() {
     try {
       const d = await fetch('/api/protocol?lane=fashion', {cache:'no-store'}).then(r => r.json());
+      tenantsNow = {}; (d.tenants || []).forEach(t => tenantsNow[t.id] = t);
+      try { const jj = await fetch('/api/jurors', {cache:'no-store'}).then(r => r.json()); SEATS = SEATS.map(x => Object.assign(x, (jj.jurors || []).find(y => y.key === x.key) || {})); } catch (_) {}
+      const editing = document.activeElement && document.activeElement.closest && document.activeElement.closest('#jury-form');
       juryConfig = d.jury || {};
+      if (editing) return;
       document.getElementById('mode').value = juryConfig.mode || 'parallel';
       document.getElementById('adversarial').checked = !!juryConfig.adversarial_mode;
       document.getElementById('text-gates').checked = !!juryConfig.text_from_gates;
       renderWeights(juryConfig);
+      fetch('/api/judging', {cache:'no-store'}).then(r => r.json()).then(j => { const r = document.querySelector('input[name=judging][value="' + (j.mode || 'wall') + '"]'); if (r) r.checked = true; }).catch(() => {});
       const stream = d.stream || {};
       document.getElementById('live-state').textContent = 'lane       ' + (d.lane || 'fashion') + '\nstream     ' + (stream.status || 'idle') + '\nprogress   ' + (stream.done || 0) + '/' + (stream.n || 0) + '\nengine     ' + ((d.flux && d.flux.loaded) ? 'ready' : 'cold') + '\nspectacles ' + ((d.spectacles && d.spectacles.count) || 0);
       document.getElementById('control-status').textContent = (stream.status === 'running' ? '● stream live' : 'controls live');
@@ -80,7 +126,7 @@
   document.getElementById('stream-form').onsubmit = async e => {
     e.preventDefault();
     const lane = document.getElementById('lane').value.trim().toLowerCase();
-    const body = {action:'start', prompt:document.getElementById('prompt').value.trim(), n:Number(document.getElementById('count').value), steps:Number(document.getElementById('steps').value), width:Number(document.getElementById('size').value), height:Number(document.getElementById('size').value), guidance:Number(document.getElementById('guidance').value), seed:document.getElementById('seed').value.trim(), advisor_timeout:Number(document.getElementById('advisor-timeout').value)};
+    const body = {action:'start', prompt:rendersAs(), n:Number(document.getElementById('count').value), steps:Number(document.getElementById('steps').value), width:Number(document.getElementById('size').value), height:Number(document.getElementById('size').value), guidance:Number(document.getElementById('guidance').value), seed:document.getElementById('seed').value.trim(), advisor_timeout:Number(document.getElementById('advisor-timeout').value)};
     if (!lane || !body.prompt) return notice('stream-notice','Collection and prompt are required.',true);
     notice('stream-notice','Starting ' + lane + '…');
     try { const r = await fetch('/api/beauty/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); notice('stream-notice','Adaptive 512px loop accepted. The wall will update live.'); hydrate(); } catch (err) { notice('stream-notice',String(err),true); }
@@ -94,7 +140,9 @@
     e.preventDefault();
     if (!juryConfig) return;
     const next = {...juryConfig, mode:document.getElementById('mode').value, adversarial_mode:document.getElementById('adversarial').checked, text_from_gates:document.getElementById('text-gates').checked, weights:{...juryConfig.weights}, strictness:{...juryConfig.strictness}};
-    keys.forEach(key => { next.weights[key] = Number(document.getElementById('w-' + key).value); next.strictness[key] = Number(document.getElementById('g-' + key).value); });
+    SEATS.forEach(st => { next.weights[st.key] = Number(document.getElementById('w-' + st.key).value) / 100; next.strictness[st.key] = Number(document.getElementById('g-' + st.key).value); });
+    next.weights.decoder = 0;   // the witness carries the decoder seat; its weight is set on the Qwen row
+    const jm = document.querySelector('input[name=judging]:checked'); if (jm) fetch('/api/judging', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode: jm.value})});
     notice('jury-notice','Applying jury…');
     try { const r = await fetch('/api/jury/config?lane=fashion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); juryConfig = d.config || next; notice('jury-notice','Jury applied live.'); hydrate(); } catch (err) { notice('jury-notice',String(err) + ' — use an authenticated operator listener.',true); }
   };
@@ -102,7 +150,6 @@
   function paintPrompt(d) {
     if (!wallEdited) document.getElementById('wall-prompts').value = (d.prompts || []).join('\n');
     const nr = document.getElementById('prompt');
-    if (!nr.value && document.activeElement !== nr) nr.value = (d.composed || [])[0] || '';
     const ul = document.getElementById('directions'); ul.innerHTML = '';
     (d.directions || []).forEach(x => { const li = document.createElement('li'); li.className = 'range-row'; const t = document.createElement('span'); t.textContent = x.text; const b = document.createElement('button'); b.type = 'button'; b.className = 'button'; b.textContent = 'Remove'; b.onclick = () => promptCall('DELETE', '/api/prompt/direction?id=' + encodeURIComponent(x.id)); li.append(t, b); ul.append(li); });
     document.getElementById('composed').textContent = (d.composed || []).join('\n\n');
@@ -117,6 +164,59 @@
   document.getElementById('prompt-form').onsubmit = e => { e.preventDefault(); promptCall('POST', '/api/prompt', {prompts: document.getElementById('wall-prompts').value.split('\n')}); };
   document.getElementById('add-direction').onclick = () => { const t = document.getElementById('direction'); if (!t.value.trim()) return; promptCall('POST', '/api/prompt/direction', {text: t.value}); t.value = ''; };
   hydratePrompt();
+
+  function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+  async function hydrateCollection() {
+    try {
+      const [d, rb] = await Promise.all([fetch('/api/collection', {cache:'no-store'}).then(r => r.json()), fetch('/api/relative-beauty/state', {cache:'no-store'}).then(r => r.json()).catch(() => ({}))]);
+      const c = d.active || {}, on = !!c.active, best = c.best || {};
+      document.getElementById('coll-title').textContent = c.name ? c.name + (on ? '' : ' (stopped)') : 'No collection running';
+      document.getElementById('coll-status').textContent = on ? '● evolving · generation ' + (c.generation || 0) : 'off';
+      const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('#coll-panel');
+      if (!focused && c.name) { document.getElementById('c-name').value = c.name; document.getElementById('c-subject').value = c.subject || ''; document.getElementById('c-preset').value = c.preset || 'hero'; }
+      const r = (rb.jury || {}).last_receipt || null;
+      const judges = r ? (r.judges || []).filter(j => !j.degraded).map(j => '<div class="cj"><b>' + esc2(j.model) + '</b> ' + esc2(Math.round(j.score)) + ' · ' + esc2(j.critique || '') + '</div>').join('') : '';
+      const others = (d.collections || []).filter(x => x.name !== c.name).map(x => esc2(x.name) + ' (' + esc2(x.generation || 0) + ' gens' + (x.best && x.best.score != null ? ', best ' + Math.round(x.best.score) : '') + ')').join(' · ');
+      document.getElementById('coll-now').innerHTML = !c.active ? (c.name ? '<p class="tiny">' + esc2(c.name) + ' is stopped. Start it again above, or start a new subject.</p>' : '') : c.name ? (
+        '<div class="cgrid"><div><span class="tiny">Current prompt</span><p>' + esc2(c.prompt) + '</p></div>'
+        + '<div><span class="tiny">Guidance</span><p>' + esc2(c.guidance) + '</p><span class="tiny">Champion</span><p>' + (c.champion ? 'generation ' + esc2(c.champion.generation) : (best.score != null ? esc2(best.score) + ' at generation ' + esc2(best.generation) : '\u2014')) + '</p><span class="tiny">Aiming at</span><p>' + esc2(c.aim || '\u2014') + '</p></div></div>'
+        + (c.health ? '<div class="health"><b>' + esc2(c.active ? (c.health.verdict || '') : '') + '</b> \u00b7 cycle ' + esc2(c.cycle || 0) + ' \u00b7 best net per cycle (last 10): ' + esc2((c.health.best_nets || []).map(x => (x > 0 ? '+' : '') + x).join(' ')) + (c.health.vs_origin && c.health.vs_origin.net != null ? ' \u00b7 champion vs the first frame: net ' + (c.health.vs_origin.net > 0 ? '+' : '') + esc2(c.health.vs_origin.net) + ' (cycle ' + esc2(c.health.vs_origin.cycle) + ')' : '') + '</div>' : '')
+        + (c.last_outcome ? '<p class="tiny">Last outcome: <b>' + esc2(c.last_outcome) + '</b></p>' : '')
+        + (c.progress ? '<p class="tiny">Relative progress since the start: <b>' + (c.progress.net > 0 ? '+' : '') + esc2(c.progress.net) + '</b> over ' + esc2(c.progress.steps) + ' accepted steps \u00b7 ' + Object.entries(c.progress.aspects || {}).filter(([k, v]) => v).map(([k, v]) => esc2(k) + ' ' + (v > 0 ? '+' : '') + esc2(v)).join(' \u00b7 ') + '</p>' : '')
+        + (c.last_profile ? '<div class="cjs">' + Object.entries(c.last_profile).map(([a, v]) => '<div class="cj"><b>' + esc2(a) + ' ' + (v.d > 0 ? '+' : '') + esc2(v.d) + '</b> ' + esc2(v.why || '') + '</div>').join('') + '</div>' : '')
+        + (c.last_change ? '<p class="tiny">Last change: ' + esc2(c.last_change) + '</p>' : '')
+        + (judges ? '<div class="cjs"><span class="tiny">Latest verdict' + (r.curved_score != null ? ' · ' + esc2(r.curved_score) : '') + '</span>' + judges + '</div>' : '')
+        + (others ? '<p class="tiny">Other collections: ' + others + '</p>' : '')) : (others ? '<p class="tiny">Collections: ' + others + '</p>' : '');
+    } catch (_) { document.getElementById('coll-status').textContent = 'unavailable'; }
+  }
+  async function collCall(body) {
+    notice('coll-notice', body.action === 'start' ? 'Starting…' : 'Stopping…');
+    try { const r = await fetch('/api/collection', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status);
+      notice('coll-notice', body.action === 'start' ? 'Running. New renders use its prompt; each verdict moves it one step.' : 'Stopped. The wall goes back to its own prompt.'); hydrateCollection(); } catch (e) { notice('coll-notice', String(e), true); }
+  }
+  document.getElementById('c-start').onclick = () => collCall({action:'start', name: document.getElementById('c-name').value.trim(), subject: document.getElementById('c-subject').value.trim(), preset: document.getElementById('c-preset').value});
+  document.getElementById('c-stop').onclick = () => collCall({action:'stop'});
+  hydrateCollection(); setInterval(hydrateCollection, 5000);
+
+  function renderSaved(d) {
+    const v = (d.versions || []).slice().reverse();
+    document.getElementById('saved-list').innerHTML = v.length ? 'Saved versions (click to use): ' + v.slice(0, 12).map((x, i) =>
+      '<a href="#" class="sv" data-i="' + i + '" title="' + String(x.prompt).replace(/"/g, '&quot;') + '">' + new Date(x.at * 1000).toLocaleTimeString() + '</a>').join(' \u00b7 ') : '';
+    document.querySelectorAll('.sv').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById('prompt').value = v[Number(a.dataset.i)].prompt; });
+  }
+  fetch('/api/saved-prompt', {cache: 'no-store'}).then(r => r.json()).then(d => { const f = document.getElementById('prompt'); if (d.current && !f.value) f.value = d.current; renderSaved(d); }).catch(() => {});
+  document.getElementById('save-prompt').onclick = async () => {
+    const text = document.getElementById('prompt').value.trim(); if (!text) return;
+    try { const d = await fetch('/api/saved-prompt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text})}).then(r => r.json());
+      document.getElementById('saved-note').textContent = 'Saved ' + new Date().toLocaleTimeString(); renderSaved(d); } catch (e) { document.getElementById('saved-note').textContent = 'Not saved: ' + e; }
+  };
+
+  let dirsNow = [];
+  function rendersAs() { const p = document.getElementById('prompt').value.trim(); const d = dirsNow.map(x => x.text); return p + (p && d.length ? '. ' + d.join('; ') : ''); }
+  function showRendersAs() { document.getElementById('renders-as').textContent = rendersAs() || '(write a prompt)'; }
+  document.getElementById('prompt').addEventListener('input', showRendersAs);
+  async function refreshDirs() { try { const d = await fetch('/api/prompt', {cache: 'no-store'}).then(r => r.json()); dirsNow = d.directions || []; showRendersAs(); } catch (_) {} }
+  refreshDirs(); setInterval(refreshDirs, 5000);
   hydrate(); setInterval(hydrate, 5000);
   </script>
 </body>
