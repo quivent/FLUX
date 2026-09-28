@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
-  <title>Collection</title><link rel="stylesheet" href="/beauty.css?v=4"><script defer src="/beauty-shell.js?v=2"></script>
+  <meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
+  <title>Collection</title><link rel="stylesheet" href="/beauty.css?v=4"><script defer src="/beauty-shell.js?v=3"></script>
   <style>
     .stats{display:flex;gap:10px 28px;flex-wrap:wrap;font-size:13px;margin-top:10px}.stats b{font-weight:500}
     .chain{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:10px}
@@ -16,21 +16,73 @@
     .empty{opacity:.7;font-size:13px}
     .mk{position:absolute;top:5px;right:5px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.55);color:#fff;font:600 15px/1 system-ui;cursor:pointer}
     .mk.plus{background:#2e7d4f;border-color:#5fbf7f}.mk.minus{background:#8a2f2f;border-color:#d98476}
+    .mkbar{display:flex;gap:4px;margin-top:4px}
+    .mb{flex:1;padding:6px 0;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.04);color:inherit;font:600 13px/1 system-ui;cursor:pointer}
+    .mb.p.on{background:#2e7d4f;border-color:#5fbf7f;color:#fff}.mb.m.on{background:#8a2f2f;border-color:#d98476;color:#fff}
+    .fr.anchor img{outline:3px solid #5fbf7f;opacity:1}
+    .mb.sc{flex:0 0 34%;display:flex;align-items:center;justify-content:center;cursor:default}.mb.sc.pos{background:#2e7d4f;color:#fff}.mb.sc.neg{background:#8a2f2f;color:#fff}
+    .mb.p,.mb.m{font-size:18px}
+    .mb.lab{flex:0 0 78px;border:0;background:transparent;font:600 11px/1 system-ui;display:flex;align-items:center;cursor:default;opacity:.85}
     .pick{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px;flex-wrap:wrap}.pick select{background:transparent;color:inherit;border:1px solid var(--rule,#444);padding:3px 6px}
     a.fl{display:block}
+    .ctl{border:1px solid var(--rule,#333);padding:14px 16px;margin-top:6px}
+    .ctl h3{margin:0 0 10px;font-size:15px;font-weight:600}
+    .ctl .row{display:flex;gap:10px 18px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+    .ctl label{display:flex;flex-direction:column;gap:4px;font-size:12px;opacity:.9}
+    .ctl input,.ctl select,.ctl textarea{background:transparent;color:inherit;border:1px solid var(--rule,#444);padding:5px 7px;font:inherit;font-size:13px}
+    .ctl input[type=number]{width:74px}
+    .ctl textarea{width:100%;min-height:74px;resize:vertical;box-sizing:border-box}
+    .ctl .wide{flex:1;min-width:240px}
+    .ctl button{background:transparent;color:inherit;border:1px solid var(--rule,#555);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+    .ctl button.primary{border-color:#5fbf7f;color:#8fe0a8}
+    .ctl .status{font-size:13px;margin-bottom:10px}.ctl .status b{font-weight:600}
+    .ctl .insight{font-size:13px;line-height:1.5;border-left:2px solid #5fbf7f;padding-left:10px;margin-bottom:12px}
+    .ctl .insight span{opacity:.7}
+    .ctl .saved{font-size:12px;opacity:.8;align-self:center}
   </style>
 </head>
 <body>
   <main class="shell">
     <section class="page-head"><div><div class="eyebrow">Collection</div><h1 id="title">—</h1><p class="lede" id="subject"></p>
-      <div class="stats" id="stats"></div><div class="pick"><label for="study">Study</label><select id="study"></select><span class="tiny" style="opacity:.7">+ on any frame, from any study, makes it the running study's basis. − on this study's frame undoes that change.</span></div><div class="health" id="health"></div></div>
+      <div class="stats" id="stats"></div><div class="pick"><label for="study">Study</label><select id="study"></select><span class="tiny" style="opacity:.7">+ makes a frame an anchor: the loop builds from your anchors in turn and judges against them. − removes it.</span></div><div class="health" id="health"></div></div>
       <div class="actions"><a class="button" href="/control">Controls</a><a class="button" href="/scoring">Scoring</a><a class="button" href="/gallery/">Wall</a></div></section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Your controls</div><h2>The study</h2></div></div>
+      <div class="ctl" id="ctl">
+        <div class="status" id="st">—</div>
+        <div class="row"><label class="wide">Subject (your words, rendered first)<input id="subj" placeholder="what the study is of"></label>
+          <label>Name<input id="sname" placeholder="study-name"></label>
+          <button type="button" class="primary" id="start">Start</button><button type="button" id="stop">Stop</button></div>
+        <h3>Vision</h3>
+        <div class="row"><label class="wide">What every frame reaches for. Leave empty and the director (Gemma) writes it and re-imagines it when it stalls; write your own and it is used as is, never replaced.<textarea id="vision"></textarea></label></div>
+        <div class="insight" id="ins"></div>
+        <div class="insight" id="taste" style="border-left-color:#c9a94a"></div>
+        <h3>What counts as better (weight of each aspect; 0 = not counted)</h3>
+        <div class="row" id="weights"></div>
+        <h3>The loop</h3>
+        <div class="row">
+          <label>Gain to replace the best<input type="number" step="0.5" min="0" id="gain"></label>
+          <label>Bold move after N misses<input type="number" step="1" min="1" id="bold_after"></label>
+          <label>New vision after N misses<input type="number" step="1" min="2" id="revision_after"></label>
+          <label>New seed after N misses<input type="number" step="1" min="2" id="reseed_after"></label>
+          <label>Judge calls per frame<input type="number" step="1" min="1" max="4" id="judge_calls"></label>
+          <label>Size<select id="size"><option>512</option><option>768</option><option>1024</option></select></label>
+          <label>Steps<input type="number" step="1" min="8" max="50" id="steps"></label>
+          <label>Writer<select id="writer"><option value="on">on: the prompt evolves</option><option value="off">off: same prompt, new seed</option></select></label>
+        </div>
+        <div class="row"><button type="button" class="primary" id="save">Save settings</button><span class="saved" id="saved"></span></div>
+      </div></section>
+
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Proof</div><h2>Each step, beside the frame it was built from</h2></div></div>
+      <p class="tiny" style="opacity:.75;margin:0">Newest first. Left: the frame it was built from. Right: the new frame, kept only when the judge, shown the pair in both orders, agreed it is better. Under it: what both orders agreed on, and the measured change (DINOv2 distance).</p>
+      <div id="proof" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:10px"></div></section>
 
     <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">The collection</div><h2>Champions, in order</h2></div></div>
       <p class="tiny" style="opacity:.75;margin:0">Each frame here beat the one before it. Under each: the change that won, and its gain against the previous champion.</p>
       <div class="chain" id="chain"><div class="empty">Loading…</div></div></section>
 
-    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Every frame</div><h2>Latest candidates</h2></div></div>
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Every frame</div><h2>Latest candidates</h2></div>
+        <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer"><input type="checkbox" id="only-anchors"> Anchors only, highest score first</label></div>
       <p class="tiny" style="opacity:.75;margin:0">Newest first. Outlined: kept. The number is the frame's net change against the champion of its time.</p>
       <div class="frames" id="frames"></div></section>
     <footer><span>One image, evaluated, diffed, then the next</span><span id="updated"></span></footer>
@@ -39,23 +91,28 @@
   const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   const thumb = (src, w) => '/api/asset/thumbnail?w=' + w + '&src=' + encodeURIComponent(src);
   const sg = x => x == null ? '' : (x > 0 ? '+' : '') + Number(x).toFixed(1);
+function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<div class="mkbar"><span class="mb lab">' + label + '</span><button type="button" class="mb m" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.max(-20, v - 1) + '">−</button><span class="mb sc' + (v > 0 ? ' pos' : v < 0 ? ' neg' : '') + '">' + (v > 0 ? '+' : '') + v + '</span><button type="button" class="mb p" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.min(20, v + 1) + '">+</button></div>'; return row('beauty', 'Beauty', m) + row('direction', 'Direction', sc.direction || 0) + row('difference', 'Difference', sc.difference || 0) + row('uniqueness', 'Uniqueness', sc.uniqueness || 0); }
   let lastKey = '';
   async function load() {
     try {
       const params = new URLSearchParams(location.search);
       const cur = await fetch('/api/collection', {cache: 'no-store'}).then(r => r.json());
       const c = cur.active || {};
+      panel(cur);
       const name = params.get('name') || c.name || ((cur.collections || [])[0] || {}).name;
       const sel = document.getElementById('study');
       const names = [...new Set([c.name, ...(cur.collections || []).map(x => x.name)].filter(Boolean))];
-      if (sel.options.length !== names.length) { sel.innerHTML = names.map(n => '<option' + (n === name ? ' selected' : '') + '>' + esc(n) + '</option>').join(''); sel.onchange = () => { location.search = '?name=' + encodeURIComponent(sel.value); }; }
+      const info = {}; (cur.collections || []).forEach(x => { info[x.name] = x; });
+      if (sel.options.length !== names.length) { sel.innerHTML = names.map(n => '<option value="' + esc(n) + '"' + (n === name ? ' selected' : '') + '>' + esc((info[n] && info[n].title) || n) + (info[n] && info[n].generation ? ' · ' + esc(info[n].generation) + ' frames' : '') + '</option>').join(''); sel.onchange = () => { location.search = '?name=' + encodeURIComponent(sel.value); }; }
       window.__study = name;
       if (!name) { document.getElementById('title').textContent = 'No collection yet'; return; }
-      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=120', {cache: 'no-store'}).then(r => r.json());
-      const key = h.total + ':' + (c.updated_at || '');
+      if (name !== c.name && await loadSorted(name, info[name])) return;
+      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=400', {cache: 'no-store'}).then(r => r.json());
+      h.all = h.recent.slice(); h.recent = h.recent.slice(0, 120);
+      const key = h.total + ':' + (c.updated_at || '') + ':' + document.getElementById('only-anchors').checked + ':' + h.all.map(r => (r.mark || 0) + '.' + JSON.stringify(r.scores || {})).join('');
       if (key === lastKey) return; lastKey = key;
       const same = c.name === name;
-      document.getElementById('title').textContent = name;
+      document.getElementById('title').textContent = (c.name === name && c.title) || (info[name] && info[name].title) || name;
       document.getElementById('subject').textContent = same ? (c.subject || '') : '';
       document.getElementById('stats').innerHTML = same ? [
         '<span><b>' + esc(h.total) + '</b> frames</span>', '<span><b>' + esc(Math.max(0, h.champions.length - 1)) + '</b> improvements kept</span>',
@@ -65,24 +122,107 @@
       document.getElementById('health').innerHTML = same && hl.verdict ? '<b>' + esc(hl.verdict) + '</b>' + (hl.vs_origin && hl.vs_origin.net != null ? ' · champion vs the first frame: net ' + esc(sg(hl.vs_origin.net)) : '') : '';
       document.getElementById('chain').innerHTML = h.champions.length ? h.champions.map((r, i) =>
         '<div class="champ"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 384)) + '" alt=""></a><span class="step">' + (i ? '#' + i : 'start') + '</span>'
-        + '<div class="cap">' + (i ? '<span class="gain">' + esc(sg(r.net)) + '</span> · ' + esc(r.change || '') : 'the first frame') + '</div></div>').join('')
+        + '<div class="cap">' + (i ? '<span class="gain">' + esc(sg(r.net)) + '</span> · ' + esc(r.change || '') : 'the first frame') + '</div>' + mkbar(r.cycle, r.mark || 0, r.scores) + '</div>').join('')
         : '<div class="empty">No champion yet.</div>';
-      document.getElementById('frames').innerHTML = h.recent.filter(r => r.src).map(r => {
+      const onlyA = document.getElementById('only-anchors').checked;
+      let frameRows = h.recent.filter(r => r.src);
+      if (onlyA) frameRows = h.all.filter(r => r.src && (r.mark || 0) > 0).sort((x, y) => (y.mark || 0) - (x.mark || 0));
+      document.getElementById('frames').innerHTML = (onlyA && !frameRows.length ? '<div class="empty">No anchors yet: press + under a frame.</div>' : '') + frameRows.map(r => {
         const kept = String(r.outcome || '').startsWith('accepted') || String(r.outcome || '').startsWith('first');
-        return '<div class="fr' + (kept ? ' kept' : '') + '" title="' + esc((r.outcome || '') + ' · ' + (r.change || '') + (r.note ? ' · ' + r.note : '')) + '"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 256)) + '" alt=""></a><div class="t">c' + esc(r.cycle) + ' ' + esc(sg(r.net)) + (kept ? ' kept' : '') + '</div>'
-          + '<button type="button" class="mk' + ((r.mark || 0) > 0 ? ' plus' : (r.mark || 0) < 0 ? ' minus' : '') + '" data-c="' + esc(r.cycle) + '" data-m="' + (r.mark || 0) + '" aria-label="Mark image ' + esc(r.cycle) + '">' + ((r.mark || 0) > 0 ? '+' : (r.mark || 0) < 0 ? '−' : '·') + '</button></div>';
+        return '<div class="fr' + (kept ? ' kept' : '') + ((r.mark || 0) > 0 ? ' anchor' : '') + '" title="' + esc((r.outcome || '') + ' · ' + (r.change || '') + (r.note ? ' · ' + r.note : '')) + '"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 256)) + '" alt=""></a><div class="t">c' + esc(r.cycle) + ' ' + esc(sg(r.net)) + (kept ? ' kept' : '') + '</div>'
+          + mkbar(r.cycle, r.mark || 0, r.scores) + '</div>';
       }).join('');
+      const steps = h.all.filter(r => r.src && r.base_src && String(r.outcome || '').startsWith('accepted: better')).slice(0, 24);
+      document.getElementById('proof').innerHTML = steps.length ? steps.map(r => '<div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
+        + '<a class="fl" href="' + esc(r.base_src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.base_src, 384)) + '" alt="" style="width:100%;aspect-ratio:1;object-fit:cover"></a>'
+        + '<a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 384)) + '" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;outline:2px solid #5fbf7f"></a></div>'
+        + '<div class="tiny" style="margin-top:5px;line-height:1.45">c' + esc(r.base_cycle || '?') + ' → c' + esc(r.cycle) + ' · net <b>' + esc(sg(r.net)) + '</b> · ' + Object.entries(r.aspects || {}).map(([a, d]) => esc(a.split(' ')[0]) + ' ' + esc(sg(d))).join(', ')
+        + (r.d_champ != null ? ' · change ' + esc(Number(r.d_champ).toFixed(2)) : '') + '<br><span style="opacity:.75">' + esc(r.change || '') + '</span></div></div>').join('')
+        : '<div class="empty">No accepted step yet.</div>';
       document.getElementById('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
     } catch (e) { document.getElementById('health').textContent = 'collection unavailable'; }
   }
+  // A sorted collection: every render whose prompt names this study, all frames shown (from the collection's own files).
+  async function loadSorted(name, meta) {
+    const base = '/outputs/collections/' + encodeURIComponent(name) + '/';
+    const txt = await fetch(base + 'history.jsonl', {cache: 'no-store'}).then(r => r.ok ? r.text() : '');
+    const rows = txt.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (_) { return null; } }).filter(r => r && r.file && r.outcome === 'sorted');
+    if (!rows.length) return false;
+    let marks = {}; try { marks = await fetch(base + 'marks.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : {}); } catch (_) {}
+    const key = 'sorted:' + name + ':' + rows.length + ':' + JSON.stringify(marks);
+    if (key === lastKey) return true; lastKey = key;
+    const src = r => base + r.file.split('/').map(encodeURIComponent).join('/');
+    const when = t => t ? new Date(t * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+    document.getElementById('title').textContent = name;
+    document.getElementById('subject').textContent = (meta && meta.subject) || '';
+    document.getElementById('stats').innerHTML = '<span><b>' + rows.length + '</b> frames</span><span>sorted by the subject each prompt names</span>';
+    document.getElementById('health').innerHTML = '';
+    const plus = rows.filter(r => (marks[String(r.cycle)] || 0) > 0);
+    document.getElementById('chain').innerHTML = plus.length ? plus.map(r => '<div class="champ"><a class="fl" href="' + esc(src(r)) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(src(r), 384)) + '" alt=""></a><span class="step">+</span><div class="cap">' + esc((r.prompt || '').slice(0, 140)) + '</div></div>').join('')
+      : '<div class="empty">Nothing marked + in this collection yet.</div>';
+    document.getElementById('frames').innerHTML = rows.slice().reverse().map(r => { const m = marks[String(r.cycle)] || 0;
+      return '<div class="fr kept" title="' + esc(r.prompt || 'no prompt recorded') + '"><a class="fl" href="' + esc(src(r)) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(src(r), 256)) + '" alt=""></a><div class="t">#' + esc(r.cycle) + ' · ' + esc(when(r.at)) + '</div>'
+        + mkbar(r.cycle, m) + '</div>'; }).join('');
+    document.getElementById('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+    return true;
+  }
+  // ---- your controls: the loop reads these every frame ----
+  const ASPECTS = [["beauty", "Beauty"], ["original", "Uniqueness"], ["change", "Change (measured)"], ["anatomy and hands", "Anatomy & hands"], ["defects", "Defects"]];
+  const DEF = {weights: {beauty: 3, original: 2, change: 2, "anatomy and hands": 1, defects: 1}, gain: 0.5, bold_after: 2, revision_after: 8, reseed_after: 12, judge_calls: 2, size: 768, steps: 18, vision: "", writer: "on"};
+  const $ = id => document.getElementById(id);
+  let visionDirty = false;
+  $('vision').addEventListener('input', () => { visionDirty = true; });
+  document.getElementById('weights').innerHTML = ASPECTS.map(([k, n], i) => '<label>' + esc(n) + '<input type="number" step="0.5" min="0" max="5" data-w="' + esc(k) + '"></label>').join('');
+  async function loadConfig() {
+    const got = (await fetch('/api/collection/config', {cache: 'no-store'}).then(r => r.json()).catch(() => ({}))).config || {};
+    const cfg = Object.assign({}, DEF, got, {weights: Object.assign({}, DEF.weights, got.weights || {})});
+    document.querySelectorAll('[data-w]').forEach(i => { i.value = cfg.weights[i.dataset.w]; });
+    for (const k of ['gain', 'bold_after', 'revision_after', 'reseed_after', 'judge_calls', 'steps']) $(k).value = cfg[k];
+    $('size').value = String(cfg.size); $('writer').value = cfg.writer;
+    window.__teacherVision = cfg.vision || '';
+    if (cfg.vision) { $('vision').value = cfg.vision; visionDirty = false; }
+  }
+  function panel(cur) {
+    const c = cur.active || {};
+    $('taste').innerHTML = '';
+    $('st').innerHTML = c.name ? ((c.active ? '<b>● running</b> · ' : '<b>stopped</b> · ') + esc(c.title || c.name) + ' · <span style="opacity:.8">' + esc(c.subject || '') + '</span>' + (c.active && c.last_change ? '<br><span style="opacity:.7">next: ' + esc(c.last_change) + '</span>' : '')) : 'No study.';
+    const v = c.vision || {};
+    if (!visionDirty && document.activeElement !== $('vision') && !window.__teacherVision) $('vision').value = v.text || '';
+    $('vision').placeholder = 'No vision yet: the director writes one when a study starts, unless you write it here.';
+    const i = c.insight || {};
+    $('ins').innerHTML = c.active && (i.hypothesis || i.alive) ? '<span>The writer, on the best frame —</span><br><span>alive:</span> ' + esc(i.alive || '') + '<br><span>holds it back:</span> ' + esc(i.holds_back || '') + '<br><span>testing (' + esc(i.move || '') + '):</span> ' + esc(i.hypothesis || '') + (v.by === 'teacher' ? '<br><span>vision: yours</span>' : v.text ? '<br><span>vision: the director\'s</span>' : '') : '';
+  }
+  $('save').onclick = async () => {
+    const weights = {}; document.querySelectorAll('[data-w]').forEach(i => { weights[i.dataset.w] = Number(i.value); });
+    const body = {weights, writer: $('writer').value, size: Number($('size').value)};
+    for (const k of ['gain', 'bold_after', 'revision_after', 'reseed_after', 'judge_calls', 'steps']) body[k] = Number($(k).value);
+    if (visionDirty) body.vision = $('vision').value.trim();
+    const r = await fetch('/api/collection/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    $('saved').textContent = r.ok ? 'saved ' + new Date().toLocaleTimeString() + ' · applies from the next frame' : 'not saved';
+    if (r.ok) { visionDirty = false; await loadConfig(); }
+  };
+  $('start').onclick = async () => {
+    const subject = $('subj').value.trim(); if (!subject) { $('saved').textContent = 'write a subject first'; return; }
+    const name = $('sname').value.trim() || subject;
+    const r = await fetch('/api/collection', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'start', subject, name})});
+    const j = await r.json().catch(() => ({}));
+    $('saved').textContent = r.ok ? 'started' : (j.error || 'not started');
+    if (r.ok) location.search = '?name=' + encodeURIComponent(j.active.name);
+  };
+  $('stop').onclick = async () => { await fetch('/api/collection', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'stop'})}); $('saved').textContent = 'stopped'; lastKey = ''; load(); };
+  loadConfig();
+  document.getElementById('only-anchors').addEventListener('change', () => { lastKey = ''; load(); });
   document.addEventListener('click', async e => {
-    const b = e.target.closest('.mk'); if (!b) return;
+    const b = e.target.closest('.mb.p, .mb.m'); if (!b) return;
     e.preventDefault();
-    const cur = Number(b.dataset.m), next = cur === 0 ? 1 : cur === 1 ? -1 : 0;
+    const next = Number(b.dataset.set);
     b.disabled = true;
     try {
-      const r = await fetch('/api/collection/mark', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: window.__study, cycle: Number(b.dataset.c), mark: next})});
-      if (r.ok) { b.dataset.m = next; b.className = 'mk' + (next > 0 ? ' plus' : next < 0 ? ' minus' : ''); b.textContent = next > 0 ? '+' : next < 0 ? '−' : '·'; lastKey = ''; }
+      const dim = b.dataset.dim || 'beauty';
+      const r = dim === 'beauty'
+        ? await fetch('/api/collection/mark', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: window.__study, cycle: Number(b.dataset.c), mark: next})})
+        : await fetch('/api/collection/score', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: window.__study, cycle: Number(b.dataset.c), dim, value: next})});
+      if (r.ok) { lastKey = ''; load(); }
     } finally { b.disabled = false; }
   });
   load(); setInterval(load, 5000);

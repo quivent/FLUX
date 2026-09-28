@@ -3,7 +3,7 @@
 <head>
   <style>.jmodel{font-size:22px;margin:0}.jjob{margin-top:6px;display:flex;align-items:center;gap:6px}.dot{width:7px;height:7px;border-radius:50%;background:var(--faint,#555);display:inline-block}.dot.on{background:#5fbf7f}.juror.off .jmodel{opacity:.55}.said{margin:12px 0 0;font-size:13px;line-height:1.5}.said b{font-weight:600;margin-right:6px}.said.quiet{opacity:.6}.jfeed{display:flex;flex-direction:column;gap:10px}.fitem{border-top:1px solid var(--rule,#333);padding-top:10px}.fhead{display:flex;gap:12px;font-size:12px;opacity:.8}.fhead b{margin-left:auto;font-size:14px;opacity:1}.fj{display:grid;grid-template-columns:minmax(0,180px) 42px minmax(0,1fr);gap:10px;font-size:12.5px;margin-top:6px}.fm{opacity:.85}.fs{font-weight:600;text-align:right}.fc{opacity:.8}@media(max-width:600px){.fj{grid-template-columns:1fr 40px}.fc{grid-column:1/-1}}</style>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
-  <title>Jury — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+  <title>Jury — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=3"></script>
 </head>
 <body>
   <main class="shell">
@@ -41,6 +41,7 @@
       ]);
       const cfg = protocol.jury || {}, weights = cfg.weights || {}, strict = cfg.strictness || {};
       const tenants = {}; (protocol.tenants || []).forEach(t => { tenants[t.id] = t; });
+      let seated = {}; try { const jj = await fetch('/api/jurors', {cache: 'no-store'}).then(r => r.json()); (jj.jurors || []).forEach(j => { seated[j.key] = j; }); } catch (_) {}
       document.getElementById("mode").textContent = cfg.mode || "parallel";
       document.getElementById("minimum").textContent = cfg.min_judges || 1;
       document.getElementById("spectacles").textContent = (protocol.spectacles && protocol.spectacles.count) || 0;
@@ -50,7 +51,7 @@
       document.getElementById("jury-health").textContent = working ? "at work · " + jury.station.replace(/-/g, " ") : "not judging: no jury worker running";
       const order = cfg.order || Object.keys(weights);
       document.getElementById("jurors").innerHTML = order.map(key => {
-        const m = modelOf(tenants[seatTenant[key]]), v = verdictOf(receipt, key);
+        const sj = seated[key], m = sj ? {name: sj.name, live: sj.live} : modelOf(tenants[seatTenant[key]]), v = verdictOf(receipt, key);
         const said = v ? `<p class="said"><b>${sc(v.score)}</b> ${Beauty.esc(v.critique || "(no critique)")}</p>`
           : `<p class="said quiet">${m.live ? "No verdict yet." : "Not seated, so it can’t judge."}</p>`;
         return `<article class="juror${m.live ? "" : " off"}"><div class="juror-top"><div><h3 class="jmodel">${Beauty.esc(m.name)}</h3>`

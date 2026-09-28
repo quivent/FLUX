@@ -2,15 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
-  <title>Collections — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+  <title>Collections — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=3"></script>
 </head>
 <body>
   <main class="shell">
     <section class="page-head"><div><div class="eyebrow">Archive</div><h1>Collections</h1><p class="lede">Separate runs, kept with their original prompt and review history.</p></div><a class="button" href="/control">New collection</a></section>
+    <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Studies</div><h2>Evolving collections</h2></div></div>
+      <div class="collection-grid" id="studies"><div class="empty">Reading studies…</div></div></section>
     <section class="section" style="padding-top:0"><div class="collection-grid" id="collections"><div class="empty">Reading protocol branches…</div></div></section>
     <footer><span>Beauty / Collections</span><span>Archive index</span></footer>
   </main>
   <script>
+  // The studies: each is one subject evolved frame by frame (image, eval, diff, next); a card opens its page.
+  (async function () {
+    try {
+      const d = await fetch('/api/collection', {cache: 'no-store'}).then(r => r.json());
+      const act = (d.active || {}).name;
+      const list = (d.collections || []).filter(x => (x.generation || 0) > 0).sort((a, b) => (b.name === act) - (a.name === act) || (b.updated_at || 0) - (a.updated_at || 0));
+      document.getElementById('studies').innerHTML = list.map(x => '<a class="collection-card" href="/collection?name=' + encodeURIComponent(x.name) + '"><div class="collection-visual" id="sv-' + Beauty.esc(x.name) + '"></div><div class="collection-copy"><div class="tiny">' + (x.name === act && (d.active || {}).active ? '● running' : 'study') + ' · ' + Beauty.esc(x.generation) + ' frames</div><h3>' + Beauty.esc(x.title || x.name) + '</h3><p class="muted">' + Beauty.esc(x.subject || '') + '</p></div></a>').join('') || '<div class="empty">No studies yet.</div>';
+      for (const x of list) {
+        try {
+          const h = await fetch('/api/collection/history?name=' + encodeURIComponent(x.name) + '&limit=1', {cache: 'no-store'}).then(r => r.json());
+          const r = (h.recent || []).find(y => y.src);
+          if (r) document.getElementById('sv-' + x.name).innerHTML = '<img src="/api/asset/thumbnail?w=640&src=' + encodeURIComponent(r.src) + '" alt="">';
+        } catch (_) {}
+      }
+    } catch (_) { document.getElementById('studies').innerHTML = '<div class="empty">Studies unavailable.</div>'; }
+  })();
   const fixed = [
     {slug:'fashion', name:'Fashion', note:'The main image stream.'},
     {slug:'arcane', name:'Arcane', note:'Character and world studies.'},

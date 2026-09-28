@@ -177,6 +177,19 @@ def local_prompt(base, frame):
     return trim_prompt(base + ", " + direction)
 
 
+def read_live_prompt(path, since):
+    """The prompt the operator saved on /control after this run started, verbatim; None if there is none."""
+    try:
+        with open(path) as handle:
+            live = json.load(handle)
+        text = live.get("prompt")
+        if isinstance(text, str) and text.strip() and float(live.get("at") or 0) > since:
+            return text
+    except (OSError, ValueError, TypeError):
+        pass
+    return None
+
+
 def wait_for_worker(path, state, state_path, stop, timeout=240.0):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline and not stop[0]:
@@ -224,6 +237,7 @@ def main():
     parser.add_argument("--state", default=DEFAULT_STATE)
     parser.add_argument("--pid", default=DEFAULT_PID)
     parser.add_argument("--lane", default="fashion")
+    parser.add_argument("--live", default=os.path.join(ROOT, ".fluxd", "beauty_live_prompt.json"))
     parser.add_argument("--advisor-timeout", type=float, default=4.0)
     args = parser.parse_args()
 
@@ -239,7 +253,7 @@ def main():
         "status": "running", "stage": "starting", "lane": args.lane,
         "n": max(0, args.n), "steps": args.steps, "width": args.width,
         "height": args.height, "depth": 1, "submitted": 0, "done": 0,
-        "running": 0, "prompt": trim_prompt(args.prompt), "advisor": "local",
+        "running": 0, "prompt": str(args.prompt), "advisor": "none",
         "started_at": time.time(), "updated_at": time.time(), "error": "",
     }
     atomic_json(args.state, state)
@@ -252,13 +266,15 @@ def main():
 
     try:
         wait_for_worker(args.socket, state, args.state, stop)
-        base_prompt = trim_prompt(args.prompt)
-        prompt = base_prompt
+        prompt = str(args.prompt)
         try:
             base_seed = int(args.seed) if str(args.seed).strip() else None
         except ValueError:
             raise RuntimeError("seed must be an integer or blank")
         while not stop[0] and (args.n <= 0 or state["done"] < args.n):
+            live = read_live_prompt(args.live, state["started_at"])   # Save on /control switches the next frame
+            if live is not None:
+                prompt = live
             ordinal = state["submitted"] + 1
             seed = (base_seed + ordinal - 1) % 2_147_483_647 if base_seed is not None else random.SystemRandom().randrange(1, 2_147_483_647)
             filename = "beauty-fashion-%s-%04d.png" % (state["id"], ordinal)
@@ -309,22 +325,8 @@ def main():
                 state["jury_error"] = str(jury_exc)[:300]
             atomic_json(args.state, state)
 
-            directed = None
-            for advisor in advisors:
-                if advisor.probe():
-                    state.update(stage="directing", advisor=advisor.name, updated_at=time.time())
-                    atomic_json(args.state, state)
-                    directed = advisor.next_prompt(image_path, prompt, state["done"])
-                    if directed and directed.get("prompt"):
-                        prompt = directed["prompt"]
-                        state["critique"] = directed.get("critique", "")
-                        state["advisor"] = advisor.name
-                    else:
-                        state["advisor_error"] = (directed or {}).get("error", "advisor unavailable")
-                    break
-            if not directed or not directed.get("prompt"):
-                prompt = local_prompt(base_prompt, state["done"] + 1)
-                state["advisor"] = "local"
+            # The operator's prompt is rendered exactly as sent, every frame.
+            # No advisor rewrite, no appended variation words.
             state.update(stage="ready", next_prompt=prompt, updated_at=time.time())
             atomic_json(args.state, state)
 

@@ -6,11 +6,25 @@
   <style>.coll-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.cgrid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:14px}.cgrid p{margin:4px 0 10px;line-height:1.5}.cjs{margin-top:6px}.cj{font-size:12.5px;margin-top:5px;line-height:1.45}@media(max-width:700px){.cgrid{grid-template-columns:1fr}}</style>
   <style>.jsw{display:flex;gap:16px}.seatrow{border-top:1px solid var(--rule,#333);padding-top:10px}.seatrow.off{opacity:.55}.seatname{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}.seatname b{font-size:15px;font-weight:500}.share{margin:-2px 0 6px;opacity:.85}</style>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a"><meta http-equiv="Cache-Control" content="no-store">
-  <title>Controls — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+  <title>Controls — Beauty</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=3"></script>
 </head>
 <body>
   <main class="shell">
-    <section class="page-head"><div><div class="eyebrow">Private working controls</div><h1>Controls</h1><p class="lede">Set the prompt and pace for the next run. Jury changes apply to later reviews.</p></div><span class="pill" id="control-status">checking</span></section>
+    <section class="page-head"><div><div class="eyebrow">Private working controls</div><h1>Controls</h1><p class="lede">Set the prompt and pace of the stream. Jury changes apply to later reviews.</p></div><span class="pill" id="control-status">checking</span></section>
+    <section class="section" style="padding-top:0">
+      <form class="panel panel-pad stack" id="prompt-form">
+        <div class="field wide"><label for="prompt" id="prompt-label">Prompt: rendering now</label><textarea id="prompt" name="prompt" rows="5" placeholder="Describe the world the stream should hold…"></textarea>
+          <div class="actions" style="margin-top:6px"><button class="button primary" type="button" id="save-prompt">Save prompt</button><span class="tiny" id="saved-note" style="opacity:.75"></span></div>
+          <div class="tiny" id="saved-list" style="margin-top:6px;line-height:1.6"></div></div>
+        <div class="field wide" style="display:none"><textarea id="wall-prompts" rows="1" tabindex="-1" aria-hidden="true"></textarea></div>
+        <div class="field wide"><label for="direction">Directions · what to factor into the prompt</label><textarea id="direction" rows="2" placeholder="e.g. more natural light; no runway backdrops"></textarea></div>
+        <div class="actions"><button class="button" type="button" id="add-direction">Add direction</button></div>
+        <ul id="directions" class="stack" style="list-style:none;padding:0;margin:0"></ul>
+        <div class="tiny" style="opacity:.85">Renders as: <span id="renders-as"></span></div>
+        <div style="display:none"><div id="composer"></div><div id="composed"></div></div>
+        <div class="notice" id="prompt-notice"></div>
+      </form>
+    </section>
     <section class="section" style="padding-top:0;display:none" aria-hidden="true">
       <div class="panel panel-pad stack" id="coll-panel">
         <div class="coll-head"><div><div class="eyebrow">Collection</div><h2 style="margin:14px 0 0" id="coll-title">No collection running</h2></div><span class="pill" id="coll-status">off</span></div>
@@ -26,30 +40,17 @@
       </div>
     </section>
     <section class="section" style="padding-top:0">
-      <form class="panel panel-pad stack" id="prompt-form">
-        <div><div class="eyebrow">Directions</div></div>
-        <div class="field wide"><label for="wall-prompts">Prompt · one per line, the wall rotates through them</label><textarea id="wall-prompts" rows="6"></textarea></div>
-        <div class="actions"><button class="button primary" type="submit">Save prompt</button></div>
-        <div class="field wide"><label for="direction">Directions · what to factor into the prompt</label><textarea id="direction" rows="2" placeholder="e.g. more natural light; no runway backdrops"></textarea></div>
-        <div class="actions"><button class="button" type="button" id="add-direction">Add direction</button></div>
-        <ul id="directions" class="stack" style="list-style:none;padding:0;margin:0"></ul>
-        <div><div class="eyebrow" id="composer">Renders as</div><div class="terminal" id="composed" style="white-space:pre-wrap"></div></div>
-        <div class="notice" id="prompt-notice"></div>
-      </form>
-    </section>
-    <section class="section" style="padding-top:0">
       <div class="split">
         <form class="panel panel-pad stack" id="stream-form">
-          <div><div class="eyebrow">Generation</div><h2 style="margin:14px 0 0">Next run</h2></div>
+          <div class="eyebrow">Stream settings</div>
           <div class="form-grid">
-            <div class="field wide"><label for="prompt">Prompt</label><textarea id="prompt" name="prompt" placeholder="Describe the world the stream should hold…"></textarea><div class="actions" style="margin-top:6px"><button class="button" type="button" id="save-prompt">Save prompt</button><span class="tiny" id="saved-note" style="opacity:.75"></span></div><div class="tiny" id="saved-list" style="margin-top:6px;line-height:1.6"></div><div class="tiny" style="margin-top:8px;opacity:.85">Renders as: <span id="renders-as"></span></div></div>
             <div class="field"><label for="lane">Collection</label><input id="lane" name="lane" value="fashion" pattern="[a-z0-9-]+"></div>
             <div class="field"><label for="count">Frame cap</label><select id="count" name="count"><option value="0" selected>Continuous</option><option>8</option><option>16</option><option>64</option><option>256</option></select></div>
             <div class="field"><label for="steps">Steps</label><select id="steps" name="steps"><option>8</option><option>12</option><option selected>18</option><option>24</option><option>28</option></select></div>
             <div class="field"><label for="guidance">Guidance</label><input id="guidance" name="guidance" type="number" min="0" max="20" step="0.1" value="3.5"></div>
             <div class="field"><label for="seed">Base seed</label><input id="seed" name="seed" inputmode="numeric" placeholder="random each frame"></div>
             <div class="field"><label for="size">Native size</label><select id="size" name="size"><option selected>512</option></select></div>
-            <div class="field"><label for="advisor-timeout">Advisor timeout</label><select id="advisor-timeout" name="advisor-timeout"><option>0.5</option><option>1</option><option>2</option><option selected>4</option><option>8</option></select></div>
+            <div class="field" style="display:none"><label for="advisor-timeout">Advisor timeout</label><select id="advisor-timeout" name="advisor-timeout"><option>0.5</option><option>1</option><option>2</option><option selected>4</option><option>8</option></select></div>
           </div>
           <div class="actions"><button class="button primary" type="submit">Start stream</button><button class="button danger" type="button" id="stop-stream">Stop branch</button><a class="button" href="/gallery/">Watch wall</a></div>
           <div class="notice" id="stream-notice"></div>
@@ -83,7 +84,7 @@
     {key: "qwen", job: "Structural witness", name: "Ornith 1.5 · English-v2 FP8", live: false},
     {key: "governor", job: "Synthesis · law & intent", name: "Gemma 4 12B · FP8", live: false}
   ];
-  const PRETTY = {"pixtral-critic": "Pixtral 12B · W4A16", "visual-witness": "Qwen3.8-27B · INT4", "ornith-judge": "Ornith 1.5 · English-v2 FP8", "qwen3.8-27b-int4": "Qwen3.8-27B · INT4", "gemma-12b-governor-visionary": "Gemma 4 12B · FP8"};
+  const PRETTY = {"pixtral-critic": "Pixtral 12B · W4A16", "ornith-judge": "Ornith 1.5 · English-v2 FP8", "gemma-12b-governor-visionary": "Gemma 4 12B · FP8"};
   const seatModel = s => ({live: !!s.live, name: s.name});
   function notice(id, text, bad) { const el = document.getElementById(id); el.textContent = text; el.style.color = bad ? 'var(--danger)' : 'var(--cyan)'; }
   function shares() {
@@ -95,8 +96,8 @@
     const weights = cfg.weights || {}, strict = cfg.strictness || {};
     const wOf = s => s.key === "qwen" ? Number(weights.qwen || 0) + Number(weights.decoder || 0) : Number(weights[s.key] || 0);
     document.getElementById("weights").innerHTML = SEATS.map(s => { const m = seatModel(s), v = Math.round(100 * Math.min(1, wOf(s)));
-      return '<div class="seatrow' + (m.live ? '' : ' off') + '"><div class="seatname"><b>' + m.name + '</b><span class="tiny">' + s.job + ' · ' + (m.live ? 'seated' : 'not seated') + '</span></div>'
-        + '<div class="range-row"><label class="tiny" for="w-' + s.key + '">influence</label><input id="w-' + s.key + '" type="range" min="0" max="100" step="5" value="' + v + '"><output id="wo-' + s.key + '">' + v + '</output></div>'
+      return '<div class="seatrow' + (m.live ? '' : ' off') + '"><div class="seatname"><b>' + m.name + '</b><span class="tiny">' + s.job + ' · ' + (m.live ? 'seated' : 'not seated') + (s.port ? ' · :' + s.port + ((s.models || [])[0] ? ' as ' + s.models[0] : '') : '') + '</span></div>'
+        + '<div class="range-row"><label class="tiny" for="w-' + s.key + '">influence</label><input id="w-' + s.key + '" type="range" min="0" max="100" step="1" value="' + v + '"><output id="wo-' + s.key + '">' + v + '</output></div>'
         + '<div class="tiny share" id="sh-' + s.key + '"></div>'
         + '<div class="range-row" style="margin-bottom:12px"><label class="tiny" for="g-' + s.key + '">γ strict</label><input id="g-' + s.key + '" type="range" min="0.5" max="3" step="0.1" value="' + Number(strict[s.key] || 1) + '"><output id="go-' + s.key + '">' + Number(strict[s.key] || 1).toFixed(1) + '</output></div></div>'; }).join("");
     SEATS.forEach(s => {
@@ -129,7 +130,7 @@
     const body = {action:'start', prompt:rendersAs(), n:Number(document.getElementById('count').value), steps:Number(document.getElementById('steps').value), width:Number(document.getElementById('size').value), height:Number(document.getElementById('size').value), guidance:Number(document.getElementById('guidance').value), seed:document.getElementById('seed').value.trim(), advisor_timeout:Number(document.getElementById('advisor-timeout').value)};
     if (!lane || !body.prompt) return notice('stream-notice','Collection and prompt are required.',true);
     notice('stream-notice','Starting ' + lane + '…');
-    try { const r = await fetch('/api/beauty/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); notice('stream-notice','Adaptive 512px loop accepted. The wall will update live.'); hydrate(); } catch (err) { notice('stream-notice',String(err),true); }
+    try { const sd = await savePrompt(); renderSaved(sd); const r = await fetch('/api/beauty/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); notice('stream-notice', (d.started === false ? 'Stream already running; it switches to this text from the next frame: ' : 'Stream started with exactly: ') + body.prompt); document.getElementById('prompt-label').textContent = 'Prompt: rendering now'; hydrate(); } catch (err) { notice('stream-notice',String(err),true); }
   };
   document.getElementById('stop-stream').onclick = async () => {
     const name = document.getElementById('lane').value.trim().toLowerCase();
@@ -141,7 +142,7 @@
     if (!juryConfig) return;
     const next = {...juryConfig, mode:document.getElementById('mode').value, adversarial_mode:document.getElementById('adversarial').checked, text_from_gates:document.getElementById('text-gates').checked, weights:{...juryConfig.weights}, strictness:{...juryConfig.strictness}};
     SEATS.forEach(st => { next.weights[st.key] = Number(document.getElementById('w-' + st.key).value) / 100; next.strictness[st.key] = Number(document.getElementById('g-' + st.key).value); });
-    next.weights.decoder = 0;   // the witness carries the decoder seat; its weight is set on the Qwen row
+    next.weights.decoder = 0;   // the structural witness (Ornith) carries the decoder seat
     const jm = document.querySelector('input[name=judging]:checked'); if (jm) fetch('/api/judging', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode: jm.value})});
     notice('jury-notice','Applying jury…');
     try { const r = await fetch('/api/jury/config?lane=fashion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); juryConfig = d.config || next; notice('jury-notice','Jury applied live.'); hydrate(); } catch (err) { notice('jury-notice',String(err) + ' — use an authenticated operator listener.',true); }
@@ -156,12 +157,12 @@
     document.getElementById('composer').textContent = 'Renders as' + ((d.directions || []).length ? ' · directions folded in by ' + d.composer : '');
   }
   async function promptCall(method, url, body) {
-    notice('prompt-notice', body && body.text ? 'Folding the direction into the prompt…' : 'Saving…');
-    try { const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined}); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'request ' + r.status); wallEdited = false; paintPrompt(d); notice('prompt-notice', 'Saved. New renders use it.'); } catch (err) { notice('prompt-notice', String(err), true); }
+    notice('prompt-notice', 'Saving…');
+    try { const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined}); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'request ' + r.status); wallEdited = false; paintPrompt(d); notice('prompt-notice', 'Saved.'); } catch (err) { notice('prompt-notice', String(err), true); }
   }
   async function hydratePrompt() { try { paintPrompt(await fetch('/api/prompt', {cache:'no-store'}).then(r => r.json())); } catch (_) { notice('prompt-notice', 'Prompt unavailable.', true); } }
   document.getElementById('wall-prompts').oninput = () => { wallEdited = true; };
-  document.getElementById('prompt-form').onsubmit = e => { e.preventDefault(); promptCall('POST', '/api/prompt', {prompts: document.getElementById('wall-prompts').value.split('\n')}); };
+  document.getElementById('prompt-form').onsubmit = e => e.preventDefault();
   document.getElementById('add-direction').onclick = () => { const t = document.getElementById('direction'); if (!t.value.trim()) return; promptCall('POST', '/api/prompt/direction', {text: t.value}); t.value = ''; };
   hydratePrompt();
 
@@ -204,11 +205,36 @@
       '<a href="#" class="sv" data-i="' + i + '" title="' + String(x.prompt).replace(/"/g, '&quot;') + '">' + new Date(x.at * 1000).toLocaleTimeString() + '</a>').join(' \u00b7 ') : '';
     document.querySelectorAll('.sv').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById('prompt').value = v[Number(a.dataset.i)].prompt; });
   }
-  fetch('/api/saved-prompt', {cache: 'no-store'}).then(r => r.json()).then(d => { const f = document.getElementById('prompt'); if (d.current && !f.value) f.value = d.current; renderSaved(d); }).catch(() => {});
+  // The field shows the prompt rendering now (the running stream's own text, minus the directions it was started with);
+  // with no stream running, the last saved prompt. It is filled once at page open and never rewritten after that.
+  Promise.all([
+    fetch('/api/saved-prompt', {cache: 'no-store'}).then(r => r.json()).catch(() => ({})),
+    fetch('/api/beauty/pipeline', {cache: 'no-store'}).then(r => r.json()).catch(() => ({})),
+    fetch('/api/prompt', {cache: 'no-store'}).then(r => r.json()).catch(() => ({}))
+  ]).then(([d, pl, pr]) => {
+    const f = document.getElementById('prompt'), lab = document.getElementById('prompt-label');
+    const run = pl.running && pl.pipeline && pl.pipeline.status === 'running' ? String(pl.pipeline.prompt || '') : '';
+    const tail = (pr.directions || []).map(x => x.text).join('; ');
+    let text = '';
+    if (run) { text = tail && run.endsWith('. ' + tail) ? run.slice(0, -(tail.length + 2)) : run; lab.textContent = 'Prompt: rendering now'; }
+    else { text = d.current || ''; lab.textContent = 'Prompt: last saved (no stream running)'; }
+    if (!f.value) f.value = text;
+    if (pr.directions) { dirsNow = pr.directions; }
+    showRendersAs(); renderSaved(d);
+  });
+  // Save keeps every version and hands the running stream exactly the "Renders as" text for its next frame.
+  async function savePrompt() {
+    const text = document.getElementById('prompt').value.trim(); if (!text) throw new Error('empty prompt');
+    const r = await fetch('/api/saved-prompt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text, renders: rendersAs()})});
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'request ' + r.status);
+    const pl = await fetch('/api/beauty/pipeline', {cache: 'no-store'}).then(x => x.json()).catch(() => ({}));
+    d.streaming = !!pl.running; if (d.streaming) document.getElementById('prompt-label').textContent = 'Prompt: rendering now';
+    return d;
+  }
   document.getElementById('save-prompt').onclick = async () => {
     const text = document.getElementById('prompt').value.trim(); if (!text) return;
-    try { const d = await fetch('/api/saved-prompt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text})}).then(r => r.json());
-      document.getElementById('saved-note').textContent = 'Saved ' + new Date().toLocaleTimeString(); renderSaved(d); } catch (e) { document.getElementById('saved-note').textContent = 'Not saved: ' + e; }
+    try { const d = await savePrompt();
+      document.getElementById('saved-note').textContent = 'Saved ' + new Date().toLocaleTimeString() + (d.streaming ? ' · the stream renders it from the next frame' : ''); renderSaved(d); } catch (e) { document.getElementById('saved-note').textContent = 'Not saved: ' + e; }
   };
 
   let dirsNow = [];

@@ -7,7 +7,23 @@
   <meta name="theme-color" content="#07070a">
   <title>Live Gallery — Beauty</title>
   <link rel="stylesheet" href="/beauty.css?v=4">
-  <script defer src="/beauty-shell.js?v=2"></script>
+  <script defer src="/beauty-shell.js?v=3"></script>
+<style>
+  .image-card{position:relative}
+  #wall.only-anchors .image-card:not(.anchor){display:none}
+  .image-card.scored{aspect-ratio:auto !important;overflow:visible !important}
+  .image-card.scored img{aspect-ratio:1;height:auto !important}
+  .gmk{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:0;margin-top:2px}
+  .gmk .lab{grid-column:1;font:600 11px/32px system-ui;padding:0 6px;opacity:.85;letter-spacing:.03em}
+  .gmb{height:32px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:inherit;font:700 18px/1 system-ui;cursor:pointer}
+  .gsc{display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.25);font:800 15px/1 system-ui;min-width:40px}
+  .gsc.pos{background:#2e7d4f}.gsc.neg{background:#8a2f2f}
+  .image-card.scored .caption{bottom:auto;top:0}
+  .image-card.anchor::after{content:"ANCHOR " attr(data-score);position:absolute;left:0;right:0;top:0;aspect-ratio:1;border:5px solid #5fbf7f;pointer-events:none;z-index:4;
+    display:flex;align-items:flex-start;justify-content:flex-start;padding:6px 8px;color:#fff;font:800 13px/1 system-ui;letter-spacing:.08em;text-shadow:0 1px 3px #000}
+  .image-card.removed::after{content:"REMOVED";position:absolute;left:0;right:0;top:0;aspect-ratio:1;border:5px solid #d98476;pointer-events:none;z-index:4;
+    display:flex;padding:6px 8px;color:#fff;font:800 13px/1 system-ui;text-shadow:0 1px 3px #000}
+</style>
 </head>
 <body>
   <main class="shell">
@@ -24,6 +40,7 @@
       </div>
     </section>
     <section class="section" style="padding-top:0">
+      <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;margin:4px 0 10px;cursor:pointer"><input type="checkbox" id="only-anchors"> Anchors only (your score above 0)</label>
       <nav class="pager" id="pager-top" aria-label="Gallery pages"></nav>
       <div class="image-grid" id="wall"><div class="empty">Opening the archive and live signal…</div></div>
       <nav class="pager" id="pager-bottom" aria-label="Gallery pages, bottom"></nav>
@@ -86,6 +103,52 @@
   const cards = () => Array.from(wall.querySelectorAll('.image-card'));
 
   // Returns true when the frame was placed on the wall.
+  // The teacher's marks on the running study's frames: + anchor, − remove. A frame on the wall is matched to its study cycle by file name.
+  let study = null, byFile = {}, saveQ = Promise.resolve();
+  async function loadMarks() {
+    try {
+      const cur = await fetch('/api/collection', {cache: 'no-store'}).then(r => r.json());
+      const name = (cur.active || {}).name; if (!name) return;
+      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=400', {cache: 'no-store'}).then(r => r.json());
+      const m = {};
+      (h.recent || []).forEach(r => { if (r.src) m[r.src.split('/').pop().replace(/^c\d{4}-/, '')] = {cycle: r.cycle, mark: r.mark || 0, direction: (r.scores || {}).direction || 0, difference: (r.scores || {}).difference || 0, uniqueness: (r.scores || {}).uniqueness || 0}; });
+      for (const k in m) if (byFile[k] && byFile[k].pending) m[k] = byFile[k];
+      study = name; byFile = m;
+      document.querySelectorAll('.image-card').forEach(paintMarks);
+    } catch (_) {}
+  }
+  function paintMarks(card) {
+    const bar = card.querySelector('.gmk'); if (!bar) return;
+    const f = byFile[bar.dataset.file];
+    bar.style.display = f ? 'grid' : 'none';               // only the running study's frames are scored
+    card.classList.toggle('scored', !!f);
+    const mk = f ? f.mark : 0;
+    card.classList.toggle('anchor', mk > 0); card.classList.toggle('removed', mk < 0);
+    for (const [k, v] of [['beauty', mk], ['direction', f ? f.direction : 0], ['difference', f ? f.difference : 0], ['uniqueness', f ? f.uniqueness : 0]]) {
+      const sc = bar.querySelector('.gsc[data-dim="' + k + '"]'); sc.textContent = (v > 0 ? '+' : '') + v; sc.className = 'gsc' + (v > 0 ? ' pos' : v < 0 ? ' neg' : '');
+    }
+    card.dataset.score = mk;
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('.gmb'); if (!b) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    const f = byFile[b.parentElement.dataset.file]; if (!f || !study) return;
+    try {
+      const dim = b.dataset.dim, key = dim === 'beauty' ? 'mark' : dim;
+      const next = Math.max(-20, Math.min(20, (f[key] || 0) + Number(b.dataset.d)));
+      const prev = f[key] || 0; f[key] = next; paintMarks(b.closest('.image-card'));      // shown at once; saved in the background
+      const card = b.closest('.image-card'), cyc = f.cycle, st = study;
+      saveQ = saveQ.then(async () => {                  // saved one at a time, in the order pressed
+        const r = dim === 'beauty'
+          ? await fetch('/api/collection/mark', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: st, cycle: cyc, mark: next})})
+          : await fetch('/api/collection/score', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: st, cycle: cyc, dim, value: next})});
+        if (!r.ok && f[key] === next) { f[key] = prev; paintMarks(card); }
+      }).catch(() => {});
+    } catch (_) {}
+  }, true);
+  loadMarks(); setInterval(loadMarks, 4000);
+  document.getElementById('only-anchors').addEventListener('change', e => { document.getElementById('wall').classList.toggle('only-anchors', e.target.checked); });
+
   function add(item, fresh) {
     const url = urlOf(item);
     if (!url || seen.has(url) || !belongs(item, lane())) return false;
@@ -105,6 +168,10 @@
     a.dataset.name = name;
     a.setAttribute('aria-label', 'View ' + name);
     a.innerHTML = '<img loading="lazy" decoding="async" src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url) + '" srcset="' + tileSrcset(url) + '" sizes="' + TILE_SIZES + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
+    const bar = document.createElement('div'); bar.className = 'gmk'; bar.dataset.file = name;
+    bar.innerHTML = [['beauty', 'Beauty'], ['direction', 'Direction'], ['difference', 'Difference'], ['uniqueness', 'Uniqueness']].map(([k, n]) =>
+      '<span class="lab">' + n + '</span><button type="button" class="gmb m" data-dim="' + k + '" data-d="-1">−</button><span class="gsc" data-dim="' + k + '">0</span><button type="button" class="gmb p" data-dim="' + k + '" data-d="1">+</button>').join('');
+    a.append(bar); paintMarks(a);
     wall.insertBefore(a, after);
     while (cards().length > pg.per) cards().pop().remove();
     return true;

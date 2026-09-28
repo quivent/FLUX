@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07070a">
-  <title>Beauty Protocol</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=2"></script>
+  <title>Beauty Protocol</title><link rel="stylesheet" href="/beauty.css?v=2"><script defer src="/beauty-shell.js?v=3"></script>
 </head>
 <body>
   <main class="shell">
@@ -22,7 +22,18 @@
         </aside>
       </div>
     </section>
-    <footer><span>jury_continuum.toml</span><span>Revision 3</span></footer>
+    <footer><span>jury_continuum.toml</span><span>Revision 4</span></footer>
+    <section class="section"><div class="section-head"><div><div class="eyebrow">Revision 4 · 2026-09-28</div><h2>The study loop</h2></div></div>
+      <p class="lede">A study is one subject evolved by incremental change. Strictly linear: one image, evaluated, diffed, then the next. Nothing runs in parallel.</p>
+      <ol style="line-height:1.6">
+        <li><b>The teacher leads.</b> The teacher's prompt is never altered. Four scores under every frame: <b>Beauty</b> (makes it an anchor, weighted by score), <b>Direction</b> (is it pointing well: moving away from where the line started), <b>Difference</b> (the magnitude, the rate of change) and <b>Uniqueness</b>. The teacher's scores outrank every judge.</li>
+        <li><b>Anchors and lines.</b> Each anchor starts a line. The loop stays on one line while it gains; after 4 frames without a gain it moves to another anchor, chosen by smooth weighted round-robin on the Beauty scores. A gain becomes the line's new head, so gains compound.</li>
+        <li><b>One controlled change.</b> The next frame keeps the base frame's seed and changes one thing, so the change is the only difference. Distance moves one step nearer or farther, only when framing is the change. Every 6th frame explores with a new seed. The same seed and words never render twice.</li>
+        <li><b>Direction and magnitude.</b> A step must move farther from the line's start (DINOv2 distance) than its base, and be visible (at least the step size the teacher's Difference scores reward, never under 0.12 for the writer). A step that moved away and was kept is pushed further the same way (momentum).</li>
+        <li><b>A neutral judge.</b> Ornith is shown the pair in both orders and told nothing to prefer. It scores beauty, uniqueness, anatomy and defects; an aspect counts only when both orders agree. Change is measured, never judged, and never counts as better.</li>
+        <li><b>Proof.</b> Every accepted step can be re-judged fresh in both orders. The Studies page shows each step beside the frame it was built from.</li>
+        <li><b>Everything kept.</b> Every prompt is logged, every frame is filed in its study and streamed to R2, and the study's frames go to influx.pictures under <code>protocol-&lt;album&gt;-stream-</code>.</li>
+      </ol></section>
   </main>
   <script>
   async function loadProtocol() {

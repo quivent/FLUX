@@ -2,6 +2,8 @@
   const nav = [
     ['/gallery/', 'Gallery'],
     ['/collections', 'Collections'],
+    ['/collection', 'Studies'],
+    ['/scoring', 'Scoring'],
     ['/protocol', 'Protocol'],
     ['/overview', 'Overview'],
     ['/profiles', 'Profiles'],
