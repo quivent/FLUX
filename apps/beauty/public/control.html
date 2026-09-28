@@ -8,6 +8,18 @@
   <main class="shell">
     <section class="page-head"><div><div class="eyebrow">Private working controls</div><h1>Controls</h1><p class="lede">Set the prompt and pace for the next run. Jury changes apply to later reviews.</p></div><span class="pill" id="control-status">checking</span></section>
     <section class="section" style="padding-top:0">
+      <form class="panel panel-pad stack" id="prompt-form">
+        <div><div class="eyebrow">Wall</div><h2 style="margin:14px 0 0">Prompt</h2></div>
+        <div class="field wide"><label for="wall-prompts">Prompt · one per line, the wall rotates through them</label><textarea id="wall-prompts" rows="6"></textarea></div>
+        <div class="actions"><button class="button primary" type="submit">Save prompt</button></div>
+        <div class="field wide"><label for="direction">Directions · what to factor into the prompt</label><textarea id="direction" rows="2" placeholder="e.g. more natural light; no runway backdrops"></textarea></div>
+        <div class="actions"><button class="button" type="button" id="add-direction">Add direction</button></div>
+        <ul id="directions" class="stack" style="list-style:none;padding:0;margin:0"></ul>
+        <div><div class="eyebrow" id="composer">Renders as</div><div class="terminal" id="composed" style="white-space:pre-wrap"></div></div>
+        <div class="notice" id="prompt-notice"></div>
+      </form>
+    </section>
+    <section class="section" style="padding-top:0">
       <div class="split">
         <form class="panel panel-pad stack" id="stream-form">
           <div><div class="eyebrow">Generation</div><h2 style="margin:14px 0 0">Next run</h2></div>
@@ -86,6 +98,25 @@
     notice('jury-notice','Applying jury…');
     try { const r = await fetch('/api/jury/config?lane=fashion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)}); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'request ' + r.status); juryConfig = d.config || next; notice('jury-notice','Jury applied live.'); hydrate(); } catch (err) { notice('jury-notice',String(err) + ' — use an authenticated operator listener.',true); }
   };
+  let wallEdited = false;
+  function paintPrompt(d) {
+    if (!wallEdited) document.getElementById('wall-prompts').value = (d.prompts || []).join('\n');
+    const nr = document.getElementById('prompt');
+    if (!nr.value && document.activeElement !== nr) nr.value = (d.composed || [])[0] || '';
+    const ul = document.getElementById('directions'); ul.innerHTML = '';
+    (d.directions || []).forEach(x => { const li = document.createElement('li'); li.className = 'range-row'; const t = document.createElement('span'); t.textContent = x.text; const b = document.createElement('button'); b.type = 'button'; b.className = 'button'; b.textContent = 'Remove'; b.onclick = () => promptCall('DELETE', '/api/prompt/direction?id=' + encodeURIComponent(x.id)); li.append(t, b); ul.append(li); });
+    document.getElementById('composed').textContent = (d.composed || []).join('\n\n');
+    document.getElementById('composer').textContent = 'Renders as' + ((d.directions || []).length ? ' · directions folded in by ' + d.composer : '');
+  }
+  async function promptCall(method, url, body) {
+    notice('prompt-notice', body && body.text ? 'Folding the direction into the prompt…' : 'Saving…');
+    try { const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined}); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'request ' + r.status); wallEdited = false; paintPrompt(d); notice('prompt-notice', 'Saved. New renders use it.'); } catch (err) { notice('prompt-notice', String(err), true); }
+  }
+  async function hydratePrompt() { try { paintPrompt(await fetch('/api/prompt', {cache:'no-store'}).then(r => r.json())); } catch (_) { notice('prompt-notice', 'Prompt unavailable.', true); } }
+  document.getElementById('wall-prompts').oninput = () => { wallEdited = true; };
+  document.getElementById('prompt-form').onsubmit = e => { e.preventDefault(); promptCall('POST', '/api/prompt', {prompts: document.getElementById('wall-prompts').value.split('\n')}); };
+  document.getElementById('add-direction').onclick = () => { const t = document.getElementById('direction'); if (!t.value.trim()) return; promptCall('POST', '/api/prompt/direction', {text: t.value}); t.value = ''; };
+  hydratePrompt();
   hydrate(); setInterval(hydrate, 5000);
   </script>
 </body>
