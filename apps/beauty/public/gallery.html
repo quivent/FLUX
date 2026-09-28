@@ -111,7 +111,7 @@
       const name = (cur.active || {}).name; if (!name) return;
       const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=400', {cache: 'no-store'}).then(r => r.json());
       const m = {};
-      (h.recent || []).forEach(r => { if (r.src) m[r.src.split('/').pop().replace(/^c\d{4}-/, '')] = {cycle: r.cycle, mark: r.mark || 0, direction: (r.scores || {}).direction || 0, difference: (r.scores || {}).difference || 0, uniqueness: (r.scores || {}).uniqueness || 0}; });
+      (h.recent || []).forEach(r => { if (r.src) m[r.src.split('/').pop().replace(/^c\d{4}-/, '')] = {cycle: r.cycle, repeat: String(r.outcome || '').startsWith('not kept: too little change'), mark: r.mark || 0, direction: (r.scores || {}).direction || 0, difference: (r.scores || {}).difference || 0, uniqueness: (r.scores || {}).uniqueness || 0}; });
       for (const k in m) if (byFile[k] && byFile[k].pending) m[k] = byFile[k];
       study = name; byFile = m;
       document.querySelectorAll('.image-card').forEach(paintMarks);
@@ -122,6 +122,7 @@
     const f = byFile[bar.dataset.file];
     bar.style.display = f ? 'grid' : 'none';               // only the running study's frames are scored
     card.classList.toggle('scored', !!f);
+    card.style.display = f && f.repeat ? 'none' : '';     // a frame the gate rejected as too little change reads as a repeat: hidden
     const mk = f ? f.mark : 0;
     card.classList.toggle('anchor', mk > 0); card.classList.toggle('removed', mk < 0);
     for (const [k, v] of [['beauty', mk], ['direction', f ? f.direction : 0], ['difference', f ? f.difference : 0], ['uniqueness', f ? f.uniqueness : 0]]) {

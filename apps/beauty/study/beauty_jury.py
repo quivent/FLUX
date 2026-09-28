@@ -590,7 +590,7 @@ def chain_step(coll, finished):
         elif m.get("d_prev") is not None and coll.get("base_origin") is not None and m["d_prev"] <= float(coll["base_origin"]):
             entry["outcome"] = "not kept: moved back toward the start (%.3f from it, the base was %.3f; net %+.1f)" % (m["d_prev"], float(coll["base_origin"]), net)
             stall += 1
-        elif m["d_champ"] < float(cfg.get("min_change", 0.12)):   # the strict monitor on change (DINOv2 distance to the best)
+        elif m["d_champ"] < max(0.08, float(cfg.get("min_change", 0.12))):   # a barely-changed frame reads as a repeat: never kept   # the strict monitor on change (DINOv2 distance to the best)
             entry["outcome"] = "not kept: too little change (%.3f < %.2f, net %+.1f)" % (m["d_champ"], float(cfg.get("min_change", 0.12)), net)
             stall += 1
         elif net >= GAIN and ready and (prof.get("beauty") or {}).get("d", 0) >= 0:
@@ -686,7 +686,7 @@ def chain_step(coll, finished):
     ts["now"] = sum(ds) / len(ds) if ds else None
     coll["teacher_steps"] = ts
     if ts["target"]:                                      # the change gate follows the step size the teacher rewards
-        cfg["min_change"] = max(0.03, round(0.5 * ts["target"], 3))
+        cfg["min_change"] = max(0.08, round(0.5 * ts["target"], 3))
     coll["taste"] = {"liked": [(a["score"], a["craft"]) for a in sorted(anc, key=lambda a: -a["score"])[:5]], "disliked": disliked(folder)[:5]}
     if stall >= beauty_vision.STALL_REVISION and not taught and cfg["writer"] != "off":   # the vision stalled: re-imagine it from the best frame
         try:
