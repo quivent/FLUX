@@ -80,6 +80,9 @@
     return urlOf(item).includes('/collections/' + selected + '/') || String(item.scope || item.lane || '') === selected;
   }
   function thumb(url) { return '/api/asset/thumbnail?w=768&src=' + encodeURIComponent(url); }
+  // Grid tiles: the browser picks the smallest width that is sharp at the tile size and screen density.
+  function tileSrcset(url) { return [256, 384, 640].map(function (w) { return '/api/asset/thumbnail?w=' + w + '&src=' + encodeURIComponent(url) + ' ' + w + 'w'; }).join(', '); }
+  var TILE_SIZES = '(max-width: 700px) 50vw, (max-width: 960px) 33vw, 25vw';
   const cards = () => Array.from(wall.querySelectorAll('.image-card'));
 
   // Returns true when the frame was placed on the wall.
@@ -101,7 +104,7 @@
     const name = item.filename || item.name || (item.asset && item.asset.name) || url.split('/').pop();
     a.dataset.name = name;
     a.setAttribute('aria-label', 'View ' + name);
-    a.innerHTML = '<img loading="lazy" src="' + thumb(url) + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
+    a.innerHTML = '<img loading="lazy" decoding="async" src="/api/asset/thumbnail?w=384&src=' + encodeURIComponent(url) + '" srcset="' + tileSrcset(url) + '" sizes="' + TILE_SIZES + '" alt=""><span class="caption">' + Beauty.esc(name) + '</span>';
     wall.insertBefore(a, after);
     while (cards().length > pg.per) cards().pop().remove();
     return true;
