@@ -131,6 +131,8 @@ def study_config():
 def anchors(folder):
     """The teacher's anchors: every frame of this study marked + on the collection page, in order."""
     marks = read_json(folder / "marks.json", {})
+    gone = set(read_json(folder / "removed.json", []))    # a removed photo is never an anchor
+    marks = {k: v for k, v in marks.items() if int(k) not in gone}
     out = []
     try:
         for line in (folder / "history.jsonl").read_text().splitlines():
@@ -199,7 +201,7 @@ def pick_anchor(coll, anc):
 
 def teacher_vision(coll, cfg):
     """A vision the teacher wrote replaces the director's, and is never re-imagined by the loop."""
-    t = str(cfg.get("vision") or "").strip()
+    t = str(((cfg.get("vision_by_study") or {}).get(coll.get("name")) or cfg.get("vision") or "")).strip()
     if t:
         coll["vision"] = {"text": t, "idea": t[:80], "by": "teacher", "at_cycle": int(coll.get("cycle", 0))}
     elif (coll.get("vision") or {}).get("by") == "teacher":
@@ -653,6 +655,18 @@ def chain_step(coll, finished):
         coll["craft"], coll["guidance"] = head["craft"], head["guidance"]
     else:
         coll.pop("anchor", None)
+        o = (coll.get("origin") or {}).get("file")          # no anchors yet: the study's own first frame is where the line starts
+        if o and (folder / o).exists():
+            coll["anchor_file"] = o
+            bf = (coll.get("best") or {}).get("file")
+            coll["base_origin"] = 0.0
+            try:
+                for line in (folder / "history.jsonl").read_text().splitlines():
+                    e = json.loads(line)
+                    if e.get("file") == bf and e.get("d_origin") is not None:
+                        coll["base_origin"] = float(e["d_origin"])
+            except Exception:
+                pass
     by_dist = {}
     marks_now = read_json(folder / "marks.json", {})
     try:

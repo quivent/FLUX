@@ -17,6 +17,8 @@
     .mk{position:absolute;top:5px;right:5px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.55);color:#fff;font:600 15px/1 system-ui;cursor:pointer}
     .mk.plus{background:#2e7d4f;border-color:#5fbf7f}.mk.minus{background:#8a2f2f;border-color:#d98476}
     .mkbar{display:flex;gap:4px;margin-top:4px}
+    .rm{width:100%;margin-top:4px;padding:5px 0;border:1px solid rgba(255,255,255,.2);background:transparent;color:inherit;font:600 12px/1 system-ui;opacity:.75;cursor:pointer}
+    .rm:hover{opacity:1;border-color:#d98476;color:#f0b0a0}
     .mb{flex:1;padding:6px 0;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.04);color:inherit;font:600 13px/1 system-ui;cursor:pointer}
     .mb.p.on{background:#2e7d4f;border-color:#5fbf7f;color:#fff}.mb.m.on{background:#8a2f2f;border-color:#d98476;color:#fff}
     .fr.anchor img{outline:3px solid #5fbf7f;opacity:1}
@@ -82,7 +84,8 @@
       <div class="chain" id="chain"><div class="empty">Loading…</div></div></section>
 
     <section class="section" style="padding-top:0"><div class="section-head"><div><div class="eyebrow">Every frame</div><h2>Latest candidates</h2></div>
-        <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer"><input type="checkbox" id="only-anchors"> Anchors only, highest score first</label></div>
+        <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer"><input type="checkbox" id="only-anchors"> Anchors only, highest score first</label>
+        <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer;margin-left:16px"><input type="checkbox" id="show-removed"> Show removed (to restore)</label></div>
       <p class="tiny" style="opacity:.75;margin:0">Newest first. Outlined: kept. The number is the frame's net change against the champion of its time.</p>
       <div class="frames" id="frames"></div></section>
     <footer><span>One image, evaluated, diffed, then the next</span><span id="updated"></span></footer>
@@ -91,8 +94,9 @@
   const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   const thumb = (src, w) => '/api/asset/thumbnail?w=' + w + '&src=' + encodeURIComponent(src);
   const sg = x => x == null ? '' : (x > 0 ? '+' : '') + Number(x).toFixed(1);
-function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<div class="mkbar"><span class="mb lab">' + label + '</span><button type="button" class="mb m" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.max(-20, v - 1) + '">−</button><span class="mb sc' + (v > 0 ? ' pos' : v < 0 ? ' neg' : '') + '">' + (v > 0 ? '+' : '') + v + '</span><button type="button" class="mb p" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.min(20, v + 1) + '">+</button></div>'; return row('beauty', 'Beauty', m) + row('direction', 'Direction', sc.direction || 0) + row('difference', 'Difference', sc.difference || 0) + row('uniqueness', 'Uniqueness', sc.uniqueness || 0); }
-  let lastKey = '';
+function rmbtn(cycle, removed) { return '<button type="button" class="rm" data-c="' + esc(cycle) + '" data-rm="' + (removed ? 0 : 1) + '">' + (removed ? '↺ restore' : '✕ remove') + '</button>'; }
+  function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<div class="mkbar"><span class="mb lab">' + label + '</span><button type="button" class="mb m" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.max(-20, v - 1) + '">−</button><span class="mb sc' + (v > 0 ? ' pos' : v < 0 ? ' neg' : '') + '">' + (v > 0 ? '+' : '') + v + '</span><button type="button" class="mb p" data-c="' + esc(cycle) + '" data-dim="' + dim + '" data-set="' + Math.min(20, v + 1) + '">+</button></div>'; return row('beauty', 'Beauty', m) + row('direction', 'Direction', sc.direction || 0) + row('difference', 'Difference', sc.difference || 0) + row('uniqueness', 'Uniqueness', sc.uniqueness || 0); }
+  let lastKey = '', removedSet = new Set();
   async function load() {
     try {
       const params = new URLSearchParams(location.search);
@@ -107,7 +111,7 @@ function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<d
       window.__study = name;
       if (!name) { document.getElementById('title').textContent = 'No collection yet'; return; }
       if (name !== c.name && await loadSorted(name, info[name])) return;
-      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=400', {cache: 'no-store'}).then(r => r.json());
+      const h = await fetch('/api/collection/history?name=' + encodeURIComponent(name) + '&limit=400' + (document.getElementById('show-removed').checked ? '&removed=1' : ''), {cache: 'no-store'}).then(r => r.json());
       h.all = h.recent.slice(); h.recent = h.recent.slice(0, 120);
       const key = h.total + ':' + (c.updated_at || '') + ':' + document.getElementById('only-anchors').checked + ':' + h.all.map(r => (r.mark || 0) + '.' + JSON.stringify(r.scores || {})).join('');
       if (key === lastKey) return; lastKey = key;
@@ -130,7 +134,7 @@ function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<d
       document.getElementById('frames').innerHTML = (onlyA && !frameRows.length ? '<div class="empty">No anchors yet: press + under a frame.</div>' : '') + frameRows.map(r => {
         const kept = String(r.outcome || '').startsWith('accepted') || String(r.outcome || '').startsWith('first');
         return '<div class="fr' + (kept ? ' kept' : '') + ((r.mark || 0) > 0 ? ' anchor' : '') + '" title="' + esc((r.outcome || '') + ' · ' + (r.change || '') + (r.note ? ' · ' + r.note : '')) + '"><a class="fl" href="' + esc(r.src) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(r.src, 256)) + '" alt=""></a><div class="t">c' + esc(r.cycle) + ' ' + esc(sg(r.net)) + (kept ? ' kept' : '') + '</div>'
-          + mkbar(r.cycle, r.mark || 0, r.scores) + '</div>';
+          + mkbar(r.cycle, r.mark || 0, r.scores) + rmbtn(r.cycle, r.removed) + '</div>';
       }).join('');
       const steps = h.all.filter(r => r.src && r.base_src && String(r.outcome || '').startsWith('accepted: better')).slice(0, 24);
       document.getElementById('proof').innerHTML = steps.length ? steps.map(r => '<div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
@@ -149,7 +153,11 @@ function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<d
     const rows = txt.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (_) { return null; } }).filter(r => r && r.file && r.outcome === 'sorted');
     if (!rows.length) return false;
     let marks = {}; try { marks = await fetch(base + 'marks.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : {}); } catch (_) {}
-    const key = 'sorted:' + name + ':' + rows.length + ':' + JSON.stringify(marks);
+    let rmList = []; try { rmList = await fetch(base + 'removed.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : []); } catch (_) {}
+    removedSet = new Set(rmList);
+    const showRm = document.getElementById('show-removed').checked;
+    rows.splice(0, rows.length, ...rows.filter(r => showRm || !removedSet.has(r.cycle)));
+    const key = 'sorted:' + name + ':' + rows.length + ':' + JSON.stringify(marks) + ':' + rmList.length + showRm;
     if (key === lastKey) return true; lastKey = key;
     const src = r => base + r.file.split('/').map(encodeURIComponent).join('/');
     const when = t => t ? new Date(t * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
@@ -162,7 +170,7 @@ function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<d
       : '<div class="empty">Nothing marked + in this collection yet.</div>';
     document.getElementById('frames').innerHTML = rows.slice().reverse().map(r => { const m = marks[String(r.cycle)] || 0;
       return '<div class="fr kept" title="' + esc(r.prompt || 'no prompt recorded') + '"><a class="fl" href="' + esc(src(r)) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(thumb(src(r), 256)) + '" alt=""></a><div class="t">#' + esc(r.cycle) + ' · ' + esc(when(r.at)) + '</div>'
-        + mkbar(r.cycle, m) + '</div>'; }).join('');
+        + mkbar(r.cycle, m) + rmbtn(r.cycle, removedSet.has(r.cycle)) + '</div>'; }).join('');
     document.getElementById('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
     return true;
   }
@@ -212,6 +220,14 @@ function mkbar(cycle, m, sc) { sc = sc || {}; const row = (dim, label, v) => '<d
   $('stop').onclick = async () => { await fetch('/api/collection', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'stop'})}); $('saved').textContent = 'stopped'; lastKey = ''; load(); };
   loadConfig();
   document.getElementById('only-anchors').addEventListener('change', () => { lastKey = ''; load(); });
+  document.getElementById('show-removed').addEventListener('change', () => { lastKey = ''; load(); });
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('.rm'); if (!b) return;
+    e.preventDefault();
+    const tile = b.closest('.fr, .champ'); if (tile && b.dataset.rm === '1') tile.style.display = 'none';   // gone at once
+    await fetch('/api/collection/remove', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: window.__study, cycle: Number(b.dataset.c), removed: b.dataset.rm === '1'})});
+    lastKey = ''; load();
+  });
   document.addEventListener('click', async e => {
     const b = e.target.closest('.mb.p, .mb.m'); if (!b) return;
     e.preventDefault();

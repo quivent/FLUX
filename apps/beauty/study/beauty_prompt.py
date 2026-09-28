@@ -172,6 +172,15 @@ class H(BaseHTTPRequestHandler):
             for r in rows:
                 r["mark"] = marks.get(str(r["cycle"]), 0)
                 r["scores"] = scores.get(str(r["cycle"]), {})
+            try:
+                removed = set(json.loads((COLLECTIONS / name / "removed.json").read_text()))
+            except Exception:
+                removed = set()
+            show_removed = q.get("removed", ["0"])[0] == "1"
+            for r in rows:
+                r["removed"] = r["cycle"] in removed
+            if not show_removed:
+                rows = [r for r in rows if not r["removed"]]
             champions = [r for r in rows if r["src"] and (r["mark"] > 0 or (r["mark"] == 0 and str(r["outcome"] or "").startswith(("accepted", "first champion"))))]
             return self.send({"name": name, "champions": champions, "recent": rows[-limit:][::-1], "total": len(rows)})
         if path == "/api/collection":
@@ -255,6 +264,29 @@ class H(BaseHTTPRequestHandler):
                 tmp.write_text(json.dumps({"prompt": renders, "at": time.time()}))
                 os.replace(tmp, LIVE)
             return self.send(cur)
+        if path == "/api/collection/remove":       # take a photo out of a collection (kept on disk; reversible)
+            name, cyc, rm = slug(str(b.get("name") or "")), int(b.get("cycle") or 0), bool(b.get("removed", True))
+            if not name or not cyc:
+                return self.send({"error": "name and cycle required"}, 400)
+            rp = COLLECTIONS / name / "removed.json"
+            try:
+                cur = set(json.loads(rp.read_text()))
+            except Exception:
+                cur = set()
+            (cur.add if rm else cur.discard)(cyc)
+            tmp = rp.with_suffix(".tmp"); tmp.write_text(json.dumps(sorted(cur))); os.replace(tmp, rp)
+            try:                                      # a removed frame is no longer staged for influx.pictures
+                import re as _re
+                for line in (COLLECTIONS / name / "history.jsonl").read_text().splitlines():
+                    e = json.loads(line)
+                    if e.get("cycle") == cyc and e.get("file") and rm:
+                        ino = (COLLECTIONS / name / e["file"]).stat().st_ino
+                        for f in Path("/home/ubuntu/Models/flux-output/influx-outputs").glob("protocol-*.png"):
+                            if f.stat().st_ino == ino:
+                                f.unlink()
+            except Exception:
+                pass
+            return self.send({"ok": True, "removed": sorted(cur)})
         if path == "/api/collection/score":        # the teacher's difference and uniqueness scores (beauty is /mark)
             name, cyc, dim = slug(str(b.get("name") or "")), int(b.get("cycle") or 0), str(b.get("dim") or "")
             val = int(b.get("value") or 0)

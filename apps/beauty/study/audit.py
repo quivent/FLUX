@@ -1,6 +1,6 @@
 """Audit the study loop against what actually happened: every invariant, over the frames since a given cycle."""
 import json, re, sys, collections
-D = "/home/ubuntu/Models/flux-output/collections/forest-at-a-distance/"
+D = "/home/ubuntu/Models/flux-output/collections/salt-and-light/"
 since = int(sys.argv[1])
 rows = [json.loads(l) for l in open(D + "history.jsonl")]
 fr = [e for e in rows if e.get("file") and e.get("cycle", 0) >= since]
